@@ -8,7 +8,7 @@ const ITEMS = [
   { k: "Scores", i: "📋" },
   { k: "Standings", i: "🏆" },
   { k: "Stats", i: "📊" },
-  { k: "Draft Board", i: "📝" },
+  { k: "Teams", i: "👥" },
   { k: "Merch", i: "🛒", href: "https://classicchampionshipseries.itemorder.com/shop/sale/" },
 ];
 

@@ -1,0 +1,151 @@
+/**
+ * Coercion and formatting helpers for the CCS API boundary.
+ *
+ * The API is Postgres behind Express, which leaks two quirks into JSON:
+ *   - `numeric` columns arrive as strings ("0.77"), while `int`/`bigint` arrive as numbers.
+ *   - KDA is `'Infinity'::numeric` when a player has zero deaths.
+ * Everything here exists so components can work with plain numbers.
+ */
+
+export type Numeric = string | number | null | undefined;
+
+/** Parse an API numeric into a number. Non-finite and unparseable values fall back. */
+export function num(v: Numeric, fallback = 0): number {
+  if (typeof v === "number") return Number.isFinite(v) ? v : fallback;
+  if (typeof v !== "string" || v.trim() === "") return fallback;
+  const n = Number.parseFloat(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/** Like `num`, but preserves "no data" instead of collapsing it to 0. */
+export function numOrNull(v: Numeric): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (v.trim() === "") return null;
+  const n = Number.parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Parse a ratio that may legitimately be infinite (KDA with zero deaths).
+ * Postgres sends `'Infinity'`; lowercase `'infinity'` also appears in some views.
+ */
+export function ratio(v: Numeric): number {
+  if (typeof v === "number") return v;
+  if (typeof v !== "string") return 0;
+  const s = v.trim();
+  if (/^-?infinity$/i.test(s)) return s.startsWith("-") ? -Infinity : Infinity;
+  const n = Number.parseFloat(s);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+/** Render a ratio for display, showing ∞ rather than "Infinity". */
+export function fmtRatio(v: number, digits = 2): string {
+  if (!Number.isFinite(v)) return v > 0 ? "∞" : "—";
+  return v.toFixed(digits);
+}
+
+/** Sort key that pushes missing/infinite values to the bottom of a descending sort. */
+export function sortValue(v: unknown): number {
+  const n = typeof v === "number" ? v : Number.parseFloat(String(v ?? ""));
+  return Number.isFinite(n) ? n : -Infinity;
+}
+
+/** Format a 0..1 fraction as a whole percentage. */
+export function fmtPct(v: Numeric, digits = 0): string {
+  const n = numOrNull(v);
+  if (n === null) return "—";
+  return `${(n * 100).toFixed(digits)}%`;
+}
+
+/** Format a duration in seconds as m:ss. */
+export function fmtSec(sec: Numeric): string {
+  const n = numOrNull(sec);
+  if (n === null) return "—";
+  const m = Math.floor(n / 60);
+  const s = Math.floor(n % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+/**
+ * Convert the integer `color` column to a CSS hex string.
+ *
+ * `null` and `0` both appear in live data and both mean "no colour set" — a real
+ * black team colour is not distinguishable from unset, so treat 0 as unset rather
+ * than rendering a black-on-black badge.
+ */
+export function hexFromInt(color: number | null | undefined, fallback = "#3a3a3a"): string {
+  if (color === null || color === undefined || !Number.isFinite(color) || color === 0) return fallback;
+  return "#" + Math.trunc(color).toString(16).padStart(6, "0");
+}
+
+/** Lighten a #rrggbb colour toward white, for deriving a gradient's second stop. */
+export function lighten(hex: string, amount = 0.35): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const v = Number.parseInt(m[1], 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * amount);
+  const r = mix((v >> 16) & 0xff);
+  const g = mix((v >> 8) & 0xff);
+  const b = mix(v & 0xff);
+  return "#" + [r, g, b].map(c => c.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Upgrade an asset URL to https.
+ *
+ * Team logos are stored as `http://media.brycenaddison.com/...`. That host does serve
+ * https (and 301s http to it), but browsers block mixed content *before* following the
+ * redirect, so the upgrade has to happen client-side.
+ */
+export function httpsUrl(u: string | null | undefined): string | undefined {
+  if (!u) return undefined;
+  const s = u.trim();
+  if (s === "") return undefined;
+  return s.startsWith("http://") ? "https://" + s.slice("http://".length) : s;
+}
+
+/** PUUID columns are `char(78)`, so short values come back space-padded. */
+export function trimPuuid(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const s = v.trim();
+  return s === "" ? null : s;
+}
+
+export const ROLE_ORDER = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"] as const;
+export type Role = (typeof ROLE_ORDER)[number];
+
+const ROLE_ALIASES: Record<string, Role> = {
+  TOP: "TOP",
+  JG: "JUNGLE",
+  JUNG: "JUNGLE",
+  JUNGLE: "JUNGLE",
+  MID: "MIDDLE",
+  MIDDLE: "MIDDLE",
+  BOT: "BOTTOM",
+  ADC: "BOTTOM",
+  BOTTOM: "BOTTOM",
+  SUP: "UTILITY",
+  SUPP: "UTILITY",
+  SUPPORT: "UTILITY",
+  UTILITY: "UTILITY",
+};
+
+/** Map any of the casings/abbreviations in play onto a canonical Riot role. */
+export function normalizeRole(v: string | null | undefined): Role | null {
+  if (!v) return null;
+  return ROLE_ALIASES[v.trim().toUpperCase()] ?? null;
+}
+
+export function isRole(v: string): v is Role {
+  return (ROLE_ORDER as readonly string[]).includes(v);
+}
+
+/** Sort rows into canonical role order, with unknown roles last. */
+export function sortByRole<T extends { role: string | null }>(arr: readonly T[]): T[] {
+  const idx = (r: string | null) => {
+    const n = normalizeRole(r);
+    return n === null ? ROLE_ORDER.length : ROLE_ORDER.indexOf(n);
+  };
+  return [...arr].sort((a, b) => idx(a.role) - idx(b.role));
+}

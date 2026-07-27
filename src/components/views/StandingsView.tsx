@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { TeamBadge } from "../TeamBadge";
+import { TeamLink } from "../league/TeamLink";
 import { getPlayoffScenario } from "../../lib/playoffScenarios";
 import { buildGameRecords, sortStandingsWithTiebreakers } from "../../lib/tiebreakers";
 import type { Standing, Team, Match, Game } from "../../hooks/useLeagueData";
@@ -32,7 +33,10 @@ export function StandingsView({ standings, teams, matches, games, isMobile }: Pr
     groupSorted.forEach((s, i) => { groupPositions[s.id] = i + 1; });
   });
 
-  if (!standings.length) return <div className="py-10 text-center text-text-dim text-[13px]">No standings data yet. Ingest some matches first.</div>;
+  // Standings need match (series) results, which no bulk endpoint provides yet. Game records
+  // from /stats/teams/:conf are deliberately not substituted — they'd read as match records
+  // and be wrong by roughly 2.5×.
+  if (!standings.length) return <div className="py-10 text-center text-text-dim text-[13px]">Standings aren't available yet.</div>;
 
   return (
     <div className="max-w-[900px] mx-auto">
@@ -95,13 +99,13 @@ export function StandingsView({ standings, teams, matches, games, isMobile }: Pr
                 >
                   <td className="px-3.5 py-3.5 font-display text-lg" style={{ color: numColor }}>{pos}</td>
                   <td className="px-3.5 py-3.5">
-                    <div className="flex items-center gap-2.5">
+                    <TeamLink team={t} className="flex items-center gap-2.5 no-underline group">
                       <TeamBadge team={t} size={28} />
                       <div>
-                        <span className="font-heading text-sm text-text font-medium">{t.name}</span>
+                        <span className="font-heading text-sm text-text font-medium group-hover:text-accent">{t.name}</span>
                         <span className="text-[10px] text-text-dim font-mono ml-2">{t.abbreviation}</span>
                       </div>
-                    </div>
+                    </TeamLink>
                   </td>
                   <td className="px-3.5 py-3.5 text-center font-mono text-sm text-ccs-green font-bold">{s.wins}</td>
                   <td className="px-3.5 py-3.5 text-center font-mono text-sm text-ccs-red font-bold">{s.losses}</td>

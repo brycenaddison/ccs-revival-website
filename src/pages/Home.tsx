@@ -16,15 +16,19 @@ import { ScoresView } from "../components/views/ScoresView";
 import { ScheduleView } from "../components/views/ScheduleView";
 import { StandingsView } from "../components/views/StandingsView";
 import { TeamsView } from "../components/views/TeamsView";
-import { DraftBoard } from "../components/views/DraftBoard";
-import { ArchiveView } from "../components/views/ArchiveView";
+import { StatsSection } from "../components/stats/StatsSection";
+import { SeasonPicker } from "../components/league/SeasonPicker";
+import { useLeague } from "../lib/leagueContext";
 
 export default function Home() {
   const [tab, setTab] = useState("Home");
   const w = useWindowSize();
   const isMobile = w < 768;
   const isTablet = w >= 768 && w < 1024;
-  const { teams, matches, standings, players, rosters, articles, splits, games, twitterFeeds, twitchEmbeds, loading, refresh } = useLeagueData();
+  const { tournaments, activeConfs, selection, setSelection, selectedConfs, isCurrent, loading: leagueLoading } = useLeague();
+  const { teams, matches, standings, players, rosters, articles, splits, games, twitterFeeds, twitchEmbeds, loading: dataLoading, error, refresh } =
+    useLeagueData({ confs: selectedConfs, tournaments });
+  const loading = leagueLoading || dataLoading;
   const hasLive = matches.some(m => m.status === "live");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -46,9 +50,18 @@ export default function Home() {
     <div className="bg-bg min-h-screen w-full text-text font-body" style={{ paddingBottom: isMobile ? 72 : 0 }}>
       {/* Season Bar */}
       <div className="bg-bg flex justify-between items-center border-b border-bg2" style={{ padding: isMobile ? "6px 12px" : "6px 20px" }}>
-        <span className="text-text-muted font-heading tracking-wider" style={{ fontSize: isMobile ? 9 : 10 }}>
-          {split ? `${split.seasons?.name || "SEASON"} · ${split.name}` : "PRESEASON"}
-        </span>
+        <div className="flex items-center gap-2 min-w-0" style={{ fontSize: isMobile ? 9 : 10 }}>
+          <SeasonPicker
+            tournaments={tournaments}
+            selection={selection}
+            onChange={setSelection}
+            activeConfs={activeConfs}
+            compact
+          />
+          {!isCurrent && (
+            <span className="text-text-dim font-heading tracking-wider whitespace-nowrap">PAST SEASON</span>
+          )}
+        </div>
         <Link to="/register" className="text-[#0a0a0a] bg-accent rounded font-heading font-semibold tracking-wide cursor-pointer no-underline" style={{ fontSize: isMobile ? 9 : 10, padding: "3px 10px" }}>
           JOIN CCS
         </Link>
@@ -59,30 +72,30 @@ export default function Home() {
 
       {loading ? (
         <div className="py-16 text-center text-text-subtle">Loading...</div>
+      ) : error ? (
+        <div className="max-w-[500px] mx-auto mt-16 text-center px-5">
+          <h2 className="font-display text-[24px] text-text-bright tracking-widest mb-2">COULDN'T LOAD THE LEAGUE</h2>
+          <p className="text-sm text-text-muted leading-relaxed mb-6">{error}</p>
+          <button
+            onClick={refresh}
+            className="bg-accent text-white border-none rounded-md py-3 px-7 text-sm font-heading font-medium tracking-wider uppercase cursor-pointer"
+          >
+            Try again
+          </button>
+        </div>
       ) : !teams.length ? (
         <div className="max-w-[500px] mx-auto mt-16 text-center px-5">
           <span className="text-5xl block mb-4">⚔️</span>
           <h2 className="font-display text-[28px] text-text-bright tracking-widest mb-2">CCS IS BEING SET UP</h2>
-          <p className="text-sm text-text-muted leading-relaxed mb-6">Teams and players haven't been added yet.</p>
-          <Link to="/admin" className="inline-block bg-accent text-white rounded-md py-3 px-7 text-sm font-heading font-medium tracking-wider no-underline uppercase">
-            Open Admin
-          </Link>
+          <p className="text-sm text-text-muted leading-relaxed">No teams registered for this season yet.</p>
         </div>
-      ) : tab === "Stats" ? (
-        <iframe
-          src="/stats.html?embed=1"
-          className="w-full border-0"
-          style={{ height: "calc(100vh - 100px)", minHeight: 600 }}
-          title="CCS Stats"
-        />
       ) : (
         <div className="max-w-[1440px] mx-auto" style={{ padding: isMobile ? 12 : "24px 32px" }}>
           {tab === "Scores" ? <ScoresView matches={matches} isMobile={isMobile} />
           : tab === "Schedule" ? <ScheduleView matches={matches} isMobile={isMobile} />
           : tab === "Standings" ? <StandingsView standings={standings} teams={teams} matches={matches} games={games} isMobile={isMobile} />
           : tab === "Teams" ? <TeamsView teams={teams} standings={standings} rosters={rosters} isMobile={isMobile} />
-          : tab === "Draft Board" ? <DraftBoard isMobile={isMobile} />
-          : tab === "Archive" ? <ArchiveView />
+          : tab === "Stats" ? <StatsSection confs={selectedConfs} />
           : (
             <div className={`grid ${isMobile ? "grid-cols-1" : isTablet ? "grid-cols-1" : "grid-cols-[280px_1fr_280px]"}`} style={{ gap: isMobile ? 16 : 24 }}>
               {/* LEFT COLUMN — Articles + Twitter */}
@@ -98,7 +111,7 @@ export default function Home() {
                 )}
                 {!articles.length && (
                   <div className="bg-bg2 rounded-md border border-border p-6 text-center">
-                    <span className="text-text-dim text-[13px]">No news yet. Publish articles from the admin dashboard.</span>
+                    <span className="text-text-dim text-[13px]">No news yet.</span>
                   </div>
                 )}
                 <SocialLinks feeds={twitterFeeds} />

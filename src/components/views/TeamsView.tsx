@@ -1,4 +1,5 @@
 import { teamInitial } from "../../lib/utils";
+import { TeamLink } from "../league/TeamLink";
 import type { Team, Standing, Roster } from "../../hooks/useLeagueData";
 
 interface Props {
@@ -21,8 +22,9 @@ export function TeamsView({ teams, standings, rosters, isMobile }: Props) {
           const teamRoster = rosters.filter(r => r.teams?.id === t.id);
           return (
             <div key={t.id} className="bg-bg2 border border-border rounded-lg overflow-hidden">
-              <div
-                className="flex items-center gap-3.5 px-4 py-5"
+              <TeamLink
+                team={t}
+                className="flex items-center gap-3.5 px-4 py-5 no-underline"
                 style={{ background: `linear-gradient(135deg, ${t.color_primary || "#333"}, ${t.color_accent || "#555"})` }}
               >
                 {t.logo_url ? (
@@ -40,7 +42,7 @@ export function TeamsView({ teams, standings, rosters, isMobile }: Props) {
                     {record && <span className="text-[11px] text-white/90 font-mono font-bold">({record.wins}W-{record.losses}L)</span>}
                   </div>
                 </div>
-              </div>
+              </TeamLink>
               <div className="px-4 py-3">
                 {teamRoster.length === 0 ? (
                   <div className="py-2 text-xs text-text-dim">No roster set</div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { TeamBadge } from "../TeamBadge";
+import { TeamLink } from "../league/TeamLink";
 import { getPlayoffScenario } from "../../lib/playoffScenarios";
 import { buildGameRecords, sortStandingsWithTiebreakers } from "../../lib/tiebreakers";
 import type { Standing, Team, Match, Game } from "../../hooks/useLeagueData";
@@ -38,11 +39,15 @@ export function StandingsWidget({ standings, teams, matches, games }: Props) {
           <span className="font-display text-[15px] text-text-bright tracking-widest">TEAMS</span>
         </div>
         {teams.map((t, i) => (
-          <div key={t.id} className={`flex items-center gap-2 px-3 py-2.5 ${i < teams.length - 1 ? "border-b border-bg2" : ""}`}>
+          <TeamLink
+            key={t.id}
+            team={t}
+            className={`flex items-center gap-2 px-3 py-2.5 no-underline group ${i < teams.length - 1 ? "border-b border-bg2" : ""}`}
+          >
             <TeamBadge team={t} size={28} />
-            <span className="font-heading text-[13px] text-text font-medium">{t.name}</span>
+            <span className="font-heading text-[13px] text-text font-medium group-hover:text-accent">{t.name}</span>
             <span className="text-[10px] text-text-dim font-mono ml-auto">{t.abbreviation}</span>
-          </div>
+          </TeamLink>
         ))}
       </div>
     );
@@ -97,11 +102,11 @@ export function StandingsWidget({ standings, teams, matches, games }: Props) {
                 }}
               >
                 <td className="px-3.5 py-2.5">
-                  <div className="flex items-center gap-2">
+                  <TeamLink team={t} className="flex items-center gap-2 no-underline group">
                     <span className="text-[10px] font-mono min-w-[14px] text-right font-bold" style={{ color: numColor }}>{pos}</span>
                     <TeamBadge team={t} />
                     <div className="flex flex-col min-w-0">
-                      <span className="font-heading text-[13px] text-text font-medium">{t.name}</span>
+                      <span className="font-heading text-[13px] text-text font-medium group-hover:text-accent">{t.name}</span>
                       {scenario && (
                         <span
                           className="text-[8px] font-heading tracking-wider uppercase font-bold"
@@ -111,7 +116,7 @@ export function StandingsWidget({ standings, teams, matches, games }: Props) {
                         </span>
                       )}
                     </div>
-                  </div>
+                  </TeamLink>
                 </td>
                 <td className="text-center font-mono text-[13px] text-text-secondary">{s.wins}-{s.losses}</td>
                 <td className={`text-center font-mono text-xs font-bold ${(s.streak || "").startsWith("W") ? "text-ccs-green" : "text-ccs-red"}`}>

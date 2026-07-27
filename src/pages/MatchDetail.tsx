@@ -1,143 +1,118 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { db } from "../lib/supabase";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  errorMessage,
+  fmtSec,
+  isAbort,
+  teamDetail,
+  teamsForConf,
+  tournaments as fetchTournaments,
+  type MatchlistEntry,
+  type MatchlistRoleKey,
+  type TeamRecord,
+  type Tournament,
+} from "../lib/api";
+import { bestOfForWeek, parseSeriesKey } from "../lib/leagueAdapters";
 import { TeamBadge } from "../components/TeamBadge";
+import { TeamLink } from "../components/league/TeamLink";
+import { ChampionIcon } from "../components/match/ChampionIcon";
+import { useChampions } from "../hooks/useChampions";
 
-interface Team {
-  id: string;
-  name: string;
-  abbreviation?: string;
-  color_primary?: string;
-  color_accent?: string;
-  logo_url?: string;
+/**
+ * A match series (best-of-N).
+ *
+ * The API has no series endpoint, but the series id encodes conf, week and both team codes,
+ * so one team's match history is enough to reconstruct every game — including the per-role
+ * player lines. That keeps this page to two requests instead of rebuilding the whole league.
+ */
+
+const ROLE_LABELS: Record<MatchlistRoleKey, string> = {
+  top: "TOP",
+  jg: "JGL",
+  mid: "MID",
+  bot: "BOT",
+  sup: "SUP",
+};
+
+interface SeriesData {
+  conf: string;
+  week: number;
+  codeA: string;
+  codeB: string;
+  teamA?: TeamRecord;
+  teamB?: TeamRecord;
+  /** Games from team A's perspective, in order. */
+  games: MatchlistEntry[];
+  bestOf?: number;
+  seasonName?: string;
 }
 
-interface MatchData {
-  id: string;
-  team_blue_id: string;
-  team_red_id: string;
-  score_blue: number;
-  score_red: number;
-  winner_team_id: string | null;
-  status: string;
-  format: string;
-  scheduled_at: string | null;
-  completed_at: string | null;
-  season_phase: string | null;
-  team_blue: Team;
-  team_red: Team;
-  splits: { name: string } | null;
-}
-
-interface Game {
-  id: string;
-  match_id: string;
-  game_number: number;
-  winner_team_id: string | null;
-  game_duration: number | null;
-  game_started_at: string | null;
-  mvp_player_id: string | null;
-}
-
-interface PlayerStat {
-  id: string;
-  game_id: string;
-  player_id: string;
-  team_id: string;
-  champion_name: string;
-  kills: number;
-  deaths: number;
-  assists: number;
-  total_minions_killed: number;
-  neutral_minions_killed: number;
-  vision_score: number;
-  total_damage_dealt_to_champions: number;
-  gold_earned: number;
-  is_mvp: boolean;
-  win: boolean;
-  players: { display_name: string; riot_game_name: string } | null;
-}
-
-interface Ban {
-  id: string;
-  game_id: string;
-  team_id: string;
-  champion_name: string;
-  ban_order: number;
-}
-
-function formatDuration(seconds: number | null): string {
-  if (!seconds) return "--:--";
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
+function badgeOf(team: TeamRecord | undefined, code: string) {
+  return {
+    name: team?.name ?? code,
+    abbreviation: code,
+    color_primary: team?.colorHex ?? "#3a3a3a",
+    color_accent: team?.colorHex ?? "#555555",
+    logo_url: team?.logo,
+  };
 }
 
 export default function MatchDetail() {
-  const { matchId } = useParams<{ matchId: string }>();
+  const { seriesId } = useParams<{ seriesId: string }>();
   const navigate = useNavigate();
-  const [match, setMatch] = useState<MatchData | null>(null);
-  const [games, setGames] = useState<Game[]>([]);
-  const [stats, setStats] = useState<PlayerStat[]>([]);
-  const [bans, setBans] = useState<Ban[]>([]);
+  const [data, setData] = useState<SeriesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Matchlist rows carry a champion display name but no icon.
+  const champions = useChampions();
 
   useEffect(() => {
-    if (!matchId) return;
-    let cancelled = false;
+    const parsed = seriesId ? parseSeriesKey(seriesId) : null;
+    if (!parsed) {
+      setError("That match link isn't valid.");
+      setLoading(false);
+      return;
+    }
 
-    async function fetchData() {
-      try {
-        setLoading(true);
-        setError(null);
+    const ac = new AbortController();
+    const opts = { signal: ac.signal };
+    setLoading(true);
+    setError(null);
 
-        const matchData = await db("matches", {
-          query: `?id=eq.${matchId}&select=*,team_blue:teams!matches_team_blue_id_fkey(*),team_red:teams!matches_team_red_id_fkey(*),splits(name)`,
-        });
-
-        if (cancelled) return;
-        if (!matchData || matchData.length === 0) {
-          setError("Match not found.");
+    Promise.all([
+      teamDetail(parsed.conf, parsed.codeA, opts),
+      teamsForConf(parsed.conf, opts),
+      fetchTournaments(opts).catch(() => [] as Tournament[]),
+    ])
+      .then(([detail, records, allTournaments]) => {
+        if (ac.signal.aborted) return;
+        const games = (detail?.matchlist ?? []).filter(
+          m => m.week === parsed.week && m.opponent === parsed.codeB,
+        );
+        if (games.length === 0) {
+          setError("No games recorded for this match.");
           setLoading(false);
           return;
         }
-        setMatch(matchData[0]);
-
-        const gamesData = await db("games", {
-          query: `?match_id=eq.${matchId}&select=*&order=game_started_at`,
+        const tournament = allTournaments.find(t => t.conf === parsed.conf);
+        setData({
+          ...parsed,
+          teamA: records.find(t => t.code === parsed.codeA),
+          teamB: records.find(t => t.code === parsed.codeB),
+          games,
+          bestOf: bestOfForWeek(tournament, parsed.week),
+          seasonName: tournament?.shortname ?? tournament?.name,
         });
-        if (cancelled) return;
-        setGames(gamesData || []);
-
-        if (gamesData && gamesData.length > 0) {
-          const gameIds = gamesData.map((g: Game) => g.id).join(",");
-
-          const [statsData, bansData] = await Promise.all([
-            db("player_game_stats", {
-              query: `?game_id=in.(${gameIds})&select=*,players(display_name,riot_game_name)`,
-            }),
-            db("team_bans", {
-              query: `?game_id=in.(${gameIds})&select=*&order=ban_order`,
-            }),
-          ]);
-          if (cancelled) return;
-          setStats(statsData || []);
-          setBans(bansData || []);
-        }
-
         setLoading(false);
-      } catch (err: any) {
-        if (!cancelled) {
-          setError(err.message || "Failed to load match data.");
-          setLoading(false);
-        }
-      }
-    }
+      })
+      .catch(e => {
+        if (isAbort(e) || ac.signal.aborted) return;
+        setError(errorMessage(e));
+        setLoading(false);
+      });
 
-    fetchData();
-    return () => { cancelled = true; };
-  }, [matchId]);
+    return () => ac.abort();
+  }, [seriesId]);
 
   if (loading) {
     return (
@@ -147,228 +122,183 @@ export default function MatchDetail() {
     );
   }
 
-  if (error || !match) {
+  if (error || !data) {
     return (
       <div className="bg-bg min-h-screen w-full text-text font-body flex flex-col items-center justify-center gap-4">
-        <div className="text-text-muted font-heading tracking-wider text-sm">{error || "Match not found."}</div>
-        <button onClick={() => navigate(-1)} className="text-ccs-green font-heading text-sm hover:underline bg-transparent border-none cursor-pointer">&larr; Back</button>
+        <div className="text-text-muted font-heading tracking-wider text-sm">{error ?? "Match not found."}</div>
+        <button onClick={() => navigate(-1)} className="text-ccs-green font-heading text-sm hover:underline bg-transparent border-none cursor-pointer">
+          &larr; Back
+        </button>
       </div>
     );
   }
 
-  const blue = match.team_blue;
-  const red = match.team_red;
-  const blueWin = match.winner_team_id === blue.id;
-  const redWin = match.winner_team_id === red.id;
+  const winsA = data.games.filter(g => g.win).length;
+  const winsB = data.games.length - winsA;
+  const a = badgeOf(data.teamA, data.codeA);
+  const b = badgeOf(data.teamB, data.codeB);
 
   return (
     <div className="bg-bg min-h-screen w-full text-text font-body">
-      {/* Top bar */}
       <div className="bg-bg border-b border-bg2 px-4 py-3">
         <div className="max-w-[960px] mx-auto">
           <button onClick={() => navigate(-1)} className="text-ccs-green font-heading text-xs tracking-wider hover:underline bg-transparent border-none cursor-pointer">
-            &larr; BACK TO SCORES
+            &larr; BACK
           </button>
         </div>
       </div>
 
       <div className="max-w-[960px] mx-auto px-4 py-6">
-        {/* Match header */}
+        {/* Series header */}
         <div className="bg-bg2 border border-border rounded-lg p-6 mb-6">
           <div className="flex items-center justify-center gap-6 md:gap-10">
-            {/* Blue team */}
-            <div className="flex items-center gap-3 flex-1 justify-end">
-              <span className={`font-heading font-medium text-base md:text-lg ${blueWin ? "text-text-bright font-bold" : "text-text-muted"}`}>
-                <span className="hidden md:inline">{blue.name}</span>
-                <span className="md:hidden">{blue.abbreviation || blue.name}</span>
+            <TeamLink conf={data.conf} code={data.codeA} className="flex items-center gap-3 flex-1 justify-end no-underline group">
+              <span className={`font-heading font-medium text-base md:text-lg group-hover:text-accent ${winsA > winsB ? "text-text-bright font-bold" : "text-text-muted"}`}>
+                <span className="hidden md:inline">{a.name}</span>
+                <span className="md:hidden">{a.abbreviation}</span>
               </span>
-              <TeamBadge team={blue} size={44} />
-            </div>
+              <TeamBadge team={a} size={44} />
+            </TeamLink>
 
-            {/* Score */}
             <div className="flex items-center gap-3 min-w-[80px] justify-center">
-              <span className={`font-display text-3xl md:text-4xl ${blueWin ? "text-text-bright" : "text-text-muted"}`}>
-                {match.score_blue ?? 0}
-              </span>
+              <span className={`font-display text-3xl md:text-4xl ${winsA > winsB ? "text-text-bright" : "text-text-muted"}`}>{winsA}</span>
               <span className="font-display text-lg text-text-subtle">-</span>
-              <span className={`font-display text-3xl md:text-4xl ${redWin ? "text-text-bright" : "text-text-muted"}`}>
-                {match.score_red ?? 0}
-              </span>
+              <span className={`font-display text-3xl md:text-4xl ${winsB > winsA ? "text-text-bright" : "text-text-muted"}`}>{winsB}</span>
             </div>
 
-            {/* Red team */}
-            <div className="flex items-center gap-3 flex-1">
-              <TeamBadge team={red} size={44} />
-              <span className={`font-heading font-medium text-base md:text-lg ${redWin ? "text-text-bright font-bold" : "text-text-muted"}`}>
-                <span className="hidden md:inline">{red.name}</span>
-                <span className="md:hidden">{red.abbreviation || red.name}</span>
+            <TeamLink conf={data.conf} code={data.codeB} className="flex items-center gap-3 flex-1 no-underline group">
+              <TeamBadge team={b} size={44} />
+              <span className={`font-heading font-medium text-base md:text-lg group-hover:text-accent ${winsB > winsA ? "text-text-bright font-bold" : "text-text-muted"}`}>
+                <span className="hidden md:inline">{b.name}</span>
+                <span className="md:hidden">{b.abbreviation}</span>
               </span>
-            </div>
+            </TeamLink>
           </div>
 
-          {/* Match meta */}
           <div className="flex items-center justify-center gap-3 mt-4 text-[11px] text-text-muted font-heading tracking-wider">
-            {match.splits?.name && <span>{match.splits.name.toUpperCase()}</span>}
-            {match.format && (
+            {data.seasonName && <span>{data.seasonName.toUpperCase()}</span>}
+            <span className="text-text-subtle">·</span>
+            <span>WEEK {data.week}</span>
+            {data.bestOf && (
               <>
                 <span className="text-text-subtle">·</span>
-                <span>{match.format.toUpperCase()}</span>
+                <span>BO{data.bestOf}</span>
               </>
             )}
-            {match.season_phase && (
+            {data.games[0]?.startTime && (
               <>
                 <span className="text-text-subtle">·</span>
-                <span>{match.season_phase.toUpperCase()}</span>
-              </>
-            )}
-            {match.completed_at && (
-              <>
-                <span className="text-text-subtle">·</span>
-                <span>{new Date(match.completed_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}</span>
+                <span>{new Date(data.games[0].startTime).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}</span>
               </>
             )}
           </div>
         </div>
 
         {/* Games */}
-        {games.map((game, i) => {
-          const gameStats = stats.filter(s => s.game_id === game.id);
-          const gameBans = bans.filter(b => b.game_id === game.id);
-          const blueBans = gameBans.filter(b => b.team_id === blue.id);
-          const redBans = gameBans.filter(b => b.team_id === red.id);
-          const blueStats = gameStats.filter(s => s.team_id === blue.id);
-          const redStats = gameStats.filter(s => s.team_id === red.id);
-          const gameBlueWin = game.winner_team_id === blue.id;
-          const gameRedWin = game.winner_team_id === red.id;
-
-          return (
-            <div key={game.id} className="bg-bg2 border border-border rounded-lg mb-4 overflow-hidden">
-              {/* Game header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg3">
-                <div className="flex items-center gap-3">
-                  <span className="font-display text-sm text-text-bright tracking-widest">GAME {i + 1}</span>
-                  <span className="text-text-muted text-xs font-mono">{formatDuration(game.game_duration)}</span>
-                </div>
-                {game.winner_team_id && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-text-muted font-heading tracking-wider">WINNER</span>
-                    <TeamBadge team={gameBlueWin ? blue : red} size={20} />
-                    <span className="text-ccs-green font-heading text-xs font-semibold">
-                      {gameBlueWin ? (blue.abbreviation || blue.name) : (red.abbreviation || red.name)}
-                    </span>
-                  </div>
-                )}
+        {data.games.map(g => (
+          <div key={g.matchId} className="bg-bg2 border border-border rounded-lg mb-4 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg3">
+              <div className="flex items-center gap-3">
+                <span className="font-display text-sm text-text-bright tracking-widest">GAME {g.game}</span>
+                <span className="text-text-muted text-xs font-mono">{fmtSec(g.time)}</span>
+                <span className="text-[10px] font-bold" style={{ color: g.blueside ? "#3b82f6" : "#ef4444" }}>
+                  {data.codeA} ON {g.blueside ? "BLUE" : "RED"}
+                </span>
               </div>
-
-              {/* Bans */}
-              {(blueBans.length > 0 || redBans.length > 0) && (
-                <div className="flex flex-col sm:flex-row items-stretch border-b border-border">
-                  <div className="flex-1 px-4 py-2.5 flex items-center gap-2 border-b sm:border-b-0 sm:border-r border-border">
-                    <span className="text-[10px] text-ccs-blue font-heading tracking-wider mr-1 shrink-0">BLUE BANS</span>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {blueBans.map(b => (
-                        <span key={b.id} className="text-xs text-text-secondary bg-bg px-1.5 py-0.5 rounded font-mono">
-                          {b.champion_name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex-1 px-4 py-2.5 flex items-center gap-2">
-                    <span className="text-[10px] text-ccs-red font-heading tracking-wider mr-1 shrink-0">RED BANS</span>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {redBans.map(b => (
-                        <span key={b.id} className="text-xs text-text-secondary bg-bg px-1.5 py-0.5 rounded font-mono">
-                          {b.champion_name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Box score table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-[10px] text-text-muted font-heading tracking-wider border-b border-border">
-                      <th className="text-left px-4 py-2.5 min-w-[140px]">PLAYER</th>
-                      <th className="text-left px-2 py-2.5 min-w-[90px]">CHAMPION</th>
-                      <th className="text-center px-2 py-2.5 w-[40px]">K</th>
-                      <th className="text-center px-2 py-2.5 w-[40px]">D</th>
-                      <th className="text-center px-2 py-2.5 w-[40px]">A</th>
-                      <th className="text-center px-2 py-2.5 w-[50px]">CS</th>
-                      <th className="text-center px-2 py-2.5 w-[55px]">VISION</th>
-                      <th className="text-right px-2 py-2.5 w-[70px]">DAMAGE</th>
-                      <th className="text-right px-4 py-2.5 w-[65px]">GOLD</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Blue team */}
-                    {blueStats.map(s => {
-                      const playerName = s.players?.display_name || s.players?.riot_game_name || "Unknown";
-                      return (
-                        <tr
-                          key={s.id}
-                          className={`border-b border-border/50 ${gameBlueWin ? "text-text-bright" : "text-text-secondary"}`}
-                        >
-                          <td className="px-4 py-2 font-heading text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <span>{playerName}</span>
-                            </div>
-                          </td>
-                          <td className="px-2 py-2 font-mono text-xs text-text-secondary">{s.champion_name}</td>
-                          <td className="px-2 py-2 text-center font-mono text-xs">{s.kills}</td>
-                          <td className="px-2 py-2 text-center font-mono text-xs">{s.deaths}</td>
-                          <td className="px-2 py-2 text-center font-mono text-xs">{s.assists}</td>
-                          <td className="px-2 py-2 text-center font-mono text-xs">{(s.total_minions_killed || 0) + (s.neutral_minions_killed || 0)}</td>
-                          <td className="px-2 py-2 text-center font-mono text-xs">{s.vision_score}</td>
-                          <td className="px-2 py-2 text-right font-mono text-xs">{(s.total_damage_dealt_to_champions || 0).toLocaleString()}</td>
-                          <td className="px-4 py-2 text-right font-mono text-xs">{s.gold_earned?.toLocaleString() ?? 0}</td>
-                        </tr>
-                      );
-                    })}
-
-                    {/* Separator */}
-                    <tr>
-                      <td colSpan={9} className="h-[2px] bg-border"></td>
-                    </tr>
-
-                    {/* Red team */}
-                    {redStats.map(s => {
-                      const playerName = s.players?.display_name || s.players?.riot_game_name || "Unknown";
-                      return (
-                        <tr
-                          key={s.id}
-                          className={`border-b border-border/50 ${gameRedWin ? "text-text-bright" : "text-text-secondary"}`}
-                        >
-                          <td className="px-4 py-2 font-heading text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <span>{playerName}</span>
-                            </div>
-                          </td>
-                          <td className="px-2 py-2 font-mono text-xs text-text-secondary">{s.champion_name}</td>
-                          <td className="px-2 py-2 text-center font-mono text-xs">{s.kills}</td>
-                          <td className="px-2 py-2 text-center font-mono text-xs">{s.deaths}</td>
-                          <td className="px-2 py-2 text-center font-mono text-xs">{s.assists}</td>
-                          <td className="px-2 py-2 text-center font-mono text-xs">{(s.total_minions_killed || 0) + (s.neutral_minions_killed || 0)}</td>
-                          <td className="px-2 py-2 text-center font-mono text-xs">{s.vision_score}</td>
-                          <td className="px-2 py-2 text-right font-mono text-xs">{(s.total_damage_dealt_to_champions || 0).toLocaleString()}</td>
-                          <td className="px-4 py-2 text-right font-mono text-xs">{s.gold_earned?.toLocaleString() ?? 0}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-text-muted font-heading tracking-wider">WINNER</span>
+                <TeamBadge team={g.win ? a : b} size={20} />
+                <span className="text-ccs-green font-heading text-xs font-semibold">{g.win ? data.codeA : data.codeB}</span>
               </div>
             </div>
-          );
-        })}
 
-        {games.length === 0 && (
-          <div className="text-center text-text-muted font-heading text-sm tracking-wider py-10">
-            No game data available for this match.
+            {(g.bans.length > 0 || g.bansAgainst.length > 0) && (
+              <div className="flex flex-col sm:flex-row items-stretch border-b border-border">
+                <div className="flex-1 px-4 py-2.5 flex items-center gap-2 border-b sm:border-b-0 sm:border-r border-border">
+                  <span className="text-[10px] text-text-muted font-heading tracking-wider mr-1 shrink-0">{data.codeA} BANS</span>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {g.bans.map(ban => (
+                      <ChampionIcon
+                        key={`${ban.pickTurn}-${ban.championId}`}
+                        champion={ban.championId}
+                        lookup={champions}
+                        fallbackLabel={ban.name}
+                        size={24}
+                        className="flex items-center opacity-70 grayscale"
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1 px-4 py-2.5 flex items-center gap-2">
+                  <span className="text-[10px] text-text-muted font-heading tracking-wider mr-1 shrink-0">{data.codeB} BANS</span>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {g.bansAgainst.map(ban => (
+                      <ChampionIcon
+                        key={`${ban.pickTurn}-${ban.championId}`}
+                        champion={ban.championId}
+                        lookup={champions}
+                        fallbackLabel={ban.name}
+                        size={24}
+                        className="flex items-center opacity-70 grayscale"
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[10px] text-text-muted font-heading tracking-wider border-b border-border">
+                    <th className="text-left px-4 py-2.5 w-[50px]">ROLE</th>
+                    <th className="text-left px-2 py-2.5 min-w-[140px]">PLAYER</th>
+                    <th className="text-left px-2 py-2.5 min-w-[90px]">CHAMPION</th>
+                    <th className="text-center px-2 py-2.5 w-[70px]">K/D/A</th>
+                    <th className="text-center px-2 py-2.5 w-[50px]">CS</th>
+                    <th className="text-center px-2 py-2.5 w-[55px]">CS/M</th>
+                    <th className="text-right px-2 py-2.5 w-[70px]">DAMAGE</th>
+                    <th className="text-right px-4 py-2.5 w-[60px]">KP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(Object.keys(ROLE_LABELS) as MatchlistRoleKey[]).map(role => {
+                    const p = g.roles[role];
+                    return (
+                      <tr key={role} className="border-b border-border/50 text-text-secondary">
+                        <td className="px-4 py-2 font-heading text-[10px] text-text-muted tracking-wider">{ROLE_LABELS[role]}</td>
+                        <td className="px-2 py-2 font-heading text-xs text-text">{p?.name ?? "—"}</td>
+                        <td className="px-2 py-2">
+                          <ChampionIcon champion={p?.champ} lookup={champions} fallbackLabel={p?.champ ?? "—"} size={22} showName />
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono text-xs">
+                          {p ? `${p.kills}/${p.deaths}/${p.assists}` : "—"}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono text-xs">{p?.cs ?? "—"}</td>
+                        <td className="px-2 py-2 text-center font-mono text-xs">{p?.csm?.toFixed(1) ?? "—"}</td>
+                        <td className="px-2 py-2 text-right font-mono text-xs">{p ? p.dmg.toLocaleString() : "—"}</td>
+                        <td className="px-4 py-2 text-right font-mono text-xs">
+                          {p?.kp === null || p?.kp === undefined ? "—" : `${Math.round(p.kp * 100)}%`}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="px-4 py-2.5 border-t border-border">
+              <Link to={`/game/${encodeURIComponent(g.matchId)}`} className="text-ccs-green font-heading text-[11px] tracking-wider uppercase no-underline hover:underline">
+                Full box score &rarr;
+              </Link>
+            </div>
           </div>
-        )}
+        ))}
+
+        <p className="text-[10px] text-text-dim mt-4">
+          Only {data.codeA}'s players are listed per game — the API exposes match history one team at a time.
+          Open the full box score for both teams.
+        </p>
       </div>
     </div>
   );

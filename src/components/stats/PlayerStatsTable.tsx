@@ -1,61 +1,90 @@
-import { useEffect, useState, useMemo } from "react";
-import { archiveApi, type ArchivePlayerStats } from "../../lib/archiveApi";
+import { useEffect, useMemo, useState } from "react";
+import {
+  errorMessage,
+  fmtPct,
+  fmtRatio,
+  isAbort,
+  playerStats,
+  ROLE_ORDER,
+  sortValue,
+  type PlayerStats,
+  type Role,
+} from "../../lib/api";
+import { TeamLink } from "../league/TeamLink";
 
 interface Props {
   conf: string;
 }
 
-const ROLES = ["ALL", "TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"];
+const ROLE_FILTERS: (Role | "ALL")[] = ["ALL", ...ROLE_ORDER];
 
-type SortKey = "kda" | "winPercent" | "kills" | "deaths" | "assists" | "csMin" | "damageMin" | "goldMin" | "visionScoreMin" | "killParticipation" | "games";
+type SortKey = keyof Pick<
+  PlayerStats,
+  | "kda"
+  | "winPercent"
+  | "kills"
+  | "deaths"
+  | "assists"
+  | "csMin"
+  | "damageMin"
+  | "goldMin"
+  | "visionScoreMin"
+  | "killParticipation"
+  | "games"
+>;
 
-export function ArchivePlayers({ conf }: Props) {
-  const [players, setPlayers] = useState<ArchivePlayerStats[]>([]);
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "kda", label: "KDA" },
+  { key: "winPercent", label: "Win %" },
+  { key: "games", label: "Games" },
+  { key: "kills", label: "Kills" },
+  { key: "deaths", label: "Deaths" },
+  { key: "assists", label: "Assists" },
+  { key: "csMin", label: "CS/min" },
+  { key: "damageMin", label: "DMG/min" },
+  { key: "goldMin", label: "Gold/min" },
+  { key: "visionScoreMin", label: "Vision/min" },
+  { key: "killParticipation", label: "Kill Participation" },
+];
+
+export function PlayerStatsTable({ conf }: Props) {
+  const [players, setPlayers] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [role, setRole] = useState("ALL");
+  const [role, setRole] = useState<Role | "ALL">("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("kda");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    const ac = new AbortController();
     setLoading(true);
     setErr(null);
-    archiveApi.playerStats(conf)
+    playerStats(conf, { signal: ac.signal })
       .then(setPlayers)
-      .catch(e => setErr(String(e)))
-      .finally(() => setLoading(false));
+      .catch(e => { if (!isAbort(e)) setErr(errorMessage(e)); })
+      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
+    return () => ac.abort();
   }, [conf]);
 
   const filtered = useMemo(() => {
     let rows = players;
-    if (role !== "ALL") {
-      const target = role.toUpperCase();
-      rows = rows.filter(p => String(p.role || "").toUpperCase().trim() === target);
-    }
+    if (role !== "ALL") rows = rows.filter(p => p.role === role);
     if (search) {
       const q = search.toLowerCase();
       rows = rows.filter(p => p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q));
     }
-    return [...rows].sort((a, b) => {
-      const aRaw = a[sortKey];
-      const bRaw = b[sortKey];
-      const av = typeof aRaw === "number" ? aRaw : parseFloat(String(aRaw ?? "0"));
-      const bv = typeof bRaw === "number" ? bRaw : parseFloat(String(bRaw ?? "0"));
-      const aFinite = isFinite(av) ? av : -1;
-      const bFinite = isFinite(bv) ? bv : -1;
-      return bFinite - aFinite;
-    });
+    return [...rows].sort((a, b) => sortValue(b[sortKey]) - sortValue(a[sortKey]));
   }, [players, role, sortKey, search]);
 
   if (loading) return <div className="text-center py-10 text-text-subtle">Loading players...</div>;
   if (err) return <div className="text-center py-10 text-ccs-red">{err}</div>;
-  if (players.length === 0) return <div className="text-center py-10 text-text-dim">No player data yet for this tournament.</div>;
+  if (players.length === 0) return <div className="text-center py-10 text-text-dim">No games played yet this season.</div>;
 
   return (
     <div>
       <div className="flex flex-wrap gap-3 mb-4 items-center">
         <div className="flex gap-1">
-          {ROLES.map(r => (
+          {ROLE_FILTERS.map(r => (
             <button
               key={r}
               onClick={() => setRole(r)}
@@ -77,17 +106,9 @@ export function ArchivePlayers({ conf }: Props) {
           onChange={e => setSortKey(e.target.value as SortKey)}
           className="bg-bg2 border border-border rounded px-3 py-1.5 text-sm text-text font-body focus:outline-none focus:border-accent ml-auto"
         >
-          <option value="kda">Sort: KDA</option>
-          <option value="winPercent">Sort: Win %</option>
-          <option value="games">Sort: Games</option>
-          <option value="kills">Sort: Kills</option>
-          <option value="deaths">Sort: Deaths</option>
-          <option value="assists">Sort: Assists</option>
-          <option value="csMin">Sort: CS/min</option>
-          <option value="damageMin">Sort: DMG/min</option>
-          <option value="goldMin">Sort: Gold/min</option>
-          <option value="visionScoreMin">Sort: Vision/min</option>
-          <option value="killParticipation">Sort: Kill Participation</option>
+          {SORT_OPTIONS.map(o => (
+            <option key={o.key} value={o.key}>Sort: {o.label}</option>
+          ))}
         </select>
       </div>
       <div className="overflow-x-auto">
@@ -112,32 +133,32 @@ export function ArchivePlayers({ conf }: Props) {
           </thead>
           <tbody>
             {filtered.map((p, i) => (
-              <tr key={`${p.id}-${p.role}-${p.team}-${i}`} className="border-t border-border hover:bg-bg3">
+              <tr key={p.rowKey} className="border-t border-border hover:bg-bg3">
                 <td className="py-2.5 px-3 text-text-dim font-mono text-xs">{i + 1}</td>
                 <td className="py-2.5 px-3 font-heading font-bold text-text-bright">{p.name}</td>
                 <td className="py-2.5 px-3">
-                  <div className="flex items-center gap-2">
+                  <TeamLink conf={p.conf} code={p.team} className="flex items-center gap-2 no-underline group">
                     {p.logo && <img src={p.logo} alt="" className="w-5 h-5 rounded object-contain" />}
-                    <span className="text-xs text-text-secondary">{p.team}</span>
-                  </div>
+                    <span className="text-xs text-text-secondary group-hover:text-accent">{p.team}</span>
+                  </TeamLink>
                 </td>
-                <td className="text-center py-2.5 px-2 text-[10px] text-text-muted">{p.role}</td>
+                <td className="text-center py-2.5 px-2 text-[10px] text-text-muted">{p.role ?? "—"}</td>
                 <td className="text-center py-2.5 px-2">{p.games}</td>
                 <td className="text-center py-2.5 px-2 text-xs"><span className="text-ccs-green">{p.wins}</span>-<span className="text-ccs-red">{p.losses}</span></td>
-                <td className="text-center py-2.5 px-2 font-mono text-xs">{(parseFloat(p.winPercent) * 100).toFixed(0)}%</td>
-                <td className="text-center py-2.5 px-2 font-bold">{p.kda}</td>
-                <td className="text-center py-2.5 px-2 text-xs font-mono">{p.avgKills}/{p.avgDeaths}/{p.avgAssists}</td>
-                <td className="text-center py-2.5 px-2 font-mono text-xs">{p.csMin}</td>
-                <td className="text-center py-2.5 px-2 font-mono text-xs">{Math.round(parseFloat(p.damageMin))}</td>
-                <td className="text-center py-2.5 px-2 font-mono text-xs">{Math.round(parseFloat(p.goldMin))}</td>
-                <td className="text-center py-2.5 px-2 font-mono text-xs">{p.visionScoreMin}</td>
-                <td className="text-center py-2.5 px-2 font-mono text-xs">{(parseFloat(p.killParticipation) * 100).toFixed(0)}%</td>
+                <td className="text-center py-2.5 px-2 font-mono text-xs">{fmtPct(p.winPercent)}</td>
+                <td className="text-center py-2.5 px-2 font-bold">{fmtRatio(p.kda)}</td>
+                <td className="text-center py-2.5 px-2 text-xs font-mono">{fmtRatio(p.avgKills ?? 0, 1)}/{fmtRatio(p.avgDeaths ?? 0, 1)}/{fmtRatio(p.avgAssists ?? 0, 1)}</td>
+                <td className="text-center py-2.5 px-2 font-mono text-xs">{p.csMin === null ? "—" : fmtRatio(p.csMin)}</td>
+                <td className="text-center py-2.5 px-2 font-mono text-xs">{p.damageMin === null ? "—" : Math.round(p.damageMin)}</td>
+                <td className="text-center py-2.5 px-2 font-mono text-xs">{p.goldMin === null ? "—" : Math.round(p.goldMin)}</td>
+                <td className="text-center py-2.5 px-2 font-mono text-xs">{p.visionScoreMin === null ? "—" : fmtRatio(p.visionScoreMin)}</td>
+                <td className="text-center py-2.5 px-2 font-mono text-xs">{fmtPct(p.killParticipation)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="mt-2 text-xs text-text-dim">{filtered.length} players</div>
+      <div className="mt-2 text-xs text-text-dim">{filtered.length} rows · players are listed once per role played</div>
     </div>
   );
 }

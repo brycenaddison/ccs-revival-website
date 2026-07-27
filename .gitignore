@@ -12,8 +12,10 @@ backend/.env
 frontend/.env
 
 # Build output
+dist/
 frontend/dist/
 *.egg-info/
+.tmp-*
 
 # IDE / Editor
 .vscode/

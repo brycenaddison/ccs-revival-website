@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { ThemeToggle } from "../ThemeToggle";
 
 interface Props {
@@ -8,7 +7,7 @@ interface Props {
   isMobile: boolean;
 }
 
-const TABS = ["Home", "Scores", "Schedule", "Standings", "Stats", "Teams", "Draft Board", "Archive"];
+const TABS = ["Home", "Scores", "Schedule", "Standings", "Stats", "Teams"];
 const EXTERNAL_LINKS = [{ label: "Merch", href: "https://classicchampionshipseries.itemorder.com/shop/sale/" }];
 
 export function NavBar({ active, setActive, isMobile }: Props) {
@@ -107,9 +106,6 @@ export function NavBar({ active, setActive, isMobile }: Props) {
       <div className="ml-auto">
         <ThemeToggle />
       </div>
-      <Link to="/admin" className="text-[10px] text-text-dim font-heading no-underline tracking-wide py-3.5 px-3">
-        ADMIN
-      </Link>
     </nav>
   );
 }

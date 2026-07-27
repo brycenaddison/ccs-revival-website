@@ -1,235 +1,143 @@
-import { useState, useEffect, useCallback } from "react";
-import { db } from "../lib/supabase";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  errorMessage,
+  isAbort,
+  playerStats,
+  teamStats,
+  teamsForConf,
+  type RequestOpts,
+  type Tournament,
+} from "../lib/api";
+import { groupLabels, teamKey, toPlayers, toRosters, toSplits, toTeam } from "../lib/leagueAdapters";
+import type { LeagueData, Player, Roster, Split, Team } from "../types/league";
 
-export interface Team {
-  id: string;
-  name: string;
-  abbreviation: string;
-  color_primary: string;
-  color_accent: string;
-  logo_url?: string;
-  division_id?: string;
-  season_id?: string;
-  is_active?: boolean;
-  divisions?: { name: string };
+export type {
+  Article,
+  Game,
+  LeagueData,
+  Match,
+  Player,
+  Roster,
+  Split,
+  Standing,
+  Team,
+  TwitchEmbed,
+  TwitterFeed,
+} from "../types/league";
+
+interface Options {
+  /** Confs to load. Usually `useLeague().selectedConfs`. */
+  confs: readonly string[];
+  /** Tournament metadata, used for season labels and conf grouping. */
+  tournaments: readonly Tournament[];
 }
 
-export interface Match {
-  id: string;
-  split_id: string;
-  team_blue_id: string;
-  team_red_id: string;
-  team_blue?: Team;
-  team_red?: Team;
-  status: string;
-  scheduled_at: string;
-  completed_at?: string;
-  match_format?: string;
-  season_phase?: string;
-  winner_team_id?: string;
-  score_blue?: number;
-  score_red?: number;
-  splits?: { name: string };
-}
+type State = Omit<LeagueData, "refresh">;
 
-export interface Standing {
-  id: string;
-  team_id: string;
-  split_id: string;
-  wins: number;
-  losses: number;
-  streak?: string;
-  teams?: Team & { divisions?: { name: string } };
-}
+const EMPTY: State = {
+  teams: [],
+  matches: [],
+  standings: [],
+  players: [],
+  rosters: [],
+  articles: [],
+  splits: [],
+  games: [],
+  twitterFeeds: [],
+  twitchEmbeds: [],
+  loading: true,
+  error: null,
+};
 
-export interface Article {
-  id: string;
-  title: string;
-  subtitle?: string;
-  body?: string;
-  tag?: string;
-  article_type?: string;
-  author?: string;
-  published_at?: string;
-  is_published?: boolean;
-  image_url?: string;
-}
-
-export interface Split {
-  id: string;
-  name: string;
-  split_number: number;
-  season_id: string;
-  is_active: boolean;
-  seasons?: { name: string };
-}
-
-export interface Player {
-  id: string;
-  name: string;
-  riot_name?: string;
-  riot_tag?: string;
-  role?: string;
-  team?: Team;
-  is_captain?: boolean;
-  gp: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  kda: string;
-  cs: number;
-  mvps: number;
-  damage: number;
-  gold: number;
-  winRate: number;
-}
-
-export interface Roster {
-  id: string;
-  player_id: string;
-  team_id: string;
-  split_id: string;
-  role?: string;
-  is_captain: boolean;
-  is_starter: boolean;
-  left_at?: string;
-  players?: { id: string; display_name: string; riot_game_name?: string; riot_tag_line?: string };
-  teams?: Team;
-  splits?: { name: string };
-}
-
-export interface Game {
-  id: string;
-  match_id?: string;
-  riot_match_id?: string;
-  blue_team_id: string;
-  red_team_id: string;
-  winner_team_id?: string;
-  game_duration?: number;
-  game_started_at?: string;
-}
-
-export interface TwitterFeed {
-  id: string;
-  feed_type: "timeline" | "tweet";
-  handle?: string;
-  tweet_url?: string;
-  title?: string;
-  is_active: boolean;
-  sort_order: number;
-  created_at?: string;
-}
-
-export interface TwitchEmbed {
-  id: string;
-  embed_type: "channel" | "clip" | "youtube";
-  channel_name?: string;
-  clip_url?: string;
-  title?: string;
-  is_active: boolean;
-  sort_order: number;
-  created_at?: string;
-}
-
-export interface LeagueData {
+interface ConfBundle {
   teams: Team[];
-  matches: Match[];
-  standings: Standing[];
   players: Player[];
   rosters: Roster[];
-  articles: Article[];
-  splits: Split[];
-  games: Game[];
-  twitterFeeds: TwitterFeed[];
-  twitchEmbeds: TwitchEmbed[];
-  loading: boolean;
-  refresh: () => void;
 }
 
-type LeagueDataState = Omit<LeagueData, "refresh">;
+/** Three cheap requests per conf, ~0.2s each. */
+async function loadConf(
+  conf: string,
+  groupName: string | undefined,
+  opts: RequestOpts,
+): Promise<ConfBundle> {
+  const [records, playerRows] = await Promise.all([
+    teamsForConf(conf, opts),
+    playerStats(conf, opts),
+  ]);
 
-export function useLeagueData(): LeagueData {
-  const [data, setData] = useState<LeagueDataState>({
-    teams: [], matches: [], standings: [], players: [], rosters: [],
-    articles: [], splits: [], games: [], twitterFeeds: [], twitchEmbeds: [],
-    loading: true,
-  });
+  const teams = records.map(r => toTeam({ ...r, conf: r.conf ?? conf }, groupName));
+  const teamsById = new Map(teams.map(t => [t.id, t]));
 
-  const load = useCallback(async () => {
-    try {
-      const [teams, matches, standings, articles, splits] = await Promise.all([
-        db("teams", { query: "?select=*,divisions(name)&is_active=eq.true&order=name" }),
-        db("matches", { query: "?select=*,team_blue:teams!matches_team_blue_id_fkey(id,name,abbreviation,color_primary,color_accent,logo_url),team_red:teams!matches_team_red_id_fkey(id,name,abbreviation,color_primary,color_accent,logo_url)&order=scheduled_at.desc.nullslast&limit=50" }),
-        db("standings", { query: "?select=*,teams(id,name,abbreviation,color_primary,color_accent,logo_url,divisions(name))&order=wins.desc" }),
-        db("articles", { query: "?select=*&is_published=eq.true&order=published_at.desc.nullslast&limit=10" }),
-        db("splits", { query: "?select=*,seasons(name)&is_active=eq.true&limit=1" }),
-      ]);
+  return {
+    teams,
+    players: toPlayers(playerRows, teamsById),
+    rosters: toRosters(playerRows, teamsById, groupName),
+  };
+}
 
-      let players: Player[] = [];
-      let rosters: Roster[] = [];
-      let games: Game[] = [];
-      let twitterFeeds: TwitterFeed[] = [];
-      let twitchEmbeds: TwitchEmbed[] = [];
+/**
+ * Loads the league-wide data the site renders for the selected season(s).
+ *
+ * Scope note: this only uses bulk endpoints — `/teams/:conf` and `/stats/players/:conf`.
+ * `/teams/:conf/:team` is deliberately **not** used here. It returns comprehensive data for
+ * one team via five heavy queries, and is only ever called one at a time when a user opens a
+ * specific team. Calling it per team to assemble a league view took 20–30s and saturated the
+ * API's connection pool.
+ *
+ * The consequence is that `matches`, `games` and `standings` stay empty: every one of them
+ * needs match results, and no bulk endpoint exposes those yet. `GET /matches/:conf` and
+ * `GET /standings/:conf` are the blocking gaps — see the gap analysis.
+ */
+export function useLeagueData({ confs, tournaments }: Options): LeagueData {
+  const [state, setState] = useState<State>(EMPTY);
+  const [reloadToken, setReloadToken] = useState(0);
 
-      try {
-        const [roster, stats, gamesData, twFeeds, twEmbeds] = await Promise.all([
-          db("rosters", { query: "?select=*,players(id,display_name,riot_game_name,riot_tag_line),teams(id,name,abbreviation,color_primary,color_accent,logo_url)&left_at=is.null" }),
-          db("player_game_stats", { query: "?select=player_id,kills,deaths,assists,total_minions_killed,neutral_minions_killed,vision_score,total_damage_dealt_to_champions,gold_earned,win,is_mvp" }),
-          db("games", { query: "?select=id,match_id,riot_match_id,blue_team_id,red_team_id,winner_team_id,game_duration,game_started_at&order=game_started_at.desc.nullslast&limit=50" }),
-          db("twitter_feeds", { query: "?select=*&is_active=eq.true&order=sort_order,created_at.desc" }),
-          db("twitch_embeds", { query: "?select=*&is_active=eq.true&order=sort_order,created_at.desc" }),
-        ]);
-        rosters = roster || [];
-        games = gamesData || [];
-        twitterFeeds = twFeeds || [];
-        twitchEmbeds = twEmbeds || [];
+  // Depend on the joined value so a new array with the same contents is a no-op.
+  const confKey = confs.join(",");
 
-        const agg: Record<string, { gp: number; kills: number; deaths: number; assists: number; cs: number; wins: number; mvps: number; damage: number; gold: number }> = {};
-        (stats || []).forEach((s: Record<string, number | boolean>) => {
-          const pid = s.player_id as unknown as string;
-          if (!agg[pid]) agg[pid] = { gp: 0, kills: 0, deaths: 0, assists: 0, cs: 0, wins: 0, mvps: 0, damage: 0, gold: 0 };
-          const a = agg[pid];
-          a.gp++; a.kills += (s.kills as number); a.deaths += (s.deaths as number); a.assists += (s.assists as number);
-          a.cs += ((s.total_minions_killed as number) || 0) + ((s.neutral_minions_killed as number) || 0);
-          a.damage += (s.total_damage_dealt_to_champions as number) || 0;
-          a.gold += (s.gold_earned as number) || 0;
-          if (s.win) a.wins++;
-          if (s.is_mvp) a.mvps++;
-        });
-
-        players = rosters.filter((r: Roster) => r.is_starter).map((r: Roster) => {
-          const s = agg[r.players?.id || ""] || { gp: 0, kills: 0, deaths: 0, assists: 0, cs: 0, wins: 0, mvps: 0, damage: 0, gold: 0 };
-          const kda = s.deaths === 0 ? (s.kills + s.assists) : ((s.kills + s.assists) / s.deaths);
-          return {
-            id: r.players?.id || "",
-            name: r.players?.display_name || "Unknown",
-            riot_name: r.players?.riot_game_name,
-            riot_tag: r.players?.riot_tag_line,
-            role: r.role,
-            team: r.teams,
-            is_captain: r.is_captain,
-            gp: s.gp, kills: s.kills, deaths: s.deaths, assists: s.assists,
-            kda: kda.toFixed(1),
-            cs: s.gp > 0 ? Math.round(s.cs / s.gp) : 0,
-            mvps: s.mvps,
-            damage: s.gp > 0 ? Math.round(s.damage / s.gp) : 0,
-            gold: s.gp > 0 ? Math.round(s.gold / s.gp) : 0,
-            winRate: s.gp > 0 ? Math.round((s.wins / s.gp) * 100) : 0,
-          };
-        });
-      } catch { /* stats tables may not exist yet */ }
-
-      setData({
-        teams: teams || [], matches: matches || [], standings: standings || [],
-        players, rosters, articles: articles || [], splits: splits || [],
-        games: games || [], twitterFeeds, twitchEmbeds, loading: false,
-      });
-    } catch (e) {
-      console.error(e);
-      setData(d => ({ ...d, loading: false }));
+  useEffect(() => {
+    const list = confKey === "" ? [] : confKey.split(",");
+    if (list.length === 0) {
+      setState({ ...EMPTY, loading: false });
+      return;
     }
-  }, []);
 
-  useEffect(() => { load(); }, [load]);
-  return { ...data, refresh: load };
+    const ac = new AbortController();
+    const opts: RequestOpts = { signal: ac.signal };
+    const labels = list.length > 1 ? groupLabels(tournaments, list) : null;
+    setState(prev => ({ ...prev, loading: true, error: null }));
+
+    Promise.all(list.map(conf => loadConf(conf, labels?.get(conf), opts)))
+      .then(bundles => {
+        if (ac.signal.aborted) return;
+        const teams = bundles.flatMap(b => b.teams);
+        const splits: Split[] = toSplits(tournaments.filter(t => list.includes(t.conf)));
+
+        setState({
+          ...EMPTY,
+          teams: [...teams].sort((a, b) => a.name.localeCompare(b.name)),
+          players: bundles.flatMap(b => b.players),
+          rosters: bundles.flatMap(b => b.rosters),
+          splits,
+          loading: false,
+        });
+      })
+      .catch(e => {
+        if (isAbort(e) || ac.signal.aborted) return;
+        setState({ ...EMPTY, loading: false, error: errorMessage(e) });
+      });
+
+    return () => ac.abort();
+  }, [confKey, tournaments, reloadToken]);
+
+  const refresh = useCallback(() => setReloadToken(n => n + 1), []);
+
+  return useMemo(() => ({ ...state, refresh }), [state, refresh]);
+}
+
+/** Look up a team by conf and code — the same identity the adapters produce. */
+export function findTeam(teams: readonly Team[], conf: string, code: string): Team | undefined {
+  const id = teamKey(conf, code);
+  return teams.find(t => t.id === id);
 }

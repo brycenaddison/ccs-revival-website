@@ -9,7 +9,9 @@ interface Props {
 
 export function ScoresView({ matches, isMobile }: Props) {
   const completed = matches.filter(m => m.status === "completed");
-  if (!completed.length) return <div className="py-10 text-center text-text-dim text-[13px]">No completed matches yet.</div>;
+  // Empty until the API exposes match results in bulk — see the gap analysis. Per-team match
+  // history exists but only via the single-team page, which can't be called league-wide.
+  if (!completed.length) return <div className="py-10 text-center text-text-dim text-[13px]">Match results aren't available yet.</div>;
 
   return (
     <div className="max-w-[800px] mx-auto">
