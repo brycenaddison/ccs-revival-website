@@ -1,6 +1,8 @@
 export { api, tournaments, teams, teamsForConf, teamDetail, playerStats, teamStats, championStats, matchData, articleViews, bumpArticleView } from "./client";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
 export type { RequestOpts } from "./http";
+export { auth, ANONYMOUS } from "./auth";
+export type { Identity, SessionProfile } from "./auth";
 export {
   fmtPct,
   fmtRatio,

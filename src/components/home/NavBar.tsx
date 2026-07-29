@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ThemeToggle } from "../ThemeToggle";
+import { AuthControl } from "../auth/AuthControl";
 
 interface Props {
   active: string;
@@ -62,6 +63,7 @@ export function NavBar({ active, setActive, isMobile }: Props) {
                 {l.label}
               </a>
             ))}
+            <AuthControl variant="menu" />
             <div className="px-5 py-2.5 border-t border-border">
               <ThemeToggle />
             </div>
@@ -72,19 +74,25 @@ export function NavBar({ active, setActive, isMobile }: Props) {
   }
 
   return (
-    <nav className="bg-bg2 border-b-2 border-accent flex items-center w-full px-6 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-      <div className="flex items-center gap-2 mr-8 py-3 min-w-fit">
+    // Three equal-outer-track grid: the `auto` middle is centred against the nav itself, not
+    // against whatever space the logo and auth cluster leave over. As width tightens the wider
+    // side floors at its min-content size and the menu drifts off-centre; tighter still, the
+    // middle's `min-w-0` lets it scroll internally. The scroller lives on the middle cell rather
+    // than the <nav> on purpose — `overflow-x` on the nav computes `overflow-y: auto` too, which
+    // would clip the account dropdown.
+    <nav className="bg-bg2 border-b-2 border-accent w-full px-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+      <div className="justify-self-start flex items-center gap-2 py-3 min-w-fit">
         <span className="text-[22px]">⚔️</span>
         <span className="font-display text-[22px] text-text-bright tracking-widest">
           CCS
         </span>
       </div>
-      <div className="flex-1 flex justify-center items-center">
+      <div className="justify-self-center flex items-center min-w-0 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         {TABS.map(t => (
           <button
             key={t}
             onClick={() => setActive(t)}
-            className={`bg-transparent cursor-pointer py-3.5 px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase border-0 ${
+            className={`bg-transparent cursor-pointer py-3.5 px-2.5 lg:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase border-0 ${
               active === t ? "text-text-bright font-bold border-b-2 border-b-accent" : "text-text-secondary font-normal border-b-2 border-b-transparent"
             }`}
           >
@@ -97,13 +105,14 @@ export function NavBar({ active, setActive, isMobile }: Props) {
             href={l.href}
             target={l.href !== "#" ? "_blank" : undefined}
             rel="noopener noreferrer"
-            className="bg-transparent cursor-pointer py-3.5 px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase border-b-2 border-b-transparent text-text-secondary no-underline"
+            className="bg-transparent cursor-pointer py-3.5 px-2.5 lg:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase border-b-2 border-b-transparent text-text-secondary no-underline"
           >
             {l.label}
           </a>
         ))}
       </div>
-      <div className="ml-auto">
+      <div className="justify-self-end flex items-center gap-3">
+        <AuthControl />
         <ThemeToggle />
       </div>
     </nav>
