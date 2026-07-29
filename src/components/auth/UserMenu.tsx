@@ -26,13 +26,18 @@ export type MenuEntry =
 /**
  * The account actions, in display order. Log out stays last; new options go above the divider.
  *
- * Riot linking is a placeholder: the identity payload already carries `profile.puuids`, but there
- * is no `/auth/riot/*` endpoint to send the user to yet, so the item renders disabled rather than
- * offering a click that would 404.
+ * Riot linking opens a popup and reports its outcome through the auth provider's notice, so
+ * nothing here has to wait on the promise — the menu is closed by then either way.
  */
-export function accountMenuEntries(logout: () => Promise<void>): MenuEntry[] {
+export function accountMenuEntries(logout: () => Promise<void>, linkRiot: () => Promise<void>): MenuEntry[] {
   return [
-    { kind: "item", label: "Link Riot Account", icon: Link2, disabled: true, title: "Coming soon" },
+    {
+      kind: "item",
+      label: "Link Riot Account",
+      icon: Link2,
+      title: "Verify a Riot account and attach it to your profile",
+      onSelect: () => void linkRiot(),
+    },
     { kind: "divider" },
     { kind: "item", label: "Log out", icon: LogOut, onSelect: () => void logout() },
   ];
@@ -41,7 +46,7 @@ export function accountMenuEntries(logout: () => Promise<void>): MenuEntry[] {
 const LABEL = "font-heading text-sm tracking-wider uppercase whitespace-nowrap";
 
 export function UserMenu({ name }: { name: string }) {
-  const { logout } = useAuth();
+  const { logout, linkRiot } = useAuth();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -67,7 +72,7 @@ export function UserMenu({ name }: { name: string }) {
     };
   }, [open]);
 
-  const entries = accountMenuEntries(logout);
+  const entries = accountMenuEntries(logout, linkRiot);
 
   return (
     <div ref={wrapRef} className="relative">

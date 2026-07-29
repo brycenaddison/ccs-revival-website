@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useWindowSize } from "../hooks/useWindowSize";
 import { useLeagueData } from "../hooks/useLeagueData";
+import { usePlayers } from "../hooks/usePlayers";
+import { useStandings } from "../hooks/useStandings";
 import { ScoreboardTicker } from "../components/home/ScoreboardTicker";
 import { NavBar } from "../components/home/NavBar";
 import { HeroArticle } from "../components/home/HeroArticle";
@@ -16,18 +18,32 @@ import { ScoresView } from "../components/views/ScoresView";
 import { ScheduleView } from "../components/views/ScheduleView";
 import { StandingsView } from "../components/views/StandingsView";
 import { TeamsView } from "../components/views/TeamsView";
-import { StatsSection } from "../components/stats/StatsSection";
 import { SeasonPicker } from "../components/league/SeasonPicker";
 import { useLeague } from "../lib/leagueContext";
+import { tabForPathname } from "../lib/tabs";
 
 export default function Home() {
-  const [tab, setTab] = useState("Home");
+  // Which section is showing comes from the URL — every tab has its own, and this component is
+  // mounted at all of them. See `lib/tabs.ts`.
+  const tab = tabForPathname(useLocation().pathname);
   const w = useWindowSize();
   const isMobile = w < 768;
   const isTablet = w >= 768 && w < 1024;
   const { tournaments, activeConfs, selection, setSelection, selectedConfs, isCurrent, loading: leagueLoading } = useLeague();
-  const { teams, matches, standings, players, rosters, articles, splits, games, twitterFeeds, twitchEmbeds, loading: dataLoading, error, refresh } =
+  const { teams, matches, standings, rosters, articles, splits, twitterFeeds, twitchEmbeds, loading: dataLoading, error, refresh } =
     useLeagueData({ confs: selectedConfs, tournaments });
+
+  // `useLeagueData` is one call per conf and covers every section. Two things need their own
+  // request, so each is loaded only by the sections that render it — passing no confs is how a
+  // section opts out. Ranked standings carry the rank and streak that `/teams`' record does not;
+  // player leaderboards need `/stats/players`, which the roster no longer does.
+  const showsStandings = tab === "Home" || tab === "Standings";
+  const { standings: ranked, loading: standingsLoading } = useStandings({
+    confs: showsStandings ? selectedConfs : [],
+    teams,
+    tournaments,
+  });
+  const { players } = usePlayers({ confs: tab === "Home" ? selectedConfs : [], teams });
   const loading = leagueLoading || dataLoading;
   const hasLive = matches.some(m => m.status === "live");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -68,7 +84,7 @@ export default function Home() {
       </div>
 
       <ScoreboardTicker matches={matches} isMobile={isMobile} />
-      <NavBar active={tab} setActive={setTab} isMobile={isMobile} />
+      <NavBar isMobile={isMobile} />
 
       {loading ? (
         <div className="py-16 text-center text-text-subtle">Loading...</div>
@@ -93,9 +109,8 @@ export default function Home() {
         <div className="max-w-[1440px] mx-auto" style={{ padding: isMobile ? 12 : "24px 32px" }}>
           {tab === "Scores" ? <ScoresView matches={matches} isMobile={isMobile} />
           : tab === "Schedule" ? <ScheduleView matches={matches} isMobile={isMobile} />
-          : tab === "Standings" ? <StandingsView standings={standings} teams={teams} matches={matches} games={games} isMobile={isMobile} />
+          : tab === "Standings" ? <StandingsView standings={ranked} isMobile={isMobile} />
           : tab === "Teams" ? <TeamsView teams={teams} standings={standings} rosters={rosters} isMobile={isMobile} />
-          : tab === "Stats" ? <StatsSection confs={selectedConfs} />
           : (
             <div className={`grid ${isMobile ? "grid-cols-1" : isTablet ? "grid-cols-1" : "grid-cols-[280px_1fr_280px]"}`} style={{ gap: isMobile ? 16 : 24 }}>
               {/* LEFT COLUMN — Articles + Twitter */}
@@ -136,7 +151,7 @@ export default function Home() {
 
               {/* RIGHT COLUMN — Standings + Stats */}
               <div className="flex flex-col gap-5">
-                <StandingsWidget standings={standings} teams={teams} matches={matches} games={games} />
+                <StandingsWidget standings={ranked} teams={teams} loading={standingsLoading} />
                 <PlayerLeaders players={players} isMobile={isMobile} />
               </div>
             </div>
@@ -148,7 +163,7 @@ export default function Home() {
         <span className="font-display text-lg text-text-subtle tracking-widest">CCS</span>
         <div className="text-[10px] text-text-subtle mt-2">Amateur Esports · Community Driven</div>
       </footer>
-      {isMobile && <MobileBottomBar active={tab} setActive={setTab} />}
+      {isMobile && <MobileBottomBar />}
     </div>
   );
 }

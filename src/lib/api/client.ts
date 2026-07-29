@@ -6,7 +6,7 @@
  * analysis for the intended contracts.
  */
 
-import { getList, getOne, post, type RequestOpts } from "./http";
+import { getList, getOne, isAbort, post, type RequestOpts } from "./http";
 import {
   hexFromInt,
   httpsUrl,
@@ -14,7 +14,6 @@ import {
   num,
   numOrNull,
   ratio,
-  trimPuuid,
   type Numeric,
   type Role,
 } from "./normalize";
@@ -29,8 +28,14 @@ import type {
   PlayerStats,
   PlayerStatsRanked,
   RiotMatch,
+  RoleKey,
+  RosterSlot,
+  SeasonRecord,
+  StandingRow,
+  StatTotals,
   TeamDetail,
   TeamRecord,
+  TeamRoster,
   TeamStats,
   Tournament,
 } from "./types";
@@ -73,6 +78,48 @@ function mapTournament(raw: Raw): Tournament {
 
 // ---------------------------------------------------------------------- teams
 
+/** The starting slots, in roster order. Shared with the matchlist, which uses the same keys. */
+const ROLE_KEYS: readonly RoleKey[] = ["top", "jg", "mid", "bot", "sup"];
+
+/**
+ * A roster slot, or `null` for an unfilled one.
+ *
+ * A slot with no usable `profileId` is treated as unfilled: `profileId` is the only part that
+ * joins to anything, so a slot without one cannot be rendered or looked up.
+ */
+function mapRosterSlot(raw: unknown): RosterSlot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const s = asRaw(raw);
+  const profileId = numOrNull(s.profileId as Numeric);
+  if (profileId === null) return null;
+  return { profileId, name: strOrNull(s.name) };
+}
+
+function mapRoster(raw: Raw): TeamRoster {
+  const slots = {} as Record<RoleKey, RosterSlot | null>;
+  for (const k of ROLE_KEYS) slots[k] = mapRosterSlot(raw[k]);
+  return {
+    ...slots,
+    subs: Array.isArray(raw.subs)
+      ? raw.subs.map(mapRosterSlot).filter((s): s is RosterSlot => s !== null)
+      : [],
+  };
+}
+
+const RECORD_COUNTS = ["seriesWins", "seriesLosses", "gameWins", "gameLosses"] as const;
+
+/**
+ * The standings record, or `null` when the response has no `record` field at all.
+ *
+ * Absence is deliberately not normalized to zeros: `0-0` is a real record upstream (a team that
+ * hasn't played), so coercing a missing field to it would report every team as winless on an API
+ * too old to serve records.
+ */
+function mapSeasonRecord(raw: unknown): SeasonRecord | null {
+  if (!raw || typeof raw !== "object") return null;
+  return pickCounts(asRaw(raw), RECORD_COUNTS);
+}
+
 function mapTeamRecord(raw: Raw): TeamRecord {
   const color = numOrNull(raw.color as Numeric);
   return {
@@ -83,14 +130,33 @@ function mapTeamRecord(raw: Raw): TeamRecord {
     logo: httpsUrl(raw.logo as string),
     color,
     colorHex: hexFromInt(color),
-    top: trimPuuid(raw.top as string),
-    jg: trimPuuid(raw.jg as string),
-    mid: trimPuuid(raw.mid as string),
-    bot: trimPuuid(raw.bot as string),
-    sup: trimPuuid(raw.sup as string),
-    subs: Array.isArray(raw.subs)
-      ? raw.subs.map(s => trimPuuid(s as string)).filter((s): s is string => s !== null)
-      : [],
+    record: mapSeasonRecord(raw.record),
+    ...mapRoster(raw),
+  };
+}
+
+/** Strip a record down to its roster, so `TeamDetail` doesn't carry duplicate identity fields. */
+function rosterOf({ top, jg, mid, bot, sup, subs }: TeamRoster): TeamRoster {
+  return { top, jg, mid, bot, sup, subs };
+}
+
+// ------------------------------------------------------------------ standings
+
+function mapStandingRow(raw: Raw): StandingRow {
+  const color = numOrNull(raw.color as Numeric);
+  return {
+    conf: str(raw.conf),
+    code: str(raw.code),
+    name: str(raw.name),
+    logo: httpsUrl(raw.logo as string),
+    color,
+    colorHex: hexFromInt(color),
+    rank: num(raw.rank as Numeric),
+    // Falls back to the bare rank so a row is never left without something to show.
+    place: strOrNull(raw.place) ?? String(num(raw.rank as Numeric)),
+    gameWinPct: numOrNull(raw.gameWinPct as Numeric),
+    streak: strOrNull(raw.streak),
+    ...pickCounts(raw, RECORD_COUNTS),
   };
 }
 
@@ -253,8 +319,6 @@ function mapTeamStats(raw: Raw): TeamStats {
 
 // ------------------------------------------------------------------ matchlist
 
-const ROLE_KEYS: readonly MatchlistRoleKey[] = ["top", "jg", "mid", "bot", "sup"];
-
 function mapMatchlistPlayer(raw: unknown): MatchlistPlayer | null {
   if (!raw || typeof raw !== "object") return null;
   const p = asRaw(raw);
@@ -313,28 +377,30 @@ function sortMatchlist(entries: MatchlistEntry[]): MatchlistEntry[] {
 
 // --------------------------------------------------------------- team detail
 
-async function buildTeamDetail(conf: string, code: string, raw: Raw, opts?: RequestOpts): Promise<TeamDetail> {
+/**
+ * @param record This team's row from `GET /teams/:conf`, when it could be fetched.
+ *
+ * That row supplies three things the aggregated endpoint doesn't: the roster, the series record,
+ * and identity fields for a team that hasn't played — upstream spreads a null `teamstats` row, so
+ * such a team arrives with no `code`, `name`, colour or logo at all.
+ */
+function buildTeamDetail(conf: string, code: string, raw: Raw, record: TeamRecord | undefined): TeamDetail {
   const hasStats = typeof raw.code === "string";
   const stats = hasStats ? mapTeamStats(raw) : null;
-
-  // Upstream spreads a null `teamstats` row, so a team that hasn't played loses its own
-  // identity fields. Backfill them from `teams` rather than rendering blanks.
-  let identity = { code, name: code, logo: undefined as string | undefined, color: null as number | null };
-  if (!hasStats) {
-    const team = (await teamsForConf(conf, opts)).find(t => t.code === code);
-    if (team) identity = { code: team.code, name: team.name, logo: team.logo, color: team.color };
-  }
+  const color = stats?.color ?? record?.color ?? null;
 
   const base: Partial<TeamStats> = stats ?? {};
   return {
     ...base,
-    code: stats?.code ?? identity.code,
-    name: stats?.name ?? identity.name,
+    code: stats?.code ?? record?.code ?? code,
+    name: stats?.name ?? record?.name ?? code,
     conf,
-    logo: stats?.logo ?? identity.logo,
-    color: stats?.color ?? identity.color,
-    colorHex: stats?.colorHex ?? hexFromInt(identity.color),
+    logo: stats?.logo ?? record?.logo,
+    color,
+    colorHex: hexFromInt(color),
     hasStats,
+    roster: record ? rosterOf(record) : null,
+    record: record?.record ?? null,
     players: Array.isArray(raw.players) ? raw.players.map(p => mapPlayerStatsRanked(asRaw(p))) : [],
     bannedAgainst: Array.isArray(raw.bannedAgainst) ? raw.bannedAgainst.map(mapBanCount) : [],
     bannedBy: Array.isArray(raw.bannedBy) ? raw.bannedBy.map(mapBanCount) : [],
@@ -379,6 +445,33 @@ function mapChampionStats(raw: Raw): ChampionStats {
   };
 }
 
+// --------------------------------------------------------------- stat totals
+
+const TOTALS_FIELDS = [
+  "teams", "players", "matches", "games", "gameDays", "championsPicked", "championsBanned",
+  "kills", "deaths", "assists", "gold", "damage", "cs", "visionScore", "wardsPlaced",
+  "wardsCleared", "controlWards", "turrets", "dragons", "barons", "heralds", "grubs",
+  "soloKills", "doubleKills", "tripleKills", "quadraKills", "pentaKills",
+  "playtimeSeconds", "longestGameSeconds", "shortestGameSeconds",
+] as const;
+
+/**
+ * Every field goes through `numOrNull`, including the counts.
+ *
+ * Elsewhere counts use `num` with a zero fallback, because upstream always sends them. Here it
+ * would be wrong: this endpoint doesn't exist yet, so a field being absent is the *expected* case
+ * during rollout, and coercing it to 0 would put "0 KILLS" on the page.
+ */
+function mapStatTotals(conf: string, raw: Raw): StatTotals {
+  return {
+    conf: strOrNull(raw.conf) ?? conf,
+    firstGame: strOrNull(raw.firstGame),
+    lastGame: strOrNull(raw.lastGame),
+    updatedAt: strOrNull(raw.updatedAt),
+    ...pickRatios(raw, TOTALS_FIELDS),
+  };
+}
+
 // ----------------------------------------------------------------- endpoints
 
 export function tournaments(opts?: RequestOpts): Promise<Tournament[]> {
@@ -393,10 +486,35 @@ export function teamsForConf(conf: string, opts?: RequestOpts): Promise<TeamReco
   return getList<Raw>(`/teams/${encodeURIComponent(conf)}`, opts).then(rows => rows.map(mapTeamRecord));
 }
 
+/**
+ * Everything a team page needs, from the two endpoints that hold it.
+ *
+ * The conf listing is fetched in parallel for the roster and series record — `/teams/:c/:t`
+ * carries stats but neither. A failure there is swallowed: both are supplementary, and losing
+ * them should not take down a page whose main content arrived fine. Aborts still propagate, so a
+ * caller that navigated away isn't handed a half-built result.
+ */
 export async function teamDetail(conf: string, code: string, opts?: RequestOpts): Promise<TeamDetail | null> {
-  const raw = await getOne<Raw>(`/teams/${encodeURIComponent(conf)}/${encodeURIComponent(code)}`, opts);
+  const [raw, records] = await Promise.all([
+    getOne<Raw>(`/teams/${encodeURIComponent(conf)}/${encodeURIComponent(code)}`, opts),
+    teamsForConf(conf, opts).catch((e: unknown) => {
+      if (isAbort(e)) throw e;
+      return [] as TeamRecord[];
+    }),
+  ]);
   if (raw === null) return null;
-  return buildTeamDetail(conf, code, raw, opts);
+  return buildTeamDetail(conf, code, raw, records.find(t => t.code === code));
+}
+
+/**
+ * The conf's standings, already ranked.
+ *
+ * Preserve the order as returned — the tiebreakers are resolved server-side, and head-to-head
+ * cannot be reconstructed from any other endpoint this client calls. Needed only where a rank or
+ * a streak is shown; a team card's record rides along on `/teams/:conf` for free.
+ */
+export function standings(conf: string, opts?: RequestOpts): Promise<StandingRow[]> {
+  return getList<Raw>(`/standings/${encodeURIComponent(conf)}`, opts).then(rows => rows.map(mapStandingRow));
 }
 
 export function playerStats(conf: string, opts?: RequestOpts): Promise<PlayerStats[]> {
@@ -412,6 +530,19 @@ export function championStats(conf: string, role?: Role | null, opts?: RequestOp
     ? `/stats/champions/${encodeURIComponent(conf)}/${encodeURIComponent(role)}`
     : `/stats/champions/${encodeURIComponent(conf)}`;
   return getList<Raw>(path, opts).then(rows => rows.map(mapChampionStats));
+}
+
+/**
+ * Cumulative league totals for one conf.
+ *
+ * PROPOSED — the route does not exist upstream yet, and `getOne` maps a 404 to `null` without
+ * throwing, so this resolves to `null` until it ships and the totals bar simply doesn't render.
+ * Nothing needs to change on this side when it does.
+ */
+export function statTotals(conf: string, opts?: RequestOpts): Promise<StatTotals | null> {
+  return getOne<Raw>(`/stats/totals/${encodeURIComponent(conf)}`, opts).then(raw =>
+    raw === null ? null : mapStatTotals(conf, raw),
+  );
 }
 
 export function matchData(matchId: string, opts?: RequestOpts): Promise<RiotMatch | null> {
@@ -436,9 +567,11 @@ export const api = {
   teams,
   teamsForConf,
   teamDetail,
+  standings,
   playerStats,
   teamStats,
   championStats,
+  statTotals,
   matchData,
   articleViews,
   bumpArticleView,

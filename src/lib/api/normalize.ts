@@ -105,13 +105,6 @@ export function httpsUrl(u: string | null | undefined): string | undefined {
   return s.startsWith("http://") ? "https://" + s.slice("http://".length) : s;
 }
 
-/** PUUID columns are `char(78)`, so short values come back space-padded. */
-export function trimPuuid(v: string | null | undefined): string | null {
-  if (!v) return null;
-  const s = v.trim();
-  return s === "" ? null : s;
-}
-
 export const ROLE_ORDER = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"] as const;
 export type Role = (typeof ROLE_ORDER)[number];
 
@@ -139,6 +132,32 @@ export function normalizeRole(v: string | null | undefined): Role | null {
 
 export function isRole(v: string): v is Role {
   return (ROLE_ORDER as readonly string[]).includes(v);
+}
+
+/**
+ * Display labels. `UTILITY` is Riot's internal name for the support position and nobody in the
+ * league calls it that; every other role reads the same either way.
+ *
+ * Only the *label* differs. The canonical value stays Riot's, because it is what the API filters
+ * on (`/stats/champions/:conf/:role`) and what `playerstats.role` is keyed by.
+ */
+const ROLE_LABELS: Record<Role, string> = {
+  TOP: "TOP",
+  JUNGLE: "JUNGLE",
+  MIDDLE: "MIDDLE",
+  BOTTOM: "BOTTOM",
+  UTILITY: "SUPPORT",
+};
+
+/**
+ * How a role should be shown.
+ *
+ * Passes anything it doesn't recognise straight through, so a filter's pseudo-value (`"ALL"`) or an
+ * unnormalized string from upstream renders as itself rather than as the missing-value fallback.
+ */
+export function roleLabel(role: string | null | undefined, fallback = "—"): string {
+  if (!role) return fallback;
+  return ROLE_LABELS[role as Role] ?? role;
 }
 
 /** Sort rows into canonical role order, with unknown roles last. */

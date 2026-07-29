@@ -9,12 +9,17 @@
  * later presentation change rather than a data-layer one.
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { errorMessage, getLeagueContext, isAbort, type Tournament } from "./api";
+import { useQuery } from "@tanstack/react-query";
+import { errorMessage, resolveActiveConfs, sortByRecency, type Tournament } from "./api";
+import { queries } from "./queries";
 
 /** Selection sentinel meaning "whatever is running now", however many confs that is. */
 export const CURRENT = "current";
+
+/** Query param the selection lives in. Exported so links can carry it between sections. */
+export const CONF_PARAM = "conf";
 
 interface LeagueContextValue {
   /** All tournaments, newest first. */
@@ -36,26 +41,20 @@ const LeagueCtx = createContext<LeagueContextValue | null>(null);
 
 export function LeagueProvider({ children }: { children: ReactNode }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [activeConfs, setActiveConfs] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const ac = new AbortController();
-    setLoading(true);
-    setError(null);
-    getLeagueContext({ signal: ac.signal })
-      .then(ctx => {
-        setTournaments(ctx.tournaments);
-        setActiveConfs(ctx.activeConfs);
-      })
-      .catch(e => { if (!isAbort(e)) setError(errorMessage(e)); })
-      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
-    return () => ac.abort();
-  }, []);
+  // The same query any other consumer of `/tournaments` uses, so the list is fetched once for the
+  // session. Ordering and "which season is now" are derived here rather than served — see
+  // `lib/api/league.ts`.
+  const { data, isPending, error: failure } = useQuery(queries.tournaments());
+  const { tournaments, activeConfs } = useMemo(() => {
+    const list = sortByRecency(data ?? []);
+    return { tournaments: list, activeConfs: resolveActiveConfs(list) };
+  }, [data]);
 
-  const requested = searchParams.get("conf");
+  const loading = isPending;
+  const error = failure ? errorMessage(failure) : null;
+
+  const requested = searchParams.get(CONF_PARAM);
   const known = useMemo(() => new Set(tournaments.map(t => t.conf)), [tournaments]);
 
   // Ignore an unknown ?conf= rather than rendering an error page for a stale link.
@@ -66,8 +65,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       setSearchParams(
         prev => {
           const next = new URLSearchParams(prev);
-          if (value === CURRENT) next.delete("conf");
-          else next.set("conf", value);
+          if (value === CURRENT) next.delete(CONF_PARAM);
+          else next.set(CONF_PARAM, value);
           return next;
         },
         { replace: false },
@@ -102,4 +101,25 @@ export function useLeague(): LeagueContextValue {
   const ctx = useContext(LeagueCtx);
   if (!ctx) throw new Error("useLeague must be used inside a LeagueProvider");
   return ctx;
+}
+
+/**
+ * Builds a link to another part of the site that keeps the season being viewed.
+ *
+ * The selection lives in the query string, so a plain `<Link to="/teams">` navigates with an empty
+ * query and drops it — every tab click would snap the site back to the current season. Only the
+ * season travels; any other param belongs to the page that set it.
+ *
+ * Carries the *resolved* selection rather than the raw param, so a stale `?conf=` that no longer
+ * names a tournament is dropped instead of being propagated.
+ */
+export function useSeasonLink(): (pathname: string) => { pathname: string; search: string } {
+  const { selection } = useLeague();
+  return useCallback(
+    (pathname: string) => ({
+      pathname,
+      search: selection === CURRENT ? "" : `?${CONF_PARAM}=${encodeURIComponent(selection)}`,
+    }),
+    [selection],
+  );
 }

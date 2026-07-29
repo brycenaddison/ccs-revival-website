@@ -11,6 +11,10 @@ export function TeamBadge({ team, size = 24 }: TeamBadgeProps) {
       <img
         src={team.logo_url}
         alt={team.name || ""}
+        loading="lazy"
+        decoding="async"
+        width={size}
+        height={size}
         className="shrink-0 object-contain"
         style={{
           width: size,

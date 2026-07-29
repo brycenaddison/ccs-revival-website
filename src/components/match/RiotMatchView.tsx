@@ -1,13 +1,11 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   errorMessage,
   fmtSec,
-  isAbort,
-  matchData,
-  type RiotMatch,
   type RiotParticipant,
   type RiotTeam,
 } from "../../lib/api";
+import { queries } from "../../lib/queries";
 import { useChampions } from "../../hooks/useChampions";
 import type { ChampionLookup } from "../../lib/championData";
 import { ChampionIcon } from "./ChampionIcon";
@@ -18,25 +16,13 @@ interface Props {
 }
 
 export function RiotMatchView({ matchId, onBack }: Props) {
-  const [data, setData] = useState<RiotMatch | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
   // The raw Riot payload has no champion artwork or display names; resolve them from DDragon.
   const champions = useChampions();
+  // A finished game never changes, so this is cached for the session and never revalidated.
+  const { data, isPending, error } = useQuery(queries.matchData(matchId));
 
-  useEffect(() => {
-    const ac = new AbortController();
-    setLoading(true);
-    setErr(null);
-    matchData(matchId, { signal: ac.signal })
-      .then(setData)
-      .catch(e => { if (!isAbort(e)) setErr(errorMessage(e)); })
-      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
-    return () => ac.abort();
-  }, [matchId]);
-
-  if (loading) return <div className="text-center py-10 text-text-subtle">Loading match...</div>;
-  if (err) return <div className="text-center py-10 text-ccs-red">{err}</div>;
+  if (isPending) return <div className="text-center py-10 text-text-subtle">Loading match...</div>;
+  if (error) return <div className="text-center py-10 text-ccs-red">{errorMessage(error)}</div>;
   if (!data?.info) return <div className="text-center py-10 text-text-dim">No match data found.</div>;
 
   const info = data.info;

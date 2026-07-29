@@ -1,18 +1,15 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   errorMessage,
   fmtSec,
-  isAbort,
-  teamDetail,
-  teamsForConf,
-  tournaments as fetchTournaments,
   type MatchlistEntry,
   type MatchlistRoleKey,
   type TeamRecord,
-  type Tournament,
 } from "../lib/api";
 import { bestOfForWeek, parseSeriesKey } from "../lib/leagueAdapters";
+import { queries } from "../lib/queries";
 import { TeamBadge } from "../components/TeamBadge";
 import { TeamLink } from "../components/league/TeamLink";
 import { ChampionIcon } from "../components/match/ChampionIcon";
@@ -60,59 +57,46 @@ function badgeOf(team: TeamRecord | undefined, code: string) {
 export default function MatchDetail() {
   const { seriesId } = useParams<{ seriesId: string }>();
   const navigate = useNavigate();
-  const [data, setData] = useState<SeriesData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   // Matchlist rows carry a champion display name but no icon.
   const champions = useChampions();
 
-  useEffect(() => {
-    const parsed = seriesId ? parseSeriesKey(seriesId) : null;
-    if (!parsed) {
-      setError("That match link isn't valid.");
-      setLoading(false);
-      return;
-    }
+  const parsed = seriesId ? parseSeriesKey(seriesId) : null;
 
-    const ac = new AbortController();
-    const opts = { signal: ac.signal };
-    setLoading(true);
-    setError(null);
+  // Three queries, all shared: the conf listing and the tournament list are the same ones the
+  // league loader holds, so arriving from a scoreboard link usually only fetches the team detail.
+  const detailQuery = useQuery({ ...queries.teamDetail(parsed?.conf ?? "", parsed?.codeA ?? ""), enabled: !!parsed });
+  const recordsQuery = useQuery({ ...queries.teamsForConf(parsed?.conf ?? ""), enabled: !!parsed });
+  const tournamentsQuery = useQuery(queries.tournaments());
 
-    Promise.all([
-      teamDetail(parsed.conf, parsed.codeA, opts),
-      teamsForConf(parsed.conf, opts),
-      fetchTournaments(opts).catch(() => [] as Tournament[]),
-    ])
-      .then(([detail, records, allTournaments]) => {
-        if (ac.signal.aborted) return;
-        const games = (detail?.matchlist ?? []).filter(
-          m => m.week === parsed.week && m.opponent === parsed.codeB,
-        );
-        if (games.length === 0) {
-          setError("No games recorded for this match.");
-          setLoading(false);
-          return;
-        }
-        const tournament = allTournaments.find(t => t.conf === parsed.conf);
-        setData({
-          ...parsed,
-          teamA: records.find(t => t.code === parsed.codeA),
-          teamB: records.find(t => t.code === parsed.codeB),
-          games,
-          bestOf: bestOfForWeek(tournament, parsed.week),
-          seasonName: tournament?.shortname ?? tournament?.name,
-        });
-        setLoading(false);
-      })
-      .catch(e => {
-        if (isAbort(e) || ac.signal.aborted) return;
-        setError(errorMessage(e));
-        setLoading(false);
-      });
+  const loading = !!parsed && (detailQuery.isPending || recordsQuery.isPending);
+  const failure = detailQuery.error ?? recordsQuery.error;
 
-    return () => ac.abort();
-  }, [seriesId]);
+  const data = useMemo<SeriesData | null>(() => {
+    if (!parsed || !detailQuery.data) return null;
+    const games = detailQuery.data.matchlist.filter(
+      m => m.week === parsed.week && m.opponent === parsed.codeB,
+    );
+    if (games.length === 0) return null;
+    const records = recordsQuery.data ?? [];
+    // A failed tournament list costs the best-of and the season label, nothing more.
+    const tournament = (tournamentsQuery.data ?? []).find(t => t.conf === parsed.conf);
+    return {
+      ...parsed,
+      teamA: records.find(t => t.code === parsed.codeA),
+      teamB: records.find(t => t.code === parsed.codeB),
+      games,
+      bestOf: bestOfForWeek(tournament, parsed.week),
+      seasonName: tournament?.shortname ?? tournament?.name,
+    };
+  }, [parsed, detailQuery.data, recordsQuery.data, tournamentsQuery.data]);
+
+  const error = !parsed
+    ? "That match link isn't valid."
+    : failure
+      ? errorMessage(failure)
+      : !loading && !data
+        ? "No games recorded for this match."
+        : null;
 
   if (loading) {
     return (

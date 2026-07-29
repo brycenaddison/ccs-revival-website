@@ -1,18 +1,26 @@
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { ThemeToggle } from "../ThemeToggle";
 import { AuthControl } from "../auth/AuthControl";
+import { useSeasonLink } from "../../lib/leagueContext";
+import { TABS, tabForPathname } from "../../lib/tabs";
 
 interface Props {
-  active: string;
-  setActive: (tab: string) => void;
   isMobile: boolean;
 }
 
-const TABS = ["Home", "Scores", "Schedule", "Standings", "Stats", "Teams"];
 const EXTERNAL_LINKS = [{ label: "Merch", href: "https://classicchampionshipseries.itemorder.com/shop/sale/" }];
 
-export function NavBar({ active, setActive, isMobile }: Props) {
+/**
+ * Tabs are real links, so they can be opened in a new tab, bookmarked and shared. Which one is
+ * current comes from the URL rather than a prop — there is no second source of truth to keep in
+ * step with it.
+ */
+export function NavBar({ isMobile }: Props) {
   const [open, setOpen] = useState(false);
+  const active = tabForPathname(useLocation().pathname);
+  // Tabs change only the section, so they keep the season being viewed.
+  const seasonLink = useSeasonLink();
 
   if (isMobile) {
     return (
@@ -42,15 +50,17 @@ export function NavBar({ active, setActive, isMobile }: Props) {
         {open && (
           <div className="absolute top-full left-0 right-0 bg-bg2 border-b-2 border-accent z-[100] shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
             {TABS.map(t => (
-              <button
-                key={t}
-                onClick={() => { setActive(t); setOpen(false); }}
-                className={`block w-full text-left bg-transparent border-none cursor-pointer py-3.5 px-5 font-heading text-sm tracking-wider uppercase border-l-[3px] ${
-                  active === t ? "bg-bg-input text-text-bright font-bold border-l-accent" : "text-text-secondary font-normal border-l-transparent"
+              <Link
+                key={t.path}
+                to={seasonLink(t.path)}
+                onClick={() => setOpen(false)}
+                aria-current={active === t.label ? "page" : undefined}
+                className={`block w-full text-left bg-transparent border-none cursor-pointer py-3.5 px-5 font-heading text-sm tracking-wider uppercase border-l-[3px] no-underline ${
+                  active === t.label ? "bg-bg-input text-text-bright font-bold border-l-accent" : "text-text-secondary font-normal border-l-transparent"
                 }`}
               >
-                {t}
-              </button>
+                {t.label}
+              </Link>
             ))}
             {EXTERNAL_LINKS.map(l => (
               <a
@@ -89,15 +99,16 @@ export function NavBar({ active, setActive, isMobile }: Props) {
       </div>
       <div className="justify-self-center flex items-center min-w-0 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         {TABS.map(t => (
-          <button
-            key={t}
-            onClick={() => setActive(t)}
-            className={`bg-transparent cursor-pointer py-3.5 px-2.5 lg:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase border-0 ${
-              active === t ? "text-text-bright font-bold border-b-2 border-b-accent" : "text-text-secondary font-normal border-b-2 border-b-transparent"
+          <Link
+            key={t.path}
+            to={seasonLink(t.path)}
+            aria-current={active === t.label ? "page" : undefined}
+            className={`bg-transparent cursor-pointer py-3.5 px-2.5 lg:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase no-underline ${
+              active === t.label ? "text-text-bright font-bold border-b-2 border-b-accent" : "text-text-secondary font-normal border-b-2 border-b-transparent"
             }`}
           >
-            {t}
-          </button>
+            {t.label}
+          </Link>
         ))}
         {EXTERNAL_LINKS.map(l => (
           <a

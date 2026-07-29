@@ -7,8 +7,6 @@
  * in the data layer now means adding multi-league UI later is a presentation change only.
  */
 
-import { tournaments as fetchTournaments } from "./client";
-import type { RequestOpts } from "./http";
 import type { Tournament } from "./types";
 
 const SEASON_ORDER: Readonly<Record<string, number>> = {
@@ -68,18 +66,6 @@ export function resolveActiveConfs(list: readonly Tournament[]): string[] {
 
   const newest = sortByRecency(list)[0];
   return newest ? [newest.conf] : [];
-}
-
-export interface LeagueContextData {
-  /** All tournaments, newest first. */
-  tournaments: Tournament[];
-  /** Confs making up the current league. Possibly empty. */
-  activeConfs: string[];
-}
-
-export async function getLeagueContext(opts?: RequestOpts): Promise<LeagueContextData> {
-  const list = sortByRecency(await fetchTournaments(opts));
-  return { tournaments: list, activeConfs: resolveActiveConfs(list) };
 }
 
 /**

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { CSSProperties, ReactNode } from "react";
 import { parseTeamKey } from "../../lib/leagueAdapters";
+import { useSeasonLink } from "../../lib/leagueContext";
 import type { Team } from "../../types/league";
 
 /** Canonical path for a team's page. Teams are identified by (conf, code), not code alone. */
@@ -32,6 +33,9 @@ interface Props {
  * branch on partial data — a team with no conf simply isn't a link.
  */
 export function TeamLink({ team, conf, code, className, style, title, stopPropagation, children }: Props) {
+  // The team page reads its conf from the path, so it doesn't need the season itself — but its
+  // "back to CCS" link does, and it can only carry what arrived in the URL.
+  const seasonLink = useSeasonLink();
   const resolved = team ? parseTeamKey(team.id) : conf && code ? { conf, code } : null;
   if (!resolved) {
     return (
@@ -43,7 +47,7 @@ export function TeamLink({ team, conf, code, className, style, title, stopPropag
 
   return (
     <Link
-      to={teamPath(resolved.conf, resolved.code)}
+      to={seasonLink(teamPath(resolved.conf, resolved.code))}
       className={className}
       style={style}
       title={title}

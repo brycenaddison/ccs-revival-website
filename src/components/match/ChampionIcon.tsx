@@ -39,6 +39,9 @@ export function ChampionIcon({
         src={info.icon}
         alt={label}
         loading="lazy"
+        decoding="async"
+        width={size}
+        height={size}
         className="rounded shrink-0"
         style={{ width: size, height: size }}
       />

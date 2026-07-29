@@ -19,9 +19,14 @@ export function HeroArticle({ article, isMobile, onClick }: Props) {
     >
       {/* Background image or gradient */}
       {article.image_url ? (
+        /* The hero is the LCP element, so it loads eagerly and ahead of the other artwork —
+           every other image on the page is lazy so they don't compete with it. */
         <img
           src={article.image_url}
           alt=""
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
           className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
       ) : (

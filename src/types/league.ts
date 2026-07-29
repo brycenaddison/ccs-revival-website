@@ -48,8 +48,10 @@ export interface Match {
 /**
  * A team's record in the standings table.
  *
- * `wins`/`losses` are **series** results. Game-level records live on `Game[]` and are used
- * only as a tiebreaker — see `src/lib/tiebreakers.ts`.
+ * `wins`/`losses` are **series** results, which is what a table ranks on. The game record below is
+ * a tiebreaker input, not a ranking: a 2-1 series win is one series win and three games.
+ *
+ * Ranking itself is the API's job — `rank`/`place` arrive resolved, ties included.
  */
 export interface Standing {
   id: string;
@@ -57,6 +59,24 @@ export interface Standing {
   split_id: string;
   wins: number;
   losses: number;
+  /**
+   * Individual game record, as served alongside the series record. A tiebreaker input only —
+   * ranking is on `wins`/`losses`, which are series. Absent when nothing supplied it.
+   */
+  gameWins?: number;
+  gameLosses?: number;
+  /** 0–1. The first tiebreaker, shown so a table can explain a separation. */
+  gameWinPct?: number | null;
+  /**
+   * Position as ranked by the API, and that rank as displayed (`"T-2"` for a tie).
+   *
+   * Set only on standings from `/standings/:conf`. Teams level on every tiebreaker legitimately
+   * share a rank, and a shared rank consumes the positions it covers — do not renumber rows by
+   * their index.
+   */
+  rank?: number;
+  place?: string;
+  /** Current run of series results. Set only on standings from `/standings/:conf`. */
   streak?: string;
   teams?: Team & { divisions?: { name: string } };
   /**
@@ -159,11 +179,15 @@ export interface TwitchEmbed {
   created_at?: string;
 }
 
+/**
+ * What the shared league loader provides. Player leaderboards and ranked standings are not here:
+ * they need their own requests, so they load through `usePlayers` / `useStandings` only where they
+ * are shown.
+ */
 export interface LeagueData {
   teams: Team[];
   matches: Match[];
   standings: Standing[];
-  players: Player[];
   rosters: Roster[];
   articles: Article[];
   splits: Split[];

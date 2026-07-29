@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   errorMessage,
   fmtPct,
   fmtRatio,
-  isAbort,
-  playerStats,
   ROLE_ORDER,
+  roleLabel,
   sortValue,
   type PlayerStats,
   type Role,
 } from "../../lib/api";
+import { queries } from "../../lib/queries";
 import { TeamLink } from "../league/TeamLink";
 
 interface Props {
@@ -48,23 +49,13 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ];
 
 export function PlayerStatsTable({ conf }: Props) {
-  const [players, setPlayers] = useState<PlayerStats[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
   const [role, setRole] = useState<Role | "ALL">("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("kda");
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    const ac = new AbortController();
-    setLoading(true);
-    setErr(null);
-    playerStats(conf, { signal: ac.signal })
-      .then(setPlayers)
-      .catch(e => { if (!isAbort(e)) setErr(errorMessage(e)); })
-      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
-    return () => ac.abort();
-  }, [conf]);
+  // Same key the home page's leaderboards use, so whichever loads second reads the first's copy.
+  const { data, isPending, error } = useQuery(queries.playerStats(conf));
+  const players = data ?? [];
 
   const filtered = useMemo(() => {
     let rows = players;
@@ -76,8 +67,8 @@ export function PlayerStatsTable({ conf }: Props) {
     return [...rows].sort((a, b) => sortValue(b[sortKey]) - sortValue(a[sortKey]));
   }, [players, role, sortKey, search]);
 
-  if (loading) return <div className="text-center py-10 text-text-subtle">Loading players...</div>;
-  if (err) return <div className="text-center py-10 text-ccs-red">{err}</div>;
+  if (isPending) return <div className="text-center py-10 text-text-subtle">Loading players...</div>;
+  if (error) return <div className="text-center py-10 text-ccs-red">{errorMessage(error)}</div>;
   if (players.length === 0) return <div className="text-center py-10 text-text-dim">No games played yet this season.</div>;
 
   return (
@@ -90,7 +81,7 @@ export function PlayerStatsTable({ conf }: Props) {
               onClick={() => setRole(r)}
               className={`py-1.5 px-3 text-[11px] font-heading uppercase tracking-wider rounded border ${role === r ? "bg-accent text-white border-accent" : "bg-bg2 text-text-secondary border-border"}`}
             >
-              {r}
+              {roleLabel(r)}
             </button>
           ))}
         </div>
@@ -138,11 +129,11 @@ export function PlayerStatsTable({ conf }: Props) {
                 <td className="py-2.5 px-3 font-heading font-bold text-text-bright">{p.name}</td>
                 <td className="py-2.5 px-3">
                   <TeamLink conf={p.conf} code={p.team} className="flex items-center gap-2 no-underline group">
-                    {p.logo && <img src={p.logo} alt="" className="w-5 h-5 rounded object-contain" />}
+                    {p.logo && <img src={p.logo} alt="" loading="lazy" decoding="async" className="w-5 h-5 rounded object-contain" />}
                     <span className="text-xs text-text-secondary group-hover:text-accent">{p.team}</span>
                   </TeamLink>
                 </td>
-                <td className="text-center py-2.5 px-2 text-[10px] text-text-muted">{p.role ?? "—"}</td>
+                <td className="text-center py-2.5 px-2 text-[10px] text-text-muted">{roleLabel(p.role)}</td>
                 <td className="text-center py-2.5 px-2">{p.games}</td>
                 <td className="text-center py-2.5 px-2 text-xs"><span className="text-ccs-green">{p.wins}</span>-<span className="text-ccs-red">{p.losses}</span></td>
                 <td className="text-center py-2.5 px-2 font-mono text-xs">{fmtPct(p.winPercent)}</td>

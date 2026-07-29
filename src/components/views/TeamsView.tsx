@@ -1,3 +1,4 @@
+import { roleLabel } from "../../lib/api";
 import { teamInitial } from "../../lib/utils";
 import { TeamLink } from "../league/TeamLink";
 import type { Team, Standing, Roster } from "../../hooks/useLeagueData";
@@ -28,7 +29,7 @@ export function TeamsView({ teams, standings, rosters, isMobile }: Props) {
                 style={{ background: `linear-gradient(135deg, ${t.color_primary || "#333"}, ${t.color_accent || "#555"})` }}
               >
                 {t.logo_url ? (
-                  <img src={t.logo_url} alt={t.name} className="w-12 h-12 rounded-lg object-contain bg-black/20" />
+                  <img src={t.logo_url} alt={t.name} loading="lazy" decoding="async" className="w-12 h-12 rounded-lg object-contain bg-black/20" />
                 ) : (
                   <div className="w-12 h-12 rounded-lg bg-black/30 flex items-center justify-center text-xl text-white font-bold font-heading">
                     {teamInitial(t.name)}
@@ -55,7 +56,9 @@ export function TeamsView({ teams, standings, rosters, isMobile }: Props) {
                             {r.players?.display_name || "Unknown"}
                             {r.is_captain && <span className="text-[9px] text-ccs-orange ml-1.5 font-bold tracking-wide">C</span>}
                           </td>
-                          <td className="py-2 text-[11px] text-text-muted text-right font-heading uppercase tracking-wide">{r.role || "\u2014"}</td>
+                          {/* Empty rather than a dash: the bench genuinely has no assigned role,
+                              so a placeholder would imply the data is missing. */}
+                          <td className="py-2 text-[11px] text-text-muted text-right font-heading uppercase tracking-wide">{roleLabel(r.role, "")}</td>
                           <td className="py-2 pl-3 text-[10px] text-right">
                             {r.is_starter ? <span className="text-ccs-green">Starter</span> : <span className="text-ccs-red">Sub</span>}
                           </td>

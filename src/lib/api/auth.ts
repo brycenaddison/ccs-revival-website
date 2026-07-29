@@ -42,6 +42,68 @@ export const ANONYMOUS: Identity = { authenticated: false, profile: null, roles:
  */
 export const loginUrl = (): string => `${API_BASE}/auth/discord/login`;
 
+/**
+ * Where the Riot-link popup goes.
+ *
+ * Must be opened as a popup, not fetched: a popup is a top-level navigation, so the `SameSite=Lax`
+ * session cookie rides along — which is why this flow needs no cookie-policy loosening. The
+ * endpoint 404s on a deployment without RSO configured, and cross-origin that is indistinguishable
+ * from the user closing the window.
+ */
+export const riotLinkUrl = (): string => `${API_BASE}/auth/riot/login`;
+
+/** Every outcome the Riot callback reports. Only the first three are successes. */
+export type RiotLinkStatus =
+  | "linked"
+  | "already_linked"
+  | "merged"
+  | "invalid_state"
+  | "denied"
+  | "bad_request"
+  | "no_profile"
+  | "bad_gateway"
+  | "error";
+
+/** What the callback page posts to `window.opener` before closing itself. */
+export interface RiotLinkMessage {
+  source: typeof RIOT_LINK_SOURCE;
+  ok: boolean;
+  status: RiotLinkStatus;
+  puuid?: string | null;
+  riotId?: string | null;
+  /** True when another profile owned the puuid and was absorbed into this one. */
+  merged?: boolean;
+  error?: string | null;
+}
+
+const RIOT_LINK_SOURCE = "ccs-riot-link";
+
+/**
+ * The origin the popup posts from.
+ *
+ * The callback page is served by the API, so its message arrives stamped with the *API's* origin —
+ * `WEB_ORIGIN` is only the target it aims at. Anything from another origin is somebody else's
+ * message and is discarded.
+ */
+const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE, window.location.href).origin;
+  } catch {
+    return window.location.origin;
+  }
+})();
+
+/** Narrows a `message` event to a trustworthy Riot-link result. */
+export function isRiotLinkMessage(e: MessageEvent): e is MessageEvent<RiotLinkMessage> {
+  if (e.origin !== API_ORIGIN) return false;
+  const data: unknown = e.data;
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    (data as { source?: unknown }).source === RIOT_LINK_SOURCE
+  );
+}
+
 function authFetch(path: string, init: RequestInit = {}, opts?: RequestOpts): Promise<Response> {
   return fetch(`${API_BASE}${path}`, {
     ...init,
@@ -94,4 +156,4 @@ export async function logoutAll(opts?: RequestOpts): Promise<void> {
 }
 
 /** Namespaced so `logout`/`me` don't collide with the same names in consuming components. */
-export const auth = { loginUrl, me, logout, logoutAll };
+export const auth = { loginUrl, riotLinkUrl, isRiotLinkMessage, me, logout, logoutAll };

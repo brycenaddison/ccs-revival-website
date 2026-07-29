@@ -2,40 +2,35 @@ import { useState } from "react";
 import { TeamBadge } from "../TeamBadge";
 import { TeamLink } from "../league/TeamLink";
 import { getPlayoffScenario } from "../../lib/playoffScenarios";
-import { buildGameRecords, sortStandingsWithTiebreakers } from "../../lib/tiebreakers";
-import type { Standing, Team, Match, Game } from "../../hooks/useLeagueData";
+import type { Standing, Team } from "../../hooks/useLeagueData";
 
 interface Props {
+  /** Ranked, from `useStandings`. Rendered in the order given — see the note below. */
   standings: Standing[];
-  teams: Team[];
-  matches: Match[];
-  games: Game[];
   isMobile: boolean;
 }
 
-export function StandingsView({ standings, teams, matches, games, isMobile }: Props) {
+/** Game record as text, or "—" for a team with no games. */
+function games(s: Standing): string {
+  if (s.gameWins === undefined || s.gameLosses === undefined) return "—";
+  return s.gameWins + s.gameLosses === 0 ? "—" : `${s.gameWins}-${s.gameLosses}`;
+}
+
+export function StandingsView({ standings, isMobile }: Props) {
   const divs = [...new Set(standings.map(s => s.teams?.divisions?.name).filter(Boolean))] as string[];
   const [div, setDiv] = useState(divs[0] || "All");
-  const filtered = div === "All" ? standings : standings.filter(s => s.teams?.divisions?.name === div);
-  const gameRecords = buildGameRecords(games);
-  const sorted = sortStandingsWithTiebreakers(filtered, matches, gameRecords);
 
-  // Compute each team's position within their own group for scenario mapping
-  const groupPositions: Record<string, number> = {};
-  const byGroup: Record<string, Standing[]> = {};
-  standings.forEach(s => {
-    const groupName = s.teams?.divisions?.name || "_none";
-    if (!byGroup[groupName]) byGroup[groupName] = [];
-    byGroup[groupName].push(s);
-  });
-  Object.values(byGroup).forEach(group => {
-    const groupSorted = [...group].sort((a, b) => b.wins - a.wins || a.losses - b.losses);
-    groupSorted.forEach((s, i) => { groupPositions[s.id] = i + 1; });
-  });
+  // Order and positions both come from the API, which resolves series record, then game win
+  // percentage, then head-to-head among the teams still level. Nothing is re-sorted here:
+  // head-to-head can't be recomputed from anything this page loads, and teams level on all three
+  // legitimately *share* a rank — renumbering rows by index would invent an order the league
+  // doesn't recognise. `place` carries the tie marker ("T-2").
+  const rows = div === "All" ? standings : standings.filter(s => s.teams?.divisions?.name === div);
 
-  // Standings need match (series) results, which no bulk endpoint provides yet. Game records
-  // from /stats/teams/:conf are deliberately not substituted — they'd read as match records
-  // and be wrong by roughly 2.5×.
+  // Ranks are per conf, so with several active at once a team's own group position is its rank
+  // within its division rather than its position in the merged list.
+  const rankOf = (s: Standing, i: number) => s.rank ?? i + 1;
+
   if (!standings.length) return <div className="py-10 text-center text-text-dim text-[13px]">Standings aren't available yet.</div>;
 
   return (
@@ -60,11 +55,12 @@ export function StandingsView({ standings, teams, matches, games, isMobile }: Pr
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              {["#", "TEAM", "W", "L", "WIN%", "STREAK"].map(h => (
+              {["#", "TEAM", "W", "L", "WIN%", "GAMES", "STREAK"].map(h => (
                 <th
                   key={h}
+                  title={h === "GAMES" ? "Individual games won-lost. The first tiebreaker." : undefined}
                   className={`px-3.5 py-3 text-[10px] text-text-muted font-heading font-normal tracking-wider border-b border-border ${
-                    ["W", "L", "WIN%", "STREAK"].includes(h) ? "text-center" : "text-left"
+                    ["W", "L", "WIN%", "GAMES", "STREAK"].includes(h) ? "text-center" : "text-left"
                   }`}
                 >
                   {h}
@@ -75,12 +71,11 @@ export function StandingsView({ standings, teams, matches, games, isMobile }: Pr
             </tr>
           </thead>
           <tbody>
-            {sorted.map((s, i) => {
+            {rows.map((s, i) => {
               const t = s.teams || {} as Team;
               const total = s.wins + s.losses;
               const pct = total > 0 ? Math.round((s.wins / total) * 100) : 0;
-              const pos = i + 1;
-              const groupPos = groupPositions[s.id] || pos;
+              const groupPos = rankOf(s, i);
               const scenario = getPlayoffScenario(groupPos);
               // Tier separator: thick line between playoff tiers
               const tierBreaks = [1, 3, 4, 5, 6]; // after these positions
@@ -97,7 +92,8 @@ export function StandingsView({ standings, teams, matches, games, isMobile }: Pr
                     borderBottom: showTierBreak ? `2px solid ${rowBorder}` : undefined,
                   }}
                 >
-                  <td className="px-3.5 py-3.5 font-display text-lg" style={{ color: numColor }}>{pos}</td>
+                  {/* `place` already marks a tie ("T-2"); the index would hide it. */}
+                  <td className="px-3.5 py-3.5 font-display text-lg" style={{ color: numColor }}>{s.place ?? groupPos}</td>
                   <td className="px-3.5 py-3.5">
                     <TeamLink team={t} className="flex items-center gap-2.5 no-underline group">
                       <TeamBadge team={t} size={28} />
@@ -110,6 +106,12 @@ export function StandingsView({ standings, teams, matches, games, isMobile }: Pr
                   <td className="px-3.5 py-3.5 text-center font-mono text-sm text-ccs-green font-bold">{s.wins}</td>
                   <td className="px-3.5 py-3.5 text-center font-mono text-sm text-ccs-red font-bold">{s.losses}</td>
                   <td className="px-3.5 py-3.5 text-center font-mono text-[13px] text-text-secondary">{pct}%</td>
+                  <td
+                    className="px-3.5 py-3.5 text-center font-mono text-[13px] text-text-muted"
+                    title={s.gameWinPct == null ? undefined : `${Math.round(s.gameWinPct * 100)}% of games won`}
+                  >
+                    {games(s)}
+                  </td>
                   <td className={`px-3.5 py-3.5 text-center font-mono text-[13px] font-bold ${(s.streak || "").startsWith("W") ? "text-ccs-green" : "text-ccs-red"}`}>
                     {s.streak || "—"}
                   </td>

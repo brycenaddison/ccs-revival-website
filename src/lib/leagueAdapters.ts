@@ -1,13 +1,24 @@
 /**
  * Maps CCS API responses onto the view-model shapes in `src/types/league.ts`.
  *
- * Series and standings are *not* derived here. Reconstructing them needs match results, and
- * the only endpoint carrying those is the single-team page, which must not be called in bulk.
- * `GET /matches/:conf` and `GET /standings/:conf` will supply them server-side.
+ * Nothing here derives a record or a ranking. Both are served — `/standings/:conf` ranks and
+ * resolves tiebreakers, and every `/teams` row carries its own record — and are only reshaped.
+ * Counting series client-side would miss forfeits, which exist outside `matchlist`. Series come
+ * from `GET /matches/:conf`, not yet loaded.
  */
 
-import { fmtRatio, hexFromInt, lighten, type PlayerStats, type TeamRecord, type TeamStats, type Tournament } from "./api";
-import type { Player, Roster, Split, Team } from "../types/league";
+import {
+  fmtRatio,
+  hexFromInt,
+  lighten,
+  type PlayerStats,
+  type StandingRow,
+  type TeamRecord,
+  type TeamStats,
+  type Tournament,
+} from "./api";
+import { rosterEntries } from "./roster";
+import type { Player, Roster, Split, Standing, Team } from "../types/league";
 
 /**
  * Stable team identity across the app.
@@ -58,6 +69,77 @@ export function toTeam(rec: TeamRecord, groupName?: string): Team {
 
 export function toTeamFromStats(s: TeamStats, groupName?: string): Team {
   return toTeamBase(s.code, s.name, s.conf, s.color, s.colorHex, s.logo, groupName);
+}
+
+export function toTeamFromStanding(s: StandingRow, groupName?: string): Team {
+  return toTeamBase(s.code, s.name, s.conf, s.color, s.colorHex, s.logo, groupName);
+}
+
+// ------------------------------------------------------------------- standings
+
+/**
+ * Standings as the API ranks them.
+ *
+ * Order is preserved: `rank` and `place` come from the server, which resolves series record, game
+ * win percentage and head-to-head — the last of which no other endpoint here can reconstruct.
+ * Callers must render these in the order given and must not renumber rows by index, because ties
+ * share a rank and a shared rank consumes the positions it covers.
+ */
+export function toStandings(
+  rows: readonly StandingRow[],
+  teamsById: ReadonlyMap<string, Team>,
+  groupName?: string,
+): Standing[] {
+  return rows.map((r): Standing => {
+    const id = teamKey(r.conf, r.code);
+    return {
+      id,
+      team_id: id,
+      split_id: r.conf,
+      wins: r.seriesWins,
+      losses: r.seriesLosses,
+      gameWins: r.gameWins,
+      gameLosses: r.gameLosses,
+      gameWinPct: r.gameWinPct,
+      rank: r.rank,
+      place: r.place,
+      ...(r.streak ? { streak: r.streak } : {}),
+      teams: teamsById.get(id) ?? toTeamFromStanding(r, groupName),
+    };
+  });
+}
+
+/**
+ * Standings read off the team rows, for where a record is wanted but a rank is not.
+ *
+ * Every team on `/teams/:conf` carries its own `record`, so a team card's W-L costs no extra
+ * request. What it does not carry is `rank`, `place` or `streak` — those need `/standings/:conf`,
+ * which is why these rows come back **unranked** and must not be presented as a table.
+ *
+ * A team whose `record` is missing is omitted rather than shown at `0-0`, which is a real record
+ * upstream: an API too old to serve records yields no standings rather than a table of zeroes.
+ */
+export function toStandingsFromTeams(
+  records: readonly TeamRecord[],
+  teamsById: ReadonlyMap<string, Team>,
+  groupName?: string,
+): Standing[] {
+  return records.flatMap((rec): Standing[] => {
+    if (!rec.record) return [];
+    // One row per team, so the team's own identity is also the standing's.
+    const conf = rec.conf ?? "";
+    const id = teamKey(conf, rec.code);
+    return [{
+      id,
+      team_id: id,
+      split_id: conf,
+      wins: rec.record.seriesWins,
+      losses: rec.record.seriesLosses,
+      gameWins: rec.record.gameWins,
+      gameLosses: rec.record.gameLosses,
+      teams: teamsById.get(id) ?? toTeam(rec, groupName),
+    }];
+  });
 }
 
 // ------------------------------------------------------------------ series keys
@@ -116,29 +198,49 @@ export function toPlayers(stats: readonly PlayerStats[], teamsById: ReadonlyMap<
 }
 
 /**
- * Derive rosters from player statistics.
+ * Rosters exactly as the league declares them — the five starting slots and the bench, nothing
+ * else, and nothing derived from statistics.
  *
- * This only sees players who have recorded games: `teams` stores roster slots as PUUIDs and
- * there is no public PUUID→name lookup, so benched players and anyone without a linked
- * profile are invisible. A rosters endpoint would fix it — see the gap analysis.
+ * These used to be derived from `playerstats` alone, because `teams` stored roster slots as PUUIDs
+ * with no public PUUID→name lookup. That inverted the meaning of the list: it showed whoever had
+ * recorded a game, so a benched player was invisible, a stand-in looked like a squad member, and
+ * every entry was necessarily a starter. Slots now carry `{ profileId, name }`, so the declared
+ * roster is the source of truth — and `/teams/:conf` alone answers the whole question, with no
+ * stats request behind it.
+ *
+ * Two consequences of taking nothing from statistics:
+ *
+ *  - **A bench player has no role.** The bench isn't role-assigned; only a stat line could say what
+ *    someone actually played, and that is a record of appearances rather than a roster position.
+ *  - **A slot whose Riot ID no longer resolves shows its profile id.** Banned and deleted accounts
+ *    stop resolving; the name recorded when they played lives in `playerstats`, which this no
+ *    longer reads. The team's own page still has stats loaded and still uses the better fallback.
+ *
+ * Stat lines no slot claimed are dropped entirely. A team card answers "who is on this team", and
+ * someone who played without holding a slot is not an answer to that — they appear under "Other
+ * Appearances" on the team's own page, where there is room to say what they are.
  */
 export function toRosters(
-  stats: readonly PlayerStats[],
+  records: readonly TeamRecord[],
   teamsById: ReadonlyMap<string, Team>,
   splitName?: string,
 ): Roster[] {
-  return stats.map((p): Roster => ({
-    id: p.rowKey,
-    player_id: String(p.id),
-    team_id: teamKey(p.conf, p.team),
-    split_id: p.conf,
-    role: p.role ?? undefined,
-    is_captain: false,
-    is_starter: true,
-    players: { id: String(p.id), display_name: p.name },
-    teams: teamsById.get(teamKey(p.conf, p.team)),
-    ...(splitName ? { splits: { name: splitName } } : {}),
-  }));
+  const split: { splits?: { name: string } } = splitName ? { splits: { name: splitName } } : {};
+
+  return records.flatMap((rec): Roster[] => {
+    const conf = rec.conf ?? "";
+    const id = teamKey(conf, rec.code);
+    const base = { team_id: id, split_id: conf, is_captain: false, teams: teamsById.get(id), ...split };
+
+    return rosterEntries(rec).map((e): Roster => ({
+      ...base,
+      id: `${id}:${e.key}`,
+      player_id: String(e.profileId),
+      role: e.role ?? undefined,
+      is_starter: e.starter,
+      players: { id: String(e.profileId), display_name: e.name },
+    }));
+  });
 }
 
 // ---------------------------------------------------------------------- splits

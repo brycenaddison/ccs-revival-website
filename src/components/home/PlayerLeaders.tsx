@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { roleLabel } from "../../lib/api";
 import { teamInitial } from "../../lib/utils";
 import { TeamLink } from "../league/TeamLink";
 import type { Player } from "../../hooks/useLeagueData";
@@ -58,7 +59,7 @@ export function PlayerLeaders({ players, isMobile }: Props) {
           </span>
           <TeamLink team={p.team} className="flex items-center gap-2.5 flex-1 min-w-0 no-underline group">
             {p.team?.logo_url ? (
-              <img src={p.team.logo_url} alt={p.team.name || ""} className="w-8 h-8 rounded-full object-contain shrink-0" />
+              <img src={p.team.logo_url} alt={p.team.name || ""} loading="lazy" decoding="async" className="w-8 h-8 rounded-full object-contain shrink-0" />
             ) : (
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] text-white font-bold font-heading shrink-0"
@@ -69,7 +70,7 @@ export function PlayerLeaders({ players, isMobile }: Props) {
             )}
             <div className="flex-1 min-w-0">
               <div className="font-heading text-[13px] text-text font-medium truncate">{p.name}</div>
-              <div className="text-[10px] text-text-muted group-hover:text-accent">{p.team?.name || "FA"} · {p.role || "—"}</div>
+              <div className="text-[10px] text-text-muted group-hover:text-accent">{p.team?.name || "FA"} · {roleLabel(p.role)}</div>
             </div>
           </TeamLink>
           <span className={`font-display text-[22px] tracking-wider ${i === 0 ? "text-accent" : "text-text-bright"}`}>

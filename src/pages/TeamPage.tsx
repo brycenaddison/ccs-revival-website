@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { TeamDetailPanel } from "../components/stats/TeamDetailPanel";
+import { useSeasonLink } from "../lib/leagueContext";
 
 /**
  * A single team's page.
@@ -11,12 +12,14 @@ import { TeamDetailPanel } from "../components/stats/TeamDetailPanel";
 export default function TeamPage() {
   const { conf, code } = useParams<{ conf: string; code: string }>();
   const navigate = useNavigate();
+  // Going back to the league shouldn't reset which season the visitor was browsing.
+  const seasonLink = useSeasonLink();
 
   return (
     <div className="bg-bg min-h-screen w-full text-text font-body">
       <div className="bg-bg border-b border-bg2 px-4 py-3">
         <div className="max-w-[1200px] mx-auto">
-          <Link to="/" className="text-accent font-heading text-xs tracking-wider uppercase no-underline hover:text-text-bright">
+          <Link to={seasonLink("/")} className="text-accent font-heading text-xs tracking-wider uppercase no-underline hover:text-text-bright">
             &larr; CCS
           </Link>
         </div>

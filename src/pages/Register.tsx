@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useSeasonLink } from "../lib/leagueContext";
 
 /**
  * Team registration is paused in the browser.
@@ -13,11 +14,13 @@ import { Link } from "react-router-dom";
 const DISCORD_INVITE = "https://discord.gg/ccs";
 
 export default function Register() {
+  const seasonLink = useSeasonLink();
+
   return (
     <div className="bg-bg min-h-screen text-text font-body">
       <div className="bg-bg2 border-b border-border">
         <div className="max-w-3xl mx-auto px-4 py-5">
-          <Link to="/" className="text-accent text-[11px] font-heading tracking-wider uppercase no-underline hover:text-text-bright">
+          <Link to={seasonLink("/")} className="text-accent text-[11px] font-heading tracking-wider uppercase no-underline hover:text-text-bright">
             &larr; Back to CCS
           </Link>
           <h1 className="font-display text-[26px] text-text-bright tracking-widest mt-1">TEAM REGISTRATION</h1>

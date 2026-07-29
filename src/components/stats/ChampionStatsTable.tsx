@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
-  championStats,
   errorMessage,
   fmtPct,
   fmtRatio,
-  isAbort,
   ROLE_ORDER,
+  roleLabel,
   sortValue,
   type ChampionStats,
   type Role,
 } from "../../lib/api";
+import { queries } from "../../lib/queries";
 import { TeamLink } from "../league/TeamLink";
 
 interface Props {
@@ -34,30 +35,20 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ];
 
 export function ChampionStatsTable({ conf }: Props) {
-  const [champs, setChamps] = useState<ChampionStats[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
   const [role, setRole] = useState<Role | "ALL">("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("presence");
 
-  useEffect(() => {
-    const ac = new AbortController();
-    setLoading(true);
-    setErr(null);
-    championStats(conf, role === "ALL" ? null : role, { signal: ac.signal })
-      .then(setChamps)
-      .catch(e => { if (!isAbort(e)) setErr(errorMessage(e)); })
-      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
-    return () => ac.abort();
-  }, [conf, role]);
+  // The role is part of the query key, so switching back to a filter already viewed is instant
+  // instead of a refetch — this table's filter is the one that used to refetch on every click.
+  const { data, isPending, error } = useQuery(queries.championStats(conf, role === "ALL" ? null : role));
 
   const sorted = useMemo(
-    () => [...champs].sort((a, b) => sortValue(b[sortKey]) - sortValue(a[sortKey])),
-    [champs, sortKey],
+    () => [...(data ?? [])].sort((a, b) => sortValue(b[sortKey]) - sortValue(a[sortKey])),
+    [data, sortKey],
   );
 
-  if (loading) return <div className="text-center py-10 text-text-subtle">Loading champions...</div>;
-  if (err) return <div className="text-center py-10 text-ccs-red">{err}</div>;
+  if (isPending) return <div className="text-center py-10 text-text-subtle">Loading champions...</div>;
+  if (error) return <div className="text-center py-10 text-ccs-red">{errorMessage(error)}</div>;
   if (sorted.length === 0) return <div className="text-center py-10 text-text-dim">No games played yet this season.</div>;
 
   return (
@@ -70,7 +61,7 @@ export function ChampionStatsTable({ conf }: Props) {
               onClick={() => setRole(r)}
               className={`py-1.5 px-3 text-[11px] font-heading uppercase tracking-wider rounded border ${role === r ? "bg-accent text-white border-accent" : "bg-bg2 text-text-secondary border-border"}`}
             >
-              {r}
+              {roleLabel(r)}
             </button>
           ))}
         </div>
@@ -105,7 +96,7 @@ export function ChampionStatsTable({ conf }: Props) {
               <tr key={`${c.champid}-${c.role ?? "all"}`} className="border-t border-border hover:bg-bg3">
                 <td className="py-2.5 px-3">
                   <div className="flex items-center gap-2">
-                    {c.img && <img src={c.img} alt={c.name} className="w-7 h-7 rounded" />}
+                    {c.img && <img src={c.img} alt={c.name} loading="lazy" decoding="async" className="w-7 h-7 rounded" />}
                     <span className="font-heading font-bold text-text-bright">{c.name}</span>
                   </div>
                 </td>
@@ -129,7 +120,7 @@ export function ChampionStatsTable({ conf }: Props) {
                       title={c.bestPlayerTeam ? `${c.bestPlayerTeam} team page` : undefined}
                       className="flex items-center gap-2 no-underline group"
                     >
-                      {c.bestPlayerLogo && <img src={c.bestPlayerLogo} alt="" className="w-5 h-5 rounded object-contain" />}
+                      {c.bestPlayerLogo && <img src={c.bestPlayerLogo} alt="" loading="lazy" decoding="async" className="w-5 h-5 rounded object-contain" />}
                       <span className="text-text-bright group-hover:text-accent">{c.bestPlayerName}</span>
                       <span className="text-text-dim">
                         ({c.bestPlayerKda === null ? "—" : fmtRatio(c.bestPlayerKda)} KDA · {c.bestPlayerGames ?? 0}g)

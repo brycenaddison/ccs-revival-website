@@ -85,6 +85,8 @@ export function BarLeaderboard({
                   <img
                     src={row.logo}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className="rounded object-contain shrink-0"
                     style={{ width: isMobile ? 18 : 22, height: isMobile ? 18 : 22 }}
                   />

@@ -30,8 +30,98 @@ export interface Tournament {
   active?: boolean;
 }
 
-/** A row of the `teams` table: roster slots plus branding, no statistics. */
-export interface TeamRecord {
+/** The five starting-slot keys, as the API names them. Shared by rosters and matchlists. */
+export type RoleKey = "top" | "jg" | "mid" | "bot" | "sup";
+
+/**
+ * One roster slot.
+ *
+ * A slot names a **person, not an account**: `profileId` is a `profiles.id`, which is the same
+ * key as `PlayerStats.id`, so a slot joins straight to that player's statistics.
+ *
+ * These fields used to be raw `char(78)` PUUIDs, which consumers had to resolve to a display
+ * name themselves. That stopped being possible when Riot removed summoner-v4 `by-name`, so
+ * rosters now key on profiles and the API serves the name it already knows.
+ */
+export interface RosterSlot {
+  profileId: number;
+  /**
+   * Riot ID (`gameName#tagLine`), or `null` when Riot will not resolve the account — banned
+   * and deleted accounts stop resolving. That is normal rather than an error: `profileId` is
+   * still valid and still joins to stats, so render a fallback instead of dropping the slot.
+   */
+  name: string | null;
+}
+
+/**
+ * A team's declared roster.
+ *
+ * This is the only view of a roster that includes players with no recorded games — a benched
+ * player, or anyone yet to play, appears here and nowhere else. Rosters derived from
+ * `playerstats` can only ever show people who have already played.
+ */
+export interface TeamRoster {
+  /** An unfilled starting slot is `null`. */
+  top: RosterSlot | null;
+  jg: RosterSlot | null;
+  mid: RosterSlot | null;
+  bot: RosterSlot | null;
+  sup: RosterSlot | null;
+  /** `[]` when the bench is empty; never contains empty slots. */
+  subs: RosterSlot[];
+}
+
+/**
+ * A team's standings record.
+ *
+ * Joined on `(conf, code)` — the key `teams` is unique on — so it stays exact even on the
+ * all-confs `/teams`, where two confs can share a team code. Forfeits are included, which is why
+ * this is worth taking from the API: forfeits exist outside `matchlist`, so a record counted from
+ * played games disagrees with it.
+ */
+export interface SeasonRecord {
+  /** The standings record, in **series**. A 2-1 series win is one win and three games. */
+  seriesWins: number;
+  seriesLosses: number;
+  /** Individual games. A tiebreaker input only — never rank on these. */
+  gameWins: number;
+  gameLosses: number;
+}
+
+/**
+ * One row of `GET /standings/:conf` — the same numbers as `SeasonRecord`, ranked and with a
+ * streak, which the `/teams` record deliberately omits (it would cost a second query on a hot
+ * endpoint).
+ *
+ * **The rows arrive ranked; do not re-sort them.** Series record, then game win percentage, then
+ * head-to-head among the teams still level — head-to-head in particular cannot be computed from
+ * anything else this client fetches.
+ */
+export interface StandingRow extends SeasonRecord {
+  conf: string;
+  code: string;
+  name: string;
+  logo?: string;
+  color: number | null;
+  colorHex: string;
+  /**
+   * Position, 1-based. Teams level on every tiebreaker **share** a rank, and a shared rank
+   * consumes the positions it covers — three teams tied at 2 are followed by rank 5.
+   */
+  rank: number;
+  /** `rank` as displayed, marking a tie: `"T-2"` rather than `"2"`. */
+  place: string;
+  /** 0–1, the first tiebreaker. Exposed so a table can show why two teams are separated. */
+  gameWinPct: number | null;
+  /**
+   * Current run of series results (`"W2"`, `"L1"`), or `null` before the team has a decided
+   * series. Undecided series are skipped rather than breaking the run.
+   */
+  streak: string | null;
+}
+
+/** A row of the `teams` table: roster slots, branding and the standings record. */
+export interface TeamRecord extends TeamRoster {
   id: number;
   code: string;
   name: string;
@@ -41,12 +131,17 @@ export interface TeamRecord {
   color: number | null;
   /** `color` rendered as CSS hex, falling back when unset. */
   colorHex: string;
-  top: string | null;
-  jg: string | null;
-  mid: string | null;
-  bot: string | null;
-  sup: string | null;
-  subs: string[];
+  /**
+   * The `record` field of the response — the team's standings, not to be confused with this
+   * interface's name.
+   *
+   * Upstream never omits it, and a team that has played nothing is `0-0` rather than absent. So
+   * `null` here means the field was missing entirely — an API too old to serve it — and must not
+   * be shown as `0-0`, which would read as a real record.
+   *
+   * Carries no streak and no rank: for those, ask `GET /standings/:conf` (`StandingRow`).
+   */
+  record: SeasonRecord | null;
 }
 
 export interface Champ {
@@ -228,7 +323,7 @@ export interface MatchlistPlayer {
   jp: number | null;
 }
 
-export type MatchlistRoleKey = "top" | "jg" | "mid" | "bot" | "sup";
+export type MatchlistRoleKey = RoleKey;
 
 /** One *game* (not series) from a team's point of view. */
 export interface MatchlistEntry {
@@ -277,10 +372,86 @@ export interface TeamDetail extends Partial<Omit<TeamStats, "code" | "name" | "c
   conf: string;
   /** True when no `teamstats` row existed — i.e. the team has not played yet. */
   hasStats: boolean;
+  /**
+   * The declared roster, from `GET /teams/:conf` — the aggregated team endpoint does not carry
+   * it. `null` only when that lookup failed or the team is missing from the conf listing; an
+   * empty roster is a `TeamRoster` with null slots, not `null`.
+   */
+  roster: TeamRoster | null;
+  /**
+   * The series record, from the same `GET /teams/:conf` row as the roster.
+   *
+   * Distinct from the `wins`/`losses` inherited from `TeamStats`, which are individual **games**
+   * out of `teamstats`. Ranking is on series; do not present one as the other.
+   */
+  record: SeasonRecord | null;
+  /**
+   * Stat lines for this team. Keyed per role, so a player who swapped roles has several rows
+   * here and is *not* the same thing as a roster slot — see `joinRoster` in `lib/roster.ts`.
+   */
   players: PlayerStatsRanked[];
   bannedAgainst: BanCount[];
   bannedBy: BanCount[];
   matchlist: MatchlistEntry[];
+}
+
+/**
+ * League-wide cumulative totals for one conf — the figures across the top of the Stats page.
+ *
+ * PROPOSED upstream: `GET /stats/totals/:conf` does not exist yet, so this resolves to `null` and the
+ * totals bar renders nothing. See the API spec.
+ *
+ * **Every metric is nullable, and `null` is not zero.** Two reasons. A partially-implemented endpoint
+ * should be able to serve the counts it has without the client reporting "0 KILLS" for the ones it
+ * doesn't — which reads as a real, alarming number rather than as absence. And several of these are
+ * genuinely unknowable for older seasons (void grubs predate most of the archive). The bar omits a
+ * tile whose value is `null` instead of rendering a placeholder.
+ */
+export interface StatTotals {
+  conf: string;
+
+  // Counts of things
+  teams: number | null;
+  players: number | null;
+  /** Series, not games — the same unit the standings rank on. */
+  matches: number | null;
+  games: number | null;
+  /** Distinct calendar days with a game — the old dashboard's "game nights". */
+  gameDays: number | null;
+  championsPicked: number | null;
+  championsBanned: number | null;
+
+  // Cumulative sums
+  kills: number | null;
+  deaths: number | null;
+  assists: number | null;
+  gold: number | null;
+  damage: number | null;
+  cs: number | null;
+  visionScore: number | null;
+  wardsPlaced: number | null;
+  wardsCleared: number | null;
+  controlWards: number | null;
+  turrets: number | null;
+  dragons: number | null;
+  barons: number | null;
+  heralds: number | null;
+  grubs: number | null;
+  soloKills: number | null;
+  doubleKills: number | null;
+  tripleKills: number | null;
+  quadraKills: number | null;
+  pentaKills: number | null;
+
+  /** Total time played across every game, in seconds. */
+  playtimeSeconds: number | null;
+  longestGameSeconds: number | null;
+  shortestGameSeconds: number | null;
+  /** ISO timestamps bounding the season's games. */
+  firstGame: string | null;
+  lastGame: string | null;
+  /** When the underlying aggregate was last refreshed, for a "data as of" caption. */
+  updatedAt: string | null;
 }
 
 export interface ChampionStats {

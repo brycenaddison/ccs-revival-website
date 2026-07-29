@@ -1,15 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  errorMessage,
-  isAbort,
-  playerStats,
-  teamStats,
-  teamsForConf,
-  type RequestOpts,
-  type Tournament,
-} from "../lib/api";
-import { groupLabels, teamKey, toPlayers, toRosters, toSplits, toTeam } from "../lib/leagueAdapters";
-import type { LeagueData, Player, Roster, Split, Team } from "../types/league";
+import { useCallback, useMemo } from "react";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { errorMessage, type TeamRecord, type Tournament } from "../lib/api";
+import { groupLabels, teamKey, toRosters, toSplits, toStandingsFromTeams, toTeam } from "../lib/leagueAdapters";
+import { queries, queryRoots, resultsKey } from "../lib/queries";
+import type { LeagueData, Roster, Split, Standing, Team } from "../types/league";
 
 export type {
   Article,
@@ -32,108 +26,95 @@ interface Options {
   tournaments: readonly Tournament[];
 }
 
-type State = Omit<LeagueData, "refresh">;
-
-const EMPTY: State = {
-  teams: [],
-  matches: [],
-  standings: [],
-  players: [],
-  rosters: [],
-  articles: [],
-  splits: [],
-  games: [],
-  twitterFeeds: [],
-  twitchEmbeds: [],
-  loading: true,
-  error: null,
-};
-
 interface ConfBundle {
   teams: Team[];
-  players: Player[];
+  standings: Standing[];
   rosters: Roster[];
 }
 
-/** Three cheap requests per conf, ~0.2s each. */
-async function loadConf(
-  conf: string,
-  groupName: string | undefined,
-  opts: RequestOpts,
-): Promise<ConfBundle> {
-  const [records, playerRows] = await Promise.all([
-    teamsForConf(conf, opts),
-    playerStats(conf, opts),
-  ]);
-
-  const teams = records.map(r => toTeam({ ...r, conf: r.conf ?? conf }, groupName));
+/**
+ * Everything one conf's `/teams` response answers for.
+ *
+ * `/teams/:conf` carries teams, rosters *and* records — every row carries its own — so the whole
+ * Teams view comes from a single call. What it does not carry is fetched only where it is shown:
+ * `useStandings` for a rank or streak, `usePlayers` for leaderboards.
+ */
+function bundleConf(conf: string, records: readonly TeamRecord[], groupName: string | undefined): ConfBundle {
+  // `teams.conf` is nullable, and every identity downstream is keyed on (conf, code), so pin
+  // the conf we asked for before anything derives a key from it.
+  const confRecords = records.map(r => ({ ...r, conf: r.conf ?? conf }));
+  const teams = confRecords.map(r => toTeam(r, groupName));
   const teamsById = new Map(teams.map(t => [t.id, t]));
 
   return {
     teams,
-    players: toPlayers(playerRows, teamsById),
-    rosters: toRosters(playerRows, teamsById, groupName),
+    standings: toStandingsFromTeams(confRecords, teamsById, groupName),
+    rosters: toRosters(confRecords, teamsById, groupName),
   };
 }
 
 /**
  * Loads the league-wide data the site renders for the selected season(s).
  *
- * Scope note: this only uses bulk endpoints — `/teams/:conf` and `/stats/players/:conf`.
- * `/teams/:conf/:team` is deliberately **not** used here. It returns comprehensive data for
- * one team via five heavy queries, and is only ever called one at a time when a user opens a
- * specific team. Calling it per team to assemble a league view took 20–30s and saturated the
- * API's connection pool.
+ * Scope note: `/teams/:conf` is the only endpoint here. `/teams/:conf/:team` is deliberately **not**
+ * used: it returns comprehensive data for one team via five heavy queries, and is only ever called
+ * one at a time when a user opens a specific team. Calling it per team to assemble a league view
+ * took 20–30s and saturated the API's connection pool.
  *
- * The consequence is that `matches`, `games` and `standings` stay empty: every one of them
- * needs match results, and no bulk endpoint exposes those yet. `GET /matches/:conf` and
- * `GET /standings/:conf` are the blocking gaps — see the gap analysis.
+ * One query per conf rather than one for the whole selection, so the request is shared with anything
+ * else that wants that conf — a team page's `/teams/:conf` lookup reuses this copy instead of
+ * fetching it again seconds later.
+ *
+ * `standings` here are records without a ranking — see `toStandingsFromTeams`. Still empty:
+ * `matches` and `games`. `GET /matches/:conf` exists now and would fill `matches` with the series
+ * list; it is no longer needed for ranking, which the API resolves, only for showing *why* a
+ * head-to-head tiebreak went the way it did. `games` has no bulk endpoint at all: individual games
+ * are only reachable per team, through the team page's matchlist.
  */
 export function useLeagueData({ confs, tournaments }: Options): LeagueData {
-  const [state, setState] = useState<State>(EMPTY);
-  const [reloadToken, setReloadToken] = useState(0);
+  const client = useQueryClient();
 
   // Depend on the joined value so a new array with the same contents is a no-op.
   const confKey = confs.join(",");
+  const list = useMemo(() => (confKey === "" ? [] : confKey.split(",")), [confKey]);
 
-  useEffect(() => {
-    const list = confKey === "" ? [] : confKey.split(",");
-    if (list.length === 0) {
-      setState({ ...EMPTY, loading: false });
-      return;
-    }
+  const results = useQueries({ queries: list.map(conf => queries.teamsForConf(conf)) });
+  const key = resultsKey(results);
 
-    const ac = new AbortController();
-    const opts: RequestOpts = { signal: ac.signal };
+  const value = useMemo(() => {
+    // One conf needs no group label — a division tab with a single entry is noise.
     const labels = list.length > 1 ? groupLabels(tournaments, list) : null;
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    const bundles = list.map((conf, i) => bundleConf(conf, results[i]?.data ?? [], labels?.get(conf)));
 
-    Promise.all(list.map(conf => loadConf(conf, labels?.get(conf), opts)))
-      .then(bundles => {
-        if (ac.signal.aborted) return;
-        const teams = bundles.flatMap(b => b.teams);
-        const splits: Split[] = toSplits(tournaments.filter(t => list.includes(t.conf)));
+    const teams = bundles.flatMap(b => b.teams);
+    const splits: Split[] = toSplits(tournaments.filter(t => list.includes(t.conf)));
+    const failed = results.find(r => r.error);
 
-        setState({
-          ...EMPTY,
-          teams: [...teams].sort((a, b) => a.name.localeCompare(b.name)),
-          players: bundles.flatMap(b => b.players),
-          rosters: bundles.flatMap(b => b.rosters),
-          splits,
-          loading: false,
-        });
-      })
-      .catch(e => {
-        if (isAbort(e) || ac.signal.aborted) return;
-        setState({ ...EMPTY, loading: false, error: errorMessage(e) });
-      });
+    return {
+      teams: [...teams].sort((a, b) => a.name.localeCompare(b.name)),
+      standings: bundles.flatMap(b => b.standings),
+      rosters: bundles.flatMap(b => b.rosters),
+      splits,
+      matches: [],
+      games: [],
+      articles: [],
+      twitterFeeds: [],
+      twitchEmbeds: [],
+      // Only the first load blocks the page; a background revalidation keeps the current view.
+      loading: results.some(r => r.isLoading),
+      error: failed ? errorMessage(failed.error) : null,
+    };
+    // `results` is a new array each render; `key` changes only when one of them actually does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, list, tournaments]);
 
-    return () => ac.abort();
-  }, [confKey, tournaments, reloadToken]);
+  /** Drops the cached league so every mounted view refetches. Used by the live-match poll. */
+  const refresh = useCallback(() => {
+    void client.invalidateQueries({ queryKey: queryRoots.teams });
+    void client.invalidateQueries({ queryKey: queryRoots.standings });
+  }, [client]);
 
-  const refresh = useCallback(() => setReloadToken(n => n + 1), []);
-
-  return useMemo(() => ({ ...state, refresh }), [state, refresh]);
+  return useMemo(() => ({ ...value, refresh }), [value, refresh]);
 }
 
 /** Look up a team by conf and code — the same identity the adapters produce. */

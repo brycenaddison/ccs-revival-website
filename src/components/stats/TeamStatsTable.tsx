@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
-import { errorMessage, fmtPct, fmtRatio, isAbort, sortValue, teamStats, type TeamStats } from "../../lib/api";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { errorMessage, fmtPct, fmtRatio, sortValue } from "../../lib/api";
+import { queries } from "../../lib/queries";
 import { TeamLink } from "../league/TeamLink";
 
 interface Props {
@@ -7,23 +9,16 @@ interface Props {
 }
 
 export function TeamStatsTable({ conf }: Props) {
-  const [teams, setTeams] = useState<TeamStats[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const { data, isPending, error } = useQuery(queries.teamStats(conf));
 
-  useEffect(() => {
-    const ac = new AbortController();
-    setLoading(true);
-    setErr(null);
-    teamStats(conf, { signal: ac.signal })
-      .then(data => setTeams([...data].sort((a, b) => sortValue(b.winrate) - sortValue(a.winrate))))
-      .catch(e => { if (!isAbort(e)) setErr(errorMessage(e)); })
-      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
-    return () => ac.abort();
-  }, [conf]);
+  // Sorted here rather than in the query function, so the cache holds the API's own response.
+  const teams = useMemo(
+    () => [...(data ?? [])].sort((a, b) => sortValue(b.winrate) - sortValue(a.winrate)),
+    [data],
+  );
 
-  if (loading) return <div className="text-center py-10 text-text-subtle">Loading teams...</div>;
-  if (err) return <div className="text-center py-10 text-ccs-red">{err}</div>;
+  if (isPending) return <div className="text-center py-10 text-text-subtle">Loading teams...</div>;
+  if (error) return <div className="text-center py-10 text-ccs-red">{errorMessage(error)}</div>;
   if (!teams.length) return <div className="text-center py-10 text-text-dim">No games played yet this season.</div>;
 
   return (
@@ -49,7 +44,7 @@ export function TeamStatsTable({ conf }: Props) {
               <td className="py-3 px-4">
                 <TeamLink conf={conf} code={t.code} className="flex items-center gap-3 no-underline group">
                   {t.logo ? (
-                    <img src={t.logo} alt={t.name} className="w-8 h-8 rounded object-contain" style={{ background: t.colorHex }} />
+                    <img src={t.logo} alt={t.name} loading="lazy" decoding="async" className="w-8 h-8 rounded object-contain" style={{ background: t.colorHex }} />
                   ) : (
                     <div className="w-8 h-8 rounded flex items-center justify-center text-white font-bold text-sm" style={{ background: t.colorHex }}>
                       {t.code.charAt(0)}

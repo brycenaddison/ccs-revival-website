@@ -22,7 +22,7 @@ function ArticleModal({ article, onClose }: { article: Article; onClose: () => v
         {/* Header image */}
         {article.image_url && (
           <div className="w-full h-48 overflow-hidden rounded-t-lg">
-            <img src={article.image_url} alt="" className="w-full h-full object-cover" />
+            <img src={article.image_url} alt="" decoding="async" className="w-full h-full object-cover" />
           </div>
         )}
 
@@ -87,6 +87,8 @@ function FeatureCard({ article, isMobile, onClick }: { article: Article; isMobil
           <img
             src={article.image_url}
             alt=""
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         </div>
@@ -141,7 +143,7 @@ function NewsItem({ article, isLast, onClick }: { article: Article; isLast: bool
       {/* Thumbnail */}
       {article.image_url ? (
         <div className="w-20 h-14 rounded overflow-hidden shrink-0">
-          <img src={article.image_url} alt="" className="w-full h-full object-cover" />
+          <img src={article.image_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
         </div>
       ) : (
         <div className="w-20 h-14 rounded shrink-0 bg-bg3 flex items-center justify-center">
