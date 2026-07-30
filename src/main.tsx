@@ -10,6 +10,9 @@ import TeamPage from './pages/TeamPage'
 import Stats from './pages/Stats'
 import Register from './pages/Register'
 import Login from './pages/Login'
+import Settings from './pages/Settings'
+import SiteAdmin from './pages/SiteAdmin'
+import LeagueAdmin from './pages/LeagueAdmin'
 import { LeagueProvider } from './lib/leagueContext'
 import { AuthProvider } from './lib/authContext'
 import { TABS } from './lib/tabs'
@@ -32,9 +35,11 @@ const queryClient = new QueryClient({
   },
 })
 
-// `/admin` is intentionally absent: the admin dashboard wrote directly to Supabase and has
-// no equivalent on the CCS API yet. The UI is preserved in src/_disabled/ — see the gap
-// analysis for the endpoints and auth needed to restore it.
+// The settings areas (`/settings`, `/admin`, `/league/:conf/admin`) all render the same shell from a
+// section registry — see `lib/settingsAreas.ts`. The shell, the routing and the permission gates are
+// live; most *sections* are placeholders, because the CCS API is read-only and the admin CRUD
+// surface doesn't exist yet. The Supabase-era dashboard those sections replace is preserved in
+// src/_disabled/ — see the gap analysis for the endpoints each one needs.
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -55,6 +60,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/game/:matchId" element={<GameDetail />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
+              {/* Each settings area is two routes rather than one optional `:section?` segment.
+                  The no-slug form is a real state — it's the mobile section list, and on desktop it
+                  redirects to the first section — so spelling both out keeps that explicit. */}
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/:section" element={<Settings />} />
+              <Route path="/admin" element={<SiteAdmin />} />
+              <Route path="/admin/:section" element={<SiteAdmin />} />
+              <Route path="/league/:conf/admin" element={<LeagueAdmin />} />
+              <Route path="/league/:conf/admin/:section" element={<LeagueAdmin />} />
             </Routes>
           </LeagueProvider>
         </AuthProvider>

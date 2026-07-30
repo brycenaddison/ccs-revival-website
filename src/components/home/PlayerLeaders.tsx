@@ -20,7 +20,7 @@ const LABELS: Record<StatKey, string> = {
 };
 
 export function PlayerLeaders({ players, isMobile }: Props) {
-  const [stat, setStat] = useState<StatKey>("kda");
+  const [stat, setStat] = useState<StatKey>("kills");
 
   if (!players.length) return null;
 

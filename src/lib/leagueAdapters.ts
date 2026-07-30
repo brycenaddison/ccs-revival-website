@@ -245,11 +245,16 @@ export function toRosters(
 
 // ---------------------------------------------------------------------- splits
 
-/** Present each active tournament as a "split" so the season bar keeps working. */
+/**
+ * Present each active tournament as a "split" so the season bar keeps working.
+ *
+ * `name` is the tournament's full name. `shortname` reads as an abbreviation wherever it's shown on
+ * its own — and `Split.name` is shown on its own, in the hero strip on Home.
+ */
 export function toSplits(tournaments: readonly Tournament[]): Split[] {
   return tournaments.map((t, i): Split => ({
     id: t.conf,
-    name: t.shortname ?? t.name,
+    name: t.name,
     split_number: i + 1,
     season_id: t.conf,
     is_active: true,

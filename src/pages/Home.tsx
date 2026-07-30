@@ -1,35 +1,34 @@
 import { useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useWindowSize } from "../hooks/useWindowSize";
 import { useLeagueData } from "../hooks/useLeagueData";
 import { usePlayers } from "../hooks/usePlayers";
 import { useStandings } from "../hooks/useStandings";
+import { PageShell } from "../components/layout/PageShell";
 import { ScoreboardTicker } from "../components/home/ScoreboardTicker";
-import { NavBar } from "../components/home/NavBar";
 import { HeroArticle } from "../components/home/HeroArticle";
 import { NewsFeed } from "../components/home/NewsFeed";
 import { StandingsWidget } from "../components/home/StandingsWidget";
 import { PlayerLeaders } from "../components/home/PlayerLeaders";
 import { UpcomingSchedule } from "../components/home/UpcomingSchedule";
-import { MobileBottomBar } from "../components/home/MobileBottomBar";
 import { SocialLinks } from "../components/home/SocialLinks";
 import { TwitchStreams } from "../components/home/TwitchStreams";
 import { ScoresView } from "../components/views/ScoresView";
 import { ScheduleView } from "../components/views/ScheduleView";
 import { StandingsView } from "../components/views/StandingsView";
 import { TeamsView } from "../components/views/TeamsView";
-import { SeasonPicker } from "../components/league/SeasonPicker";
 import { useLeague } from "../lib/leagueContext";
 import { tabForPathname } from "../lib/tabs";
 
 export default function Home() {
   // Which section is showing comes from the URL — every tab has its own, and this component is
-  // mounted at all of them. See `lib/tabs.ts`.
-  const tab = tabForPathname(useLocation().pathname);
+  // mounted at all of them. See `lib/tabs.ts`. The coalesce is unreachable in practice: this only
+  // mounts on a tab route, so `tabForPathname` always matches one.
+  const tab = tabForPathname(useLocation().pathname) ?? "Home";
   const w = useWindowSize();
   const isMobile = w < 768;
   const isTablet = w >= 768 && w < 1024;
-  const { tournaments, activeConfs, selection, setSelection, selectedConfs, isCurrent, loading: leagueLoading } = useLeague();
+  const { tournaments, selectedConfs, loading: leagueLoading } = useLeague();
   const { teams, matches, standings, rosters, articles, splits, twitterFeeds, twitchEmbeds, loading: dataLoading, error, refresh } =
     useLeagueData({ confs: selectedConfs, tournaments });
 
@@ -63,29 +62,7 @@ export default function Home() {
   const rest = articles.filter(a => a.id !== hero?.id);
 
   return (
-    <div className="bg-bg min-h-screen w-full text-text font-body" style={{ paddingBottom: isMobile ? 72 : 0 }}>
-      {/* Season Bar */}
-      <div className="bg-bg flex justify-between items-center border-b border-bg2" style={{ padding: isMobile ? "6px 12px" : "6px 20px" }}>
-        <div className="flex items-center gap-2 min-w-0" style={{ fontSize: isMobile ? 9 : 10 }}>
-          <SeasonPicker
-            tournaments={tournaments}
-            selection={selection}
-            onChange={setSelection}
-            activeConfs={activeConfs}
-            compact
-          />
-          {!isCurrent && (
-            <span className="text-text-dim font-heading tracking-wider whitespace-nowrap">PAST SEASON</span>
-          )}
-        </div>
-        <Link to="/register" className="text-[#0a0a0a] bg-accent rounded font-heading font-semibold tracking-wide cursor-pointer no-underline" style={{ fontSize: isMobile ? 9 : 10, padding: "3px 10px" }}>
-          JOIN CCS
-        </Link>
-      </div>
-
-      <ScoreboardTicker matches={matches} isMobile={isMobile} />
-      <NavBar isMobile={isMobile} />
-
+    <PageShell maxWidth={1440} ticker={<ScoreboardTicker matches={matches} isMobile={isMobile} />}>
       {loading ? (
         <div className="py-16 text-center text-text-subtle">Loading...</div>
       ) : error ? (
@@ -106,7 +83,7 @@ export default function Home() {
           <p className="text-sm text-text-muted leading-relaxed">No teams registered for this season yet.</p>
         </div>
       ) : (
-        <div className="max-w-[1440px] mx-auto" style={{ padding: isMobile ? 12 : "24px 32px" }}>
+        <>
           {tab === "Scores" ? <ScoresView matches={matches} isMobile={isMobile} />
           : tab === "Schedule" ? <ScheduleView matches={matches} isMobile={isMobile} />
           : tab === "Standings" ? <StandingsView standings={ranked} isMobile={isMobile} />
@@ -156,14 +133,8 @@ export default function Home() {
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
-
-      <footer className="border-t border-bg3 text-center mt-10" style={{ padding: isMobile ? "20px 12px" : "24px 20px" }}>
-        <span className="font-display text-lg text-text-subtle tracking-widest">CCS</span>
-        <div className="text-[10px] text-text-subtle mt-2">Amateur Esports · Community Driven</div>
-      </footer>
-      {isMobile && <MobileBottomBar />}
-    </div>
+    </PageShell>
   );
 }

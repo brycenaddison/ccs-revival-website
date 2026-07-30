@@ -6,43 +6,47 @@
  * diffs at 8 and 14, and a best-player-on-this-champion join — so the table is group-switched rather
  * than fixed, with four anchor columns always visible so switching groups never loses your place.
  *
- * One load (`championStats`, keyed by role so toggling back to a seen role is free). The summary tiles
- * are reductions over the rows already in hand, not extra requests.
+ * The two summary tiles are counts, not superlatives. There were "Best Win%" and "Best KDA" tiles here
+ * and they were removed on purpose: both are dominated by small samples, and even with a games floor
+ * they measure the team and the pilot at least as much as the champion. A count of unique picks says
+ * something about the season that nothing else on the page does.
+ *
+ * One load (`championStats`, keyed by role so toggling back to a seen role is free). Every tile, chip
+ * and bar is a reduction over the rows already in hand, not an extra request.
  */
 
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   errorMessage,
   fmtPct,
   fmtRatio,
-  ROLE_ORDER,
   roleLabel,
-  sortValue,
   type ChampionStats,
   type Role,
 } from "../../lib/api";
 import { queries } from "../../lib/queries";
-import { cellText, CHAMPION_STAT_GROUPS, type StatCell } from "../../lib/statGroups";
+import {
+  CHAMPION_STAT_GROUPS,
+  flattenGroups,
+  sortByCell,
+  type StatCell,
+} from "../../lib/statGroups";
 import { int, pct } from "../../lib/statFormat";
+import { MIN_PICKS_OPTIONS, ROLE_FILTERS } from "../../lib/statUi";
 import { StatGroupSwitcher } from "./StatGroupSwitcher";
+import { StatTile } from "./StatTile";
+import { HighlightChip, HighlightPanel } from "./HighlightPanel";
+import { StatGroupDetail, StatTable } from "./StatTable";
+import { StatBars, type BarDirection } from "./StatBars";
+import { STAT_VIEW_OPTIONS, ViewToggle, type StatView } from "./ViewToggle";
+import { CONTROL_CLASS, Field, FilterBar, PillGroup } from "./FilterBar";
 import { TeamLink } from "../league/TeamLink";
 
 interface Props {
   conf: string;
   isMobile: boolean;
-  toggle?: React.ReactNode;
 }
-
-const ROLE_FILTERS: (Role | "ALL")[] = ["ALL", ...ROLE_ORDER];
-
-/**
- * Minimum picks before a champion can hold a "best" tile.
- *
- * A 1-game champion at 100% win rate and infinite KDA would own both tiles every season and tell you
- * nothing. Three is the same floor the old dashboard used.
- */
-const MIN_GAMES_FOR_BEST = 3;
 
 /** Always-visible columns, so the table stays legible across group switches. */
 const ANCHOR_CELLS: readonly StatCell<ChampionStats>[] = [
@@ -52,50 +56,73 @@ const ANCHOR_CELLS: readonly StatCell<ChampionStats>[] = [
   { key: "winPercent", label: "Win%", value: c => c.winPercent, format: pct },
 ];
 
-function Tile({ value, label, color }: { value: string; label: string; color: string }) {
-  return (
-    <div className="bg-bg3 border border-border rounded-lg px-3 py-3.5 text-center min-w-0">
-      <div className="font-display text-[26px] leading-none truncate" style={{ color }}>{value}</div>
-      <div className="text-[9px] text-text-muted font-heading tracking-wider uppercase mt-1.5 truncate" title={label}>
-        {label}
-      </div>
-    </div>
-  );
-}
+const ROLE_OPTIONS = ROLE_FILTERS.map(r => ({ value: r, label: roleLabel(r) }));
 
-/** A pick or ban highlight chip. */
-function ChampChip({ img, name, sub, dim }: { img: string; name: string; sub: React.ReactNode; dim?: boolean }) {
-  return (
-    <div className="flex items-center gap-2 bg-bg2 border border-border rounded-md px-2.5 py-2 min-w-[132px] flex-1">
-      {img && (
-        <img
-          src={img}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className="w-8 h-8 rounded shrink-0"
-          style={dim ? { filter: "grayscale(45%)" } : undefined}
-        />
-      )}
-      <div className="min-w-0">
-        <div className="text-[12px] font-heading font-bold text-text-bright truncate">{name}</div>
-        <div className="text-[10px] text-text-muted truncate">{sub}</div>
-      </div>
-    </div>
-  );
-}
+/** Highlight chips per panel. Six large chips read; eight small ones are a wall. */
+const HIGHLIGHT_COUNT = 6;
 
-export function ChampionPanel({ conf, isMobile, toggle }: Props) {
+export function ChampionPanel({ conf, isMobile }: Props) {
+  const [view, setView] = useState<StatView>("table");
   const [role, setRole] = useState<Role | "ALL">("ALL");
+  const [search, setSearch] = useState("");
+  const [minGames, setMinGames] = useState(0);
   const [groupId, setGroupId] = useState(CHAMPION_STAT_GROUPS[0].id);
   const [sortKey, setSortKey] = useState("presence");
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<string | number | null>(null);
+  const [barStat, setBarStat] = useState("presence");
+  const [barDir, setBarDir] = useState<BarDirection>("highest");
 
   const { data, isPending, error } = useQuery(queries.championStats(conf, role === "ALL" ? null : role));
   const champs = data ?? [];
 
   const group = CHAMPION_STAT_GROUPS.find(g => g.id === groupId) ?? CHAMPION_STAT_GROUPS[0];
+  const catalogue = useMemo(() => flattenGroups([group]), [group]);
+
+  /**
+   * Rows passing the champion-name and minimum-picks filters. Feeds the table and the bars only — the
+   * summary above them reads the whole season.
+   *
+   * This used to admit anything with a ban, on the theory that a ban-only champion (`games: 0` from the
+   * FULL JOIN) should never be filtered away. That made the floor meaningless: a one-pick champion with
+   * a single ban passed a 10+ filter. Ban-only champions are covered properly by the floor defaulting to
+   * 0 instead, which the Min Games options carry a 0 for.
+   */
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return champs.filter(c => {
+      if (q && !c.name.toLowerCase().includes(q)) return false;
+      return c.games >= minGames;
+    });
+  }, [champs, search, minGames]);
+
+  /**
+   * The summary reads the whole season, not the filtered rows.
+   *
+   * "Unique picks" is a fact about the split; narrowing it to whatever is typed in the champion box
+   * turns it into a count of search results, which is both useless and easy to misread as the real
+   * figure. The filters sit below the summary for the same reason — so it is clear they act on the
+   * table, not on the numbers above them.
+   *
+   * Both counts still filter the FULL JOIN artefact: `championstats` returns ban-only champions with
+   * `games: 0`, so an unfiltered "unique picks" would include champions nobody played.
+   */
+  const summary = useMemo(
+    () => ({
+      picks: champs.filter(c => c.games > 0).length,
+      banned: champs.filter(c => c.bans > 0).length,
+    }),
+    [champs],
+  );
+
+  const topPicked = useMemo(
+    () => champs.filter(c => c.games > 0).sort((a, b) => b.games - a.games).slice(0, HIGHLIGHT_COUNT),
+    [champs],
+  );
+  const topBanned = useMemo(
+    () => champs.filter(c => c.bans > 0).sort((a, b) => b.bans - a.bans).slice(0, HIGHLIGHT_COUNT),
+    [champs],
+  );
 
   // Anchors first, then whatever the group adds that isn't already an anchor.
   const columns = useMemo<StatCell<ChampionStats>[]>(() => {
@@ -103,45 +130,12 @@ export function ChampionPanel({ conf, isMobile, toggle }: Props) {
     return [...ANCHOR_CELLS, ...group.cells.filter(c => !anchorKeys.has(c.key))];
   }, [group]);
 
-  const summary = useMemo(() => {
-    // `championstats` comes from a FULL JOIN, so ban-only champions appear with zero games. Both
-    // counts have to filter, or "unique picks" silently includes champions nobody played.
-    const picked = champs.filter(c => c.games > 0);
-    const eligible = picked.filter(c => c.games >= MIN_GAMES_FOR_BEST);
-    const best = <K extends keyof ChampionStats>(key: K) =>
-      eligible.length === 0
-        ? null
-        : eligible.reduce((a, b) => (sortValue(b[key]) > sortValue(a[key]) ? b : a));
-    return {
-      picks: picked.length,
-      banned: champs.filter(c => c.bans > 0).length,
-      bestWr: best("winPercent"),
-      bestKda: best("kda"),
-    };
-  }, [champs]);
-
-  const topPicked = useMemo(
-    () => [...champs].filter(c => c.games > 0).sort((a, b) => b.games - a.games).slice(0, 8),
-    [champs],
-  );
-  const topBanned = useMemo(
-    () => [...champs].filter(c => c.bans > 0).sort((a, b) => b.bans - a.bans).slice(0, 8),
-    [champs],
-  );
-
-  // `sortDir` is -1 for descending, 1 for ascending. `sortValue` maps null and Infinity to
-  // -Infinity, which is what keeps missing data at the bottom of a descending sort.
   const sorted = useMemo(() => {
     if (sortKey === "name") {
-      return [...champs].sort((a, b) => a.name.localeCompare(b.name) * sortDir);
+      return [...filtered].sort((a, b) => a.name.localeCompare(b.name) * sortDir);
     }
-    const cell = columns.find(c => c.key === sortKey);
-    if (!cell) return champs;
-    return [...champs].sort((a, b) => {
-      const descending = sortValue(cell.value?.(b) ?? null) - sortValue(cell.value?.(a) ?? null);
-      return sortDir === -1 ? descending : -descending;
-    });
-  }, [champs, columns, sortKey, sortDir]);
+    return sortByCell(filtered, columns.find(c => c.key === sortKey), sortDir);
+  }, [filtered, columns, sortKey, sortDir]);
 
   const onSort = (key: string) => {
     if (key === sortKey) { setSortDir(d => (d === -1 ? 1 : -1)); return; }
@@ -150,41 +144,49 @@ export function ChampionPanel({ conf, isMobile, toggle }: Props) {
     setSortDir(key === "name" ? 1 : -1);
   };
 
-  if (isPending) return <div className="text-center py-10 text-text-subtle">Loading champions...</div>;
+  /**
+   * Switching group has to rescue both the sort key and the bar stat.
+   *
+   * Only the four anchors survive every group. Sorting by, say, Ban Rate and then switching to Vision
+   * used to leave the table sorted by nothing at all — the lookup missed and the rows fell back to API
+   * order while the header still claimed a sort. The bar picker only offers the active group's stats, so
+   * its selection needs the same rescue.
+   */
+  const onGroup = (id: string) => {
+    setGroupId(id);
+    const next = CHAMPION_STAT_GROUPS.find(g => g.id === id);
+    if (!next) return;
+    const sortSurvives =
+      sortKey === "name" ||
+      ANCHOR_CELLS.some(c => c.key === sortKey) ||
+      next.cells.some(c => c.key === sortKey);
+    if (!sortSurvives) {
+      setSortKey("presence");
+      setSortDir(-1);
+    }
+    if (!next.cells.some(c => c.key === barStat)) {
+      const first = next.cells.find(c => c.value);
+      if (first) {
+        setBarStat(first.key);
+        setBarDir(first.lowerIsBetter ? "lowest" : "highest");
+      }
+    }
+  };
+
+  // Only blank the panel when there is genuinely nothing to show. `keepPreviousData` means a role
+  // change keeps the previous rows, but this also stops any future cache miss from wiping the page.
+  if (isPending && champs.length === 0) {
+    return <div className="text-center py-10 text-text-subtle">Loading champions...</div>;
+  }
   if (error) return <div className="text-center py-10 text-ccs-red">{errorMessage(error)}</div>;
   if (champs.length === 0) return <div className="text-center py-10 text-text-dim">No games played yet this season.</div>;
 
   return (
     <div>
-      {/* Role filter */}
-      <div className="flex gap-1 flex-wrap mb-4">
-        {ROLE_FILTERS.map(r => (
-          <button
-            key={r}
-            onClick={() => { setRole(r); setExpanded(null); }}
-            className={`py-1.5 px-3 text-[11px] font-heading uppercase tracking-wider rounded border ${
-              role === r ? "bg-accent text-white border-accent" : "bg-bg2 text-text-secondary border-border"
-            }`}
-          >
-            {roleLabel(r)}
-          </button>
-        ))}
-      </div>
-
       {/* Summary tiles */}
-      <div className={`grid gap-3 mb-5 ${isMobile ? "grid-cols-2" : "grid-cols-4"}`}>
-        <Tile value={String(summary.picks)} label="Unique Picks" color="var(--accent)" />
-        <Tile
-          value={summary.bestWr ? fmtPct(summary.bestWr.winPercent) : "—"}
-          label={summary.bestWr ? `Best Win% · ${summary.bestWr.name}` : "Best Win%"}
-          color="var(--green)"
-        />
-        <Tile
-          value={summary.bestKda ? fmtRatio(summary.bestKda.kda) : "—"}
-          label={summary.bestKda ? `Best KDA · ${summary.bestKda.name}` : "Best KDA"}
-          color="var(--gold)"
-        />
-        <Tile
+      <div className="grid gap-3 mb-5 grid-cols-2">
+        <StatTile value={String(summary.picks)} label="Unique Picks" color="var(--accent)" />
+        <StatTile
           value={summary.banned > 0 ? String(summary.banned) : "—"}
           label={summary.banned > 0 ? "Champions Banned" : "No Ban Data"}
           color="var(--red)"
@@ -192,148 +194,143 @@ export function ChampionPanel({ conf, isMobile, toggle }: Props) {
       </div>
 
       {/* Pick / ban highlights */}
-      <div className={`grid gap-3 mb-6 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
-        <div className="bg-bg3 border border-border rounded-lg p-3.5">
-          <div className="font-heading text-[11px] font-semibold tracking-wider uppercase text-accent mb-2.5">
-            Most Picked
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {topPicked.map(c => (
-              <ChampChip
-                key={c.champid}
-                img={c.img}
-                name={c.name}
-                sub={<>
-                  {c.games}g · <span style={{ color: (c.winPercent ?? 0) >= 0.5 ? "var(--green)" : "var(--red)" }}>{fmtPct(c.winPercent)}</span> · {fmtRatio(c.kda)} KDA
-                </>}
-              />
-            ))}
-          </div>
-        </div>
+      <div className={`grid gap-3 mb-5 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
+        <HighlightPanel
+          title="Most Picked"
+          isMobile={isMobile}
+          empty={topPicked.length === 0}
+          emptyMessage="No games played yet this season."
+        >
+          {topPicked.map(c => (
+            <HighlightChip
+              key={c.champid}
+              img={c.img}
+              name={c.name}
+              value={String(c.games)}
+              unit="picks"
+              valueColor="var(--accent)"
+            />
+          ))}
+        </HighlightPanel>
 
-        <div className="bg-bg3 border border-border rounded-lg p-3.5">
-          <div className="font-heading text-[11px] font-semibold tracking-wider uppercase text-ccs-red mb-2.5">
-            Most Banned
-          </div>
-          {topBanned.length === 0 ? (
-            <div className="text-[12px] text-text-dim py-6 text-center">No ban data for this season.</div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {topBanned.map(c => (
-                <ChampChip
-                  key={c.champid}
-                  img={c.img}
-                  name={c.name}
-                  dim
-                  sub={<>
-                    {c.bans}× · {fmtPct(c.banRate)}
-                    {c.games > 0 && <span className="text-accent"> · {c.games}g picked</span>}
-                  </>}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <HighlightPanel
+          title="Most Banned"
+          titleColor="var(--red)"
+          isMobile={isMobile}
+          empty={topBanned.length === 0}
+          emptyMessage="No ban data for this season."
+        >
+          {topBanned.map(c => (
+            <HighlightChip
+              key={c.champid}
+              img={c.img}
+              name={c.name}
+              dim
+              value={String(c.bans)}
+              unit="bans"
+              valueColor="var(--red)"
+            />
+          ))}
+        </HighlightPanel>
       </div>
 
-      {/* Grouped table */}
-      <StatGroupSwitcher groups={CHAMPION_STAT_GROUPS} activeId={groupId} onChange={setGroupId}>
-        {toggle}
+      {/* Filters sit below the summary, because they narrow the table and not the numbers above. */}
+      <FilterBar isMobile={isMobile} columns={4}>
+        <Field label="Champion">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Champion..."
+            className={CONTROL_CLASS}
+          />
+        </Field>
+
+        <Field label="Min Games">
+          <select value={minGames} onChange={e => setMinGames(Number(e.target.value))} className={CONTROL_CLASS}>
+            {MIN_PICKS_OPTIONS.map(n => <option key={n} value={n}>{n}+</option>)}
+          </select>
+        </Field>
+      </FilterBar>
+
+      {/* Group pills and the role filter share one row, and the group pills stay put across views, so
+          nothing below them shifts when the view changes. */}
+      <StatGroupSwitcher
+        groups={CHAMPION_STAT_GROUPS}
+        activeId={groupId}
+        onChange={onGroup}
+        inline={
+          <PillGroup
+            options={ROLE_OPTIONS}
+            isActive={v => v === role}
+            onSelect={v => { setRole(v as Role | "ALL"); setExpanded(null); }}
+          />
+        }
+      >
+        <ViewToggle options={STAT_VIEW_OPTIONS} value={view} onChange={setView} />
       </StatGroupSwitcher>
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse bg-bg2 rounded-md overflow-hidden text-sm">
-          <thead>
-            <tr className="bg-bg3 text-[10px] text-text-secondary uppercase tracking-wider">
-              <th
-                onClick={() => onSort("name")}
-                className={`text-left py-2.5 px-3 cursor-pointer select-none ${sortKey === "name" ? "text-accent font-bold" : ""}`}
-              >
-                Champion{sortKey === "name" ? (sortDir === -1 ? " ▼" : " ▲") : ""}
-              </th>
-              {columns.map(c => (
-                <th
-                  key={c.key}
-                  onClick={() => onSort(c.key)}
-                  title={c.label}
-                  className={`text-center py-2.5 px-2 cursor-pointer select-none whitespace-nowrap ${sortKey === c.key ? "text-accent font-bold" : ""}`}
-                >
-                  {c.label}{sortKey === c.key ? (sortDir === -1 ? " ▼" : " ▲") : ""}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map(c => {
-              const open = expanded === c.champid;
-              return (
-                // A row and its detail row are siblings, so the key belongs on the Fragment that
-                // wraps them — the shorthand `<>` cannot carry one.
-                <Fragment key={c.champid}>
-                  <tr
-                    onClick={() => setExpanded(open ? null : c.champid)}
-                    className="border-t border-border hover:bg-bg3 cursor-pointer"
-                  >
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-2">
-                        {c.img && <img src={c.img} alt="" loading="lazy" className="w-7 h-7 rounded shrink-0" />}
-                        <span className="font-heading font-bold text-text-bright">{c.name}</span>
-                        <span className="text-text-dim text-[9px]">{open ? "▲" : "▼"}</span>
-                      </div>
-                    </td>
-                    {columns.map(cell => (
-                      <td key={cell.key} className="text-center py-2.5 px-2 font-mono text-xs">
-                        {cellText(cell, c)}
-                      </td>
-                    ))}
-                  </tr>
-
-                  {open && (
-                    <tr className="border-t border-bg3 bg-bg3/40">
-                      <td colSpan={columns.length + 1} className="px-3 py-3.5">
-                        {c.bestPlayerName && (
-                          <div className="mb-3 text-[11px]">
-                            <span className="font-heading tracking-wider uppercase text-[10px] text-text-muted mr-2">
-                              Best on champion
-                            </span>
-                            <TeamLink conf={conf} code={c.bestPlayerTeam} className="inline-flex items-center gap-1.5 no-underline group align-middle">
-                              {c.bestPlayerLogo && <img src={c.bestPlayerLogo} alt="" loading="lazy" decoding="async" className="w-4 h-4 rounded object-contain" />}
-                              <span className="text-text-bright group-hover:text-accent font-bold">{c.bestPlayerName}</span>
-                              <span className="text-text-dim">
-                                {c.bestPlayerGames ?? 0}g · {c.bestPlayerKda === null ? "—" : fmtRatio(c.bestPlayerKda)} KDA · {fmtPct(c.bestPlayerWinrate)}
-                              </span>
-                            </TeamLink>
-                          </div>
-                        )}
-
-                        <div className="grid gap-3" style={{ gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(190px, 1fr))" }}>
-                          {CHAMPION_STAT_GROUPS.map(g => (
-                            <div key={g.id}>
-                              <div className="font-heading text-[10px] font-semibold tracking-wider uppercase text-accent mb-1">
-                                {g.label}
-                              </div>
-                              {g.cells.map(cell => (
-                                <div key={cell.key} className="flex justify-between items-baseline gap-2 py-0.5 border-b border-bg3 last:border-b-0">
-                                  <span className="text-[10px] text-text-secondary truncate">{cell.label}</span>
-                                  <span className="font-mono text-[11px] text-text shrink-0">{cellText(cell, c)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mt-2 text-xs text-text-dim">
-        {sorted.length} champions{role !== "ALL" && ` · ${roleLabel(role)} only`} · click a row for the full stat line
-      </div>
+      {view === "bars" ? (
+        <StatBars
+          subject="CHAMPIONS"
+          rows={filtered}
+          catalogue={catalogue}
+          statKey={barStat}
+          onStatKey={(k, suggested) => { setBarStat(k); setBarDir(suggested); }}
+          direction={barDir}
+          onDirection={setBarDir}
+          isMobile={isMobile}
+          // Champions have no colour of their own, so the value places them on the ramp. Teams and
+          // players use their branding instead.
+          colorBy="value"
+          rowMeta={c => ({
+            key: String(c.champid),
+            name: c.name,
+            sub: `${c.games}g · ${fmtPct(c.winPercent)}`,
+            logo: c.img,
+          })}
+        />
+      ) : (
+        <StatTable
+          rows={sorted}
+          rowKey={c => c.champid}
+          columns={columns}
+          nameHeader="Champion"
+          isMobile={isMobile}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={onSort}
+          expandedKey={expanded}
+          onExpand={setExpanded}
+          caption={<>
+            {sorted.length} champions{role !== "ALL" && ` · ${roleLabel(role)} only`} · click a row for the full stat line
+          </>}
+          renderName={c => (
+            <div className="flex items-center gap-2">
+              {c.img && <img src={c.img} alt="" loading="lazy" className="w-7 h-7 rounded shrink-0" />}
+              <span className="font-heading font-bold text-text-bright">{c.name}</span>
+            </div>
+          )}
+          renderExpanded={c => (
+            <>
+              {c.bestPlayerName && (
+                <div className="mb-3 text-[11px]">
+                  <span className="font-heading tracking-wider uppercase text-[10px] text-text-muted mr-2">
+                    Best on champion
+                  </span>
+                  <TeamLink conf={conf} code={c.bestPlayerTeam} className="inline-flex items-center gap-1.5 no-underline group align-middle">
+                    {c.bestPlayerLogo && <img src={c.bestPlayerLogo} alt="" loading="lazy" decoding="async" className="w-4 h-4 rounded object-contain" />}
+                    <span className="text-text-bright group-hover:text-accent font-bold">{c.bestPlayerName}</span>
+                    <span className="text-text-secondary">
+                      {c.bestPlayerGames ?? 0}g · {c.bestPlayerKda === null ? "—" : fmtRatio(c.bestPlayerKda)} KDA · {fmtPct(c.bestPlayerWinrate)}
+                    </span>
+                  </TeamLink>
+                </div>
+              )}
+              <StatGroupDetail groups={CHAMPION_STAT_GROUPS} row={c} isMobile={isMobile} />
+            </>
+          )}
+        />
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
   auth,
   errorMessage,
   isAbort,
+  type AdminLeague,
   type Identity,
   type RiotLinkMessage,
   type RiotLinkStatus,
@@ -32,6 +33,12 @@ interface AuthContextValue {
   identity: Identity;
   profile: SessionProfile | null;
   roles: string[];
+  /**
+   * Confs granted to this profile explicitly. Not the whole answer to "what can they administer" —
+   * a site admin gets every league without any of them appearing here. Use `useAdminAccess()`
+   * (`lib/adminAccess.ts`) rather than reading this directly.
+   */
+  leagues: AdminLeague[];
   isAuthenticated: boolean;
   /** True while the first `/auth/me` is in flight. Guards must wait rather than assume signed out. */
   loading: boolean;
@@ -176,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       identity,
       profile: identity.profile,
       roles: identity.roles,
+      leagues: identity.leagues,
       isAuthenticated: identity.authenticated,
       loading,
       error,

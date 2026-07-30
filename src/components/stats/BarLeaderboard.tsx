@@ -1,22 +1,38 @@
-import { useEffect, useState } from "react";
-
 /**
- * Animated top-N bar chart, salvaged from the previous stats view.
+ * Animated ranked bar chart — the Bars view on every stats tab.
  *
- * Presentational only — callers sort, slice and format. That keeps it usable for both the
- * home-page stat leaders and the full stats leaderboard, which draw from different shapes.
+ * Presentational only: callers sort, slice, format *and* colour. That is what lets one component serve
+ * champions, teams and players, which arrive as three unrelated shapes — and colour has to come from
+ * the caller because only it knows whether a high value is good (see `rampColor` in `lib/statUi.ts`).
+ *
+ * It was dead code until this refactor. The Leaderboard had grown its own inline copy that gained three
+ * things this one lacked — zero-centred scaling for signed stats, Infinity handling, and the compare
+ * selection dots — while losing the grow-from-zero animation. Both sets are folded in here and the
+ * inline copy is gone.
  */
+
+import { MEDAL_COLORS } from "../../lib/statUi";
 
 export interface BarLeaderboardRow {
   /** Stable key. For players this is the per-role row key, not the player id. */
   key: string;
+  /**
+   * Position label, when it isn't just the row's place in the list.
+   *
+   * Records boards need this: ties share a rank there, so two rows both reading `T-1` is the truth and
+   * numbering them 1 and 2 is not.
+   */
+  rank?: string;
   name: string;
   sub?: string;
-  /** Numeric value used for bar length. */
+  /** Numeric value used for bar length. May be negative or Infinity. */
   value: number;
   /** Pre-formatted value shown at the end of the bar. */
   display: string;
-  /** Bar colour, usually the team's primary. */
+  /**
+   * Bar colour. Supplied by the caller because only it knows whether a high value is good — see
+   * `rampColor` in `lib/statUi.ts`. Also used for the block that stands in for a missing logo.
+   */
   color?: string;
   logo?: string;
 }
@@ -25,111 +41,172 @@ interface Props {
   title: string;
   rows: readonly BarLeaderboardRow[];
   badge?: string;
+  /** A line under the title — "Click a row to compare", and similar. */
+  note?: string;
+  caption?: React.ReactNode;
   isMobile?: boolean;
   emptyMessage?: string;
+  /**
+   * Gold/silver/bronze on the first three ranks. Pass false when the list is not a top-N — in an
+   * unsliced "all" view the first row is just the first row, not a medal.
+   */
+  medals?: boolean;
+  /** Rows the caller has selected, in slot order. Enables the trailing colour dot. */
+  selectedKeys?: readonly string[];
+  selectColors?: readonly string[];
+  onSelect?: (key: string) => void;
 }
-
-const RANK_COLORS = ["#FFD700", "#C0C0C0", "#CD7F32"];
 
 export function BarLeaderboard({
   title,
   rows,
   badge,
+  note,
+  caption,
   isMobile = false,
-  emptyMessage = "No qualifying players found.",
+  emptyMessage = "No qualifying rows found.",
+  medals = true,
+  selectedKeys,
+  selectColors,
+  onSelect,
 }: Props) {
-  // Bars grow from zero whenever the dataset changes, which is the whole point of the chart.
-  const signature = rows.map(r => r.key).join("|") + "::" + title;
-  const [grown, setGrown] = useState(false);
-  useEffect(() => {
-    setGrown(false);
-    const id = window.setTimeout(() => setGrown(true), 50);
-    return () => window.clearTimeout(id);
-  }, [signature]);
-
-  const max = rows.length > 0 ? Math.max(...rows.map(r => (Number.isFinite(r.value) ? r.value : 0))) : 1;
+  // Scaled on absolute value so a signed stat is zero-centred: a −400 gold diff has to draw as a
+  // short bar, not the longest one on the board. Non-finite values (a deathless KDA) are pinned to
+  // the maximum, since they sort to the top but cannot be scaled.
+  const max = rows.reduce((m, r) => (Number.isFinite(r.value) ? Math.max(m, Math.abs(r.value)) : m), 0);
 
   return (
-    <div className={`bg-bg2 border border-border rounded-lg ${isMobile ? "px-3 py-4" : "px-6 py-6"}`}>
-      <div className="flex justify-between items-center mb-5">
+    <div className={`bg-bg2 border border-border rounded-lg ${isMobile ? "px-3 py-4" : "px-5 py-5"}`}>
+      <div className="flex justify-between items-baseline mb-1">
         <h3 className="font-display text-base text-text-bright tracking-widest m-0">{title}</h3>
-        {badge && <span className="text-[10px] text-accent font-heading tracking-wider">{badge}</span>}
+        {badge && <span className="text-[10px] text-text-dim font-heading tracking-wider">{badge}</span>}
       </div>
+      {note && <p className="text-[11px] text-text-dim mb-4">{note}</p>}
 
       {rows.length === 0 ? (
         <div className="py-5 text-center text-text-dim text-[13px]">{emptyMessage}</div>
       ) : (
-        rows.map((row, i) => {
-          const isTop3 = i < 3;
-          const safeValue = Number.isFinite(row.value) ? row.value : max;
-          const pct = max > 0 ? (safeValue / max) * 100 : 0;
-          const color = row.color || "#555";
-          return (
-            <div
-              key={row.key}
-              className={`flex items-center py-1.5 ${i < rows.length - 1 ? "mb-2" : ""} ${isMobile ? "gap-2" : "gap-3"}`}
-            >
-              <span
-                className="font-display font-bold text-right min-w-[24px]"
-                style={{
-                  fontSize: isTop3 ? 18 : 14,
-                  color: isTop3 ? RANK_COLORS[i] : "var(--text-muted)",
-                  textShadow: isTop3 ? `0 0 8px ${RANK_COLORS[i]}44` : "none",
-                }}
-              >
-                {i + 1}
-              </span>
+        // No inner scroll container: the table this sits beside grows to its full height and uses the
+        // page scrollbar, and a scrollbar nested inside a scrolling page is two competing gestures.
+        <div>
+          {rows.map((row, i) => {
+            const isTop3 = medals && i < 3;
+            const magnitude = Number.isFinite(row.value) ? Math.abs(row.value) : max;
+            const width = max > 0 ? (magnitude / max) * 100 : 0;
+            // No colour means the team has none set upstream, which is common. A theme-aware neutral
+            // reads on both backgrounds; a hex fallback would be invisible on one of them.
+            const brand = row.color;
+            const fill = brand ? `linear-gradient(90deg, ${brand}, ${brand}88)` : "var(--bar-unset)";
+            const slot = selectedKeys?.indexOf(row.key) ?? -1;
+            const selected = slot >= 0;
 
-              <div className={`flex items-center gap-2 shrink-0 ${isMobile ? "min-w-[90px]" : "min-w-[140px]"}`}>
-                {row.logo ? (
-                  <img
-                    src={row.logo}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="rounded object-contain shrink-0"
-                    style={{ width: isMobile ? 18 : 22, height: isMobile ? 18 : 22 }}
+            const body = (
+              <>
+                <span
+                  // Wide enough for a `T-1` tie label, so a tied row doesn't push its own bar out of
+                  // line with the untied rows above it.
+                  className="font-display font-bold text-right min-w-[34px] shrink-0"
+                  style={{
+                    fontSize: isTop3 ? 18 : 13,
+                    color: isTop3 ? MEDAL_COLORS[i] : "var(--text-secondary)",
+                    textShadow: isTop3 ? `0 0 8px ${MEDAL_COLORS[i]}44` : "none",
+                  }}
+                >
+                  {row.rank ?? i + 1}
+                </span>
+
+                <div
+                  className={`flex items-center gap-2 shrink-0 ${
+                    isMobile ? "min-w-[104px] max-w-[104px]" : "min-w-[176px] max-w-[176px]"
+                  }`}
+                >
+                  {row.logo ? (
+                    <img
+                      src={row.logo}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="rounded object-contain shrink-0"
+                      style={{ width: 20, height: 20 }}
+                    />
+                  ) : (
+                    <span className="rounded shrink-0" style={{ width: 20, height: 20, background: brand ?? "var(--bar-unset)" }} />
+                  )}
+                  <div className="min-w-0">
+                    <div
+                      className={`font-heading truncate text-[13px] ${
+                        isTop3 ? "text-text-bright font-bold" : "text-text font-medium"
+                      }`}
+                    >
+                      {row.name}
+                    </div>
+                    {row.sub && (
+                      <div className="text-[10px] text-text-secondary font-heading tracking-wide truncate">{row.sub}</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className={`flex-1 bg-bg rounded overflow-hidden ${isTop3 ? "h-[24px]" : "h-[20px]"}`}>
+                  {/*
+                    Two animations doing two jobs. `transition-[width]` carries a bar that survived a
+                    data change from its old width to its new one. `bar-grow` scales in a bar that was
+                    just mounted, which has no old width to transition from — the case that made most
+                    bars appear instantly after a stat change.
+                  */}
+                  <div
+                    className="h-full rounded transition-[width] duration-[600ms]"
+                    style={{
+                      width: `${width}%`,
+                      background: fill,
+                      transitionTimingFunction: "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                      boxShadow: isTop3 && brand ? `0 0 12px ${brand}44` : "none",
+                      opacity: row.value < 0 ? 0.45 : isTop3 ? 1 : 0.8,
+                      transformOrigin: "left",
+                      animation: "bar-grow 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                    }}
                   />
-                ) : (
+                </div>
+
+                <span
+                  className={`font-mono text-right shrink-0 ${
+                    isTop3 ? "text-text-bright font-bold text-[14px]" : "text-text-secondary text-[12px]"
+                  } ${isMobile ? "min-w-[52px]" : "min-w-[72px]"}`}
+                >
+                  {row.display}
+                </span>
+
+                {selectedKeys && (
                   <span
-                    className="rounded shrink-0"
-                    style={{ width: isMobile ? 18 : 22, height: isMobile ? 18 : 22, background: color }}
+                    className="w-2 shrink-0 rounded-full"
+                    style={{ height: 16, background: selected ? selectColors?.[slot] ?? "var(--accent)" : "transparent" }}
                   />
                 )}
-                <div className="min-w-0">
-                  <div
-                    className={`font-heading truncate ${isTop3 ? "text-text-bright font-bold text-sm" : "text-text font-medium text-[13px]"}`}
-                  >
-                    {row.name}
-                  </div>
-                  {row.sub && (
-                    <div className="text-[9px] text-text-muted font-heading tracking-wide">{row.sub}</div>
-                  )}
-                </div>
-              </div>
+              </>
+            );
 
-              <div className={`flex-1 bg-bg rounded overflow-hidden relative ${isTop3 ? "h-[26px]" : "h-[22px]"}`}>
-                <div
-                  className="h-full rounded transition-[width] duration-[600ms]"
-                  style={{
-                    background: `linear-gradient(90deg, ${color}, ${color}88)`,
-                    width: grown ? `${pct}%` : "0%",
-                    transitionTimingFunction: "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-                    boxShadow: isTop3 ? `0 0 12px ${color}44` : "none",
-                    opacity: isTop3 ? 1 : 0.8,
-                  }}
-                />
-              </div>
+            const layout = `w-full flex items-center py-1.5 text-left rounded ${
+              i < rows.length - 1 ? "mb-1.5" : ""
+            } ${isMobile ? "gap-2" : "gap-3"}`;
 
-              <span
-                className={`font-mono text-right ${isTop3 ? "text-text-bright font-bold text-[15px]" : "text-text-secondary font-normal text-[13px]"} ${isMobile ? "min-w-[44px]" : "min-w-[56px]"}`}
+            return onSelect ? (
+              <button
+                key={row.key}
+                onClick={() => onSelect(row.key)}
+                aria-pressed={selected}
+                className={`${layout} ${selected ? "bg-accent/10" : "hover:bg-bg3"}`}
               >
-                {row.display}
-              </span>
-            </div>
-          );
-        })
+                {body}
+              </button>
+            ) : (
+              <div key={row.key} className={layout}>
+                {body}
+              </div>
+            );
+          })}
+        </div>
       )}
+
+      {caption && <div className="mt-2 text-xs text-text-dim">{caption}</div>}
     </div>
   );
 }

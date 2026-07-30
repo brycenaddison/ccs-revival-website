@@ -118,6 +118,15 @@ export interface StandingRow extends SeasonRecord {
    * series. Undecided series are skipped rather than breaking the run.
    */
   streak: string | null;
+  /**
+   * The last five decided series, **most recent last**. `[]` for a team with none yet.
+   *
+   * It exists because `streak` cannot tell a one-game win streak after four losses (`"W1"`,
+   * `["L","L","L","L","W"]`) from a team that has won four of its last five (`"L1"`,
+   * `["W","W","W","W","L"]`). Skips undecided series on exactly the same rule as `streak`, from the
+   * same rows, so the two can never disagree about what counts as a result.
+   */
+  form: ("W" | "L")[];
 }
 
 /** A row of the `teams` table: roster slots, branding and the standings record. */
@@ -306,6 +315,14 @@ export interface TeamStats {
 /** One player's line in a single game. Every field can be absent for an unresolved player. */
 export interface MatchlistPlayer {
   name: string | null;
+  /**
+   * `profiles.id`, the durable key for a person — `null` when the puuid isn't linked to a profile.
+   *
+   * Before this existed the only key a per-game line and a per-season row shared was the Riot ID
+   * string: a user-editable display name, ambiguous between two accounts with the same game name, and
+   * `null` outright for a banned account. This is what lets a matchlist line reach a scouting report.
+   */
+  profileId: number | null;
   champ: string | null;
   champSplash?: string;
   kills: number;
@@ -398,16 +415,19 @@ export interface TeamDetail extends Partial<Omit<TeamStats, "code" | "name" | "c
 /**
  * League-wide cumulative totals for one conf — the figures across the top of the Stats page.
  *
- * PROPOSED upstream: `GET /stats/totals/:conf` does not exist yet, so this resolves to `null` and the
- * totals bar renders nothing. See the API spec.
+ * **Every metric is nullable, and `null` is not zero.** That is the endpoint's own contract, not a
+ * rollout artefact: a partly-covered metric reports `null` rather than a confident undercount, because
+ * upstream guards every nullable column with `CASE WHEN count(*) = count(col) THEN sum(col) END`. Void
+ * grubs are the standing example — `objectives.horde` doesn't exist before patch 14.1, so `null` is the
+ * permanent and correct answer for older confs. A genuine zero is still sent as `0`, so the two are
+ * distinguishable, and the bar omits a `null` tile rather than rendering "0 KILLS".
  *
- * **Every metric is nullable, and `null` is not zero.** Two reasons. A partially-implemented endpoint
- * should be able to serve the counts it has without the client reporting "0 KILLS" for the ones it
- * doesn't — which reads as a real, alarming number rather than as absence. And several of these are
- * genuinely unknowable for older seasons (void grubs predate most of the archive). The bar omits a
- * tile whose value is `null` instead of rendering a placeholder.
+ * No superlatives here by design — longest and shortest game belong to `/stats/records/:conf`, where the
+ * tie rules and the not-a-game floor already live and where a row can be clicked through to the game.
+ * `firstGame`/`lastGame` stay because they bound the season rather than crown a game.
  */
 export interface StatTotals {
+  /** Would be `null` on the all-conf `GET /stats/totals`, which this client doesn't call. */
   conf: string;
 
   // Counts of things
@@ -443,15 +463,220 @@ export interface StatTotals {
   quadraKills: number | null;
   pentaKills: number | null;
 
-  /** Total time played across every game, in seconds. */
+  /**
+   * Total time played across every game, in seconds.
+   *
+   * One duration per game, not per player — but there is no game-duration column in the schema, so the
+   * source is the per-match maximum of each participant's `timePlayed`. Close, and a proxy.
+   */
   playtimeSeconds: number | null;
-  longestGameSeconds: number | null;
-  shortestGameSeconds: number | null;
   /** ISO timestamps bounding the season's games. */
   firstGame: string | null;
   lastGame: string | null;
   /** When the underlying aggregate was last refreshed, for a "data as of" caption. */
   updatedAt: string | null;
+}
+
+// ------------------------------------------------------------------- records
+
+/** How to format a board's `value`. The value itself is always raw, so a bar can scale it. */
+export type RecordUnit = "int" | "dec2" | "pct" | "signed" | "duration";
+
+/**
+ * One entry on a record board — a single side of a single game.
+ *
+ * On a **team** board `profileId`, `champ`, `champImg` and `role` are all `null` and `name` carries the
+ * team code. On a player board `profileId` can still be `null` when the puuid isn't linked to a profile;
+ * the row ranks regardless, it just can't be linked through to a player.
+ */
+export interface RecordRow {
+  /** Ties **share** a rank, so a board's rows can run past the requested limit. */
+  rank: number;
+  value: number | null;
+  profileId: number | null;
+  name: string;
+  team: string;
+  champ: string | null;
+  champImg: string | null;
+  role: Role | null;
+  opponent: string;
+  week: number;
+  matchId: string;
+  /** Which game of the series. */
+  game: number;
+  startTime: string | null;
+}
+
+/**
+ * One board. `id`, `title`, `unit`, `note` and the board order are all server-owned — which boards
+ * exist and what they are called is a league decision, so render them off the wire rather than
+ * hardcoding a list.
+ */
+export interface RecordBoard {
+  /** Stable slug, safe as a React key. */
+  id: string;
+  title: string;
+  unit: RecordUnit;
+  /**
+   * Best first. **Do not re-sort.** An empty board is still a board and keeps its title.
+   *
+   * Can be longer than the requested limit, because tied rows share a rank and upstream returns all of
+   * them rather than picking one arbitrarily.
+   */
+  rows: RecordRow[];
+  // The wire also carries a `note` naming the minimum game length applied to rate boards. It isn't
+  // modelled here: this client asks for no minimum, so there is never a caveat to report.
+}
+
+export interface RecordsResponse {
+  conf: string;
+  /** Games considered, after the 300-second not-a-game floor. */
+  games: number | null;
+  /** Player performances considered — the "out of N" denominator. */
+  lines: number | null;
+  generatedAt: string | null;
+  players: RecordBoard[];
+  teams: RecordBoard[];
+}
+
+// -------------------------------------------------------------------- scouting
+
+/** One entry of `GET /stats/scout/:conf` — enough to populate a player picker. */
+export interface ScoutIndexEntry {
+  profileId: number;
+  /** A banned or deleted Riot account is normal. */
+  name: string | null;
+  /** The team this player has played most for in the conf. */
+  team: string;
+  games: number;
+  /** Most-played first. */
+  roles: Role[];
+}
+
+/**
+ * Season aggregate for one player.
+ *
+ * `kp` and `csm` are ratios of sums rather than means of per-game ratios — a 40-minute game should not
+ * weigh the same as a 20-minute one. `kp` is `null` when the side recorded no kills at all; `gd14` is
+ * averaged over only the games that have a 14-minute snapshot.
+ */
+export interface ScoutTotals {
+  games: number;
+  wins: number;
+  losses: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  /** May be `Infinity` — the API's convention for a deathless aggregate. */
+  kda: number;
+  avgKills: number | null;
+  avgDeaths: number | null;
+  avgAssists: number | null;
+  avgDmg: number | null;
+  avgCs: number | null;
+  csm: number | null;
+  kp: number | null;
+  gd14: number | null;
+}
+
+/** One champion in a player's pool for the season. */
+export interface ScoutChamp {
+  champ: string;
+  champId: number;
+  img: string | null;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  /** May be `Infinity`. */
+  kda: number;
+}
+
+/**
+ * The lane opponent on one game.
+ *
+ * Carries less than a full line — no CS, no lane diffs, no kill participation. `name` can be `null` for a
+ * banned account, so test presence on the object rather than on the name.
+ */
+export interface ScoutOpponent {
+  profileId: number | null;
+  name: string | null;
+  champ: string | null;
+  champImg: string | null;
+  kills: number;
+  deaths: number;
+  assists: number;
+  /** May be `Infinity`. */
+  kda: number;
+  dmg: number;
+}
+
+/** One game in a player's season, **oldest first** as served, because it drives a form reading. */
+export interface ScoutGame {
+  matchId: string;
+  game: number;
+  week: number;
+  startTime: string | null;
+  durationS: number;
+  team: string;
+  opponent: string;
+  win: boolean;
+  blueside: boolean;
+  role: Role | null;
+  champ: string | null;
+  champId: number | null;
+  champImg: string | null;
+  kills: number;
+  deaths: number;
+  assists: number;
+  /** May be `Infinity`. */
+  kda: number;
+  dmg: number;
+  cs: number;
+  csm: number | null;
+  gd8: number | null;
+  gd14: number | null;
+  kp: number | null;
+  visionScore: number;
+  /** The denominator of `kp`. */
+  teamKills: number;
+  /** `null` when the lane opponent can't be resolved — the game is still kept. */
+  vs: ScoutOpponent | null;
+}
+
+/** One opponent faced in the lane this season. A game with no resolvable opponent contributes none. */
+export interface ScoutMatchup {
+  profileId: number;
+  name: string | null;
+  team: string;
+  games: number;
+  wins: number;
+  losses: number;
+  /**
+   * Newest first, but the element shape is undocumented upstream — left unread rather than guessed at.
+   */
+  games_detail: unknown[];
+}
+
+/**
+ * One player's scouting report for one conf. Strictly per-season: career totals and cross-season
+ * champion pools belong to a future `/players/:profileId`.
+ *
+ * `name` on any row is that player's Riot ID *now* — renames propagate through historical data, so an
+ * old game is attributed to the current name. Nothing here can render who a player was called at the
+ * time, and the UI should not imply otherwise.
+ */
+export interface ScoutReport {
+  profileId: number;
+  name: string | null;
+  conf: string;
+  teams: string[];
+  roles: Role[];
+  totals: ScoutTotals;
+  champs: ScoutChamp[];
+  timeline: ScoutGame[];
+  matchups: ScoutMatchup[];
 }
 
 export interface ChampionStats {

@@ -53,12 +53,15 @@ export const TABS: readonly SiteTab[] = [
 ];
 
 /**
- * Which tab a pathname is showing.
+ * Which tab a pathname is showing, or `null` if it isn't showing one.
  *
- * Falls back to Home, which is what `/` resolves to anyway. Tolerates a trailing slash and odd
- * casing so a hand-typed or pasted URL still lands somewhere sensible.
+ * Answers `null` for a page that isn't a tab at all. That matters: the settings and admin pages wear
+ * the nav but are not sections of the site, and an unconditional fall back to Home would light the
+ * Home tab up on every one of them. Only the root resolves to Home. Tolerates a trailing slash and
+ * odd casing so a hand-typed or pasted URL still lands somewhere sensible.
  */
-export function tabForPathname(pathname: string): string {
+export function tabForPathname(pathname: string): string | null {
   const slug = pathname.replace(/\/+$/, "").toLowerCase();
-  return TABS.find(t => t.path !== "/" && t.path === slug)?.label ?? "Home";
+  if (slug === "") return "Home";
+  return TABS.find(t => t.path !== "/" && t.path === slug)?.label ?? null;
 }

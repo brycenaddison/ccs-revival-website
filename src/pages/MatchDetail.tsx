@@ -86,7 +86,8 @@ export default function MatchDetail() {
       teamB: records.find(t => t.code === parsed.codeB),
       games,
       bestOf: bestOfForWeek(tournament, parsed.week),
-      seasonName: tournament?.shortname ?? tournament?.name,
+      // Full name: this is a standalone label in the page header, not a tag next to a team.
+      seasonName: tournament?.name,
     };
   }, [parsed, detailQuery.data, recordsQuery.data, tournamentsQuery.data]);
 

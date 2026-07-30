@@ -8,7 +8,9 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Link2, LogOut, type LucideIcon } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ChevronDown, Link2, LogOut, Settings, Shield, type LucideIcon } from "lucide-react";
+import { useAdminAccess } from "../../lib/adminAccess";
 import { useAuth } from "../../lib/authContext";
 
 export type MenuEntry =
@@ -17,20 +19,42 @@ export type MenuEntry =
       kind: "item";
       label: string;
       icon?: LucideIcon;
+      /**
+       * A route. Rendered as a `<Link>`, so the entry can be middle-clicked and copied like any
+       * other navigation. Mutually exclusive with `onSelect`.
+       */
+      to?: string;
       /** Omitted for placeholders — an item with no handler is inert by construction. */
       onSelect?: () => void;
       disabled?: boolean;
       title?: string;
     };
 
+interface EntryOpts {
+  logout: () => Promise<void>;
+  linkRiot: () => Promise<void>;
+  isSiteAdmin: boolean;
+}
+
 /**
  * The account actions, in display order. Log out stays last; new options go above the divider.
  *
+ * Takes an options object rather than positional arguments: the list is now driven by three inputs
+ * and will keep growing, and `accountMenuEntries(logout, linkRiot, true)` says nothing at the call
+ * site about what `true` means.
+ *
  * Riot linking opens a popup and reports its outcome through the auth provider's notice, so
- * nothing here has to wait on the promise — the menu is closed by then either way.
+ * nothing here has to wait on the promise — the menu is closed by then either way. It stays even
+ * though Settings › Connections now exists: that page is where you *see* what's linked, not the
+ * only way to start linking.
  */
-export function accountMenuEntries(logout: () => Promise<void>, linkRiot: () => Promise<void>): MenuEntry[] {
+export function accountMenuEntries({ logout, linkRiot, isSiteAdmin }: EntryOpts): MenuEntry[] {
   return [
+    { kind: "item", label: "Settings", icon: Settings, to: "/settings" },
+    ...(isSiteAdmin
+      ? [{ kind: "item" as const, label: "Site Admin", icon: Shield, to: "/admin" }]
+      : []),
+    { kind: "divider" },
     {
       kind: "item",
       label: "Link Riot Account",
@@ -45,8 +69,12 @@ export function accountMenuEntries(logout: () => Promise<void>, linkRiot: () => 
 
 const LABEL = "font-heading text-sm tracking-wider uppercase whitespace-nowrap";
 
+/** Shared by the button and link branches, so the two are indistinguishable in the panel. */
+const ITEM = `flex w-full items-center gap-2 text-left bg-transparent border-none px-4 py-2.5 text-text-secondary ${LABEL}`;
+
 export function UserMenu({ name }: { name: string }) {
   const { logout, linkRiot } = useAuth();
+  const { isSiteAdmin } = useAdminAccess();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -72,7 +100,7 @@ export function UserMenu({ name }: { name: string }) {
     };
   }, [open]);
 
-  const entries = accountMenuEntries(logout, linkRiot);
+  const entries = accountMenuEntries({ logout, linkRiot, isSiteAdmin });
 
   return (
     <div ref={wrapRef} className="relative">
@@ -102,6 +130,29 @@ export function UserMenu({ name }: { name: string }) {
               return <div key={`divider-${i}`} role="separator" className="my-1 border-t border-border" />;
             }
             const Icon = entry.icon;
+            const glyph = Icon && <Icon size={15} aria-hidden="true" className="shrink-0" />;
+            const state = entry.disabled
+              ? "opacity-50 cursor-default"
+              : "cursor-pointer hover:bg-bg-input hover:text-text-bright";
+
+            // A navigation is a real link, not a button that navigates — middle-click and
+            // "copy link address" should work on it like anywhere else in the nav.
+            if (entry.to && !entry.disabled) {
+              return (
+                <Link
+                  key={entry.label}
+                  role="menuitem"
+                  to={entry.to}
+                  title={entry.title}
+                  onClick={() => setOpen(false)}
+                  className={`${ITEM} ${state} no-underline`}
+                >
+                  {glyph}
+                  {entry.label}
+                </Link>
+              );
+            }
+
             return (
               <button
                 key={entry.label}
@@ -116,13 +167,9 @@ export function UserMenu({ name }: { name: string }) {
                         entry.onSelect?.();
                       }
                 }
-                className={`flex w-full items-center gap-2 text-left bg-transparent border-none px-4 py-2.5 text-text-secondary ${LABEL} ${
-                  entry.disabled
-                    ? "opacity-50 cursor-default"
-                    : "cursor-pointer hover:bg-bg-input hover:text-text-bright"
-                }`}
+                className={`${ITEM} ${state}`}
               >
-                {Icon && <Icon size={15} aria-hidden="true" className="shrink-0" />}
+                {glyph}
                 {entry.label}
               </button>
             );

@@ -10,7 +10,7 @@
  * Every group is derived from a single already-loaded response. Nothing here fetches or aggregates.
  */
 
-import type { ChampionStats, TeamStats } from "./api";
+import { fmtRatio, sortValue, type ChampionStats, type PlayerStats, type TeamStats } from "./api";
 import { col, dec, int, pct, signed, signedDec } from "./statFormat";
 
 /**
@@ -23,6 +23,14 @@ import { col, dec, int, pct, signed, signedDec } from "./statFormat";
 export interface StatCell<T> {
   key: string;
   label: string;
+  /**
+   * Terse label for a table header. Falls back to `label`.
+   *
+   * The player catalogue's labels are written for the bar view's `<select>`, where there is no column
+   * header to give them context — "Share of Team Deaths" is exactly right there and far too wide as a
+   * column heading.
+   */
+  short?: string;
   value?: (row: T) => number | null;
   format?: (v: number) => string;
   text?: (row: T) => string | null;
@@ -44,8 +52,41 @@ export function cellText<T>(cell: StatCell<T>, row: T): string {
   return (cell.format ?? dec(2))(v);
 }
 
+/**
+ * Sort rows by one cell, descending when `dir` is -1.
+ *
+ * `sortValue` maps both null and Infinity to -Infinity, which is what keeps missing data at the
+ * bottom of a descending sort instead of at the top where a reader would mistake it for a leader.
+ * A text-only or unknown cell leaves the order alone rather than scrambling it.
+ */
+export function sortByCell<T>(rows: readonly T[], cell: StatCell<T> | undefined, dir: 1 | -1): readonly T[] {
+  const read = cell?.value;
+  if (!read) return rows;
+  return [...rows].sort((a, b) => {
+    const descending = sortValue(read(b)) - sortValue(read(a));
+    return dir === -1 ? descending : -descending;
+  });
+}
+
+/** A cell that remembers which group it came from, so a flat picker can still show the grouping. */
+export interface FlatStatCell<T> extends StatCell<T> {
+  group: string;
+}
+
+/**
+ * Every numeric cell across a family of groups, flattened for a single-stat picker.
+ *
+ * Text-only cells are dropped: `avgTime` arrives as `"31:20"` and there is no number behind it to
+ * scale a bar with. Keeping the group label lets the picker render `<optgroup>`s, so one catalogue
+ * serves both the grouped table and the flat bar select instead of the two drifting apart.
+ */
+export function flattenGroups<T>(groups: readonly StatGroup<T>[]): readonly FlatStatCell<T>[] {
+  return groups.flatMap(g => g.cells.filter(c => c.value).map(c => ({ ...c, group: g.label })));
+}
+
 const tc = col<TeamStats>;
 const cc = col<ChampionStats>;
+const pc = col<PlayerStats>;
 
 // ------------------------------------------------------------------------- teams
 
@@ -101,6 +142,7 @@ export const TEAM_STAT_GROUPS: readonly StatGroup<TeamStats>[] = [
       { key: "firstHeraldPercent", label: "First Herald", value: tc("firstHeraldPercent"), format: pct },
       { key: "avgHeraldsTaken", label: "Heralds Taken", value: tc("avgHeraldsTaken") },
       { key: "avgHeraldsGiven", label: "Heralds Given", value: tc("avgHeraldsGiven"), lowerIsBetter: true },
+      { key: "percentHeraldsTaken", label: "Herald Share", value: tc("percentHeraldsTaken"), format: pct },
       { key: "firstBaronPercent", label: "First Baron", value: tc("firstBaronPercent"), format: pct },
       { key: "avgBaronsTaken", label: "Barons Taken", value: tc("avgBaronsTaken") },
       { key: "avgBaronsGiven", label: "Barons Given", value: tc("avgBaronsGiven"), lowerIsBetter: true },
@@ -209,6 +251,109 @@ export const CHAMPION_STAT_GROUPS: readonly StatGroup<ChampionStats>[] = [
       { key: "tripleKills", label: "Triples", value: cc("tripleKills"), format: int },
       { key: "quadraKills", label: "Quadras", value: cc("quadraKills"), format: int },
       { key: "pentaKills", label: "Pentas", value: cc("pentaKills"), format: int },
+    ],
+  },
+];
+
+// ----------------------------------------------------------------------- players
+
+/**
+ * The player catalogue, previously a flat `StatDef[]` local to `PlayerLeaderboard`.
+ *
+ * It lived there because the leaderboard only ever needed one stat at a time, so a flat list with a
+ * group *string* was enough. Player cards need the same grouping the team and champion cards have, and
+ * both surfaces have to agree on what "CS/min" means and how it is rounded — so it moves here and
+ * becomes the third `StatGroup` family rather than a second, parallel way of describing a stat.
+ *
+ * Labels are the leaderboard's originals ("Kills / Game", not the tables' terser "Kills/G"): this
+ * catalogue feeds a `<select>` where the reader has no column header for context.
+ */
+export const PLAYER_STAT_GROUPS: readonly StatGroup<PlayerStats>[] = [
+  {
+    id: "core",
+    label: "Core",
+    cells: [
+      // `kda` is the one non-nullable derived field and may be Infinity, so it is read directly
+      // rather than through `col` and formatted by `fmtRatio`, which renders ∞.
+      { key: "kda", label: "KDA", value: p => p.kda, format: fmtRatio },
+      { key: "winPercent", label: "Win Rate", short: "Win%", value: pc("winPercent"), format: pct },
+      { key: "games", label: "Games Played", short: "Games", value: pc("games"), format: int },
+      { key: "avgKills", label: "Kills / Game", short: "Kills/G", value: pc("avgKills") },
+      { key: "avgDeaths", label: "Deaths / Game", short: "Deaths/G", value: pc("avgDeaths"), lowerIsBetter: true },
+      { key: "avgAssists", label: "Assists / Game", short: "Assists/G", value: pc("avgAssists") },
+      { key: "kills", label: "Total Kills", short: "Kills", value: pc("kills"), format: int },
+      { key: "deaths", label: "Total Deaths", short: "Deaths", value: pc("deaths"), format: int, lowerIsBetter: true },
+      { key: "assists", label: "Total Assists", short: "Assists", value: pc("assists"), format: int },
+    ],
+  },
+  {
+    id: "economy",
+    label: "Economy",
+    cells: [
+      { key: "csMin", label: "CS / min", short: "CS/min", value: pc("csMin") },
+      { key: "goldMin", label: "Gold / min", short: "Gold/min", value: pc("goldMin"), format: int },
+      { key: "goldPercent", label: "Gold Share", value: pc("goldPercent"), format: pct },
+      { key: "xpMin", label: "XP / min", short: "XP/min", value: pc("xpMin"), format: int },
+    ],
+  },
+  {
+    id: "damage",
+    label: "Damage",
+    cells: [
+      { key: "damageMin", label: "Damage / min", short: "DMG/min", value: pc("damageMin"), format: int },
+      { key: "damagePercent", label: "Damage Share", short: "DMG Share", value: pc("damagePercent"), format: pct },
+      { key: "damagePerGold", label: "Damage per Gold", short: "DMG/Gold", value: pc("damagePerGold") },
+    ],
+  },
+  {
+    id: "vision",
+    label: "Vision",
+    cells: [
+      { key: "visionScoreMin", label: "Vision Score / min", short: "Vision/min", value: pc("visionScoreMin") },
+      { key: "visionScorePercent", label: "Vision Share", value: pc("visionScorePercent"), format: pct },
+      { key: "wardsMin", label: "Wards Placed / min", short: "Wards/min", value: pc("wardsMin") },
+      { key: "controlWardsMin", label: "Control Wards / min", short: "Ctrl W/min", value: pc("controlWardsMin") },
+      { key: "wardsClearedMin", label: "Wards Cleared / min", short: "Clear/min", value: pc("wardsClearedMin") },
+    ],
+  },
+  {
+    // The columns the old Supabase schema had no equivalent for at all.
+    id: "laning",
+    label: "Laning",
+    cells: [
+      { key: "goldDiffAt8", label: "Gold Diff @8", value: pc("goldDiffAt8"), format: signed },
+      { key: "csDiffAt8", label: "CS Diff @8", value: pc("csDiffAt8"), format: signedDec },
+      { key: "xpDiffAt8", label: "XP Diff @8", value: pc("xpDiffAt8"), format: signed },
+      { key: "goldDiffAt14", label: "Gold Diff @14", value: pc("goldDiffAt14"), format: signed },
+      { key: "csDiffAt14", label: "CS Diff @14", value: pc("csDiffAt14"), format: signedDec },
+      { key: "xpDiffAt14", label: "XP Diff @14", value: pc("xpDiffAt14"), format: signed },
+    ],
+  },
+  {
+    id: "teamfight",
+    label: "Teamfight",
+    cells: [
+      { key: "killParticipation", label: "Kill Participation", short: "Kill Part.", value: pc("killParticipation"), format: pct },
+      { key: "killPercent", label: "Share of Team Kills", short: "Kill Share", value: pc("killPercent"), format: pct },
+      { key: "deathPercent", label: "Share of Team Deaths", short: "Death Share", value: pc("deathPercent"), format: pct, lowerIsBetter: true },
+      { key: "killsAndAssistsAt15", label: "K+A @15", value: pc("killsAndAssistsAt15") },
+      { key: "killParticipationAt15", label: "KP @15", value: pc("killParticipationAt15"), format: pct },
+      { key: "killsAndAssistsAt25", label: "K+A @25", value: pc("killsAndAssistsAt25") },
+      { key: "killParticipationAt25", label: "KP @25", value: pc("killParticipationAt25"), format: pct },
+      { key: "firstBloodPercent", label: "First Blood Rate", short: "First Blood", value: pc("firstBloodPercent"), format: pct },
+      { key: "firstBloodedPercent", label: "First Blooded Rate", short: "Blooded", value: pc("firstBloodedPercent"), format: pct, lowerIsBetter: true },
+      { key: "jungleProximity", label: "Jungle Proximity", short: "Jng Prox", value: pc("jungleProximity"), format: pct },
+    ],
+  },
+  {
+    id: "highlights",
+    label: "Highlights",
+    cells: [
+      { key: "soloKills", label: "Solo Kills", short: "Solo", value: pc("soloKills"), format: int },
+      { key: "doubleKills", label: "Double Kills", short: "Doubles", value: pc("doubleKills"), format: int },
+      { key: "tripleKills", label: "Triple Kills", short: "Triples", value: pc("tripleKills"), format: int },
+      { key: "quadraKills", label: "Quadra Kills", short: "Quadras", value: pc("quadraKills"), format: int },
+      { key: "pentaKills", label: "Penta Kills", short: "Pentas", value: pc("pentaKills"), format: int },
     ],
   },
 ];

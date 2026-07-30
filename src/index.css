@@ -12,6 +12,17 @@
   --dark-red: #3f0008;
   --toast-success-bg: #065F46; --toast-error-bg: #3f0008;
   --overlay: rgba(1,1,1,0.9);
+  /* Bar fill for a team with no colour set. Light against the dark page. */
+  --bar-unset: #9ca3af;
+  /*
+   * Height of MobileBottomBar, so the pages reserving room for it and the compare dock sitting on
+   * top of it all agree. Derived from that component: 1px border-top + 6px padding-top + a 48.5px
+   * item (19px icon + 4px gap + 13.5px label line box + 12px py-1.5) + the safe-area inset.
+   *
+   * Note `index.html` has no `viewport-fit=cover`, so on iOS the inset currently resolves to 0 and
+   * the real height is 55.5px. This expression absorbs that correctly either way.
+   */
+  --bottom-nav-h: calc(55.5px + env(safe-area-inset-bottom, 8px));
 }
 
 [data-theme="light"] {
@@ -25,6 +36,10 @@
   --dark-red: #3f0008;
   --toast-success-bg: #d1fae5; --toast-error-bg: #fee2e2;
   --overlay: rgba(0,0,0,0.5);
+  /* Bar fill for a team with no colour set. Dark against the light page. */
+  --bar-unset: #4b5563;
+  /* See the dark theme for the derivation. */
+  --bottom-nav-h: calc(55.5px + env(safe-area-inset-bottom, 8px));
 }
 
 /* ── Base (inside layer so Tailwind utilities can override) ── */
@@ -50,6 +65,16 @@
 
 /* ── Animations ── */
 @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.3 } }
+
+/*
+ * Bar entrance for BarLeaderboard.
+ *
+ * A keyframe rather than JS state because the two cases need different mechanisms: a bar that
+ * survives a filter change animates via its `transition-[width]` from the old value to the new one,
+ * while a bar that is newly mounted has no old value to transition from and needs this. The previous
+ * JS approach reset every bar to zero on any data change, which read as a bounce.
+ */
+@keyframes bar-grow { from { transform: scaleX(0) } to { transform: scaleX(1) } }
 
 /* ── Custom Tailwind Theme ── */
 @theme {

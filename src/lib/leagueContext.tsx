@@ -58,7 +58,15 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const known = useMemo(() => new Set(tournaments.map(t => t.conf)), [tournaments]);
 
   // Ignore an unknown ?conf= rather than rendering an error page for a stale link.
-  const selection = requested && known.has(requested) ? requested : CURRENT;
+  //
+  // A link naming the *only* conf that is running means the same thing as `CURRENT`, so it
+  // canonicalizes to it: the picker offers that season under `CURRENT` alone, and leaving the raw
+  // value would point the control at an option that isn't there. With several divisions running,
+  // `?conf=` names one of them and is kept — that is a narrower selection than "the whole current
+  // season", not a synonym for it.
+  const resolved = requested && known.has(requested) ? requested : CURRENT;
+  const selection =
+    activeConfs.length === 1 && activeConfs[0] === resolved ? CURRENT : resolved;
 
   const setSelection = useCallback(
     (value: string) => {
@@ -87,7 +95,10 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       selection,
       setSelection,
       selectedConfs,
-      isCurrent: selection === CURRENT,
+      // A conf that is running is current whether it was reached through `CURRENT` or named
+      // directly. Keying this on the sentinel alone labelled a live division "PAST SEASON" the
+      // moment someone selected it by name.
+      isCurrent: selection === CURRENT || activeConfs.includes(selection),
       loading,
       error,
     }),

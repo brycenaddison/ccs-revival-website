@@ -10,10 +10,14 @@
  * they are query functions as-is. Nothing about the transport changes here.
  */
 
+import { keepPreviousData } from "@tanstack/react-query";
 import {
   championStats,
   matchData,
   playerStats,
+  records,
+  scout,
+  scoutIndex,
   standings,
   statTotals,
   teamDetail,
@@ -79,26 +83,54 @@ export const queries = {
       staleTime: LEAGUE_STALE,
     }),
 
-  /** `role` is part of the key, so toggling the filter back to a role already seen costs nothing. */
+  /**
+   * `role` is part of the key, so toggling the filter back to a role already seen costs nothing.
+   *
+   * A role not yet seen is a cache miss, though, and without `keepPreviousData` that meant `isPending`
+   * and a panel that blanked to a loading line on every first visit to a role. Holding the previous
+   * role's rows keeps the page on screen; `isPlaceholderData` is there if we ever want to dim them.
+   */
   championStats: (conf: string, role: Role | null) =>
     query({
       queryKey: ["stats", "champions", conf, role ?? "all"] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) => championStats(conf, role, { signal }),
       staleTime: LEAGUE_STALE,
+      placeholderData: keepPreviousData,
     }),
 
-  /**
-   * Cumulative league totals. PROPOSED upstream, so this resolves to `null` for now.
-   *
-   * `retry` is disabled: a missing route is absence rather than a blip, and while the endpoint is
-   * unbuilt every conf switch would otherwise re-request a 404 twice more for nothing.
-   */
+  /** Cumulative league totals. Retries normally now that the route is real and a failure is a blip. */
   statTotals: (conf: string) =>
     query({
       queryKey: ["stats", "totals", conf] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) => statTotals(conf, { signal }),
       staleTime: LEAGUE_STALE,
-      retry: false,
+    }),
+
+  /**
+   * Single-game record boards. `limit` is part of the key, so flipping back to a row count already seen
+   * is free — the same reason `role` is in the champion key.
+   */
+  records: (conf: string, limit: number) =>
+    query({
+      queryKey: ["stats", "records", conf, limit] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => records(conf, { limit }, { signal }),
+      staleTime: LEAGUE_STALE,
+    }),
+
+  /** The player picker's source. One request per conf, shared by every report viewed within it. */
+  scoutIndex: (conf: string) =>
+    query({
+      queryKey: ["stats", "scout", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => scoutIndex(conf, { signal }),
+      staleTime: LEAGUE_STALE,
+    }),
+
+  /** One player's report. Keyed per player, so flipping between two already-seen players is instant. */
+  scout: (conf: string, profileId: number) =>
+    query({
+      queryKey: ["stats", "scout", conf, profileId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => scout(conf, profileId, { signal }),
+      staleTime: LEAGUE_STALE,
     }),
 
   /** One team's page. Fans out to `/teams/:c/:t` plus the conf listing, which is shared. */

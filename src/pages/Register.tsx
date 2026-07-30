@@ -9,7 +9,9 @@ import { useSeasonLink } from "../lib/leagueContext";
  * `src/_disabled/RegisterForm.tsx`; restoring it needs `POST /applications`, a logo upload
  * endpoint, and a transactional approval flow — see the gap analysis.
  *
- * The route is kept rather than removed because the "JOIN CCS" button appears on every page.
+ * The route is kept rather than removed because the "Join CCS" button in the nav points at it. That
+ * button shows only while signed out — a visitor is who it's aimed at — so this page is reachable by
+ * link for everyone else.
  */
 const DISCORD_INVITE = "https://discord.gg/ccs";
 

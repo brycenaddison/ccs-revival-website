@@ -24,14 +24,35 @@ export interface SessionProfile {
   puuids: string[];
 }
 
+/**
+ * A conf the signed-in profile can administer.
+ *
+ * `name` is carried rather than looked up, so a conf the site hasn't loaded — or no longer lists —
+ * still renders with a label instead of a bare id.
+ */
+export interface AdminLeague {
+  conf: string;
+  name: string;
+}
+
 /** Shape of `GET /auth/me`, which answers 200 for anonymous callers rather than 401. */
 export interface Identity {
   authenticated: boolean;
   profile: SessionProfile | null;
   roles: string[];
+  /**
+   * Confs this profile administers directly.
+   *
+   * Empty for a site admin, whose access is implied by the role rather than enumerated — see
+   * `lib/adminAccess.ts`, which is where the two are reconciled.
+   */
+  leagues: AdminLeague[];
 }
 
-export const ANONYMOUS: Identity = { authenticated: false, profile: null, roles: [] };
+/** The one role the API grants today. Site admin implies league admin everywhere. */
+export const SITE_ADMIN_ROLE = "admin";
+
+export const ANONYMOUS: Identity = { authenticated: false, profile: null, roles: [], leagues: [] };
 
 /**
  * Where the login control points.
@@ -138,7 +159,26 @@ export async function me(opts?: RequestOpts): Promise<Identity> {
     authenticated: data.authenticated === true,
     profile: data.profile ?? null,
     roles: Array.isArray(data.roles) ? data.roles : [],
+    leagues: normalizeLeagues(data.leagues),
   };
+}
+
+/**
+ * Coerces the `leagues` field into a usable array.
+ *
+ * Defensive to the same degree as `roles`, and for a live reason: a deployment that hasn't shipped
+ * the field yet omits it, and every consumer maps over it. Absent has to read as "administers
+ * nothing", never `undefined`. An entry without a `conf` is unusable, so it's dropped rather than
+ * rendered as a league you can't open.
+ */
+function normalizeLeagues(value: unknown): AdminLeague[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry: unknown) => {
+    if (typeof entry !== "object" || entry === null) return [];
+    const { conf, name } = entry as { conf?: unknown; name?: unknown };
+    if (typeof conf !== "string" || conf === "") return [];
+    return [{ conf, name: typeof name === "string" && name !== "" ? name : conf }];
+  });
 }
 
 /**
