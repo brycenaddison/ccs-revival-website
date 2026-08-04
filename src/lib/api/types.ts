@@ -24,8 +24,11 @@ export interface Tournament {
   shortname: string | null;
   layout: TournamentLayout[];
   /**
-   * PROPOSED upstream — not yet returned by the API. Until it exists, the current league
-   * is resolved from `VITE_ACTIVE_CONFS`. See the gap analysis.
+   * Whether this season is running now. Served by the API and writable by a site admin through
+   * `PATCH /admin/leagues/:conf`.
+   *
+   * Still optional on the type: a deployment older than the column omits it, and reading absent as
+   * `false` would report every season as finished. `resolveActiveConfs` treats it that way too.
    */
   active?: boolean;
 }
@@ -346,7 +349,7 @@ export type MatchlistRoleKey = RoleKey;
 export interface MatchlistEntry {
   matchId: string;
   conf: string;
-  week: number;
+  seasonDay: number;
   team: string;
   opponent: string;
   /** Game number within the series. */
@@ -500,7 +503,7 @@ export interface RecordRow {
   champImg: string | null;
   role: Role | null;
   opponent: string;
-  week: number;
+  seasonDay: number;
   matchId: string;
   /** Which game of the series. */
   game: number;
@@ -616,7 +619,7 @@ export interface ScoutOpponent {
 export interface ScoutGame {
   matchId: string;
   game: number;
-  week: number;
+  seasonDay: number;
   startTime: string | null;
   durationS: number;
   team: string;

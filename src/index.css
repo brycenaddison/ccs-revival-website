@@ -42,6 +42,35 @@
   --bottom-nav-h: calc(55.5px + env(safe-area-inset-bottom, 8px));
 }
 
+/*
+ * Scenario levels — the ramp a group phase's `level` indexes into.
+ *
+ * Ten hues, best to worst, stated once per theme so the same stored level reads correctly on either
+ * page: a gold bright enough for near-black, and a darker one that carries on white. See
+ * `lib/scenarioTones.ts`, which is where the names and the mixing live.
+ *
+ * Only the hue is per level. The fill behind a pill and the line around it are mixed from it with the
+ * two strengths below, so adding a theme means picking ten colours and nothing else — and a pill, a
+ * swatch and a standings row cannot drift apart, because there is one source for all three. Light mode
+ * takes a slightly stronger fill and a softer edge: the same tint that reads as a wash on black
+ * disappears on white, while a 55% border there is heavier than anything else on the page.
+ */
+[data-theme="dark"] {
+  --scenario-1: #d7a52a; --scenario-2: #10b981; --scenario-3: #2dd4bf; --scenario-4: #38bdf8;
+  --scenario-5: #3b82f6; --scenario-6: #8b5cf6; --scenario-7: #f59e0b; --scenario-8: #d1d2d4;
+  --scenario-9: #94a3b8; --scenario-10: #d20708;
+  --scenario-fill: 14%;
+  --scenario-edge: 55%;
+}
+
+[data-theme="light"] {
+  --scenario-1: #a97a07; --scenario-2: #059669; --scenario-3: #0d9488; --scenario-4: #0284c7;
+  --scenario-5: #2563eb; --scenario-6: #7c3aed; --scenario-7: #c2660b; --scenario-8: #6b7280;
+  --scenario-9: #475569; --scenario-10: #c00607;
+  --scenario-fill: 12%;
+  --scenario-edge: 45%;
+}
+
 /* ── Base (inside layer so Tailwind utilities can override) ── */
 @layer base {
   body {
@@ -62,6 +91,135 @@
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border3); border-radius: 3px; }
+
+/*
+ * The season selector's dropdown list.
+ *
+ * A native <select> popup takes its colours from the control, and the compact one in the nav is
+ * transparent — so the browser picked its own, landing on a white list with grey-on-white text in
+ * dark mode. Pinning the options to the theme's own surface keeps the list light-on-dark in dark
+ * mode and dark-on-light in light mode; `color-scheme` does the same for the parts of the popup
+ * that aren't ours to paint (its frame, scrollbar and hover highlight).
+ */
+[data-theme="dark"] .season-select { color-scheme: dark }
+[data-theme="light"] .season-select { color-scheme: light }
+.season-select option {
+  background: var(--bg2);
+  color: var(--text);
+}
+
+/*
+ * Date and time inputs.
+ *
+ * Same shape of problem as the season selector above, and the same first move. A date input is two
+ * things: the control, which is ours and is styled by `CONTROL_CLASS`, and the **picker popup, which
+ * is browser UI** — its frame, its grid, its selected-day highlight. None of that is paintable from
+ * CSS, so `color-scheme` is the whole lever: it is what makes the popup dark rather than a white card
+ * on a dark page, and on Chromium it is also what flips the calendar glyph to a light one.
+ *
+ * Targeted by element rather than by a class, unlike `.season-select`: every date input in the app
+ * wants this, there is no case that wants a light popup on a dark page, and a class here is one more
+ * thing to forget on the next field. `date` and `time` are included so they are already right if one
+ * is added later.
+ *
+ * The popup cannot be given the site's palette, its fonts, or rounded corners — that is the trade for
+ * keeping the native control, which brings free keyboard support and the OS picker on mobile. If it
+ * ever has to match exactly, that is a calendar component, not more CSS.
+ */
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] input[type="time"],
+[data-theme="dark"] input[type="datetime-local"] { color-scheme: dark }
+[data-theme="light"] input[type="date"],
+[data-theme="light"] input[type="time"],
+[data-theme="light"] input[type="datetime-local"] { color-scheme: light }
+
+/*
+ * Chromium sizes a date field from its segments rather than from the box, so one sits a pixel or two
+ * off the text inputs and selects beside it — which is most of why a row of mixed fields looks
+ * untidy. Pinning the line box to `text-sm`'s leading, which every neighbour already uses, lines them
+ * up. The control's own surface, border and radius come from `CONTROL_CLASS` as usual.
+ */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] { line-height: 1.25rem }
+
+/*
+ * The calendar button, replaced rather than recoloured.
+ *
+ * `color-scheme` alone leaves it as whichever of two fixed glyphs the browser picked — dark-on-dark
+ * before that, washed-out grey after. Inverting it with a filter would fight the flip `color-scheme`
+ * has already done, and the two disagree between browsers and themes. So the native glyph is dropped
+ * and Lucide's `calendar` is masked in instead, painted from `--text-secondary` — which means it
+ * tracks the theme from one rule and matches the icons beside it in the same form.
+ *
+ * Chromium only; Firefox and Safari expose no such pseudo-element and fall back to their own button,
+ * which `color-scheme` has already made legible.
+ */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  background-image: none;
+  background-color: var(--text-secondary);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  margin-inline-start: 0.375rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  background-color: var(--accent);
+  opacity: 1;
+}
+input[type="date"]:focus::-webkit-calendar-picker-indicator,
+input[type="time"]:focus::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]:focus::-webkit-calendar-picker-indicator {
+  opacity: 1;
+}
+
+/*
+ * The segments inside the control — `06/10/2026, 01:00`.
+ *
+ * Chromium gives these their own colour rather than inheriting, which lands a shade too dark on
+ * `--bg2`. `inherit` hands them back to the `text-text` the control already carries, so a date field
+ * reads at the same weight as the text inputs beside it.
+ *
+ * The `/` and `:` separators are deliberately *not* dimmed. They look like furniture but they are what
+ * makes the field read as a date rather than three numbers, and the dim tokens are dark enough on
+ * `--bg2` to lose them.
+ */
+input[type="datetime-local"]::-webkit-datetime-edit,
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit { color: inherit }
+
+/* The highlight when a segment is selected, which otherwise uses the browser's own blue. */
+input[type="datetime-local"]::-webkit-datetime-edit-day-field:focus,
+input[type="datetime-local"]::-webkit-datetime-edit-month-field:focus,
+input[type="datetime-local"]::-webkit-datetime-edit-year-field:focus,
+input[type="datetime-local"]::-webkit-datetime-edit-hour-field:focus,
+input[type="datetime-local"]::-webkit-datetime-edit-minute-field:focus,
+input[type="datetime-local"]::-webkit-datetime-edit-ampm-field:focus,
+input[type="date"]::-webkit-datetime-edit-day-field:focus,
+input[type="date"]::-webkit-datetime-edit-month-field:focus,
+input[type="date"]::-webkit-datetime-edit-year-field:focus,
+input[type="time"]::-webkit-datetime-edit-hour-field:focus,
+input[type="time"]::-webkit-datetime-edit-minute-field:focus,
+input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 2px;
+  outline: none;
+}
 
 /* ── Animations ── */
 @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.3 } }

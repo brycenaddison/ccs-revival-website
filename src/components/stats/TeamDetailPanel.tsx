@@ -313,7 +313,7 @@ export function TeamDetailPanel({ conf, code, onBack, onSelectMatch }: Props) {
                           onClick={e => e.stopPropagation()}
                           className="no-underline text-text hover:text-accent"
                         >
-                          W{m.week}
+                          W{m.seasonDay}
                         </Link>
                       </td>
                       <td className="py-2.5 px-2">

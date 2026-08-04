@@ -27,8 +27,12 @@ import { NavBar } from "../home/NavBar";
 import { MobileBottomBar } from "../home/MobileBottomBar";
 
 interface Props {
-  /** Content column width. */
-  maxWidth?: number;
+  /**
+   * Content column width. A number is pixels; a CSS length is passed through, so `"100%"` is how a page
+   * asks for the full viewport minus this shell's own padding — which the bracket editor needs, because
+   * a season laid out in day columns has no natural width to cap at.
+   */
+  maxWidth?: number | string;
   /** Rendered above the nav — the scoreboard ticker, on Home. Scrolls away; the nav then pins. */
   ticker?: React.ReactNode;
   /**

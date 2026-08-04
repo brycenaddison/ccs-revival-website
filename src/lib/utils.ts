@@ -11,6 +11,47 @@ export function timeAgo(d?: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+/**
+ * An ISO instant as `<input type="datetime-local">` wants it: `YYYY-MM-DDTHH:mm`, **in local time**.
+ *
+ * The API stores naive UTC (`timestamp without time zone`) and the site renders in the viewer's local
+ * time, which is the only sensible answer when a roster spans several zones. So this is a real
+ * conversion, not a substring: `toISOString().slice(0, 16)` would show a UTC clock in a local-time
+ * input and quietly shift every time the user saved without touching the field.
+ *
+ * Empty string for absent or unparseable, which is also what the input shows for "not set".
+ */
+export function toLocalInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** The inverse: a local `datetime-local` value back to an ISO instant, or null when cleared. */
+export function fromLocalInput(value: string): string | null {
+  if (value === "") return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** A kickoff as the editors show it: local date and time, with the weekday, because match day ≠ date. */
+export function fmtKickoff(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+
+  return d.toLocaleString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function fmtTime(d?: string): string {
   if (!d) return "";
   const dt = new Date(d);

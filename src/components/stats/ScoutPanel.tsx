@@ -78,7 +78,7 @@ const CHAMP_COLUMNS: readonly StatCell<ScoutChamp>[] = [
 ];
 
 const GAME_COLUMNS: readonly StatCell<ScoutGame>[] = [
-  { key: "week", label: "Week", value: g => g.week, format: int },
+  { key: "seasonDay", label: "Week", value: g => g.seasonDay, format: int },
   { key: "win", label: "Result", text: g => (g.win ? "W" : "L"), value: g => (g.win ? 1 : 0) },
   { key: "kda_raw", label: "K/D/A", text: g => `${g.kills}/${g.deaths}/${g.assists}` },
   { key: "kda", label: "KDA", value: g => g.kda, format: fmtRatio },
@@ -102,7 +102,7 @@ export function ScoutPanel({ conf, isMobile }: Props) {
   const [profileId, setProfileId] = useState<number | null>(null);
 
   const champSort = useSort("games");
-  const gameSort = useSort("week");
+  const gameSort = useSort("seasonDay");
   const matchupSort = useSort("games");
 
   const indexQuery = useQuery(queries.scoutIndex(conf));

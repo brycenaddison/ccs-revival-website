@@ -145,19 +145,20 @@ export function toStandingsFromTeams(
 // ------------------------------------------------------------------ series keys
 
 /**
- * Series identity: the two teams that met, in a given week of a given conf.
+ * Series identity: the two teams that met, on a given season day of a given conf.
  *
  * Doubles as the URL segment for `/match/:seriesId`, so `parseSeriesKey` can reconstruct
  * everything a series page needs without recomputing the whole league.
  */
-export function seriesKey(conf: string, week: number, a: string, b: string): string {
+export function seriesKey(conf: string, seasonDay: number, a: string, b: string): string {
   const [x, y] = [a, b].sort();
-  return `${conf}:w${week}:${x}_vs_${y}`;
+  // The `w` is historic -- the API still mints seriesIds with it -- so it stays.
+  return `${conf}:w${seasonDay}:${x}_vs_${y}`;
 }
 
 export interface ParsedSeriesKey {
   conf: string;
-  week: number;
+  seasonDay: number;
   codeA: string;
   codeB: string;
 }
@@ -165,15 +166,15 @@ export interface ParsedSeriesKey {
 export function parseSeriesKey(key: string): ParsedSeriesKey | null {
   const m = /^(.+):w(\d+):(.+)_vs_(.+)$/.exec(key);
   if (!m) return null;
-  const week = Number.parseInt(m[2], 10);
-  if (!Number.isFinite(week)) return null;
-  return { conf: m[1], week, codeA: m[3], codeB: m[4] };
+  const seasonDay = Number.parseInt(m[2], 10);
+  if (!Number.isFinite(seasonDay)) return null;
+  return { conf: m[1], seasonDay, codeA: m[3], codeB: m[4] };
 }
 
-/** Resolve the best-of for a week from the tournament's per-week layout. */
-export function bestOfForWeek(t: Tournament | undefined, week: number): number | undefined {
+/** Resolve the best-of for a season day from the tournament's legacy per-week layout. */
+export function bestOfForWeek(t: Tournament | undefined, seasonDay: number): number | undefined {
   if (!t || t.layout.length === 0) return undefined;
-  const applicable = t.layout.filter(l => l.startingWeek <= week).sort((p, q) => q.startingWeek - p.startingWeek);
+  const applicable = t.layout.filter(l => l.startingWeek <= seasonDay).sort((p, q) => q.startingWeek - p.startingWeek);
   return (applicable[0] ?? t.layout[0]).bestOf;
 }
 

@@ -63,6 +63,18 @@ interface AuthContextValue {
 const AuthCtx = createContext<AuthContextValue | null>(null);
 
 /**
+ * Riot account linking is off for now. Flip this back to `true` to restore it — the flow itself is
+ * intact and unchanged; this only withdraws the two ways to start it (the account menu entry and the
+ * button in Settings › Connections) and makes `linkRiot` a no-op so no other path can open the popup.
+ *
+ * Already-linked accounts still list in Settings › Connections: hiding what a profile is carrying
+ * would be a different, larger change than pausing new links.
+ */
+// Annotated `boolean` rather than left as the literal `false`, so the code behind the flag stays
+// live to the type checker instead of narrowing to unreachable.
+export const RIOT_LINKING_ENABLED: boolean = false;
+
+/**
  * What to say about a failed link. `denied` is the user cancelling at Riot's consent screen, so it
  * reads as a cancellation rather than a fault.
  */
@@ -122,6 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const linkRiot = useCallback(async () => {
+    if (!RIOT_LINKING_ENABLED) return;
+
     const popup = window.open(auth.riotLinkUrl(), "ccs-riot-link", "width=520,height=720");
     if (!popup) {
       setNotice({ text: "Allow pop-ups for this site to link a Riot account.", tone: "error" });

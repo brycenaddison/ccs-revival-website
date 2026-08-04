@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, Link2, LogOut, Settings, Shield, type LucideIcon } from "lucide-react";
 import { useAdminAccess } from "../../lib/adminAccess";
-import { useAuth } from "../../lib/authContext";
+import { RIOT_LINKING_ENABLED, useAuth } from "../../lib/authContext";
 
 export type MenuEntry =
   | { kind: "divider" }
@@ -46,7 +46,8 @@ interface EntryOpts {
  * Riot linking opens a popup and reports its outcome through the auth provider's notice, so
  * nothing here has to wait on the promise — the menu is closed by then either way. It stays even
  * though Settings › Connections now exists: that page is where you *see* what's linked, not the
- * only way to start linking.
+ * only way to start linking. While `RIOT_LINKING_ENABLED` is off the entry is dropped rather than
+ * shown greyed out: a dead row in a four-item menu is noise, with nothing here to explain it.
  */
 export function accountMenuEntries({ logout, linkRiot, isSiteAdmin }: EntryOpts): MenuEntry[] {
   return [
@@ -54,14 +55,18 @@ export function accountMenuEntries({ logout, linkRiot, isSiteAdmin }: EntryOpts)
     ...(isSiteAdmin
       ? [{ kind: "item" as const, label: "Site Admin", icon: Shield, to: "/admin" }]
       : []),
-    { kind: "divider" },
-    {
-      kind: "item",
-      label: "Link Riot Account",
-      icon: Link2,
-      title: "Verify a Riot account and attach it to your profile",
-      onSelect: () => void linkRiot(),
-    },
+    ...(RIOT_LINKING_ENABLED
+      ? [
+          { kind: "divider" as const },
+          {
+            kind: "item" as const,
+            label: "Link Riot Account",
+            icon: Link2,
+            title: "Verify a Riot account and attach it to your profile",
+            onSelect: () => void linkRiot(),
+          },
+        ]
+      : []),
     { kind: "divider" },
     { kind: "item", label: "Log out", icon: LogOut, onSelect: () => void logout() },
   ];

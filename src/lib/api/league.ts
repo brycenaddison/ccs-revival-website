@@ -51,9 +51,10 @@ function confsFromEnv(): string[] {
  * Which confs make up the current league.
  *
  * Resolution order:
- *   1. `VITE_ACTIVE_CONFS` — an explicit pin, and the only mechanism that works today.
- *   2. `tournaments.active` — PROPOSED upstream; used automatically once it appears.
- *   3. The most recent tournament by `recencyKey`.
+ *   1. `VITE_ACTIVE_CONFS` — an explicit pin, which still wins so a deployment can override the
+ *      flag without a database write.
+ *   2. `tournaments.active` — set from the site admin's league editor.
+ *   3. The most recent tournament by `recencyKey`, for a deployment with neither.
  */
 export function resolveActiveConfs(list: readonly Tournament[]): string[] {
   const known = new Set(list.map(t => t.conf));

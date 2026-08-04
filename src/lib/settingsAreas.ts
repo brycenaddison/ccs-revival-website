@@ -21,6 +21,18 @@ export interface SettingsSection {
   icon: LucideIcon;
   /** One line under the heading saying what this section controls. Also the mobile row's subtitle. */
   description?: string;
+  /**
+   * Content width for the page this section is on, overriding the area's own.
+   *
+   * Here rather than on the area because the two shapes genuinely disagree: a column of labelled
+   * fields is unreadable stretched wide, while a bracket laid out in day columns has nowhere to go at
+   * 1000px — after the sidebar it gets about 650. The page reads this, not the shell: `PageShell`
+   * wraps `SettingsShell`, so the width has to be resolved before the shell renders.
+   *
+   * A number is pixels; `"100%"` means take the page. A section that goes full width owns capping its
+   * own field columns, since nothing else will.
+   */
+  maxWidth?: number | string;
   Component: ComponentType;
 }
 

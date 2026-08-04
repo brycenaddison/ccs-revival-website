@@ -10,10 +10,19 @@ import type { ReactNode } from "react";
 import { LABEL_CLASS } from "../stats/FilterBar";
 import type { SettingsSection as Section } from "../../lib/settingsAreas";
 
-/** The card a section's content sits in: heading, one-line description, then the content. */
+/**
+ * The card a section's content sits in: heading, one-line description, then the content.
+ *
+ * `min-w-0` is load-bearing. This is the `1fr` item of the shell's `[220px_1fr]` grid, and `1fr` means
+ * `minmax(auto, 1fr)` — that `auto` floor sizes the track from the item's **min-content** width. With
+ * `overflow: visible`, a wide descendant propagates its width all the way up here, widens the track past
+ * the page and puts the whole layout into horizontal overflow. Any section that scrolls something
+ * sideways depends on this: a child's `overflow-x-auto` can only clip against a width, and without
+ * `min-w-0` the column has no definite one to give it.
+ */
 export function SectionFrame({ section, children }: { section: Section; children: ReactNode }) {
   return (
-    <div className="bg-bg2 border border-border rounded-lg p-5">
+    <div className="bg-bg2 border border-border rounded-lg p-5 min-w-0">
       <h2 className="font-display text-[22px] text-text-bright tracking-widest">
         {section.label.toUpperCase()}
       </h2>

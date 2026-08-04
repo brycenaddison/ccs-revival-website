@@ -19,6 +19,7 @@ import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
 import { ComingSoon } from "../components/settings/SettingsSection";
 import { LeaguePicker } from "../components/settings/LeaguePicker";
+import { ScheduleSection } from "../components/league/schedule/ScheduleSection";
 import { useAdminAccess } from "../lib/adminAccess";
 import type { SettingsArea, SettingsSection } from "../lib/settingsAreas";
 
@@ -30,7 +31,9 @@ const SECTIONS: readonly SettingsSection[] = [
     label: "League Details",
     icon: Settings2,
     description: "Name, week layout, and whether this season is running.",
-    Component: () => <ComingSoon needs="write endpoints for /tournaments (the API is read-only)" />,
+    // The editor exists, but `/admin/leagues` is site-admin only — a league admin editing their own
+    // league's metadata would need a conf-scoped route. See `components/admin/LeaguesSection.tsx`.
+    Component: () => <ComingSoon needs="a league-scoped route for league metadata (/admin/leagues is site admin only)" />,
   },
   {
     slug: "teams",
@@ -50,8 +53,12 @@ const SECTIONS: readonly SettingsSection[] = [
     slug: "schedule",
     label: "Schedule",
     icon: CalendarDays,
-    description: "Fixtures, weeks and best-of format.",
-    Component: () => <ComingSoon needs="write endpoints for matches and series" />,
+    // Needs the `schedule` scope, which is narrower than this page's own gate — a grant carrying only
+    // `schedule` reaches here and can use this section but nothing else. Match times, teams, best-of,
+    // streams, codes, bracket resync and legacy linking. Adding or moving a match is structure, and
+    // lives in Site Admin.
+    description: "Match times, line-ups, best-of and tournament codes, day by day.",
+    Component: ScheduleSection,
   },
   {
     slug: "draft",

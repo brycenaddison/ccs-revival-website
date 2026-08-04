@@ -12,18 +12,28 @@
 
 import { keepPreviousData } from "@tanstack/react-query";
 import {
+  adminUser,
   championStats,
+  gameCandidates,
+  matchCodes,
   matchData,
+  matchDetail,
+  phaseCandidates,
+  phaseDocument,
+  phaseList,
   playerStats,
   records,
+  schedule,
   scout,
   scoutIndex,
+  searchUsers,
   standings,
   statTotals,
   teamDetail,
   teamStats,
   teamsForConf,
   tournaments,
+  unscheduledGames,
   type Role,
 } from "./api";
 
@@ -152,6 +162,136 @@ export const queries = {
       staleTime: Infinity,
       gcTime: Infinity,
     }),
+
+  /**
+   * The admin user directory, one page of it.
+   *
+   * `staleTime: 0` unlike everything above: this reads roles, and a role list is exactly the thing
+   * an admin has just changed in another tab. `keepPreviousData` holds the current page on screen
+   * while a new search term or offset loads, so typing doesn't blank the list on every keystroke.
+   */
+  adminUsers: (q: string, limit: number, offset: number) =>
+    query({
+      queryKey: ["admin", "users", "search", q, limit, offset] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => searchUsers({ q, limit, offset }, { signal }),
+      staleTime: 0,
+      placeholderData: keepPreviousData,
+    }),
+
+  /**
+   * One user's directory row, keyed apart from the list so the detail panel survives a search that
+   * no longer contains them. `null` when the profile is gone.
+   */
+  adminUser: (profileId: number | null) =>
+    query({
+      queryKey: ["admin", "users", "one", profileId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        profileId === null ? Promise.resolve(null) : adminUser(profileId, { signal }),
+      enabled: profileId !== null,
+      staleTime: 0,
+    }),
+
+  /**
+   * The editor surfaces below all use `staleTime: 0`, unlike the league data above.
+   *
+   * Every one of them backs a whole-document or PATCH save against the value it last read, so serving
+   * a cached copy is how two tabs — or one tab left open over lunch — overwrite each other's work.
+   * Refetching on mount costs one request and is the difference between editing what is there and
+   * editing what was there.
+   *
+   * The three that back a **draft** also turn off `refetchOnWindowFocus`, which the global default
+   * leaves on. Fresh-on-mount is what an editor wants; fresh-while-being-typed-into is not — a document
+   * that moves underneath a half-finished edit either discards it or makes an untouched form read as
+   * dirty, and tabbing away to Discord and back is enough to do it. Mount is the moment to be current;
+   * saving is the moment to find out somebody else got there first.
+   */
+
+  /** The phase list, raw, with anchors and unpublished phases. Site admin only. */
+  seasonPhases: (conf: string) =>
+    query({
+      queryKey: ["season", "phases", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => phaseList(conf, { signal }),
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+    }),
+
+  /**
+   * One phase's whole save document.
+   *
+   * Keyed per phase so flipping between two already-open phases is instant, but still `staleTime: 0`
+   * — the thing being edited is the one thing that must not be stale.
+   */
+  phaseDocument: (conf: string, phaseId: number | null) =>
+    query({
+      queryKey: ["season", "phase", conf, phaseId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        phaseId === null ? Promise.resolve(null) : phaseDocument(conf, phaseId, { signal }),
+      enabled: phaseId !== null,
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+    }),
+
+  /** The bracket editor's side panel. Live standings, so never cached long. */
+  phaseCandidates: (conf: string, phaseId: number | null) =>
+    query({
+      queryKey: ["season", "candidates", conf, phaseId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        phaseId === null ? Promise.resolve([]) : phaseCandidates(conf, phaseId, { signal }),
+      enabled: phaseId !== null,
+      staleTime: 0,
+    }),
+
+  /**
+   * The schedule, grouped by season day. `day` is part of the key, so the whole-season view and a
+   * single day are separate entries rather than one clobbering the other.
+   */
+  schedule: (conf: string, day?: number) =>
+    query({
+      queryKey: ["schedule", conf, day ?? "all"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => schedule(conf, day, { signal }),
+      staleTime: 0,
+    }),
+
+  /** One match, raw, for the editor drawer. */
+  matchDetail: (matchId: number | null) =>
+    query({
+      queryKey: ["schedule", "match", matchId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        matchId === null ? Promise.resolve(null) : matchDetail(matchId, { signal }),
+      enabled: matchId !== null,
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+    }),
+
+  /** The codes one match holds. Only fetched once its row is expanded. */
+  matchCodes: (matchId: number | null) =>
+    query({
+      queryKey: ["schedule", "codes", matchId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        matchId === null ? Promise.resolve([]) : matchCodes(matchId, { signal }),
+      enabled: matchId !== null,
+      staleTime: 0,
+    }),
+
+  /** Played games with no scheduled match. Lists forever for legacy seasons; a worklist, not an alarm. */
+  unscheduledGames: (conf: string) =>
+    query({
+      queryKey: ["schedule", "unscheduled", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => unscheduledGames(conf, { signal }),
+      staleTime: 0,
+    }),
+
+  /** Likely games for one scheduled match, best first. */
+  gameCandidates: (matchId: number | null) =>
+    query({
+      queryKey: ["schedule", "gameCandidates", matchId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        matchId === null
+          ? Promise.resolve({ scheduleMatchId: 0, seasonDay: 0, candidates: [] })
+          : gameCandidates(matchId, { signal }),
+      enabled: matchId !== null,
+      staleTime: 0,
+    }),
 };
 
 /** Key prefixes, for invalidating a whole family on refresh. */
@@ -159,6 +299,26 @@ export const queryRoots = {
   teams: ["teams"] as const,
   standings: ["standings"] as const,
   stats: ["stats"] as const,
+  /** The league list. Invalidated by the admin league editor, which is the only thing that writes it. */
+  tournaments: ["tournaments"] as const,
+  /** Both the directory search and every cached single user. */
+  adminUsers: ["admin", "users"] as const,
+  /**
+   * The phase list, every phase document, and the candidates panel.
+   *
+   * One root for all three because a structure save can move any of them: resizing a phase renumbers
+   * the season days its neighbours' matches fall on, and a phase save re-runs propagation, which
+   * rewrites teams a candidates panel is showing.
+   */
+  season: ["season"] as const,
+  /**
+   * The schedule, match details, codes and the linking worklist.
+   *
+   * Also invalidated by a structure save, because deleting a phase or shrinking it deletes matches —
+   * so a schedule view held open beside the structure editor would otherwise list rows that no longer
+   * exist.
+   */
+  schedule: ["schedule"] as const,
 };
 
 /**

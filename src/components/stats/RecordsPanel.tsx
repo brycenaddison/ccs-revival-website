@@ -118,7 +118,7 @@ export function RecordsPanel({ conf, isMobile }: Props) {
               key: `${board.id}-${i}`,
               rank: (tally.get(r.rank) ?? 1) > 1 ? `T-${r.rank}` : String(r.rank),
               name: r.name,
-              sub: [r.champ, `vs ${r.opponent}`, `W${r.week}`].filter(Boolean).join(" · "),
+              sub: [r.champ, `vs ${r.opponent}`, `W${r.seasonDay}`].filter(Boolean).join(" · "),
               // A null value never ranks upstream, so this is defensive rather than expected.
               value: r.value ?? 0,
               display: r.value === null ? "—" : format(r.value),

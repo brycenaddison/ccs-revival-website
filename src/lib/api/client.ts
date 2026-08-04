@@ -75,7 +75,13 @@ function pickCounts<K extends string>(raw: Raw, keys: readonly K[]): Record<K, n
 
 // ---------------------------------------------------------------- tournaments
 
-function mapTournament(raw: Raw): Tournament {
+/**
+ * Exported for `./admin`: `POST` and `PATCH /admin/leagues` answer with the same row shape
+ * `GET /tournaments` serves, and an editor that normalized its own save differently from the list
+ * it just updated would show the two disagreeing.
+ */
+export function mapTournament(input: unknown): Tournament {
+  const raw = asRaw(input);
   const layout = Array.isArray(raw.layout) ? raw.layout : [];
   return {
     conf: str(raw.conf),
@@ -366,7 +372,7 @@ function mapMatchlistEntry(raw: Raw): MatchlistEntry {
   return {
     matchId: str(raw.matchId),
     conf: str(raw.conf),
-    week: num(raw.week as Numeric),
+    seasonDay: num(raw.seasonDay as Numeric),
     team: str(raw.team),
     opponent: str(raw.opponent),
     game: num(raw.game as Numeric, 1),
@@ -390,9 +396,9 @@ function mapMatchlistEntry(raw: Raw): MatchlistEntry {
   };
 }
 
-/** The API returns matchlists unordered; sort chronologically by week then game. */
+/** The API returns matchlists unordered; sort chronologically by season day then game. */
 function sortMatchlist(entries: MatchlistEntry[]): MatchlistEntry[] {
-  return [...entries].sort((a, b) => a.week - b.week || a.game - b.game || a.startTime.localeCompare(b.startTime));
+  return [...entries].sort((a, b) => a.seasonDay - b.seasonDay || a.game - b.game || a.startTime.localeCompare(b.startTime));
 }
 
 // --------------------------------------------------------------- team detail
@@ -513,7 +519,7 @@ function mapRecordRow(raw: unknown): RecordRow {
     champImg: httpsUrl(r.champImg as string) ?? null,
     role: normalizeRole(r.role as string),
     opponent: str(r.opponent),
-    week: num(r.week as Numeric),
+    seasonDay: num(r.seasonDay as Numeric),
     game: num(r.game as Numeric),
     matchId: str(r.matchId),
     startTime: strOrNull(r.startTime),
@@ -615,7 +621,7 @@ function mapScoutGame(raw: unknown): ScoutGame {
   return {
     matchId: str(g.matchId),
     game: num(g.game as Numeric),
-    week: num(g.week as Numeric),
+    seasonDay: num(g.seasonDay as Numeric),
     startTime: strOrNull(g.startTime),
     durationS: num(g.durationS as Numeric),
     team: str(g.team),

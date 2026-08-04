@@ -18,7 +18,7 @@ import { useChampions } from "../hooks/useChampions";
 /**
  * A match series (best-of-N).
  *
- * The API has no series endpoint, but the series id encodes conf, week and both team codes,
+ * The API has no series endpoint, but the series id encodes conf, season day and both team codes,
  * so one team's match history is enough to reconstruct every game — including the per-role
  * player lines. That keeps this page to two requests instead of rebuilding the whole league.
  */
@@ -33,7 +33,7 @@ const ROLE_LABELS: Record<MatchlistRoleKey, string> = {
 
 interface SeriesData {
   conf: string;
-  week: number;
+  seasonDay: number;
   codeA: string;
   codeB: string;
   teamA?: TeamRecord;
@@ -74,7 +74,7 @@ export default function MatchDetail() {
   const data = useMemo<SeriesData | null>(() => {
     if (!parsed || !detailQuery.data) return null;
     const games = detailQuery.data.matchlist.filter(
-      m => m.week === parsed.week && m.opponent === parsed.codeB,
+      m => m.seasonDay === parsed.seasonDay && m.opponent === parsed.codeB,
     );
     if (games.length === 0) return null;
     const records = recordsQuery.data ?? [];
@@ -85,7 +85,7 @@ export default function MatchDetail() {
       teamA: records.find(t => t.code === parsed.codeA),
       teamB: records.find(t => t.code === parsed.codeB),
       games,
-      bestOf: bestOfForWeek(tournament, parsed.week),
+      bestOf: bestOfForWeek(tournament, parsed.seasonDay),
       // Full name: this is a standalone label in the page header, not a tag next to a team.
       seasonName: tournament?.name,
     };
@@ -163,7 +163,7 @@ export default function MatchDetail() {
           <div className="flex items-center justify-center gap-3 mt-4 text-[11px] text-text-muted font-heading tracking-wider">
             {data.seasonName && <span>{data.seasonName.toUpperCase()}</span>}
             <span className="text-text-subtle">·</span>
-            <span>WEEK {data.week}</span>
+            <span>WEEK {data.seasonDay}</span>
             {data.bestOf && (
               <>
                 <span className="text-text-subtle">·</span>
