@@ -3,9 +3,8 @@
  *
  * A group phase's scenarios carry a `level` of 1–10 that nothing upstream reads — the API's own note
  * calls it "client-side colouring only". So the number is not a value anyone means; it is an index into
- * a palette this file owns, the same way `playoffScenarios.ts` hard-codes a colour per finishing
- * position. Editing it as a number asked an admin to know that gold is 1, which is a fact about this
- * file rather than about their league.
+ * a palette this file owns. Editing it as a number asked an admin to know that gold is 1, which is a
+ * fact about this file rather than about their league.
  *
  * Ordered best to worst, so the ramp reads down a standings table: gold for a top seed, green and teal
  * for qualification, sky through purple for the play-in band, grey and slate for nothing at stake, red

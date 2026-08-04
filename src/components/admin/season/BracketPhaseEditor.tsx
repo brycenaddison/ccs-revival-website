@@ -61,10 +61,12 @@ import {
   STREAM_URL_MAX,
   SaveRejected,
   bracketRounds,
+  clearDayDefaultsAfter,
   dayKickoffs,
   errorMessage,
   isBestOf,
   isSlotSeed,
+  pinnedDaysAfter,
   savePhaseContents,
   seasonDayOf,
   shiftDayDefaults,
@@ -96,6 +98,31 @@ const nextId = (ids: readonly number[]): number => Math.min(0, ...ids) - 1;
 /** What a node is called in a dropdown. `label` is free text and may be null. */
 function nameOf(node: NodeSave, fallbackIndex: number): string {
   return node.label?.trim() || `Match ${fallbackIndex + 1} (day ${node.match.matchDay})`;
+}
+
+/** A label that is a plain match number and nothing else — `"Match 7"`. */
+const NUMBERED_MATCH = /^match\s+(\d+)$/i;
+
+/**
+ * What a new card is called before anybody renames it: `"Match 1"`, then one past the highest so far.
+ *
+ * Off the **greatest number already in use**, not the card count. Numbers are what the slot dropdowns
+ * and the round pills read, so a number that comes back after its card is gone would point two edits at
+ * the same name; counting cards does exactly that the moment one is removed. Running past the count
+ * instead means a bracket may skip a number, which is the harmless half of the trade.
+ *
+ * Only labels of exactly that shape count. A card renamed `"Quarterfinal 1"` is out of the numbering
+ * altogether — it has been given a real name, and the next add should not answer to it.
+ *
+ * Per phase, which is this whole document: the numbering is a way to tell one card from another while
+ * wiring, and cards from another phase are never in the same dropdown.
+ */
+function nextMatchLabel(nodes: readonly NodeSave[]): string {
+  const highest = nodes.reduce((max, node) => {
+    const match = NUMBERED_MATCH.exec(node.label?.trim() ?? "");
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return `Match ${highest + 1}`;
 }
 
 /** `"12:winner"` — the key `UNIQUE (src_node_id, src_output)` is on. */
@@ -180,6 +207,12 @@ export function BracketPhaseEditor({
    * It arrives at round 0 whatever day it is added to, because nothing feeds it yet — that is what an
    * entry is. Wiring a slot moves it to its real round, which reorders the card within its column and
    * relabels it; the day it was added to does not change.
+   *
+   * The label starts numbered rather than empty. An unnamed card is only ever `"Match 3 (day 1)"` in a
+   * dropdown anyway — a name the document does not hold and a save cannot round-trip, because it counts
+   * position in the array — so a bracket wired before anybody names anything was wired against labels
+   * that move. Writing the number down at the point of adding makes it the card's own, and clearing the
+   * field still puts the card back to unnamed.
    */
   const addNode = (matchDay: number): void => {
     const id = nextId(draft.nodes.map(n => n.id));
@@ -192,7 +225,7 @@ export function BracketPhaseEditor({
       ...draft.nodes,
       {
         id,
-        label: null,
+        label: nextMatchLabel(draft.nodes),
         match: {
           id: matchId,
           matchDay,
@@ -289,6 +322,10 @@ export function BracketPhaseEditor({
       dayDefaults: shiftDayDefaults(phase, d.dayDefaults, matchDay + 1, offsetMs),
     }));
 
+  /** The way back out of a shift, and what lets it be offered a second time. */
+  const clearLater = (matchDay: number): void =>
+    setDraft(d => ({ ...d, dayDefaults: clearDayDefaultsAfter(phase, d.dayDefaults, matchDay) }));
+
   const stranded = strandedDayDefaults(phase, draft.dayDefaults);
   const strandedNodes = draft.nodes.filter(n => n.match.matchDay > phase.matchDays);
 
@@ -364,6 +401,8 @@ export function BracketPhaseEditor({
                       inherited={unpinned[matchDay - 1] ?? null}
                       onChange={startAt => setDayDefault(matchDay, startAt)}
                       onShiftLater={offsetMs => shiftLater(matchDay, offsetMs)}
+                      laterPinned={pinnedDaysAfter(phase, draft.dayDefaults, matchDay)}
+                      onClearLater={() => clearLater(matchDay)}
                     />
                   </div>
                 </div>

@@ -17,12 +17,17 @@
  * day 4" actually describes. Turning one gesture into those entries is deliberately the website's job —
  * see `shiftDayDefaults`.
  *
+ * That gesture is offered **once**, and the entries it writes are what retire it: it is offered only
+ * while no later day is pinned, and afterwards its place is taken by a button that clears those pins.
+ * The offer is read off this day's pin, which a shift leaves alone, so one that stayed put would repeat
+ * the same offset on every click and compound it — see `pinnedDaysAfter`.
+ *
  * Shared between the group and bracket editors because a match day belongs to the phase rather than to
  * either kind's contents. Each lays out its own header around this; a bracket column is narrow and a
  * group day is a full-width panel, so only the control is common.
  */
 
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, RotateCcw } from "lucide-react";
 import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { ACTION_SM } from "../adminUi";
 import { fmtKickoff, fromLocalInput, toLocalInput } from "../../../lib/utils";
@@ -60,6 +65,10 @@ interface Props {
   onChange: (startAt: string | null) => void;
   /** Pins every later day to its own time plus this offset. Absent when there are no later days. */
   onShiftLater?: (offsetMs: number) => void;
+  /** The pinned days after this one, in day order — what makes the shift a one-time offer. */
+  laterPinned?: readonly number[];
+  /** Drops those pins, which is the way back out of a shift. Absent when there are no later days. */
+  onClearLater?: () => void;
 }
 
 export function DayKickoffField({
@@ -70,6 +79,8 @@ export function DayKickoffField({
   inherited,
   onChange,
   onShiftLater,
+  laterPinned = [],
+  onClearLater,
 }: Props) {
   const at = resolved === null ? null : fmtKickoff(resolved.toISOString());
 
@@ -131,9 +142,11 @@ export function DayKickoffField({
         ) : (
           <>
             {/* Said plainly, because the old rule was the opposite and a wrong assumption here silently
-                leaves the rest of a season on its original dates. */}
+                leaves the rest of a season on its original dates. Not said once a shift has pinned the
+                later days, when it would be the wrong half of the truth. */}
             <span className="text-text-dim text-xs">
-              Pinned to this day only. Later days still follow the phase start.
+              Pinned to this day only.
+              {laterPinned.length === 0 && " Later days still follow the phase start."}
             </span>
             <button
               type="button"
@@ -147,19 +160,48 @@ export function DayKickoffField({
         )}
       </div>
 
-      {/* The break edit. Only offered when it would do something: there are later days, this day is
-          pinned, and the pin actually moved it — shifting by zero is a no-op that would still write an
-          entry for every remaining day. */}
-      {laterDays > 0 && offsetMs !== null && offsetMs !== 0 && onShiftLater !== undefined && (
-        <button
-          type="button"
-          onClick={() => onShiftLater(offsetMs)}
-          className={`${ACTION_SM} mt-1.5`}
-        >
-          <CalendarClock size={13} aria-hidden="true" />
-          Shift the {laterDays === 1 ? "day" : `${laterDays} days`} after this one by{" "}
-          {describeOffset(offsetMs)}
-        </button>
+      {/*
+        The break edit, and the way back out of it. Only while there are later days and this day is
+        pinned — an unpinned day has no offset to move the rest of the phase by.
+
+        **The shift is a one-time offer, and the pins it writes are what retire it.** It reads off this
+        day's own pin, which it does not change, so an offer that stayed put would still say "3 days
+        earlier" afterwards and move the rest of the phase three days earlier again on the next click,
+        compounding every time. There is no undo to pair with that, because each click's offset has
+        already been folded into the day it moved. So once any later day is pinned the offer is replaced
+        by the clear, which puts those days back on the phase anchor and brings the offer back with them.
+      */}
+      {laterDays > 0 && pinned !== null && (
+        <>
+          {laterPinned.length > 0
+            ? onClearLater !== undefined && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                  <button type="button" onClick={onClearLater} className={ACTION_SM}>
+                    <RotateCcw size={13} aria-hidden="true" />
+                    Clear the {laterPinned.length === 1 ? "day" : `${laterPinned.length} days`} pinned
+                    after this one
+                  </button>
+                  <span className="text-text-dim text-xs">
+                    {laterPinned.length === 1 ? "It goes" : "They go"} back to following the phase
+                    start, and the shift is offered again.
+                  </span>
+                </div>
+              )
+            : // Shifting by zero is a no-op that would still write an entry for every remaining day.
+              offsetMs !== null &&
+              offsetMs !== 0 &&
+              onShiftLater !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => onShiftLater(offsetMs)}
+                  className={`${ACTION_SM} mt-1.5`}
+                >
+                  <CalendarClock size={13} aria-hidden="true" />
+                  Shift the {laterDays === 1 ? "day" : `${laterDays} days`} after this one by{" "}
+                  {describeOffset(offsetMs)}
+                </button>
+              )}
+        </>
       )}
     </div>
   );

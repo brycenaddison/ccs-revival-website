@@ -37,7 +37,7 @@ interface ConfBundle {
  *
  * `/teams/:conf` carries teams, rosters *and* records — every row carries its own — so the whole
  * Teams view comes from a single call. What it does not carry is fetched only where it is shown:
- * `useStandings` for a rank or streak, `usePlayers` for leaderboards.
+ * `useSeason` for phase-scoped standings and brackets, `usePlayers` for leaderboards.
  */
 function bundleConf(conf: string, records: readonly TeamRecord[], groupName: string | undefined): ConfBundle {
   // `teams.conf` is nullable, and every identity downstream is keyed on (conf, code), so pin

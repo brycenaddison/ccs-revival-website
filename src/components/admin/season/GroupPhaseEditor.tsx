@@ -30,14 +30,17 @@ import { DayKickoffField, StrandedDaysNotice, withDayDefault } from "./DayKickof
 import { queryRoots } from "../../../lib/queries";
 import { fromLocalInput, toLocalInput } from "../../../lib/utils";
 import { SCENARIO_TONES, toneForLevel } from "../../../lib/scenarioTones";
+import { ScenarioPill } from "../../season/ScenarioPill";
 import {
   BEST_OF_VALUES,
   GROUP_NAME_MAX,
   STREAM_URL_MAX,
   SaveRejected,
+  clearDayDefaultsAfter,
   dayKickoffs,
   errorMessage,
   isBestOf,
+  pinnedDaysAfter,
   savePhaseContents,
   seasonDayOf,
   shiftDayDefaults,
@@ -105,6 +108,10 @@ export function GroupPhaseEditor({ conf, phase, contents, teams, onSaved }: Prop
       dayDefaults: shiftDayDefaults(phase, d.dayDefaults, matchDay + 1, offsetMs),
     }));
 
+  /** The way back out of a shift, and what lets it be offered a second time. */
+  const clearLater = (matchDay: number): void =>
+    setDraft(d => ({ ...d, dayDefaults: clearDayDefaultsAfter(phase, d.dayDefaults, matchDay) }));
+
   // Days pinned past a phase that was shortened under them. The save is refused while one is here, so
   // the notice is not advisory — see `StrandedDaysNotice`.
   const stranded = strandedDayDefaults(phase, draft.dayDefaults);
@@ -144,6 +151,7 @@ export function GroupPhaseEditor({ conf, phase, contents, teams, onSaved }: Prop
         onChange={setMatches}
         onDayDefault={setDayDefault}
         onShiftLater={shiftLater}
+        onClearLater={clearLater}
       />
 
       <StrandedDaysNotice
@@ -414,29 +422,12 @@ function TonePicker({
 /**
  * The scenario as the standings will render it.
  *
- * Here because a swatch answers "which colour" but not "what will this look like", and the title and
- * subtitle are doing as much of the work as the hue is. It is the same pill shape `StandingsView` draws
- * for the hard-coded scenarios, so what an admin approves here is what a viewer gets.
+ * A swatch answers "which colour" but not "what will this look like", and the title and subtitle do
+ * as much of the work as the hue. `ScenarioPill` is the very component the public standings table
+ * draws, imported rather than copied, so what an admin approves here is literally what a viewer gets.
  */
 function ScenarioBadge({ scenario }: { scenario: Scenario }) {
-  const tone = toneForLevel(scenario.level);
-
-  return (
-    // `items-baseline`, not `items-center`. The title is uppercase Oswald and the subtitle is Source
-    // Sans 3 — same 11px, but different ascent and descent metrics, so centring each one's *line box*
-    // leaves the glyphs at visibly different heights. Baselines are what the eye reads as level.
-    <span
-      className="inline-flex items-baseline gap-1.5 rounded px-2.5 py-1"
-      style={{ background: tone.bg, color: tone.fg, border: `1px solid ${tone.line}` }}
-    >
-      {/* The dot has no text, so it has no baseline worth aligning — centre it against the line. */}
-      <span className="h-2 w-2 shrink-0 self-center rounded-full" style={{ background: tone.fg }} />
-      <span className="font-heading text-[11px] font-semibold uppercase tracking-wider">
-        {scenario.title || "Untitled"}
-      </span>
-      {scenario.subtitle && <span className="text-[11px] opacity-75">{scenario.subtitle}</span>}
-    </span>
-  );
+  return <ScenarioPill scenario={scenario} />;
 }
 
 // ------------------------------------------------------------------- groups
@@ -721,6 +712,7 @@ function MatchesEditor({
   onChange,
   onDayDefault,
   onShiftLater,
+  onClearLater,
 }: {
   phase: PhaseSummary;
   matches: readonly MatchSave[];
@@ -731,6 +723,7 @@ function MatchesEditor({
   onChange: (next: MatchSave[]) => void;
   onDayDefault: (matchDay: number, startAt: string | null) => void;
   onShiftLater: (matchDay: number, offsetMs: number) => void;
+  onClearLater: (matchDay: number) => void;
 }) {
   const days = Array.from({ length: phase.matchDays }, (_, i) => i + 1);
 
@@ -821,6 +814,8 @@ function MatchesEditor({
                   inherited={unpinned[matchDay - 1] ?? null}
                   onChange={startAt => onDayDefault(matchDay, startAt)}
                   onShiftLater={offsetMs => onShiftLater(matchDay, offsetMs)}
+                  laterPinned={pinnedDaysAfter(phase, dayDefaults, matchDay)}
+                  onClearLater={() => onClearLater(matchDay)}
                 />
               </div>
 

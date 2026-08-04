@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useWindowSize } from "../hooks/useWindowSize";
 import { useLeagueData } from "../hooks/useLeagueData";
 import { usePlayers } from "../hooks/usePlayers";
-import { useStandings } from "../hooks/useStandings";
+import { useSeason } from "../hooks/useSeason";
 import { PageShell } from "../components/layout/PageShell";
 import { ScoreboardTicker } from "../components/home/ScoreboardTicker";
 import { HeroArticle } from "../components/home/HeroArticle";
@@ -33,15 +33,13 @@ export default function Home() {
     useLeagueData({ confs: selectedConfs, tournaments });
 
   // `useLeagueData` is one call per conf and covers every section. Two things need their own
-  // request, so each is loaded only by the sections that render it — passing no confs is how a
-  // section opts out. Ranked standings carry the rank and streak that `/teams`' record does not;
-  // player leaderboards need `/stats/players`, which the roster no longer does.
-  const showsStandings = tab === "Home" || tab === "Standings";
-  const { standings: ranked, loading: standingsLoading } = useStandings({
-    confs: showsStandings ? selectedConfs : [],
-    teams,
-    tournaments,
-  });
+  // request, so each is loaded only by the sections that render it — passing nothing is how a
+  // section opts out. Player leaderboards need `/stats/players`, which the roster no longer does.
+  //
+  // The season document is loaded here only for the Home sidebar widget. The Standings tab calls
+  // `useSeason` itself — it owns the conference strip, so it is the only thing that knows which conf
+  // is on screen — and both land on the same query key, so visiting one warms the other.
+  const { season, loading: seasonLoading } = useSeason(tab === "Home" ? selectedConfs[0] ?? null : null);
   const { players } = usePlayers({ confs: tab === "Home" ? selectedConfs : [], teams });
   const loading = leagueLoading || dataLoading;
   const hasLive = matches.some(m => m.status === "live");
@@ -86,7 +84,7 @@ export default function Home() {
         <>
           {tab === "Scores" ? <ScoresView matches={matches} isMobile={isMobile} />
           : tab === "Schedule" ? <ScheduleView matches={matches} isMobile={isMobile} />
-          : tab === "Standings" ? <StandingsView standings={ranked} isMobile={isMobile} />
+          : tab === "Standings" ? <StandingsView isMobile={isMobile} />
           : tab === "Teams" ? <TeamsView teams={teams} standings={standings} rosters={rosters} isMobile={isMobile} />
           : (
             <div className={`grid ${isMobile ? "grid-cols-1" : isTablet ? "grid-cols-1" : "grid-cols-[280px_1fr_280px]"}`} style={{ gap: isMobile ? 16 : 24 }}>
@@ -128,7 +126,12 @@ export default function Home() {
 
               {/* RIGHT COLUMN — Standings + Stats */}
               <div className="flex flex-col gap-5">
-                <StandingsWidget standings={ranked} teams={teams} loading={standingsLoading} />
+                <StandingsWidget
+                  season={season}
+                  conf={selectedConfs[0] ?? null}
+                  teams={teams}
+                  loading={seasonLoading}
+                />
                 <PlayerLeaders players={players} isMobile={isMobile} />
               </div>
             </div>

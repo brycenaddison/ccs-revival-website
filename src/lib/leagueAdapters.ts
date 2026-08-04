@@ -63,6 +63,29 @@ function toTeamBase(
   };
 }
 
+/**
+ * The props `TeamBadge` wants, from anything carrying a name, a logo and a resolved colour.
+ *
+ * The season document has no team ids and needs none — `TeamLink` takes conf and code directly — so
+ * building a whole synthetic `Team` just to draw a badge would be inventing an identity nobody asked
+ * for. This mirrors the colour handling in `toTeamBase` exactly, unset branch included, so a badge
+ * looks the same whichever read it came from.
+ */
+export function toBadge(team: {
+  name: string;
+  colorHex: string;
+  color: number | null;
+  logo?: string;
+}): { name: string; color_primary: string; color_accent: string; logo_url?: string } {
+  return {
+    name: team.name,
+    color_primary: team.colorHex,
+    color_accent:
+      team.color === null || team.color === 0 ? lighten(team.colorHex, 0.25) : lighten(team.colorHex, 0.35),
+    logo_url: team.logo,
+  };
+}
+
 export function toTeam(rec: TeamRecord, groupName?: string): Team {
   return toTeamBase(rec.code, rec.name, rec.conf ?? "", rec.color, rec.colorHex, rec.logo, groupName);
 }

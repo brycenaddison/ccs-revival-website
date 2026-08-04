@@ -1,169 +1,148 @@
-import { useState } from "react";
-import { TeamBadge } from "../TeamBadge";
-import { TeamLink } from "../league/TeamLink";
-import { getPlayoffScenario } from "../../lib/playoffScenarios";
-import type { Standing, Team } from "../../hooks/useLeagueData";
+/**
+ * The Standings tab: one conference's season, a tab per phase.
+ *
+ * Everything here comes from `GET /:conf/season`, which is the read built for this page. What that
+ * replaced is worth naming, because it explains the shape: the tab used to be a single table of
+ * `/standings/:conf` — season-wide records, so a group table silently counted playoff results — beside
+ * a legend hard-coded to an eight-team format the API never confirmed. Both are gone. Records are
+ * scoped to the phase, and every outcome shown is one the league actually configured.
+ *
+ * **One conference at a time.** With several running, a strip picks one and only that one is fetched.
+ * A season is per-conference: two divisions can be on different phases with different groups and
+ * different brackets, and a merged table describes a competition nobody is playing.
+ */
+
+import { useMemo, useState } from "react";
+import { useLeague } from "../../lib/leagueContext";
+import { useSeason } from "../../hooks/useSeason";
+import { groupLabels } from "../../lib/leagueAdapters";
+import { isBracketPhase } from "../../lib/api";
+import { GroupPhaseView } from "../season/GroupPhaseView";
+import { BracketPhaseView } from "../season/BracketPhaseView";
+import { PhaseTabs } from "../season/PhaseTabs";
 
 interface Props {
-  /** Ranked, from `useStandings`. Rendered in the order given — see the note below. */
-  standings: Standing[];
   isMobile: boolean;
 }
 
-/** Game record as text, or "—" for a team with no games. */
-function games(s: Standing): string {
-  if (s.gameWins === undefined || s.gameLosses === undefined) return "—";
-  return s.gameWins + s.gameLosses === 0 ? "—" : `${s.gameWins}-${s.gameLosses}`;
-}
+export function StandingsView({ isMobile }: Props) {
+  const { tournaments, selectedConfs } = useLeague();
 
-export function StandingsView({ standings, isMobile }: Props) {
-  const divs = [...new Set(standings.map(s => s.teams?.divisions?.name).filter(Boolean))] as string[];
-  const [div, setDiv] = useState(divs[0] || "All");
+  /*
+   * Which conference, when several are running.
+   *
+   * Held here rather than pushed into `?conf=` — and it must **not** call `setSelection`. That
+   * collapses `selectedConfs` to the one conf, which makes `selectedConfs.length > 1` false, which
+   * makes this strip vanish the instant it is used.
+   */
+  const [confPick, setConfPick] = useState<string | null>(null);
+  const conf = (confPick && selectedConfs.includes(confPick) ? confPick : selectedConfs[0]) ?? null;
 
-  // Order and positions both come from the API, which resolves series record, then game win
-  // percentage, then head-to-head among the teams still level. Nothing is re-sorted here:
-  // head-to-head can't be recomputed from anything this page loads, and teams level on all three
-  // legitimately *share* a rank — renumbering rows by index would invent an order the league
-  // doesn't recognise. `place` carries the tie marker ("T-2").
-  const rows = div === "All" ? standings : standings.filter(s => s.teams?.divisions?.name === div);
-
-  // Ranks are per conf, so with several active at once a team's own group position is its rank
-  // within its division rather than its position in the merged list.
-  const rankOf = (s: Standing, i: number) => s.rank ?? i + 1;
-
-  if (!standings.length) return <div className="py-10 text-center text-text-dim text-[13px]">Standings aren't available yet.</div>;
+  const labels = useMemo(() => groupLabels(tournaments, selectedConfs), [tournaments, selectedConfs]);
 
   return (
-    <div className="max-w-[900px] mx-auto">
-      <h2 className="font-display text-[22px] text-text-bright tracking-widest mb-4">STANDINGS</h2>
-      {divs.length > 1 && (
-        <div className="flex gap-0 mb-4 border-b-2 border-accent">
-          {["All", ...divs].map(d => (
+    <div className="mx-auto max-w-[1200px]">
+      <h2 className="mb-4 font-display text-[22px] tracking-widest text-text-bright">STANDINGS</h2>
+
+      {selectedConfs.length > 1 && (
+        <div className="mb-4 flex flex-nowrap gap-4 overflow-x-auto">
+          {selectedConfs.map(c => (
             <button
-              key={d}
-              onClick={() => setDiv(d)}
-              className={`bg-transparent border-none cursor-pointer px-4 py-2.5 font-heading text-[13px] tracking-wider uppercase -mb-0.5 ${
-                div === d ? "bg-bg-input text-text-bright border-b-2 border-b-accent" : "text-text-muted border-b-2 border-b-transparent"
+              key={c}
+              type="button"
+              onClick={() => setConfPick(c)}
+              className={`shrink-0 cursor-pointer border-none bg-transparent p-0 font-heading text-[12px] uppercase tracking-wider ${
+                c === conf ? "text-text-bright" : "text-text-muted"
               }`}
             >
-              {d}
+              {labels.get(c) ?? c.toUpperCase()}
             </button>
           ))}
         </div>
       )}
-      <div className="bg-bg2 border border-border rounded-md overflow-hidden">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              {["#", "TEAM", "W", "L", "WIN%", "GAMES", "STREAK"].map(h => (
-                <th
-                  key={h}
-                  title={h === "GAMES" ? "Individual games won-lost. The first tiebreaker." : undefined}
-                  className={`px-3.5 py-3 text-[10px] text-text-muted font-heading font-normal tracking-wider border-b border-border ${
-                    ["W", "L", "WIN%", "GAMES", "STREAK"].includes(h) ? "text-center" : "text-left"
-                  }`}
-                >
-                  {h}
-                </th>
-              ))}
-              {!isMobile && <th className="px-3.5 py-3 text-left text-[10px] text-text-muted font-heading font-normal tracking-wider border-b border-border">DIVISION</th>}
-              <th className="px-3.5 py-3 text-left text-[10px] text-text-muted font-heading font-normal tracking-wider border-b border-border">SCENARIO</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((s, i) => {
-              const t = s.teams || {} as Team;
-              const total = s.wins + s.losses;
-              const pct = total > 0 ? Math.round((s.wins / total) * 100) : 0;
-              const groupPos = rankOf(s, i);
-              const scenario = getPlayoffScenario(groupPos);
-              // Tier separator: thick line between playoff tiers
-              const tierBreaks = [1, 3, 4, 5, 6]; // after these positions
-              const showTierBreak = tierBreaks.includes(groupPos);
-              const rowBg = groupPos === 1 ? "rgba(215,165,42,0.12)" : groupPos <= 3 ? "rgba(63,0,8,0.25)" : "rgba(1,1,1,0.4)";
-              const rowBorder = groupPos === 1 ? "#d7a52a" : groupPos <= 3 ? "#3f0008" : "#010101";
-              const numColor = groupPos === 1 ? "#d7a52a" : groupPos <= 3 ? "#d20708" : "#666";
-              return (
-                <tr
-                  key={s.id}
-                  style={{
-                    borderLeft: `4px solid ${rowBorder}`,
-                    background: rowBg,
-                    borderBottom: showTierBreak ? `2px solid ${rowBorder}` : undefined,
-                  }}
-                >
-                  {/* `place` already marks a tie ("T-2"); the index would hide it. */}
-                  <td className="px-3.5 py-3.5 font-display text-lg" style={{ color: numColor }}>{s.place ?? groupPos}</td>
-                  <td className="px-3.5 py-3.5">
-                    <TeamLink team={t} className="flex items-center gap-2.5 no-underline group">
-                      <TeamBadge team={t} size={28} />
-                      <div>
-                        <span className="font-heading text-sm text-text font-medium group-hover:text-accent">{t.name}</span>
-                        <span className="text-[10px] text-text-dim font-mono ml-2">{t.abbreviation}</span>
-                      </div>
-                    </TeamLink>
-                  </td>
-                  <td className="px-3.5 py-3.5 text-center font-mono text-sm text-ccs-green font-bold">{s.wins}</td>
-                  <td className="px-3.5 py-3.5 text-center font-mono text-sm text-ccs-red font-bold">{s.losses}</td>
-                  <td className="px-3.5 py-3.5 text-center font-mono text-[13px] text-text-secondary">{pct}%</td>
-                  <td
-                    className="px-3.5 py-3.5 text-center font-mono text-[13px] text-text-muted"
-                    title={s.gameWinPct == null ? undefined : `${Math.round(s.gameWinPct * 100)}% of games won`}
-                  >
-                    {games(s)}
-                  </td>
-                  <td className={`px-3.5 py-3.5 text-center font-mono text-[13px] font-bold ${(s.streak || "").startsWith("W") ? "text-ccs-green" : "text-ccs-red"}`}>
-                    {s.streak || "—"}
-                  </td>
-                  {!isMobile && <td className="px-3.5 py-3.5 text-xs text-text-muted">{t.divisions?.name || "—"}</td>}
-                  <td className="px-3.5 py-3.5">
-                    {scenario && (
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-heading tracking-wider uppercase font-semibold"
-                        style={{ background: scenario.bgColor, color: scenario.color, border: `1px solid ${scenario.borderColor}40` }}
-                      >
-                        <span className="w-2 h-2 rounded-full" style={{ background: scenario.color }} />
-                        {scenario.label}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
 
-      {/* Legend */}
-      <div className="mt-4 bg-bg2 border border-border rounded-md overflow-hidden">
-        <div className="px-4 py-3 border-b border-border">
-          <span className="font-display text-[14px] text-text-bright tracking-widest">GROUP RESULTS → PLAYOFF SEEDING</span>
-        </div>
-        <div className="p-4">
-          <div className="flex flex-col gap-1.5">
-            {[
-              { pos: "1st", label: "Upper Bracket Bye", desc: "Advances directly to UB Round 2", color: "#d7a52a", bg: "rgba(215,165,42,0.12)" },
-              { pos: "2nd-3rd", label: "Upper Bracket", desc: "Starts in Upper Bracket Round 1", color: "#d7a52a", bg: "rgba(215,165,42,0.08)" },
-              { pos: "4th", label: "Lower Bracket Bye", desc: "Advances directly to LB Round 2", color: "#d20708", bg: "rgba(210,7,8,0.12)" },
-              { pos: "5th", label: "Lower Bracket", desc: "Starts in Lower Bracket Round 1", color: "#d20708", bg: "rgba(210,7,8,0.08)" },
-              { pos: "6th", label: "Gauntlet Qualifier", desc: "Bo3 vs Gauntlet Prelim winner", color: "#d1d2d4", bg: "rgba(209,210,212,0.08)" },
-              { pos: "7th-8th", label: "Gauntlet Prelim", desc: "Bo1 cross-group elimination", color: "#999", bg: "rgba(209,210,212,0.05)" },
-            ].map(s => (
-              <div
-                key={s.pos}
-                className="flex items-center gap-3 px-3 py-2 rounded"
-                style={{ background: s.bg, borderLeft: `3px solid ${s.color}` }}
-              >
-                <span className="font-mono text-[12px] font-bold min-w-[40px]" style={{ color: s.color }}>{s.pos}</span>
-                <div className="flex-1">
-                  <span className="font-heading text-[12px] font-semibold tracking-wider uppercase" style={{ color: s.color }}>{s.label}</span>
-                  {!isMobile && <span className="text-[10px] text-text-muted ml-2">— {s.desc}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/*
+        Keyed on the conf so switching one throws away the phase selection, the bracket's scroll
+        position and its measured card boxes in a single gesture. Phase ids are conf-scoped, so
+        carrying one across would select nothing; doing it with effects instead would need three of
+        them and would still render once with conf B under a phase id from conf A.
+      */}
+      {conf ? <SeasonPanel key={conf} conf={conf} isMobile={isMobile} /> : <Empty />}
     </div>
+  );
+}
+
+function Empty() {
+  return <div className="py-10 text-center text-[13px] text-text-dim">Standings aren&rsquo;t available yet.</div>;
+}
+
+function SeasonPanel({ conf, isMobile }: { conf: string; isMobile: boolean }) {
+  const { season, loading, error, refetch } = useSeason(conf);
+
+  /*
+   * The phase tab.
+   *
+   * Only the reader's explicit pick is stored; everything else is resolved from the payload on every
+   * render. That is what stops a background refetch from moving the tab out from under someone:
+   * once `picked` is set, `activePhaseId` is never consulted again. Before any pick it is null and
+   * the server's choice wins on the first render data exists — no effect, no flash, no second render.
+   *
+   * Validating `picked` against the phases actually present is what makes a stale pick self-heal: a
+   * phase that gets unpublished falls back to the server's choice instead of rendering a blank tab.
+   */
+  const [picked, setPicked] = useState<number | null>(null);
+
+  const phases = season?.phases ?? [];
+  const known = (id: number | null | undefined): number | null =>
+    id != null && phases.some(p => p.id === id) ? id : null;
+  const phaseId = known(picked) ?? known(season?.activePhaseId) ?? phases[0]?.id ?? null;
+  const phase = phases.find(p => p.id === phaseId) ?? null;
+
+  if (loading) return <div className="py-10 text-center text-[13px] text-text-dim">Loading standings…</div>;
+
+  if (error) {
+    return (
+      <div className="mx-auto mt-8 max-w-[500px] px-5 text-center">
+        <p className="mb-4 text-sm leading-relaxed text-text-muted">{error}</p>
+        <button
+          onClick={refetch}
+          className="cursor-pointer rounded-md border-none bg-accent px-7 py-3 font-heading text-sm font-medium uppercase tracking-wider text-white"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  // `getOne` folds a missing route to null, so this covers an unknown conference *and* an API old
+  // enough not to serve `/season` at all. Both are absence, and a viewer reads them the same way.
+  if (!season) return <Empty />;
+
+  if (!phase) {
+    return <div className="py-10 text-center text-[13px] text-text-dim">This season hasn&rsquo;t been set up yet.</div>;
+  }
+
+  return (
+    <>
+      <PhaseTabs
+        phases={phases}
+        selectedId={phase.id}
+        activeId={season.activePhaseId}
+        onSelect={setPicked}
+      />
+
+      {/* With one phase there is no strip, so the heading is the only thing naming what is on screen. */}
+      {phases.length < 2 && (
+        <div className="mb-4 font-heading text-[13px] uppercase tracking-wider text-text-secondary">
+          {phase.name}
+        </div>
+      )}
+
+      {isBracketPhase(phase) ? (
+        <BracketPhaseView phase={phase} conf={conf} isMobile={isMobile} />
+      ) : (
+        <GroupPhaseView phase={phase} conf={conf} isMobile={isMobile} />
+      )}
+    </>
   );
 }

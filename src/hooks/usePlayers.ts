@@ -1,7 +1,7 @@
 /**
  * Player statistics for the selected season(s), as leaderboard rows.
  *
- * Split out of `useLeagueData` for the same reason as `useStandings`: only one view needs it. The
+ * Split out of `useLeagueData` for the same reason as `useSeason`: only one view needs it. The
  * roster no longer does — `/teams/:conf` names every player itself — so the Teams view would
  * otherwise pay for a stats request it never reads.
  *

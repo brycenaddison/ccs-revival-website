@@ -891,6 +891,44 @@ export function shiftDayDefaults(
     .sort((a, b) => a.matchDay - b.matchDay);
 }
 
+/**
+ * The pinned days that sit after `matchDay`, in day order — what makes the shift a *one-time* gesture.
+ *
+ * A shift pins every remaining day, so once it has been applied this is non-empty and the editor stops
+ * offering it. That matters because the offer is computed from day `matchDay`'s own pin, which the shift
+ * does not touch: an offer that stayed put would still read "3 days earlier" afterwards and move the
+ * rest of the phase three days earlier *again* on every click, with each click compounding on the last.
+ *
+ * Days past the end of the phase are not counted. Those are stranded rows with their own notice, and a
+ * shift already ignores them.
+ */
+export function pinnedDaysAfter(
+  phase: PhaseSummary,
+  dayDefaults: readonly DayDefault[],
+  matchDay: number,
+): number[] {
+  return dayDefaults
+    .filter(d => d.matchDay > matchDay && d.matchDay <= phase.matchDays)
+    .map(d => d.matchDay)
+    .sort((a, b) => a - b);
+}
+
+/**
+ * Drops every pin after `matchDay`, putting those days back on the phase anchor — the way out of a shift.
+ *
+ * Not an undo: it restores *inheritance*, not whatever each day held before. Under the only state the
+ * shift is offered from — no later day pinned — those are the same thing, and after any other edit the
+ * button says what it does rather than pretending to remember. Stranded rows are left alone for the same
+ * reason `strandedDayDefaults` does not repair them silently.
+ */
+export function clearDayDefaultsAfter(
+  phase: PhaseSummary,
+  dayDefaults: readonly DayDefault[],
+  matchDay: number,
+): DayDefault[] {
+  return dayDefaults.filter(d => d.matchDay <= matchDay || d.matchDay > phase.matchDays);
+}
+
 /** The list entry a summary saves as. Drops `ordinal` and `days`, which the server derives. */
 export function toListEntry(p: PhaseSummary): PhaseListEntry {
   return {

@@ -180,8 +180,8 @@ export interface TwitchEmbed {
 }
 
 /**
- * What the shared league loader provides. Player leaderboards and ranked standings are not here:
- * they need their own requests, so they load through `usePlayers` / `useStandings` only where they
+ * What the shared league loader provides. Player leaderboards and the season document are not here:
+ * they need their own requests, so they load through `usePlayers` / `useSeason` only where they
  * are shown.
  */
 export interface LeagueData {

@@ -27,6 +27,7 @@ import {
   scout,
   scoutIndex,
   searchUsers,
+  season,
   standings,
   statTotals,
   teamDetail,
@@ -140,6 +141,27 @@ export const queries = {
     query({
       queryKey: ["stats", "scout", conf, profileId] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) => scout(conf, profileId, { signal }),
+      staleTime: LEAGUE_STALE,
+    }),
+
+  /**
+   * The public season document — phase tabs, group tables and brackets, for one conf.
+   *
+   * Keyed under `["season", …]` deliberately, so the structure editor's existing
+   * `invalidateQueries(queryRoots.season)` already refreshes it: a phase save changes exactly what
+   * this serves, and a separate root is one an editor would forget to invalidate.
+   *
+   * `LEAGUE_STALE` despite the payload being clock-dependent. Two clocks pull opposite ways, and the
+   * frequent one wins: group rows and bracket results move whenever a match is recorded, which is
+   * the same cadence `standings` has, while `activePhaseId` moves at a handful of instants per
+   * *season*. Being a minute late on the latter opens the previous tab, which is a defensible tab to
+   * open — and `refetchOnWindowFocus` (on by default) covers the page left open across a boundary
+   * without a timer.
+   */
+  seasonView: (conf: string) =>
+    query({
+      queryKey: ["season", "view", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => season(conf, { signal }),
       staleTime: LEAGUE_STALE,
     }),
 
@@ -304,11 +326,13 @@ export const queryRoots = {
   /** Both the directory search and every cached single user. */
   adminUsers: ["admin", "users"] as const,
   /**
-   * The phase list, every phase document, and the candidates panel.
+   * The phase list, every phase document, the candidates panel — and the public season document.
    *
-   * One root for all three because a structure save can move any of them: resizing a phase renumbers
+   * One root for all four because a structure save can move any of them: resizing a phase renumbers
    * the season days its neighbours' matches fall on, and a phase save re-runs propagation, which
-   * rewrites teams a candidates panel is showing.
+   * rewrites teams a candidates panel is showing. The public read (`queries.seasonView`) is in the
+   * family for the same reason and gets refreshed by the same call — publishing a phase adds a tab
+   * to the Standings page, and nothing else would tell it.
    */
   season: ["season"] as const,
   /**

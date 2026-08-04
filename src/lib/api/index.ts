@@ -38,11 +38,13 @@ export {
   phaseCandidates,
   propagatePhase,
   bracketRounds,
+  clearDayDefaultsAfter,
   dayKickoffs,
   isBestOf,
   isBracketContents,
   isGroupContents,
   isSlotSeed,
+  pinnedDaysAfter,
   seasonDayOf,
   shiftDayDefaults,
   strandedDayDefaults,
@@ -88,6 +90,23 @@ export type {
   SlotSave,
   SlotSide,
 } from "./season";
+export { season, isBracketPhase, isGroupPhase, mapSeason, standingsPhase } from "./seasonView";
+export type {
+  SeasonBracketMatch,
+  SeasonBracketPhase,
+  SeasonBracketResult,
+  SeasonBracketSide,
+  SeasonGroup,
+  SeasonGroupPhase,
+  SeasonGroupRow,
+  SeasonMatchStatus,
+  SeasonPayload,
+  SeasonPhase,
+  SeasonRound,
+  SeasonScenario,
+  SeasonScenarioLibrary,
+  SeasonTeam,
+} from "./seasonView";
 export {
   scheduleApi,
   schedule,
