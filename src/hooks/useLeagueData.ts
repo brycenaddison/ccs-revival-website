@@ -7,9 +7,7 @@ import type { LeagueData, Roster, Split, Standing, Team } from "../types/league"
 
 export type {
   Article,
-  Game,
   LeagueData,
-  Match,
   Player,
   Roster,
   Split,
@@ -65,11 +63,11 @@ function bundleConf(conf: string, records: readonly TeamRecord[], groupName: str
  * else that wants that conf — a team page's `/teams/:conf` lookup reuses this copy instead of
  * fetching it again seconds later.
  *
- * `standings` here are records without a ranking — see `toStandingsFromTeams`. Still empty:
- * `matches` and `games`. `GET /matches/:conf` exists now and would fill `matches` with the series
- * list; it is no longer needed for ranking, which the API resolves, only for showing *why* a
- * head-to-head tiebreak went the way it did. `games` has no bulk endpoint at all: individual games
- * are only reachable per team, through the team page's matchlist.
+ * `standings` here are records without a ranking — see `toStandingsFromTeams`.
+ *
+ * **Fixtures are not here.** They were, as an always-empty `matches` array, and they now come from
+ * `GET /schedule` through `useScheduleFeed` — which is cross-conference, clock-relative and windowed per
+ * surface, so folding it into a per-conf league load would fetch the wrong thing for every reader of it.
  */
 export function useLeagueData({ confs, tournaments }: Options): LeagueData {
   const client = useQueryClient();
@@ -95,8 +93,6 @@ export function useLeagueData({ confs, tournaments }: Options): LeagueData {
       standings: bundles.flatMap(b => b.standings),
       rosters: bundles.flatMap(b => b.rosters),
       splits,
-      matches: [],
-      games: [],
       articles: [],
       twitterFeeds: [],
       twitchEmbeds: [],

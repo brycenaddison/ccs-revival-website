@@ -33,11 +33,18 @@ export function LeaguePicker({ leagues, conf, slug }: Props) {
   }
 
   return (
+    // The sidebar is 220px and a league is named like "CCS 2026 Summer Gold Division", so the
+    // selected name does not fit and never will: `truncate` is what makes it end in an ellipsis
+    // rather than mid-word, and `title` is where the whole name still is. The list the select opens
+    // is browser UI sized to its own content, so every option reads in full there — which is the
+    // half that matters when you are choosing. `season-select` is what keeps that popup dark, the
+    // same as the season picker in the nav.
     <select
       value={conf}
       aria-label="League"
+      title={leagues.find(l => l.conf === conf)?.name ?? conf}
       onChange={e => navigate(`/league/${encodeURIComponent(e.target.value)}/admin${slug ? `/${slug}` : ""}`, { replace: true })}
-      className="bg-bg2 border border-border rounded-md text-text font-body text-sm py-2 px-2 w-full focus:outline-none focus:border-accent"
+      className="season-select bg-bg2 border border-border rounded-md text-text font-body text-xs py-1.5 px-2 w-full truncate focus:outline-none focus:border-accent"
     >
       {leagues.map(l => (
         <option key={l.conf} value={l.conf}>

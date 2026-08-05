@@ -1,290 +1,394 @@
-import { useMemo } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import {
-  errorMessage,
-  fmtSec,
-  type MatchlistEntry,
-  type MatchlistRoleKey,
-  type TeamRecord,
-} from "../lib/api";
-import { bestOfForWeek, parseSeriesKey } from "../lib/leagueAdapters";
-import { queries } from "../lib/queries";
-import { TeamBadge } from "../components/TeamBadge";
-import { TeamLink } from "../components/league/TeamLink";
-import { ChampionIcon } from "../components/match/ChampionIcon";
-import { useChampions } from "../hooks/useChampions";
-
 /**
- * A match series (best-of-N).
+ * One best-of in full — `/match/:scheduleMatchId`.
  *
- * The API has no series endpoint, but the series id encodes conf, season day and both team codes,
- * so one team's match history is enough to reconstruct every game — including the per-role
- * player lines. That keeps this page to two requests instead of rebuilding the whole league.
+ * **One request for the page.** `GET /tournaments/schedule/:id/result` answers the fixture, both teams
+ * with their season records, and a game-by-game box score. The version this replaces had neither the
+ * endpoint nor the id: it took a synthesised series key, pulled one team's entire matchlist, filtered it
+ * by season day and opponent, and could therefore only ever show five of the ten players — with a
+ * paragraph at the bottom apologising for it.
+ *
+ * The other thing the fixture id buys is correctness on a double-header. The `series` view groups on
+ * `(conf, season_day, teamA, teamB)` and cannot separate two best-ofs between one pair on one day; this
+ * read keys on the fixture. Where the two disagree, this one is right — and it says so, via `linkage`.
+ *
+ * **Two tabs, because the page answers two different questions.** Before a match: how do these teams
+ * compare. After it: what happened. Stacking both made the box scores sit below a screenful of season
+ * averages that were no longer the news. Results is the default whenever there are games — which is what
+ * someone opening a finished match came for — and it is absent entirely when there are none, so the tab
+ * strip never offers an empty page. Only the Preview tab costs extra requests, and only when it is open.
  */
 
-const ROLE_LABELS: Record<MatchlistRoleKey, string> = {
-  top: "TOP",
-  jg: "JGL",
-  mid: "MID",
-  bot: "BOT",
-  sup: "SUP",
-};
+import { useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useGoBack } from "../hooks/useGoBack";
+import { errorMessage, type SeriesDetail, type TeamRecord } from "../lib/api";
+import { toBadge } from "../lib/leagueAdapters";
+import { queries } from "../lib/queries";
+import { fmtKickoff } from "../lib/utils";
+import { TeamBadge } from "../components/TeamBadge";
+import { TeamLink } from "../components/league/TeamLink";
+import { SeriesGameCard } from "../components/match/SeriesGameCard";
+import { SeriesPreview } from "../components/match/SeriesPreview";
+import { SeriesTotals } from "../components/match/SeriesTotals";
+import type { TeamNamer } from "../components/match/TeamNameLink";
 
-interface SeriesData {
-  conf: string;
-  seasonDay: number;
-  codeA: string;
-  codeB: string;
-  teamA?: TeamRecord;
-  teamB?: TeamRecord;
-  /** Games from team A's perspective, in order. */
-  games: MatchlistEntry[];
-  bestOf?: number;
-  seasonName?: string;
-}
-
-function badgeOf(team: TeamRecord | undefined, code: string) {
-  return {
-    name: team?.name ?? code,
-    abbreviation: code,
-    color_primary: team?.colorHex ?? "#3a3a3a",
-    color_accent: team?.colorHex ?? "#555555",
-    logo_url: team?.logo,
-  };
-}
+type Tab = "preview" | "results";
 
 export default function MatchDetail() {
-  const { seriesId } = useParams<{ seriesId: string }>();
-  const navigate = useNavigate();
-  // Matchlist rows carry a champion display name but no icon.
-  const champions = useChampions();
+  const { id } = useParams<{ id: string }>();
+  // A match page is the most-shared URL on the site, so it is the most likely to be opened cold — where
+  // `navigate(-1)` would leave for wherever the link came from. See `useGoBack`.
+  const goBack = useGoBack("/");
+  /**
+   * Null until the reader picks one, so the default can follow the data without an effect: the fixture
+   * hasn't loaded on the first render, and seeding state from it would need a second pass to correct.
+   */
+  const [picked, setPicked] = useState<Tab | null>(null);
 
-  const parsed = seriesId ? parseSeriesKey(seriesId) : null;
+  // A non-numeric segment is a bad link, not a missing match: upstream answers `400` for one, so this
+  // resolves it here and never asks.
+  const matchId = useMemo(() => {
+    const n = Number(id);
+    return Number.isInteger(n) && n > 0 ? n : null;
+  }, [id]);
 
-  // Three queries, all shared: the conf listing and the tournament list are the same ones the
-  // league loader holds, so arriving from a scoreboard link usually only fetches the team detail.
-  const detailQuery = useQuery({ ...queries.teamDetail(parsed?.conf ?? "", parsed?.codeA ?? ""), enabled: !!parsed });
-  const recordsQuery = useQuery({ ...queries.teamsForConf(parsed?.conf ?? ""), enabled: !!parsed });
-  const tournamentsQuery = useQuery(queries.tournaments());
+  const { data, error, isPending } = useQuery(queries.matchResult(matchId));
 
-  const loading = !!parsed && (detailQuery.isPending || recordsQuery.isPending);
-  const failure = detailQuery.error ?? recordsQuery.error;
-
-  const data = useMemo<SeriesData | null>(() => {
-    if (!parsed || !detailQuery.data) return null;
-    const games = detailQuery.data.matchlist.filter(
-      m => m.seasonDay === parsed.seasonDay && m.opponent === parsed.codeB,
-    );
-    if (games.length === 0) return null;
-    const records = recordsQuery.data ?? [];
-    // A failed tournament list costs the best-of and the season label, nothing more.
-    const tournament = (tournamentsQuery.data ?? []).find(t => t.conf === parsed.conf);
-    return {
-      ...parsed,
-      teamA: records.find(t => t.code === parsed.codeA),
-      teamB: records.find(t => t.code === parsed.codeB),
-      games,
-      bestOf: bestOfForWeek(tournament, parsed.seasonDay),
-      // Full name: this is a standalone label in the page header, not a tag next to a team.
-      seasonName: tournament?.name,
-    };
-  }, [parsed, detailQuery.data, recordsQuery.data, tournamentsQuery.data]);
-
-  const error = !parsed
-    ? "That match link isn't valid."
-    : failure
-      ? errorMessage(failure)
-      : !loading && !data
-        ? "No games recorded for this match."
-        : null;
-
-  if (loading) {
+  if (matchId === null) return <Missing message="That match link isn't valid." onBack={goBack} />;
+  if (isPending) {
     return (
-      <div className="bg-bg min-h-screen w-full text-text font-body flex items-center justify-center">
-        <div className="text-text-muted font-heading tracking-wider text-sm">Loading match...</div>
+      <div className="flex min-h-screen w-full items-center justify-center bg-bg font-body text-text">
+        <div className="font-heading text-sm tracking-wider text-text-muted">Loading match…</div>
       </div>
     );
   }
+  if (error) return <Missing message={errorMessage(error)} onBack={goBack} />;
+  if (!data) return <Missing message="That match doesn't exist." onBack={goBack} />;
 
-  if (error || !data) {
-    return (
-      <div className="bg-bg min-h-screen w-full text-text font-body flex flex-col items-center justify-center gap-4">
-        <div className="text-text-muted font-heading tracking-wider text-sm">{error ?? "Match not found."}</div>
-        <button onClick={() => navigate(-1)} className="text-ccs-green font-heading text-sm hover:underline bg-transparent border-none cursor-pointer">
-          &larr; Back
-        </button>
-      </div>
-    );
-  }
-
-  const winsA = data.games.filter(g => g.win).length;
-  const winsB = data.games.length - winsA;
-  const a = badgeOf(data.teamA, data.codeA);
-  const b = badgeOf(data.teamB, data.codeB);
+  // With no games there is only one tab, so nothing the reader picked can apply.
+  const hasResults = data.games.length > 0;
+  const tab: Tab = hasResults ? (picked ?? "results") : "preview";
 
   return (
-    <div className="bg-bg min-h-screen w-full text-text font-body">
-      <div className="bg-bg border-b border-bg2 px-4 py-3">
-        <div className="max-w-[960px] mx-auto">
-          <button onClick={() => navigate(-1)} className="text-ccs-green font-heading text-xs tracking-wider hover:underline bg-transparent border-none cursor-pointer">
+    <div className="min-h-screen w-full bg-bg font-body text-text">
+      <div className="border-b border-bg2 bg-bg px-4 py-3">
+        <div className="mx-auto max-w-[1100px]">
+          <button
+            onClick={goBack}
+            className="cursor-pointer border-none bg-transparent font-heading text-xs tracking-wider text-ccs-green hover:underline"
+          >
             &larr; BACK
           </button>
         </div>
       </div>
 
-      <div className="max-w-[960px] mx-auto px-4 py-6">
-        {/* Series header */}
-        <div className="bg-bg2 border border-border rounded-lg p-6 mb-6">
-          <div className="flex items-center justify-center gap-6 md:gap-10">
-            <TeamLink conf={data.conf} code={data.codeA} className="flex items-center gap-3 flex-1 justify-end no-underline group">
-              <span className={`font-heading font-medium text-base md:text-lg group-hover:text-accent ${winsA > winsB ? "text-text-bright font-bold" : "text-text-muted"}`}>
-                <span className="hidden md:inline">{a.name}</span>
-                <span className="md:hidden">{a.abbreviation}</span>
-              </span>
-              <TeamBadge team={a} size={44} />
-            </TeamLink>
+      <div className="mx-auto max-w-[1100px] px-4 py-6">
+        <SeriesHeader match={data} />
 
-            <div className="flex items-center gap-3 min-w-[80px] justify-center">
-              <span className={`font-display text-3xl md:text-4xl ${winsA > winsB ? "text-text-bright" : "text-text-muted"}`}>{winsA}</span>
-              <span className="font-display text-lg text-text-subtle">-</span>
-              <span className={`font-display text-3xl md:text-4xl ${winsB > winsA ? "text-text-bright" : "text-text-muted"}`}>{winsB}</span>
-            </div>
+        {/*
+          Only the undated case is worth saying. "No games recorded yet" on a fixture whose kickoff is in
+          the header above it tells the reader what they can already see — and the header's own SCHEDULED
+          chip says it in two words.
+        */}
+        {!hasResults && data.scheduledAt === null && (
+          <p className="mb-4 rounded-lg border border-border bg-bg2 px-4 py-3 text-center text-[13px] text-text-dim">
+            This match isn&apos;t scheduled yet.
+          </p>
+        )}
 
-            <TeamLink conf={data.conf} code={data.codeB} className="flex items-center gap-3 flex-1 no-underline group">
-              <TeamBadge team={b} size={44} />
-              <span className={`font-heading font-medium text-base md:text-lg group-hover:text-accent ${winsB > winsA ? "text-text-bright font-bold" : "text-text-muted"}`}>
-                <span className="hidden md:inline">{b.name}</span>
-                <span className="md:hidden">{b.abbreviation}</span>
-              </span>
-            </TeamLink>
-          </div>
+        <Tabs tab={tab} hasResults={hasResults} onSelect={setPicked} />
 
-          <div className="flex items-center justify-center gap-3 mt-4 text-[11px] text-text-muted font-heading tracking-wider">
-            {data.seasonName && <span>{data.seasonName.toUpperCase()}</span>}
-            <span className="text-text-subtle">·</span>
-            <span>WEEK {data.seasonDay}</span>
-            {data.bestOf && (
-              <>
-                <span className="text-text-subtle">·</span>
-                <span>BO{data.bestOf}</span>
-              </>
-            )}
-            {data.games[0]?.startTime && (
-              <>
-                <span className="text-text-subtle">·</span>
-                <span>{new Date(data.games[0].startTime).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Games */}
-        {data.games.map(g => (
-          <div key={g.matchId} className="bg-bg2 border border-border rounded-lg mb-4 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg3">
-              <div className="flex items-center gap-3">
-                <span className="font-display text-sm text-text-bright tracking-widest">GAME {g.game}</span>
-                <span className="text-text-muted text-xs font-mono">{fmtSec(g.time)}</span>
-                <span className="text-[10px] font-bold" style={{ color: g.blueside ? "#3b82f6" : "#ef4444" }}>
-                  {data.codeA} ON {g.blueside ? "BLUE" : "RED"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-text-muted font-heading tracking-wider">WINNER</span>
-                <TeamBadge team={g.win ? a : b} size={20} />
-                <span className="text-ccs-green font-heading text-xs font-semibold">{g.win ? data.codeA : data.codeB}</span>
-              </div>
-            </div>
-
-            {(g.bans.length > 0 || g.bansAgainst.length > 0) && (
-              <div className="flex flex-col sm:flex-row items-stretch border-b border-border">
-                <div className="flex-1 px-4 py-2.5 flex items-center gap-2 border-b sm:border-b-0 sm:border-r border-border">
-                  <span className="text-[10px] text-text-muted font-heading tracking-wider mr-1 shrink-0">{data.codeA} BANS</span>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {g.bans.map(ban => (
-                      <ChampionIcon
-                        key={`${ban.pickTurn}-${ban.championId}`}
-                        champion={ban.championId}
-                        lookup={champions}
-                        fallbackLabel={ban.name}
-                        size={24}
-                        className="flex items-center opacity-70 grayscale"
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex-1 px-4 py-2.5 flex items-center gap-2">
-                  <span className="text-[10px] text-text-muted font-heading tracking-wider mr-1 shrink-0">{data.codeB} BANS</span>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {g.bansAgainst.map(ban => (
-                      <ChampionIcon
-                        key={`${ban.pickTurn}-${ban.championId}`}
-                        champion={ban.championId}
-                        lookup={champions}
-                        fallbackLabel={ban.name}
-                        size={24}
-                        className="flex items-center opacity-70 grayscale"
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-[10px] text-text-muted font-heading tracking-wider border-b border-border">
-                    <th className="text-left px-4 py-2.5 w-[50px]">ROLE</th>
-                    <th className="text-left px-2 py-2.5 min-w-[140px]">PLAYER</th>
-                    <th className="text-left px-2 py-2.5 min-w-[90px]">CHAMPION</th>
-                    <th className="text-center px-2 py-2.5 w-[70px]">K/D/A</th>
-                    <th className="text-center px-2 py-2.5 w-[50px]">CS</th>
-                    <th className="text-center px-2 py-2.5 w-[55px]">CS/M</th>
-                    <th className="text-right px-2 py-2.5 w-[70px]">DAMAGE</th>
-                    <th className="text-right px-4 py-2.5 w-[60px]">KP</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(Object.keys(ROLE_LABELS) as MatchlistRoleKey[]).map(role => {
-                    const p = g.roles[role];
-                    return (
-                      <tr key={role} className="border-b border-border/50 text-text-secondary">
-                        <td className="px-4 py-2 font-heading text-[10px] text-text-muted tracking-wider">{ROLE_LABELS[role]}</td>
-                        <td className="px-2 py-2 font-heading text-xs text-text">{p?.name ?? "—"}</td>
-                        <td className="px-2 py-2">
-                          <ChampionIcon champion={p?.champ} lookup={champions} fallbackLabel={p?.champ ?? "—"} size={22} showName />
-                        </td>
-                        <td className="px-2 py-2 text-center font-mono text-xs">
-                          {p ? `${p.kills}/${p.deaths}/${p.assists}` : "—"}
-                        </td>
-                        <td className="px-2 py-2 text-center font-mono text-xs">{p?.cs ?? "—"}</td>
-                        <td className="px-2 py-2 text-center font-mono text-xs">{p?.csm?.toFixed(1) ?? "—"}</td>
-                        <td className="px-2 py-2 text-right font-mono text-xs">{p ? p.dmg.toLocaleString() : "—"}</td>
-                        <td className="px-4 py-2 text-right font-mono text-xs">
-                          {p?.kp === null || p?.kp === undefined ? "—" : `${Math.round(p.kp * 100)}%`}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="px-4 py-2.5 border-t border-border">
-              <Link to={`/game/${encodeURIComponent(g.matchId)}`} className="text-ccs-green font-heading text-[11px] tracking-wider uppercase no-underline hover:underline">
-                Full box score &rarr;
-              </Link>
-            </div>
-          </div>
-        ))}
-
-        <p className="text-[10px] text-text-dim mt-4">
-          Only {data.codeA}'s players are listed per game — the API exposes match history one team at a time.
-          Open the full box score for both teams.
-        </p>
+        {tab === "results" ? (
+          <Results match={data} />
+        ) : (
+          <SeriesPreview
+            conf={data.conf}
+            codeA={data.teamA?.code ?? null}
+            codeB={data.teamB?.code ?? null}
+          />
+        )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Preview / Results.
+ *
+ * Same visual language as `PhaseTabs` — underline strip, the selected tab filled — but not that
+ * component, which is typed to a season's phases. Two hard-coded tabs don't want a registry.
+ */
+function Tabs({
+  tab,
+  hasResults,
+  onSelect,
+}: {
+  tab: Tab;
+  hasResults: boolean;
+  onSelect: (t: Tab) => void;
+}) {
+  const entries: [Tab, string][] = hasResults
+    ? [["results", "Results"], ["preview", "Preview"]]
+    : [["preview", "Preview"]];
+
+  // A strip with one tab is noise — the same rule `PhaseTabs` applies to a single-phase season.
+  if (entries.length < 2) return null;
+
+  return (
+    <div className="mb-4 flex flex-nowrap overflow-x-auto overflow-y-hidden border-b-2 border-accent">
+      {entries.map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onSelect(key)}
+          aria-current={tab === key ? "true" : undefined}
+          className={`shrink-0 cursor-pointer border-none bg-transparent px-4 py-2.5 font-heading text-[13px] uppercase tracking-wider ${
+            tab === key
+              ? "border-b-2 border-b-accent bg-bg-input text-text-bright"
+              : "border-b-2 border-b-transparent text-text-muted"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Missing({ message, onBack }: { message: string; onBack: () => void }) {
+  return (
+    <div className="flex min-h-screen w-full flex-col items-center justify-center gap-4 bg-bg font-body text-text">
+      <div className="font-heading text-sm tracking-wider text-text-muted">{message}</div>
+      <button
+        onClick={onBack}
+        className="cursor-pointer border-none bg-transparent font-heading text-sm text-ccs-green hover:underline"
+      >
+        &larr; Back
+      </button>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------- the header
+
+function SeriesHeader({ match }: { match: SeriesDetail }) {
+  const { conf, result, teamA, teamB } = match;
+  const winsA = result?.winsA ?? 0;
+  const winsB = result?.winsB ?? 0;
+
+  return (
+    <div className="mb-6 rounded-lg border border-border bg-bg2 p-6">
+      <div className="flex items-center justify-center gap-6 md:gap-10">
+        <TeamColumn team={teamA} conf={conf} side="left" won={result !== null && result.winner === teamA?.code} />
+
+        <div className="flex min-w-[90px] shrink-0 flex-col items-center gap-1">
+          {result === null ? (
+            <span className="rounded bg-bg-input px-3 py-1 font-display text-base tracking-widest text-text-dim">
+              VS
+            </span>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className={`font-display text-3xl md:text-4xl ${winsA >= winsB ? "text-text-bright" : "text-text-muted"}`}>
+                {winsA}
+              </span>
+              <span className="font-display text-lg text-text-subtle">-</span>
+              <span className={`font-display text-3xl md:text-4xl ${winsB >= winsA ? "text-text-bright" : "text-text-muted"}`}>
+                {winsB}
+              </span>
+            </div>
+          )}
+          <StatusChip match={match} />
+        </div>
+
+        <TeamColumn team={teamB} conf={conf} side="right" won={result !== null && result.winner === teamB?.code} />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-heading text-[11px] tracking-wider text-text-muted">
+        <Caption>{match.league.toUpperCase()}</Caption>
+        {/* `matchDay` is the day within its own phase, which is what a bracket round is called on
+            screen. `seasonDay` is a join key and is never rendered — see `CLAUDE.md`. */}
+        <Caption>
+          {match.phase.kind === "bracket" ? `${match.phase.name} · Round ${match.phase.matchDay}` : match.phase.name}
+        </Caption>
+        <Caption>BO{match.bestOf}</Caption>
+        {match.scheduledAt !== null && <Caption>{fmtKickoff(match.scheduledAt)}</Caption>}
+        {result?.hasForfeit && <Caption>DECIDED IN PART BY FORFEIT</Caption>}
+        {match.streamUrl && (
+          <>
+            <span className="text-text-subtle">·</span>
+            <a
+              href={match.streamUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent no-underline hover:underline"
+            >
+              WATCH
+            </a>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Caption items are separated by a dot, and the separator belongs to the item that follows one. */
+function Caption({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <span className="text-text-subtle first:hidden">·</span>
+      <span>{children}</span>
+    </>
+  );
+}
+
+function StatusChip({ match }: { match: SeriesDetail }) {
+  if (match.status === "live") {
+    return (
+      <span className="flex items-center gap-1.5">
+        <span
+          className="h-2 w-2 rounded-full bg-ccs-red shadow-[0_0_8px_var(--red)]"
+          style={{ animation: "pulse 1.5s infinite" }}
+        />
+        <span className="font-display text-[10px] tracking-widest text-ccs-red">LIVE</span>
+      </span>
+    );
+  }
+
+  // `completed` with no winner is the API's way of saying "played, nobody clinched" — an abandoned
+  // series, or a best-of-two that legitimately split. Saying FINAL over a level scoreline would read
+  // as a rendering bug, so it says which one it is.
+  const label =
+    match.status === "completed"
+      ? match.result?.winner === null
+        ? "NO RESULT"
+        : "FINAL"
+      : match.status === "upcoming"
+        ? "SCHEDULED"
+        : "TO BE CONFIRMED";
+
+  return <span className="font-display text-[10px] tracking-widest text-text-dim">{label}</span>;
+}
+
+function TeamColumn({
+  team,
+  conf,
+  side,
+  won,
+}: {
+  team: TeamRecord | null;
+  conf: string;
+  side: "left" | "right";
+  won: boolean;
+}) {
+  if (team === null) {
+    return (
+      <div className={`flex min-w-0 flex-1 items-center ${side === "left" ? "justify-end" : ""}`}>
+        <span className="font-heading text-base italic text-text-dim md:text-lg">TBD</span>
+      </div>
+    );
+  }
+
+  const badge = <TeamBadge team={toBadge(team)} size={44} />;
+  const name = (
+    <span
+      className={`truncate font-heading text-base font-medium group-hover:text-accent md:text-lg ${
+        won ? "font-bold text-text-bright" : "text-text-muted"
+      }`}
+    >
+      <span className="hidden md:inline">{team.name}</span>
+      <span className="md:hidden">{team.code}</span>
+    </span>
+  );
+
+  return (
+    <TeamLink
+      conf={conf}
+      code={team.code}
+      className={`group flex min-w-0 flex-1 flex-col gap-1 no-underline ${side === "left" ? "items-end" : ""}`}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        {side === "left" ? (
+          <>
+            {name}
+            {badge}
+          </>
+        ) : (
+          <>
+            {badge}
+            {name}
+          </>
+        )}
+      </div>
+      {/* `record` is the season record, forfeits included, and it comes on the same row as the team —
+          so it costs nothing here. Absent only on an API too old to serve it, where `0-0` would be a
+          lie rather than a default. */}
+      {team.record && (
+        <span className="font-mono text-[11px] text-text-dim">
+          {team.record.seriesWins}-{team.record.seriesLosses}
+        </span>
+      )}
+    </TeamLink>
+  );
+}
+
+// ------------------------------------------------------------------- results
+
+/**
+ * What happened: the series added up, then game by game.
+ *
+ * The declared rosters used to sit here, listing starters and bench with no statistics. They moved into
+ * the Preview tab, where a name comes with a season line beside it — a bare list of ten names above a box
+ * score naming the same ten people said nothing twice.
+ *
+ * Only rendered with at least one game, so there is no empty branch: the page shows its own note above
+ * the tabs when there is nothing to show, and the Results tab doesn't exist.
+ */
+function Results({ match }: { match: SeriesDetail }) {
+  // A fallback that never appears on a real fixture with games — a game exists because two teams played
+  // it — but the box score needs a name for the winner of a game with no sides recorded.
+  const codeA = match.teamA?.code ?? "Team A";
+  const codeB = match.teamB?.code ?? "Team B";
+
+  /*
+   * The games identify a side by team code; the full name and the conference are on the fixture. Resolved
+   * here and handed down, so a card names a team the way the header does rather than reaching for the
+   * lookup itself — and so a code belonging to neither side (which `inferred` linkage can produce) stays
+   * a code instead of being mislabelled.
+   */
+  const nameOf: TeamNamer = code => {
+    const team = code === match.teamA?.code ? match.teamA : code === match.teamB?.code ? match.teamB : null;
+    return team === null ? null : { name: team.name, conf: match.conf };
+  };
+
+  return (
+    <>
+      <SeriesTotals games={match.games} codeA={codeA} codeB={codeB} nameOf={nameOf} />
+
+      {match.games.map(g => (
+        <SeriesGameCard
+          key={`${g.game}-${g.matchId ?? "ff"}`}
+          game={g}
+          codeA={codeA}
+          codeB={codeB}
+          nameOf={nameOf}
+        />
+      ))}
+
+      {/*
+        `inferred` means nothing was attached to this fixture, so the games were matched on the
+        conference day and the team pair instead — which is the `series` grouping key and can therefore
+        be wrong in exactly one way. Every season predating the phases model has a null
+        `schedule_match_id` on every row, so without the fallback those match pages are empty; the
+        caveat is what stops it being silently wrong instead.
+      */}
+      {match.linkage === "inferred" && (
+        <p className="mt-2 text-[10px] leading-relaxed text-text-dim">
+          These games aren&apos;t linked to this fixture directly — they were matched by date and by the
+          two teams, which is how results from before the season schedule existed are found at all. If
+          the same two teams played two separate series on one day, both are listed here.
+        </p>
+      )}
+    </>
   );
 }

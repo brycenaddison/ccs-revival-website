@@ -43,8 +43,11 @@ export interface SiteTab {
 
 export const TABS: readonly SiteTab[] = [
   { label: "Home", path: "/", icon: House, inBottomBar: true },
-  { label: "Scores", path: "/scores", icon: ClipboardList, inBottomBar: true },
-  { label: "Schedule", path: "/schedule", icon: CalendarDays, inBottomBar: false },
+  // Scores and Schedule are standalone for the same reason Stats is: both read `GET /schedule` alone,
+  // so as sections of `Home` they waited on a whole-league load neither uses — and sat behind its
+  // empty-team-list gate, which would hide a results page that had results.
+  { label: "Scores", path: "/scores", icon: ClipboardList, inBottomBar: true, standalone: true },
+  { label: "Schedule", path: "/schedule", icon: CalendarDays, inBottomBar: false, standalone: true },
   { label: "Standings", path: "/standings", icon: Trophy, inBottomBar: true },
   // Stats is its own page rather than a section of `Home`: it carries five sub-tabs and a totals
   // bar, and none of the league data `Home` loads for its other sections is any use to it.

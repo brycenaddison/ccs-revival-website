@@ -10,8 +10,15 @@
  * The tab strip here is groups within the one conference. It used to be divisions across several,
  * which is the merge the Standings tab no longer does either: two conferences are two seasons.
  *
- * `STRK` is gone with the old `/standings/:conf` source. A streak is season-wide and these rows are
- * phase-scoped; showing the two side by side would put two different denominators in one row.
+ * **One number, and it is the series record.** At 280px there is room for a rank, a badge, a team
+ * name and a single column; the game score was the third of those and it lost. Truncating a team
+ * name to fit a secondary tiebreaker is the wrong trade on a glanceable panel — the Standings tab
+ * carries games, game win %, and the whole legend.
+ *
+ * Streak would be the better second column, and it is not on this read: `SeasonGroupRow` serves
+ * series and game records, while `streak` belongs to `StandingRow` from the old `/standings/:conf`.
+ * That is season-wide where these rows are phase-scoped, so it is also a second request and two
+ * different denominators in one row.
  */
 
 import { useState } from "react";
@@ -96,11 +103,11 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
       )}
 
       {/*
-        `whitespace-nowrap` on the two numeric columns is not cosmetic. This panel is 280px wide
+        `whitespace-nowrap` on the numeric column is not cosmetic. This panel is 280px wide
         (`Home.tsx`), the table lays out automatically, and **`W-L` breaks at its hyphen** — as does
         a record like `5-2`. So a group whose longest team name is a few characters longer than the
-        next group's squeezes these columns until the headings split over two lines, which is why it
-        showed up on one group and not the other. Pinning them makes the team column absorb the
+        next group's squeezes the column until the heading splits over two lines, which is why it
+        showed up on one group and not the other. Pinning it makes the team column absorb the
         pressure instead, which it can: it truncates.
       */}
       <table className="w-full border-collapse">
@@ -109,11 +116,8 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
             <th className="border-b border-border px-3 py-2 text-left font-heading text-[10px] font-normal tracking-wider text-text-muted">
               TEAM
             </th>
-            <th className="whitespace-nowrap border-b border-border px-2 py-2 text-center font-heading text-[10px] font-normal text-text-muted">
+            <th className="whitespace-nowrap border-b border-border px-3 py-2 text-right font-heading text-[10px] font-normal text-text-muted">
               W-L
-            </th>
-            <th className="whitespace-nowrap border-b border-border px-2 py-2 text-center font-heading text-[10px] font-normal text-text-muted">
-              GAMES
             </th>
           </tr>
         </thead>
@@ -161,11 +165,17 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
                     </div>
                   </TeamLink>
                 </td>
-                <td className="whitespace-nowrap px-2 text-center font-mono text-[13px] text-text-secondary">
+                <td
+                  className="whitespace-nowrap px-3 text-right font-mono text-[13px] text-text-secondary"
+                  // The games are still worth having somewhere, and a hover is somewhere: it costs no
+                  // width, and the column it was cut from is the one being hovered.
+                  title={
+                    row.gameWins + row.gameLosses === 0
+                      ? "No games played yet"
+                      : `${row.gameWins}-${row.gameLosses} in games`
+                  }
+                >
                   {row.seriesWins}-{row.seriesLosses}
-                </td>
-                <td className="whitespace-nowrap px-2 text-center font-mono text-xs text-text-muted">
-                  {row.gameWins + row.gameLosses === 0 ? "—" : `${row.gameWins}-${row.gameLosses}`}
                 </td>
               </tr>
             );

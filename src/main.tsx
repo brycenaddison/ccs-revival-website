@@ -4,6 +4,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ApiError } from './lib/api'
 import Home from './pages/Home'
+import Scores from './pages/Scores'
+import Schedule from './pages/Schedule'
 import MatchDetail from './pages/MatchDetail'
 import GameDetail from './pages/GameDetail'
 import TeamPage from './pages/TeamPage'
@@ -54,9 +56,14 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               {TABS.filter(t => !t.standalone).map(t => (
                 <Route key={t.path} path={t.path} element={<Home />} />
               ))}
+              <Route path="/scores" element={<Scores />} />
+              <Route path="/schedule" element={<Schedule />} />
               <Route path="/stats" element={<Stats />} />
               <Route path="/teams/:conf/:code" element={<TeamPage />} />
-              <Route path="/match/:seriesId" element={<MatchDetail />} />
+              {/* `:id` is a `schedule_match` id. The old form took a synthesised series key
+                  (`4:w1:ANE_vs_XSV`) because there was no endpoint that answered "this fixture" —
+                  `GET /tournaments/schedule/:id/result` is that endpoint. */}
+              <Route path="/match/:id" element={<MatchDetail />} />
               <Route path="/game/:matchId" element={<GameDetail />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />

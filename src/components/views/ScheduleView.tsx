@@ -1,41 +1,53 @@
-import { TeamBadge } from "../TeamBadge";
-import { fmtTime } from "../../lib/utils";
-import type { Match } from "../../hooks/useLeagueData";
+/**
+ * Everything still to play, in date sections.
+ *
+ * **Deliberately unbounded.** Any `from` or `to` excludes a fixture with no resolved kickoff, and those
+ * are exactly the rows a schedule page should carry: a bracket slot nobody has reached yet is the next
+ * thing a reader wants to see. They arrive last from upstream in both directions and `groupByDay`
+ * collects them under one trailing "Date TBC" heading.
+ *
+ * `pending` also covers a kickoff that passed with nobody turning up. Those sit under their own past
+ * date, which reads honestly — the fixture is still unplayed and still on the schedule.
+ */
 
-interface Props {
-  matches: Match[];
-  isMobile: boolean;
-}
+import { useMemo } from "react";
+import { errorMessage } from "../../lib/api";
+import { groupByDay } from "../../lib/feedGroups";
+import { useScheduleFeed, type FeedWindow } from "../../hooks/useScheduleFeed";
+import { FeedMatchRow } from "../schedule/FeedMatchRow";
 
-export function ScheduleView({ matches, isMobile }: Props) {
-  const upcoming = matches.filter(m => m.status === "scheduled");
-  if (!upcoming.length) return <div className="py-10 text-center text-text-dim text-[13px]">No upcoming matches scheduled.</div>;
+const WINDOW: FeedWindow = { statuses: ["live", "upcoming", "pending"], order: "asc", limit: 100 };
+
+export function ScheduleView({ isMobile }: { isMobile: boolean }) {
+  const { data, error, isPending } = useScheduleFeed(WINDOW);
+  const days = useMemo(() => groupByDay(data?.matches ?? []), [data]);
+
+  if (isPending) {
+    return <div className="py-10 text-center text-[13px] text-text-subtle">Loading the schedule…</div>;
+  }
+  if (error) {
+    return <div className="py-10 text-center text-[13px] text-ccs-red">{errorMessage(error)}</div>;
+  }
+  if (days.length === 0) {
+    return <div className="py-10 text-center text-[13px] text-text-dim">No upcoming matches scheduled.</div>;
+  }
 
   return (
-    <div className="max-w-[800px] mx-auto">
-      <h2 className="font-display text-[22px] text-text-bright tracking-widest mb-4">SCHEDULE</h2>
-      <div className="flex flex-col gap-2">
-        {upcoming.map(m => {
-          const b = m.team_blue || {} as any;
-          const r = m.team_red || {} as any;
-          return (
-            <div key={m.id} className={`bg-bg2 border border-border rounded-md ${isMobile ? "px-3 py-3.5" : "px-5 py-4"}`}>
-              <div className="text-[10px] text-accent mb-2.5 font-heading tracking-wide font-semibold">{fmtTime(m.scheduled_at)}</div>
-              <div className={`flex items-center justify-center ${isMobile ? "gap-3" : "gap-6"}`}>
-                <div className="flex items-center gap-2.5 flex-1 justify-end">
-                  <span className={`font-heading text-text font-medium ${isMobile ? "text-sm" : "text-base"}`}>{isMobile ? b.abbreviation : b.name}</span>
-                  <TeamBadge team={b} size={isMobile ? 28 : 36} />
-                </div>
-                <span className="font-display text-sm text-text-dim tracking-widest px-3 py-1 bg-bg-input rounded">VS</span>
-                <div className="flex items-center gap-2.5 flex-1">
-                  <TeamBadge team={r} size={isMobile ? 28 : 36} />
-                  <span className={`font-heading text-text font-medium ${isMobile ? "text-sm" : "text-base"}`}>{isMobile ? r.abbreviation : r.name}</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <div className="mx-auto max-w-[800px]">
+      <h2 className="mb-4 font-display text-[22px] tracking-widest text-text-bright">SCHEDULE</h2>
+
+      {days.map(day => (
+        <section key={day.key} className="mb-6">
+          <h3 className="mb-2 font-heading text-[11px] uppercase tracking-widest text-text-muted">
+            {day.label}
+          </h3>
+          <div className="flex flex-col gap-2">
+            {day.matches.map(m => (
+              <FeedMatchRow key={m.scheduleMatchId} match={m} isMobile={isMobile} />
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

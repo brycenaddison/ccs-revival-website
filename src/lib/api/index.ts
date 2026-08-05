@@ -1,4 +1,4 @@
-export { api, tournaments, teams, teamsForConf, teamDetail, standings, playerStats, teamStats, championStats, statTotals, records, scoutIndex, scout, matchData, articleViews, bumpArticleView, mapTournament } from "./client";
+export { api, tournaments, teams, teamsForConf, teamDetail, standings, playerStats, teamStats, championStats, statTotals, records, scoutIndex, scout, matchData, articleViews, bumpArticleView, mapTeamRecord, mapTournament } from "./client";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
 export type { RequestOpts } from "./http";
 export { auth, ANONYMOUS, isRiotLinkMessage, riotLinkUrl, SITE_ADMIN_ROLE } from "./auth";
@@ -107,6 +107,21 @@ export type {
   SeasonScenarioLibrary,
   SeasonTeam,
 } from "./seasonView";
+export { feedApi, scheduleFeed, matchResult, MATCH_STATUSES } from "./feed";
+export type {
+  FeedMatch,
+  FeedPage,
+  FeedQuery,
+  FeedTeam,
+  Linkage,
+  MatchOutcome,
+  MatchStatus,
+  SeriesBan,
+  SeriesDetail,
+  SeriesGame,
+  SeriesPlayer,
+  SeriesSide,
+} from "./feed";
 export {
   scheduleApi,
   schedule,

@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useWindowSize } from "../hooks/useWindowSize";
+import { useScheduleFeed } from "../hooks/useScheduleFeed";
 import { useLeagueData } from "../hooks/useLeagueData";
 import { usePlayers } from "../hooks/usePlayers";
 import { useSeason } from "../hooks/useSeason";
 import { PageShell } from "../components/layout/PageShell";
-import { ScoreboardTicker } from "../components/home/ScoreboardTicker";
+import { ScoreboardTicker, TICKER_WINDOW } from "../components/home/ScoreboardTicker";
 import { HeroArticle } from "../components/home/HeroArticle";
 import { NewsFeed } from "../components/home/NewsFeed";
 import { StandingsWidget } from "../components/home/StandingsWidget";
@@ -13,23 +14,22 @@ import { PlayerLeaders } from "../components/home/PlayerLeaders";
 import { UpcomingSchedule } from "../components/home/UpcomingSchedule";
 import { SocialLinks } from "../components/home/SocialLinks";
 import { TwitchStreams } from "../components/home/TwitchStreams";
-import { ScoresView } from "../components/views/ScoresView";
-import { ScheduleView } from "../components/views/ScheduleView";
 import { StandingsView } from "../components/views/StandingsView";
 import { TeamsView } from "../components/views/TeamsView";
 import { useLeague } from "../lib/leagueContext";
 import { tabForPathname } from "../lib/tabs";
 
 export default function Home() {
-  // Which section is showing comes from the URL — every tab has its own, and this component is
-  // mounted at all of them. See `lib/tabs.ts`. The coalesce is unreachable in practice: this only
-  // mounts on a tab route, so `tabForPathname` always matches one.
+  // Which section is showing comes from the URL. This mounts at Home, Standings and Teams; Scores,
+  // Schedule and Stats are their own pages, because none of them reads the league data loaded below.
+  // See `lib/tabs.ts`. The coalesce is unreachable in practice: this only mounts on a tab route, so
+  // `tabForPathname` always matches one.
   const tab = tabForPathname(useLocation().pathname) ?? "Home";
   const w = useWindowSize();
   const isMobile = w < 768;
   const isTablet = w >= 768 && w < 1024;
   const { tournaments, selectedConfs, loading: leagueLoading } = useLeague();
-  const { teams, matches, standings, rosters, articles, splits, twitterFeeds, twitchEmbeds, loading: dataLoading, error, refresh } =
+  const { teams, standings, rosters, articles, splits, twitterFeeds, twitchEmbeds, loading: dataLoading, error, refresh } =
     useLeagueData({ confs: selectedConfs, tournaments });
 
   // `useLeagueData` is one call per conf and covers every section. Two things need their own
@@ -42,7 +42,12 @@ export default function Home() {
   const { season, loading: seasonLoading } = useSeason(tab === "Home" ? selectedConfs[0] ?? null : null);
   const { players } = usePlayers({ confs: tab === "Home" ? selectedConfs : [], teams });
   const loading = leagueLoading || dataLoading;
-  const hasLive = matches.some(m => m.status === "live");
+
+  // The ticker's own window, read through the same query key — so this shares its request rather than
+  // opening a second one. It is here for one reason: a live series is ingesting games, which moves the
+  // standings and the records that every section below is showing, and nothing else would say so.
+  const ticker = useScheduleFeed(TICKER_WINDOW);
+  const hasLive = (ticker.data?.matches ?? []).some(m => m.status === "live");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -60,7 +65,7 @@ export default function Home() {
   const rest = articles.filter(a => a.id !== hero?.id);
 
   return (
-    <PageShell maxWidth={1440} ticker={<ScoreboardTicker matches={matches} isMobile={isMobile} />}>
+    <PageShell maxWidth={1440} ticker={<ScoreboardTicker />}>
       {loading ? (
         <div className="py-16 text-center text-text-subtle">Loading...</div>
       ) : error ? (
@@ -82,9 +87,7 @@ export default function Home() {
         </div>
       ) : (
         <>
-          {tab === "Scores" ? <ScoresView matches={matches} isMobile={isMobile} />
-          : tab === "Schedule" ? <ScheduleView matches={matches} isMobile={isMobile} />
-          : tab === "Standings" ? <StandingsView isMobile={isMobile} />
+          {tab === "Standings" ? <StandingsView isMobile={isMobile} />
           : tab === "Teams" ? <TeamsView teams={teams} standings={standings} rosters={rosters} isMobile={isMobile} />
           : (
             <div className={`grid ${isMobile ? "grid-cols-1" : isTablet ? "grid-cols-1" : "grid-cols-[280px_1fr_280px]"}`} style={{ gap: isMobile ? 16 : 24 }}>
@@ -121,7 +124,7 @@ export default function Home() {
                   </div>
                 )}
                 <TwitchStreams embeds={twitchEmbeds} parentDomain={parentDomain} />
-                <UpcomingSchedule matches={matches} isMobile={isMobile} />
+                <UpcomingSchedule isMobile={isMobile} />
               </div>
 
               {/* RIGHT COLUMN — Standings + Stats */}

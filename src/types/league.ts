@@ -21,29 +21,14 @@ export interface Team {
   divisions?: { name: string };
 }
 
-/**
- * A match *series* (best-of-N), not an individual game.
- *
- * `status` is only ever `"completed"` today: the API records games after the fact and has
- * no schedule, so nothing upcoming or live can be represented yet.
+/*
+ * There was a `Match` here, and a `Game`, both shaped for Supabase's schedule tables and both
+ * permanently empty — the API had no read that answered "every fixture, with its result and its
+ * kickoff". `GET /schedule` and `GET /tournaments/schedule/:id/result` do, and they are served through
+ * `lib/api/feed.ts` as `FeedMatch` and `SeriesDetail`. Nothing translates them into this file: these
+ * shapes exist to keep the Supabase-era components compiling, and the fixture surfaces were rewritten
+ * rather than adapted.
  */
-export interface Match {
-  id: string;
-  split_id: string;
-  team_blue_id: string;
-  team_red_id: string;
-  team_blue?: Team;
-  team_red?: Team;
-  status: "scheduled" | "live" | "completed";
-  scheduled_at: string;
-  completed_at?: string;
-  match_format?: string;
-  season_phase?: string;
-  winner_team_id?: string;
-  score_blue?: number;
-  score_red?: number;
-  splits?: { name: string };
-}
 
 /**
  * A team's record in the standings table.
@@ -84,18 +69,6 @@ export interface Standing {
    * standings endpoint. Derived records cannot see forfeits.
    */
   provisional?: boolean;
-}
-
-/** An individual game within a series. */
-export interface Game {
-  id: string;
-  match_id?: string;
-  riot_match_id?: string;
-  blue_team_id: string;
-  red_team_id: string;
-  winner_team_id?: string;
-  game_duration?: number;
-  game_started_at?: string;
 }
 
 export interface Player {
@@ -180,18 +153,16 @@ export interface TwitchEmbed {
 }
 
 /**
- * What the shared league loader provides. Player leaderboards and the season document are not here:
- * they need their own requests, so they load through `usePlayers` / `useSeason` only where they
- * are shown.
+ * What the shared league loader provides. Player leaderboards, the season document and the fixture feed
+ * are not here: each needs its own request, so they load through `usePlayers`, `useSeason` and
+ * `useScheduleFeed` only where they are shown.
  */
 export interface LeagueData {
   teams: Team[];
-  matches: Match[];
   standings: Standing[];
   rosters: Roster[];
   articles: Article[];
   splits: Split[];
-  games: Game[];
   twitterFeeds: TwitterFeed[];
   twitchEmbeds: TwitchEmbed[];
   loading: boolean;

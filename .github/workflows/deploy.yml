@@ -1,0 +1,82 @@
+name: Deploy
+
+# Pushing to `live` publishes. `main` is the working branch and only gets the CI build
+# (see ci.yml) — merge or fast-forward `live` when you want what is on `main` to go out.
+on:
+  push:
+    branches: [live]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and list what rsync would change, without writing to the server"
+        type: boolean
+        default: false
+
+# One deploy at a time. A queued run is superseded by a newer one, but a transfer already
+# in flight is never cancelled — a half-synced docroot is worse than a stale one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # `npm run build` is `tsc --noEmit && vite build`, so this is the typecheck too.
+      # Both VITE_ vars are baked into the public bundle, so they are repo *variables*,
+      # not secrets. Either may be unset: the API base falls back to the hardcoded
+      # default in src/lib/api/http.ts, and an empty conf pin falls through to the
+      # server-resolved list in src/lib/api/league.ts.
+      - name: Build
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_ACTIVE_CONFS: ${{ vars.VITE_ACTIVE_CONFS }}
+        run: npm run build
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # -rlptz rather than -a: -a implies -og, which needs root on the far side.
+      # --delete-after removes stale hashed assets only once the new ones have landed,
+      # which keeps the window where index.html points at a missing chunk as short as
+      # rsync allows. Anything in the docroot that is not build output will be deleted —
+      # add --exclude lines below if that ever stops being true.
+      - name: Deploy to ${{ secrets.DEPLOY_HOST }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          TARGET: /home/brycen/websites/org/ccsesports/www
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          flags="-rlptzv --delete-after --human-readable"
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            flags="$flags --dry-run"
+            echo "::notice::Dry run — nothing will be written to $DEPLOY_HOST"
+          fi
+          rsync $flags \
+            -e "ssh -i ~/.ssh/deploy_key -p $DEPLOY_PORT -o IdentitiesOnly=yes" \
+            dist/ "$DEPLOY_USER@$DEPLOY_HOST:$TARGET/"
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

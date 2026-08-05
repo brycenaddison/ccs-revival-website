@@ -8,6 +8,7 @@
  */
 
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 import { TeamBadge } from "../TeamBadge";
 import { TeamLink } from "../league/TeamLink";
@@ -144,6 +145,26 @@ export function BracketMatchCard({ match, terminal, layout, conf, measureRef, sl
 
         {chip && (
           <span className="shrink-0 font-mono text-[9px] font-bold uppercase text-ccs-orange">{chip}</span>
+        )}
+        {/*
+          `match.matchId` is the underlying `schedule_match` id, which is exactly what `/match/:id`
+          takes — so this is the bracket's way into a series page, and currently the season page's only
+          one. It sits in the header rather than wrapping the card because the side rows below already
+          contain `TeamLink`s, and an anchor inside an anchor is invalid.
+
+          Not offered on a `pending` node: a slot nobody has reached has nothing on its own page that
+          this card isn't already showing. Nor inside an editor — `slotControl` is what marks one — where
+          navigating away is how a half-finished bracket edit gets thrown away, and where the admin's own
+          match drawer is the thing to open anyway.
+        */}
+        {slotControl === undefined && match.status !== "pending" && (
+          <Link
+            to={`/match/${match.matchId}`}
+            className="shrink-0 font-mono text-[9px] uppercase text-text-muted no-underline hover:text-accent"
+            title="Open the match page"
+          >
+            match →
+          </Link>
         )}
         {result?.hasForfeit && (
           <span className="shrink-0 font-mono text-[9px] text-text-muted" title="Decided in part by a forfeit">

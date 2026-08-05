@@ -19,6 +19,14 @@ const LABELS: Record<StatKey, string> = {
   damageMin: "DMG/Min",
 };
 
+/**
+ * Rate stats, where one good game off the bench outranks a season of real ones. These are
+ * gated on `MIN_GAMES`; the season totals next to them are not, since volume qualifies itself.
+ * The threshold matches the API's own ranking pool, which drops players with four or fewer games.
+ */
+const RATE_STATS: ReadonlySet<StatKey> = new Set(["kda", "csMin", "damageMin"]);
+const MIN_GAMES = 5;
+
 export function PlayerLeaders({ players, isMobile }: Props) {
   const [stat, setStat] = useState<StatKey>("kills");
 
@@ -32,14 +40,19 @@ export function PlayerLeaders({ players, isMobile }: Props) {
     return String(p[stat]);
   };
 
-  const sorted = [...players]
+  const gated = RATE_STATS.has(stat);
+  const sorted = players
+    .filter(p => !gated || p.gp >= MIN_GAMES)
     .sort((a, b) => valueOf(b) - valueOf(a))
     .slice(0, 5);
 
   return (
     <div className="bg-bg2 rounded-md overflow-hidden border border-border">
       <div className="px-4 py-3.5 border-b border-border flex justify-between items-center">
-        <span className="font-display text-[15px] text-text-bright tracking-widest">STAT LEADERS</span>
+        <span className="font-display text-[15px] text-text-bright tracking-widest">
+          STAT LEADERS
+          {gated && <span className="ml-2 font-heading text-[10px] tracking-normal text-text-muted">min {MIN_GAMES} games</span>}
+        </span>
         <select
           value={stat}
           onChange={e => setStat(e.target.value as StatKey)}
@@ -48,6 +61,11 @@ export function PlayerLeaders({ players, isMobile }: Props) {
           {Object.entries(LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
+      {!sorted.length && (
+        <div className="px-4 py-6 text-center text-xs text-text-muted">
+          No one has played {MIN_GAMES} games yet.
+        </div>
+      )}
       {sorted.map((p, i) => (
         <div
           key={p.id || i}

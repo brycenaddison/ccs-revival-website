@@ -55,7 +55,7 @@ export function SeasonPicker({ tournaments, selection, onChange, activeConfs, co
         onChange={e => onChange(e.target.value)}
         aria-label={label}
         title={label}
-        className="season-select bg-transparent border-none text-text-secondary font-heading tracking-wider cursor-pointer outline-none hover:text-text-bright max-w-[9rem] lg:max-w-[13rem]"
+        className="season-select bg-transparent border-none text-text-secondary font-heading tracking-wider cursor-pointer outline-none hover:text-text-bright max-w-[12rem] lg:max-w-[15rem]"
         style={{ fontSize: "inherit" }}
       >
         {options}

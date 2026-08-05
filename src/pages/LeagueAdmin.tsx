@@ -13,7 +13,7 @@
 
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { CalendarDays, ClipboardList, GitFork, Settings2, Users, UsersRound } from "lucide-react";
+import { CalendarDays, ClipboardList, GitFork, Users, UsersRound } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
@@ -26,16 +26,11 @@ import { sectionForSlug, type SettingsArea, type SettingsSection } from "../lib/
 
 // Named to match the parked tabs in `src/_disabled/admin/`, so reviving one is a swap rather than a
 // redesign.
+//
+// League metadata — name, week layout, whether the season is running — is deliberately not here. It
+// is site-admin work and Site Admin → Leagues is where it happens; a tab that could only ever say
+// "coming soon" was a section an admin opened once and learned nothing from.
 const SECTIONS: readonly SettingsSection[] = [
-  {
-    slug: "details",
-    label: "League Details",
-    icon: Settings2,
-    description: "Name, week layout, and whether this season is running.",
-    // The editor exists, but `/admin/leagues` is site-admin only — a league admin editing their own
-    // league's metadata would need a conf-scoped route. See `components/admin/LeaguesSection.tsx`.
-    Component: () => <ComingSoon needs="a league-scoped route for league metadata (/admin/leagues is site admin only)" />,
-  },
   {
     slug: "teams",
     label: "Teams",

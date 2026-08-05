@@ -139,7 +139,13 @@ function mapSeasonRecord(raw: unknown): SeasonRecord | null {
   return pickCounts(asRaw(raw), RECORD_COUNTS);
 }
 
-function mapTeamRecord(raw: Raw): TeamRecord {
+/**
+ * Exported for `./feed`: `teamA`/`teamB` on `GET /tournaments/schedule/:id/result` are the same rows
+ * `/teams/:conf` serves, rosters and record included, so a match page needs no second call. Mapping
+ * them here rather than again over there is what keeps them the same `TeamRecord` the rest of the site
+ * holds — and therefore what `toTeam`, `toBadge` and `rosterEntries` already take.
+ */
+export function mapTeamRecord(raw: Raw): TeamRecord {
   const color = numOrNull(raw.color as Numeric);
   return {
     id: num(raw.id as Numeric),

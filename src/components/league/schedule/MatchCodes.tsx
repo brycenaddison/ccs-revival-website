@@ -99,6 +99,18 @@ export function MatchCodes({
   const refreshCodes = () => qc.invalidateQueries({ queryKey: queries.matchCodes(matchId).queryKey });
 
   /**
+   * Drops the preview and leaves the form blank behind it, ready for the code that was meant.
+   *
+   * Shared with the list, because a staged code has a row there too and deleting that row is the
+   * same delete `abandon` performs — leaving the panel up afterwards pointed its Confirm and Discard
+   * at a code that no longer existed, and both answered 404.
+   */
+  const clearStaged = () => {
+    setChecked(null);
+    setCode("");
+  };
+
+  /**
    * Everything an ingested game moves: it is a new result, so the standings and every stats board
    * move with it, and a propagated bracket rewires under `season`.
    *
@@ -149,8 +161,7 @@ export function MatchCodes({
   const abandon = useMutation({
     mutationFn: (staged: CodeCheck) => deleteCode(matchId, staged.code),
     onSuccess: async () => {
-      setChecked(null);
-      setCode("");
+      clearStaged();
       await refreshCodes();
     },
   });
@@ -219,6 +230,9 @@ export function MatchCodes({
                   onReport={onSaved}
                   onDeleted={async removed => {
                     setOpenCode(null);
+                    // The row just deleted may be the staged one's own row — the preview is showing
+                    // the same code the list is, and deleting it there is deleting it here.
+                    if (checked?.code === entry.code) clearStaged();
                     await refreshResults();
                     onSaved(
                       removed.ingestRemoved === null

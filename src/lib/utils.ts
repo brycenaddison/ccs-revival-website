@@ -68,12 +68,58 @@ export function fmtDay(iso: string | null | undefined): string {
   return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
 }
 
-export function fmtTime(d?: string): string {
-  if (!d) return "";
-  const dt = new Date(d);
-  const t = dt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  const diff = Math.floor((dt.getTime() - Date.now()) / 86400000);
-  if (diff === 0) return `Today · ${t}`;
-  if (diff === 1) return `Tomorrow · ${t}`;
-  return dt.toLocaleDateString([], { month: "short", day: "numeric" }) + ` · ${t}`;
+/**
+ * Just the clock: `7:00 PM`.
+ *
+ * For a row that already sits under a date heading, where `fmtRelativeDay`'s "Today" repeats what the
+ * heading said. Em dash for absent, because a row still needs something in that column.
+ */
+export function fmtClock(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+/** Whole calendar days from `a` to `b`, in local time. */
+function calendarDaysBetween(a: Date, b: Date): number {
+  const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  // Rounded, not truncated: a day is 23 or 25 hours across a DST boundary, so the quotient isn't an
+  // integer and flooring it would report the wrong day twice a year.
+  return Math.round((midnight(b) - midnight(a)) / 86400000);
+}
+
+/**
+ * Which day something is on, named the way a reader would: `Today`, `Tomorrow`, `Yesterday`, or
+ * `Sep 12`.
+ *
+ * **Counted in calendar days, not in 24-hour blocks.** The difference is not academic on a schedule
+ * whose fixtures start in the evening: at 11pm, a match at 1am is two hours away, which as a 24-hour
+ * quotient rounds to zero and reads "Today" — on a card that is describing tomorrow.
+ *
+ * Empty string for absent, so a caller can fall back with `||`.
+ */
+export function fmtRelativeDay(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+
+  const days = calendarDaysBetween(new Date(), d);
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days === -1) return "Yesterday";
+
+  // No year, deliberately: everything that reaches this is within days of now, and a year would be
+  // four characters of noise on the narrowest cards on the site.
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+/** A kickoff as a day and a clock: `Tomorrow · 7:00 PM`. Empty string for absent. */
+export function fmtTime(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return `${fmtRelativeDay(iso)} · ${fmtClock(iso)}`;
 }

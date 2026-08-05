@@ -18,12 +18,14 @@ import {
   matchCodes,
   matchData,
   matchDetail,
+  matchResult,
   phaseCandidates,
   phaseDocument,
   phaseList,
   playerStats,
   records,
   schedule,
+  scheduleFeed,
   scout,
   scoutIndex,
   searchUsers,
@@ -35,6 +37,8 @@ import {
   teamsForConf,
   tournaments,
   unscheduledGames,
+  type FeedPage,
+  type FeedQuery,
   type Role,
 } from "./api";
 
@@ -48,6 +52,15 @@ const MINUTE = 60_000;
  * still keeping tab-switching and back-navigation instant.
  */
 const LEAGUE_STALE = MINUTE;
+
+/**
+ * How long the public fixture feed stays fresh.
+ *
+ * Matched to the endpoint's own `Cache-Control: max-age=15`, because the payload is clock-relative:
+ * every `status` on it was derived against `generatedAt`, so holding a copy for a minute like the
+ * league data above would leave a series reading `upcoming` a minute after it kicked off.
+ */
+const FEED_STALE = 15_000;
 
 /**
  * Identity helper. Keeps the literal type of `queryKey` without depending on the library's own
@@ -183,6 +196,73 @@ export const queries = {
       queryFn: ({ signal }: { signal: AbortSignal }) => matchData(matchId, { signal }),
       staleTime: Infinity,
       gcTime: Infinity,
+    }),
+
+  /**
+   * The public fixture feed — the ticker, `/scores` and `/schedule`, one endpoint with three windows.
+   *
+   * Keyed under `["schedule", …]` rather than a root of its own, for the reason `seasonView` sits under
+   * `["season", …]`: a structure save deletes and renumbers fixtures, and `queryRoots.schedule` is
+   * already invalidated by one. A separate root is a root an editor would forget.
+   *
+   * `FEED_STALE` matches the endpoint's own `max-age=15`, so two surfaces mounted together share one
+   * request and a tab switch doesn't refetch. Statuses are clock-derived, so anything that needs to
+   * watch a live series adds its own `refetchInterval` — see `useScheduleFeed`.
+   */
+  feed: (q: FeedQuery) =>
+    query({
+      queryKey: ["schedule", "feed", q] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => scheduleFeed(q, { signal }),
+      staleTime: FEED_STALE,
+    }),
+
+  /**
+   * The same feed, paged backwards through time — what `/scores` needs and the plain query can't do.
+   *
+   * There is no `offset` parameter upstream, so the cursor is the window itself: each page asks for
+   * everything at or before the oldest kickoff the previous page returned. `to` is **inclusive**, so
+   * pages overlap at that instant by design and the caller dedupes on `scheduleMatchId` — see
+   * `flattenFeedPages`. Overlapping rather than subtracting a millisecond is what stops a fixture from
+   * being skipped, since a whole season day shares one kickoff and there are usually several fixtures
+   * at the same instant.
+   *
+   * Two stopping conditions, and both matter:
+   *
+   *  - a short page — fewer rows than asked for — is the last one;
+   *  - a cursor that doesn't move means the whole page sat at one instant, so another request would
+   *    return the same rows forever. It stops instead of looping. Reachable only if a single kickoff
+   *    holds more fixtures than `limit`, which is why `/scores` asks for 100.
+   *
+   * An undated fixture can't be a cursor and is excluded from every page after the first anyway (any
+   * bound excludes it), so the cursor is taken from the last row that *has* a kickoff.
+   */
+  scores: (q: FeedQuery) => ({
+    queryKey: ["schedule", "feed", "scores", q] as const,
+    queryFn: ({ pageParam, signal }: { pageParam: string | null; signal: AbortSignal }) =>
+      scheduleFeed(pageParam === null ? q : { ...q, to: pageParam }, { signal }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: FeedPage, _pages: FeedPage[], lastParam: string | null) => {
+      if (q.limit === undefined || last.matches.length < q.limit) return null;
+      const cursor = [...last.matches].reverse().find(m => m.scheduledAt !== null)?.scheduledAt ?? null;
+      return cursor === null || cursor === lastParam ? null : cursor;
+    },
+    staleTime: FEED_STALE,
+  }),
+
+  /**
+   * One best-of in full, for `/match/:scheduleMatchId`.
+   *
+   * Not `Infinity` like `matchData`, which is a finished game's immutable payload: this one carries a
+   * clock-derived `status` and a result that grows as games are ingested, so a page left open on a
+   * live series should catch up on focus.
+   */
+  matchResult: (id: number | null) =>
+    query({
+      queryKey: ["schedule", "result", id] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        id === null ? Promise.resolve(null) : matchResult(id, { signal }),
+      enabled: id !== null,
+      staleTime: FEED_STALE,
     }),
 
   /**
