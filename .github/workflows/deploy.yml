@@ -27,7 +27,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
 
       - run: npm ci
@@ -55,6 +55,13 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
       # -rlptz rather than -a: -a implies -og, which needs root on the far side.
+      #
+      # The deploy user can write inside the docroot but does not own the directories
+      # themselves, so utime and chmod on a directory come back EPERM even though every
+      # file transfers fine. --omit-dir-times and --no-perms drop those two calls; without
+      # them rsync exits 23 and fails the job over an attribute nothing serves. File mtimes
+      # are still preserved, which is what rsync's quick-check compares on the next run.
+      #
       # --delete-after removes stale hashed assets only once the new ones have landed,
       # which keeps the window where index.html points at a missing chunk as short as
       # rsync allows. Anything in the docroot that is not build output will be deleted —
@@ -68,7 +75,7 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
-          flags="-rlptzv --delete-after --human-readable"
+          flags="-rlptzv --omit-dir-times --no-perms --delete-after --human-readable"
           if [ "${DRY_RUN:-false}" = "true" ]; then
             flags="$flags --dry-run"
             echo "::notice::Dry run — nothing will be written to $DEPLOY_HOST"
