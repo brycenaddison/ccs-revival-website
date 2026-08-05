@@ -52,6 +52,7 @@ import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { ACTION, ACTION_PRIMARY, ACTION_SM, ACTION_SM_DANGER, ErrorLine, Pill } from "../adminUi";
 import { IssueList, fieldError } from "./issues";
 import { DayKickoffField, StrandedDaysNotice, withDayDefault } from "./DayKickoff";
+import { StandingsReference, type ReferenceTable } from "../../season/StandingsReference";
 import { queries, queryRoots } from "../../../lib/queries";
 import { fromLocalInput, toLocalInput } from "../../../lib/utils";
 import {
@@ -469,10 +470,10 @@ export function BracketPhaseEditor({
         </p>
       )}
 
-      <CandidatesPanel
+      <StandingsReference
         loading={candidates.isPending}
         error={candidates.isError ? errorMessage(candidates.error) : null}
-        phases={candidates.data ?? []}
+        tables={toReference(candidates.data ?? [])}
       />
 
       <IssueList issues={issues} />
@@ -911,79 +912,26 @@ function SlotEditor({
 // -------------------------------------------------------------- side panel
 
 /**
- * Live standings of every **earlier** group phase, each team with its resolved scenario.
+ * `/candidates` in the shape `StandingsReference` renders.
  *
- * Read-only, deliberately. **Nothing is ever auto-filled from it** — a tie the ranking will not break
- * is exactly the case where the automatic answer is wrong and a human has to decide, which is why
- * entry slots are placed by hand at all. A tied row's scenario is provisional and marked as such.
+ * This endpoint is credentialed and site-admin only, which is why the panel takes a neutral shape
+ * rather than this one: League Admin shows the same tables built from the season document, because
+ * that route would 403 for it.
  */
-function CandidatesPanel({
-  loading,
-  error,
-  phases,
-}: {
-  loading: boolean;
-  error: string | null;
-  phases: readonly CandidatePhase[];
-}) {
-  if (error) return <ErrorLine message={`Couldn't load the standings panel: ${error}`} />;
-  if (loading) return <p className="text-text-dim text-sm">Loading standings…</p>;
-
-  if (phases.length === 0) {
-    return (
-      <p className="text-text-dim text-sm">
-        No earlier group phase to seed from. A bracket at the start of a season is placed entirely by
-        hand.
-      </p>
-    );
-  }
-
-  return (
-    <section className="border-t border-border pt-4">
-      <h3 className="font-heading text-xs tracking-wider uppercase text-text-secondary mb-1">
-        Who finished where
-      </h3>
-      <p className="text-text-secondary text-sm mb-3">
-        For reference while placing entry slots. Nothing here fills anything in.
-      </p>
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {phases.flatMap(p =>
-          p.groups.map(table => (
-            <div key={`${p.phaseId}:${table.group.id}`} className="bg-bg3 border border-border rounded-md p-3">
-              <p className="font-heading text-[10px] tracking-wider uppercase text-text-dim mb-2">
-                {p.phaseName} · Group {table.group.name}
-              </p>
-              <ol className="flex flex-col gap-1">
-                {table.teams.map(team => (
-                  <li key={team.teamId} className="flex items-baseline gap-2 text-sm">
-                    <span className="font-mono text-xs text-text-secondary w-8 shrink-0">
-                      {team.place}
-                    </span>
-                    <span className="text-text-bright">{team.code}</span>
-                    <span className="text-text-dim text-xs">
-                      {team.seriesWins}-{team.seriesLosses}
-                    </span>
-                    {team.scenario && (
-                      <span
-                        className={`ml-auto text-xs ${team.tied ? "text-text-dim italic" : "text-text-secondary"}`}
-                        title={
-                          team.tied
-                            ? "Provisional — this team shares its rank, so the outcome is not settled"
-                            : team.scenario.subtitle
-                        }
-                      >
-                        {team.scenario.title}
-                        {team.tied ? "?" : ""}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )),
-        )}
-      </div>
-    </section>
+function toReference(phases: readonly CandidatePhase[]): ReferenceTable[] {
+  return phases.flatMap(p =>
+    p.groups.map(table => ({
+      key: `${p.phaseId}:${table.group.id}`,
+      heading: `${p.phaseName} · Group ${table.group.name}`,
+      rows: table.teams.map(team => ({
+        key: String(team.teamId),
+        place: team.place,
+        code: team.code,
+        tied: team.tied,
+        seriesWins: team.seriesWins,
+        seriesLosses: team.seriesLosses,
+        scenario: team.scenario,
+      })),
+    })),
   );
 }

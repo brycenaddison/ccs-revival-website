@@ -95,16 +95,24 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
         </div>
       )}
 
+      {/*
+        `whitespace-nowrap` on the two numeric columns is not cosmetic. This panel is 280px wide
+        (`Home.tsx`), the table lays out automatically, and **`W-L` breaks at its hyphen** — as does
+        a record like `5-2`. So a group whose longest team name is a few characters longer than the
+        next group's squeezes these columns until the headings split over two lines, which is why it
+        showed up on one group and not the other. Pinning them makes the team column absorb the
+        pressure instead, which it can: it truncates.
+      */}
       <table className="w-full border-collapse">
         <thead>
           <tr>
             <th className="border-b border-border px-3 py-2 text-left font-heading text-[10px] font-normal tracking-wider text-text-muted">
               TEAM
             </th>
-            <th className="border-b border-border px-2 py-2 text-center font-heading text-[10px] font-normal text-text-muted">
+            <th className="whitespace-nowrap border-b border-border px-2 py-2 text-center font-heading text-[10px] font-normal text-text-muted">
               W-L
             </th>
-            <th className="border-b border-border px-2 py-2 text-center font-heading text-[10px] font-normal text-text-muted">
+            <th className="whitespace-nowrap border-b border-border px-2 py-2 text-center font-heading text-[10px] font-normal text-text-muted">
               GAMES
             </th>
           </tr>
@@ -124,7 +132,11 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
                 }}
               >
                 <td className="px-3.5 py-2.5">
-                  <TeamLink conf={conf} code={row.code} className="group flex items-center gap-2 no-underline">
+                  <TeamLink
+                    conf={conf}
+                    code={row.code}
+                    className="group flex min-w-0 items-center gap-2 no-underline"
+                  >
                     <span
                       className="min-w-[14px] text-right font-mono text-[10px] font-bold"
                       style={{ color: tone?.fg ?? "var(--text-muted)" }}
@@ -133,12 +145,12 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
                     </span>
                     <TeamBadge team={toBadge(row)} />
                     <div className="flex min-w-0 flex-col">
-                      <span className="font-heading text-[13px] font-medium text-text group-hover:text-accent">
+                      <span className="truncate font-heading text-[13px] font-medium text-text group-hover:text-accent">
                         {row.name}
                       </span>
                       {row.scenario && (
                         <span
-                          className="font-heading text-[8px] font-bold uppercase tracking-wider"
+                          className="truncate font-heading text-[8px] font-bold uppercase tracking-wider"
                           style={{ color: tone?.fg }}
                           title={row.tied ? "Tied on rank — not settled yet" : row.scenario.subtitle || undefined}
                         >
@@ -149,10 +161,10 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
                     </div>
                   </TeamLink>
                 </td>
-                <td className="text-center font-mono text-[13px] text-text-secondary">
+                <td className="whitespace-nowrap px-2 text-center font-mono text-[13px] text-text-secondary">
                   {row.seriesWins}-{row.seriesLosses}
                 </td>
-                <td className="text-center font-mono text-xs text-text-muted">
+                <td className="whitespace-nowrap px-2 text-center font-mono text-xs text-text-muted">
                   {row.gameWins + row.gameLosses === 0 ? "—" : `${row.gameWins}-${row.gameLosses}`}
                 </td>
               </tr>

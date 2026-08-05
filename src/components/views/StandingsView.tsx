@@ -44,8 +44,10 @@ export function StandingsView({ isMobile }: Props) {
     <div className="mx-auto max-w-[1200px]">
       <h2 className="mb-4 font-display text-[22px] tracking-widest text-text-bright">STANDINGS</h2>
 
+      {/* `overflow-y-hidden` because `overflow-x` being set at all makes `overflow-y` compute to
+          `auto`, and a single row of buttons has no business owning a vertical scrollbar. */}
       {selectedConfs.length > 1 && (
-        <div className="mb-4 flex flex-nowrap gap-4 overflow-x-auto">
+        <div className="mb-4 flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden">
           {selectedConfs.map(c => (
             <button
               key={c}

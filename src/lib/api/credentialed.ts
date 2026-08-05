@@ -85,6 +85,23 @@ function detailOf(text: string): string {
   }
 }
 
+/**
+ * The error body as data, for the failures that carry more than a sentence.
+ *
+ * `undefined` rather than `null` when there is nothing to parse, so `ApiError`'s optional field
+ * stays absent: a plain-text param error has no body to speak of, and an empty object would
+ * invite a call site to read fields off it.
+ */
+function bodyOf(text: string): unknown {
+  const body = text.trim();
+  if (!body.startsWith("{")) return undefined;
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
 function toIssues(raw: unknown): ValidationIssue[] {
   const list = asRaw(raw).issues;
   if (!Array.isArray(list)) return [];
@@ -148,7 +165,9 @@ export async function credentialedRequest(
     throw new SaveRejected(path, toIssues(parsed));
   }
 
-  if (!res.ok) throw new ApiError(res.status, path, detailOf(text) || res.statusText);
+  if (!res.ok) {
+    throw new ApiError(res.status, path, detailOf(text) || res.statusText, bodyOf(text));
+  }
   if (text.trim() === "") return null;
 
   try {

@@ -26,6 +26,23 @@ export const ACTION_SM_PRIMARY = `${ACTION_PRIMARY} px-3 py-1.5 text-xs`;
 export const ACTION_SM_DANGER = `${ACTION_DANGER} px-3 py-1.5 text-xs`;
 
 /**
+ * Chromeless, for the actions that sit beside a section label.
+ *
+ * A bordered button next to a `LABEL_CLASS` heading reads as the point of the section, and these are
+ * not — they open a form or re-run a lookup. Same weight as the label they sit with, so the row is a
+ * heading with affordances rather than a toolbar.
+ *
+ * Split in two because the colour is the part a caller overrides — a copy button goes green for a
+ * moment when it lands. Appending `text-ccs-green` to a class string that already carries
+ * `text-text-dim` is a coin flip: both are the same property at the same specificity, so the winner
+ * is whichever Tailwind emitted last, not whichever came last in the attribute.
+ */
+export const ACTION_QUIET_BASE =
+  "inline-flex items-center gap-1.5 bg-transparent border-none p-0 font-heading text-[10px] tracking-wider uppercase cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
+
+export const ACTION_QUIET = `${ACTION_QUIET_BASE} text-text-dim hover:text-text-bright`;
+
+/**
  * A failed write, shown where the action was rather than as a toast.
  *
  * The API's messages are written to be read (`conf must be 1-3 lowercase letters or digits`,

@@ -24,19 +24,22 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { CalendarDays, KeyRound, Link2, Pencil, RefreshCw } from "lucide-react";
+import { CalendarDays, Flag, KeyRound, Link2, Pencil, RefreshCw } from "lucide-react";
 import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { Toast } from "../../Toast";
 import { ACTION_SM, ErrorLine, Pill } from "../../admin/adminUi";
 import { MatchEditor } from "./MatchEditor";
 import { MatchCodes } from "./MatchCodes";
+import { ForfeitPanel } from "./ForfeitPanel";
 import { LinkingPanel } from "./LinkingPanel";
+import { describeSweep } from "./codeReports";
 import { queries, queryRoots } from "../../../lib/queries";
 import { fmtKickoff } from "../../../lib/utils";
 import {
   errorMessage,
   mintCodes,
   propagatePhase,
+  recheckDayCodes,
   type ScheduleDay,
   type ScheduleMatch,
   type TeamRecord,
@@ -182,6 +185,7 @@ function DayPanel({
   const qc = useQueryClient();
   const [editing, setEditing] = useState<number | null>(null);
   const [showCodes, setShowCodes] = useState<number | null>(null);
+  const [showForfeit, setShowForfeit] = useState<number | null>(null);
   const [resync, setResync] = useState<string | null>(null);
 
   /**
@@ -227,6 +231,31 @@ function DayPanel({
     },
   });
 
+  /**
+   * Asks Riot again about every confirmed code on this day, recording anything now played.
+   *
+   * This is what recovers a whole night in one call: codes we minted are `confirmed` by definition,
+   * so a game whose Riot callback never arrived is still reachable through the code it was played
+   * on. Pending codes are skipped upstream — confirming one is a decision this must not make on an
+   * admin's behalf.
+   *
+   * Safe to press twice: a game already recorded comes back as a duplicate and is linked rather than
+   * re-inserted.
+   */
+  const recheck = useMutation({
+    mutationFn: () => recheckDayCodes(conf, day.seasonDay),
+    onSuccess: async result => {
+      // An ingested game is a new result, so the standings and every stats board move with it.
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: queryRoots.schedule }),
+        qc.invalidateQueries({ queryKey: queryRoots.standings }),
+        qc.invalidateQueries({ queryKey: queryRoots.stats }),
+        qc.invalidateQueries({ queryKey: queryRoots.season }),
+      ]);
+      onSaved(describeSweep(result));
+    },
+  });
+
   return (
     <div className="bg-bg3 border border-border rounded-lg p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -261,12 +290,23 @@ function DayPanel({
             <KeyRound size={13} aria-hidden="true" />
             {mint.isPending ? "Minting…" : "Mint this day's codes"}
           </button>
+          <button
+            type="button"
+            onClick={() => recheck.mutate()}
+            disabled={recheck.isPending}
+            title="Asks Riot about every confirmed code on this day and records anything now played. The fix for a night whose results never arrived — safe to press any time."
+            className={ACTION_SM}
+          >
+            <RefreshCw size={13} aria-hidden="true" />
+            {recheck.isPending ? "Re-checking…" : "Re-check this day's codes"}
+          </button>
         </div>
       </div>
 
       {resync && <p className="text-text-secondary text-sm mb-2">{resync}</p>}
 
       <ErrorLine message={mint.isError ? errorMessage(mint.error) : null} />
+      <ErrorLine message={recheck.isError ? errorMessage(recheck.error) : null} />
       <ErrorLine message={propagate.isError ? errorMessage(propagate.error) : null} />
 
       {day.matches.length === 0 ? (
@@ -294,6 +334,20 @@ function DayPanel({
                   <KeyRound size={13} aria-hidden="true" />
                   Codes
                 </button>
+                {/*
+                  A forfeit is a *result*, not a schedule change — its own panel rather than a field in
+                  the editor, because `PATCH` semantics don't apply to it and it is not something to
+                  press on the way past. Offered for a bye too: the panel is where the reason it can't
+                  be forfeited is written.
+                */}
+                <button
+                  type="button"
+                  onClick={() => setShowForfeit(showForfeit === match.id ? null : match.id)}
+                  className={ACTION_SM}
+                >
+                  <Flag size={13} aria-hidden="true" />
+                  Forfeit
+                </button>
               </div>
 
               {editing === match.id && (
@@ -307,7 +361,11 @@ function DayPanel({
                 </div>
               )}
 
-              {showCodes === match.id && <MatchCodes matchId={match.id} onSaved={onSaved} />}
+              {showForfeit === match.id && (
+                <ForfeitPanel match={match} teams={teams} onSaved={onSaved} />
+              )}
+
+              {showCodes === match.id && <MatchCodes match={match} onSaved={onSaved} />}
             </li>
           ))}
         </ul>

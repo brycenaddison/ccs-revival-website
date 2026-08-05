@@ -55,7 +55,10 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
                 <th
                   key={h}
                   title={h === "GAMES" ? "Individual games won-lost. The first tiebreaker." : undefined}
-                  className={`border-b border-border px-3.5 py-3 font-heading text-[10px] font-normal tracking-wider text-text-muted ${
+                  // Nothing here wraps. `WIN%` and `GAMES` are short enough to look safe and are
+                  // not: a narrow screen breaks them over two lines and the header row doubles in
+                  // height. The team column is the one that gives, and it truncates.
+                  className={`whitespace-nowrap border-b border-border px-3.5 py-3 font-heading text-[10px] font-normal tracking-wider text-text-muted ${
                     h === "#" || h === "TEAM" ? "text-left" : "text-center"
                   }`}
                 >
@@ -89,7 +92,9 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
                   }}
                 >
                   <td
-                    className="px-3.5 py-3.5 font-display text-lg"
+                    // `T-2` breaks at its hyphen given half a chance, which puts the `2` on a second
+                    // line and makes one tied row twice the height of its neighbours.
+                    className="whitespace-nowrap px-3.5 py-3.5 font-display text-lg"
                     style={{ color: tone?.fg ?? "var(--text-muted)" }}
                   >
                     {/* `place` already marks a tie ("T-2"); the row index would hide it. */}
@@ -97,20 +102,29 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
                     {row.tied && <span className="align-super text-[10px]">†</span>}
                   </td>
                   <td className="px-3.5 py-3.5">
+                    {/*
+                      `min-w-0` on both the link and the text block, and `truncate` on each line.
+                      This is the only column allowed to give: every other one is a short number that
+                      means nothing broken in half, so the name is what shortens when the table runs
+                      out of room. Without `min-w-0` a flex item refuses to shrink below its content
+                      and `truncate` never engages — the name pushes the record off screen instead.
+                    */}
                     <TeamLink
                       conf={conf}
                       code={row.code}
-                      className="group flex items-center gap-2.5 no-underline"
+                      className="group flex min-w-0 items-center gap-2.5 no-underline"
                     >
                       <TeamBadge team={toBadge(row)} size={28} />
                       <div className="min-w-0">
-                        <span className="font-heading text-sm font-medium text-text group-hover:text-accent">
-                          {row.name}
-                        </span>
-                        <span className="ml-2 font-mono text-[10px] text-text-dim">{row.code}</span>
+                        <div className="truncate">
+                          <span className="font-heading text-sm font-medium text-text group-hover:text-accent">
+                            {row.name}
+                          </span>
+                          <span className="ml-2 font-mono text-[10px] text-text-dim">{row.code}</span>
+                        </div>
                         {isMobile && row.scenario && (
                           <span
-                            className="block font-heading text-[9px] font-bold uppercase tracking-wider"
+                            className="block truncate font-heading text-[9px] font-bold uppercase tracking-wider"
                             style={{ color: toneForLevel(row.scenario.level).fg }}
                           >
                             {row.scenario.title}
@@ -119,19 +133,20 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
                       </div>
                     </TeamLink>
                   </td>
-                  <td className="px-3.5 py-3.5 text-center font-mono text-sm font-bold text-ccs-green">
+                  <td className="whitespace-nowrap px-3.5 py-3.5 text-center font-mono text-sm font-bold text-ccs-green">
                     {row.seriesWins}
                   </td>
-                  <td className="px-3.5 py-3.5 text-center font-mono text-sm font-bold text-ccs-red">
+                  <td className="whitespace-nowrap px-3.5 py-3.5 text-center font-mono text-sm font-bold text-ccs-red">
                     {row.seriesLosses}
                   </td>
                   {!isMobile && (
-                    <td className="px-3.5 py-3.5 text-center font-mono text-[13px] text-text-secondary">
+                    <td className="whitespace-nowrap px-3.5 py-3.5 text-center font-mono text-[13px] text-text-secondary">
                       {pct}%
                     </td>
                   )}
                   <td
-                    className="px-3.5 py-3.5 text-center font-mono text-[13px] text-text-muted"
+                    // `5-2` is another hyphen waiting to break.
+                    className="whitespace-nowrap px-3.5 py-3.5 text-center font-mono text-[13px] text-text-muted"
                     title={
                       row.gameWinPct == null ? undefined : `${Math.round(row.gameWinPct * 100)}% of games won`
                     }

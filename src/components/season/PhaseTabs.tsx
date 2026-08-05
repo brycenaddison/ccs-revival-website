@@ -3,6 +3,11 @@
  *
  * Same shape as the division strip this replaces in `StandingsView`, and hidden for the same reason
  * when there is only one: a tab strip with a single entry is noise.
+ *
+ * There is no `DRAFT` marker, and `phase.published` is not read. `/​:conf/season` is fetched
+ * anonymously — see the header on `api/seasonView.ts` — so an unpublished phase never reaches this
+ * component at all, and a chip for a state that cannot occur only advertises a capability the page
+ * does not have. Previewing a draft is the structure editor's job.
  */
 
 import type { SeasonPhase } from "../../lib/api";
@@ -19,10 +24,17 @@ export function PhaseTabs({ phases, selectedId, activeId, onSelect }: Props) {
   if (phases.length < 2) return null;
 
   return (
-    // Scrolls rather than wraps: phases are ordered and a season that wrapped onto a second row
-    // would break the one cue the strip has. `flex-nowrap` because a long phase name would
-    // otherwise shrink its neighbours instead of overflowing.
-    <div className="mb-4 flex flex-nowrap gap-0 overflow-x-auto border-b-2 border-accent">
+    /*
+     * Scrolls sideways rather than wrapping: phases are ordered and a season that wrapped onto a
+     * second row would break the one cue the strip has. `flex-nowrap` because a long phase name
+     * would otherwise shrink its neighbours instead of overflowing.
+     *
+     * `overflow-y-hidden` is load-bearing. Setting `overflow-x` to anything but `visible` makes
+     * `overflow-y` compute to `auto`, so this strip is a *vertical* scroll container too — and it
+     * only takes a couple of pixels of overflow to put a scrollbar on a single row of tabs. The
+     * tabs used to sit on a `-mb-0.5` that hung them exactly that far past the content box.
+     */
+    <div className="mb-4 flex flex-nowrap gap-0 overflow-x-auto overflow-y-hidden border-b-2 border-accent">
       {phases.map(phase => {
         const selected = phase.id === selectedId;
 
@@ -32,21 +44,13 @@ export function PhaseTabs({ phases, selectedId, activeId, onSelect }: Props) {
             type="button"
             onClick={() => onSelect(phase.id)}
             aria-current={selected ? "true" : undefined}
-            className={`-mb-0.5 flex shrink-0 cursor-pointer items-center gap-1.5 border-none bg-transparent px-4 py-2.5 font-heading text-[13px] uppercase tracking-wider ${
+            className={`flex shrink-0 cursor-pointer items-center gap-1.5 border-none bg-transparent px-4 py-2.5 font-heading text-[13px] uppercase tracking-wider ${
               selected
                 ? "border-b-2 border-b-accent bg-bg-input text-text-bright"
                 : "border-b-2 border-b-transparent text-text-muted"
             }`}
           >
             {phase.name}
-            {/* An unpublished phase only reaches a caller who can edit the conference — everyone
-                else never learns it exists. Marking it keeps an admin from mistaking a draft for
-                something the public can see. */}
-            {!phase.published && (
-              <span className="font-mono text-[9px] text-ccs-orange" title="Not published — only visible to you">
-                DRAFT
-              </span>
-            )}
             {phase.id === activeId && (
               <span
                 className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"

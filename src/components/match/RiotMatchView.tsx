@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   errorMessage,
@@ -9,10 +10,34 @@ import { queries } from "../../lib/queries";
 import { useChampions } from "../../hooks/useChampions";
 import type { ChampionLookup } from "../../lib/championData";
 import { ChampionIcon } from "./ChampionIcon";
+import { ResultOnlyCard } from "./GameSummary";
 
 interface Props {
   matchId: string;
   onBack: () => void;
+}
+
+/**
+ * The back button, and whatever there is to show under it.
+ *
+ * Hoisted out of the success branch, where it used to live: every other outcome — loading, a failure,
+ * a game with no payload — rendered a page with no way off it but the browser's own history. Those are
+ * exactly the pages most likely to be reached from a stale link, and the box-score link opens in a new
+ * tab, where there is no history to go back through.
+ */
+function Shell({ onBack, children }: { onBack: () => void; children: ReactNode }) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-4 text-xs text-text-secondary hover:text-accent font-heading tracking-wider uppercase"
+      >
+        ← Back
+      </button>
+      {children}
+    </div>
+  );
 }
 
 export function RiotMatchView({ matchId, onBack }: Props) {
@@ -21,9 +46,62 @@ export function RiotMatchView({ matchId, onBack }: Props) {
   // A finished game never changes, so this is cached for the session and never revalidated.
   const { data, isPending, error } = useQuery(queries.matchData(matchId));
 
-  if (isPending) return <div className="text-center py-10 text-text-subtle">Loading match...</div>;
-  if (error) return <div className="text-center py-10 text-ccs-red">{errorMessage(error)}</div>;
-  if (!data?.info) return <div className="text-center py-10 text-text-dim">No match data found.</div>;
+  if (isPending) {
+    return (
+      <Shell onBack={onBack}>
+        <div className="text-center py-10 text-text-subtle">Loading match...</div>
+      </Shell>
+    );
+  }
+  if (error) {
+    return (
+      <Shell onBack={onBack}>
+        <div className="text-center py-10 text-ccs-red">{errorMessage(error)}</div>
+      </Shell>
+    );
+  }
+
+  /*
+    **A missing payload is not the same as a missing game**, and this used to answer both with "No
+    match data found."
+
+    `matchData` is a bare `getOne`, so every absence flattens to `null`: a game that was never
+    recorded, and a game that *was* recorded but has no payload to store — upstream's `result-only`,
+    where Riot's match index denies a match id it is still reporting on the tournament code. The
+    second is a working result. It counts for the standings, the series and the bracket; there is
+    simply nothing to draw, and a re-check picks the payload up if Riot's index recovers.
+
+    Nothing reachable from here can tell the two apart — no endpoint resolves a bare match id to its
+    `matchlist` row — so this says what is true of both and names the possibility rather than
+    asserting the game doesn't exist.
+  */
+  if (!data) {
+    return (
+      <Shell onBack={onBack}>
+        <ResultOnlyCard
+          matchId={matchId}
+          label="no data"
+          result={null}
+          note="Nothing is stored for this game. Either it was never recorded, or it is recorded as a result only — Riot sometimes denies a game it has already reported on the tournament code, and there is no payload to show for one of those. A result-only game still counts for the standings, and a re-check picks the game up if Riot's index recovers."
+        />
+      </Shell>
+    );
+  }
+
+  // Stored but unreadable, which is a different problem from stored-and-absent: the row exists and
+  // its payload is malformed.
+  if (!data.info) {
+    return (
+      <Shell onBack={onBack}>
+        <ResultOnlyCard
+          matchId={matchId}
+          label="unreadable"
+          result={null}
+          note="This game's data is stored but could not be read, so there is nothing to show."
+        />
+      </Shell>
+    );
+  }
 
   const info = data.info;
   const teams = info.teams ?? [];
@@ -32,11 +110,7 @@ export function RiotMatchView({ matchId, onBack }: Props) {
   const redTeam = teams.find(t => t.teamId === 200);
 
   return (
-    <div>
-      <button onClick={onBack} className="mb-4 text-xs text-text-secondary hover:text-accent font-heading tracking-wider uppercase">
-        ← Back
-      </button>
-
+    <Shell onBack={onBack}>
       {/* Header */}
       <div className="bg-bg2 border border-border rounded-md p-4 mb-5 text-center">
         <div className="text-[10px] text-text-secondary font-heading tracking-wider uppercase">Match</div>
@@ -62,7 +136,7 @@ export function RiotMatchView({ matchId, onBack }: Props) {
         <TeamPanel side="BLUE" team={blueTeam} players={participants.filter(p => p.teamId === 100)} champions={champions} />
         <TeamPanel side="RED" team={redTeam} players={participants.filter(p => p.teamId === 200)} champions={champions} />
       </div>
-    </div>
+    </Shell>
   );
 }
 

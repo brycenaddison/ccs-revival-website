@@ -6,8 +6,8 @@
  * worklist, not an alarm**, and an empty one is not the goal for an old split.
  *
  * The better tool is almost always the other one. Registering the codes (see `MatchCodes`) ingests and
- * numbers games properly; linking only labels a row that is already stored. So this exists for the case
- * where the codes are gone.
+ * numbers games properly, and shows you the game before it commits; linking only labels a row that is
+ * already stored. So this exists for the case where the codes are gone.
  *
  * The one thing to be clear about in the UI: **linking never rewrites a game's season day.** That number
  * is what `series` grouped on and what the standings were computed from, so changing it retroactively

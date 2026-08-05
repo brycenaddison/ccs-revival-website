@@ -171,9 +171,16 @@ export interface SeasonBracketMatch {
   result: SeasonBracketResult | null;
 }
 
-/** One match day's matches. A round here is chronology — see `lib/bracketLayout.ts` for the graph. */
+/** One match day's matches, and the column a bracket draws — see `lib/bracketLayout.ts`. */
 export interface SeasonRound {
+  /** The day within the phase, 1-based. What a round is called on screen. */
   matchDay: number;
+  /**
+   * The same day counted from the start of the *season*.
+   *
+   * A join key, not a label: it is what `series` groups on and what a tournament code is minted
+   * against. **Never render it on a public surface** — see `CLAUDE.md`. Show the kickoff date.
+   */
   seasonDay: number;
   matches: SeasonBracketMatch[];
 }

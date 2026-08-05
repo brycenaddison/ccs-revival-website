@@ -7,6 +7,7 @@
  * is a needless indirection the rest of the time.
  */
 
+import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
 import { TeamBadge } from "../TeamBadge";
 import { TeamLink } from "../league/TeamLink";
@@ -23,9 +24,17 @@ interface Props {
   conf: string;
   /** Registers the card element so the connector overlay can measure where it landed. */
   measureRef?: (el: HTMLDivElement | null) => void;
+  /**
+   * Replaces the team/provenance area of a row — the League Admin bracket puts a team picker there.
+   *
+   * Returning null falls back to the read-only rendering, which is what a derived slot wants even
+   * inside an editor: nobody assigns a team to "Winner of Match 7" by hand.
+   */
+  slotControl?: (slot: SlotSide, side: SeasonBracketSide, match: SeasonBracketMatch) => ReactNode | null;
 }
 
 function SideRow({
+  slot,
   side,
   wins,
   won,
@@ -33,7 +42,9 @@ function SideRow({
   showScore,
   layout,
   conf,
+  control,
 }: {
+  slot: SlotSide;
   side: SeasonBracketSide;
   wins: number;
   won: boolean;
@@ -41,11 +52,15 @@ function SideRow({
   showScore: boolean;
   layout: BracketLayout;
   conf: string;
+  control: ReactNode | null;
 }) {
   const provenance = side.from ? sideProvenance(layout, side.from) : null;
 
   return (
+    // `data-slot` is what the connector overlay measures to land a line on this row rather than on
+    // the middle of the card. Keep it if this markup is reshuffled.
     <div
+      data-slot={slot}
       className={`flex items-center gap-2 px-2.5 py-2 ${lost ? "opacity-55" : ""}`}
       style={{
         // The winner's own colour, not green: a bracket loss is not a bad result to paint red, and
@@ -53,13 +68,22 @@ function SideRow({
         borderLeft: `3px solid ${won && side.team ? side.team.colorHex : "transparent"}`,
       }}
     >
-      {/* A seed belongs to an entry slot. A propagated team arrived by winning, not by seeding, so
-          the column stays reserved to keep the two rows aligned but holds nothing. */}
-      <span className="w-5 shrink-0 text-right font-mono text-[10px] text-text-dim">
-        {side.from === null && side.seed ? side.seed : ""}
+      {/*
+        One reserved column, three things it can hold. A seed, for an entry slot. An arrow, for a
+        slot fed by a *drop* — those edges are no longer drawn, because in a double-elimination
+        bracket they are all long and all cross each other, so this is what is left to say a team
+        arrived here by losing. Nothing, for a slot fed by a win, where the line says it already.
+      */}
+      <span
+        className="w-5 shrink-0 text-right font-mono text-[10px] text-text-dim"
+        title={side.from?.output === "loser" ? provenance ?? undefined : undefined}
+      >
+        {side.from === null ? (side.seed ? side.seed : "") : side.from.output === "loser" ? "↓" : ""}
       </span>
 
-      {side.team ? (
+      {control ? (
+        <div className="min-w-0 flex-1">{control}</div>
+      ) : side.team ? (
         <TeamLink
           conf={conf}
           code={side.team.code}
@@ -92,7 +116,7 @@ function SideRow({
   );
 }
 
-export function BracketMatchCard({ match, terminal, layout, conf, measureRef }: Props) {
+export function BracketMatchCard({ match, terminal, layout, conf, measureRef, slotControl }: Props) {
   const result = match.result;
   const showScore = match.status === "played" && result !== null;
   const winner: SlotSide | null = result?.winner ?? null;
@@ -141,6 +165,7 @@ export function BracketMatchCard({ match, terminal, layout, conf, measureRef }: 
       </div>
 
       <SideRow
+        slot="top"
         side={match.top}
         wins={result?.winsTop ?? 0}
         won={winner === "top"}
@@ -148,9 +173,11 @@ export function BracketMatchCard({ match, terminal, layout, conf, measureRef }: 
         showScore={showScore}
         layout={layout}
         conf={conf}
+        control={slotControl?.("top", match.top, match) ?? null}
       />
       <div className="border-t border-border" />
       <SideRow
+        slot="bottom"
         side={match.bottom}
         wins={result?.winsBottom ?? 0}
         won={winner === "bottom"}
@@ -158,6 +185,7 @@ export function BracketMatchCard({ match, terminal, layout, conf, measureRef }: 
         showScore={showScore}
         layout={layout}
         conf={conf}
+        control={slotControl?.("bottom", match.bottom, match) ?? null}
       />
 
       {/* A kickoff is worth showing right up until the series starts. Once games exist the score is

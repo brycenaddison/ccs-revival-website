@@ -19,6 +19,15 @@ export class ApiError extends Error {
     readonly status: number,
     readonly path: string,
     readonly detail: string,
+    /**
+     * The parsed error body, when there was one.
+     *
+     * `detail` is the sentence to show; this is for the failures that carry *data* as well. A
+     * `409` from the code routes names the match and game already holding the code, and "that
+     * code is already registered" without them doesn't tell an admin where to look. Undefined for
+     * the plain-text param errors, which is most of them.
+     */
+    readonly body?: unknown,
   ) {
     super(`CCS API ${status} on ${path}: ${detail}`);
     this.name = "ApiError";

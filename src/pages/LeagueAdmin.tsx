@@ -13,15 +13,16 @@
 
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { CalendarDays, ClipboardList, Settings2, Users, UsersRound } from "lucide-react";
+import { CalendarDays, ClipboardList, GitFork, Settings2, Users, UsersRound } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
 import { ComingSoon } from "../components/settings/SettingsSection";
 import { LeaguePicker } from "../components/settings/LeaguePicker";
 import { ScheduleSection } from "../components/league/schedule/ScheduleSection";
+import { BracketSection } from "../components/league/bracket/BracketSection";
 import { useAdminAccess } from "../lib/adminAccess";
-import type { SettingsArea, SettingsSection } from "../lib/settingsAreas";
+import { sectionForSlug, type SettingsArea, type SettingsSection } from "../lib/settingsAreas";
 
 // Named to match the parked tabs in `src/_disabled/admin/`, so reviving one is a swap rather than a
 // redesign.
@@ -61,6 +62,20 @@ const SECTIONS: readonly SettingsSection[] = [
     Component: ScheduleSection,
   },
   {
+    slug: "bracket",
+    label: "Bracket",
+    icon: GitFork,
+    // The same `PATCH /schedule/:id` the Schedule section already uses, so the same `schedule` scope
+    // reaches it — this is that write laid out as a bracket instead of as a list of days. Wiring,
+    // seed labels and which nodes exist stay in Site Admin.
+    description: "Who plays each seeded position in the playoffs.",
+    // Takes the page, the same way Site Admin → Season Structure does and for the same reason: a
+    // bracket laid out in day columns has nowhere to go at 1000px — after the sidebar it gets about
+    // 650, which is two columns. The section caps its own reference panel; nothing else is a form.
+    maxWidth: "100%",
+    Component: BracketSection,
+  },
+  {
     slug: "draft",
     label: "Draft Board",
     icon: ClipboardList,
@@ -69,9 +84,16 @@ const SECTIONS: readonly SettingsSection[] = [
   },
 ];
 
+/** Default for a section that doesn't ask for more: a comfortable width for a column of fields. */
+const DEFAULT_WIDTH = 1000;
+
 export default function LeagueAdmin() {
   const { conf = "", section } = useParams();
   const { leagues, canAdminLeague, ready } = useAdminAccess();
+
+  // Resolved here rather than in the shell, matching `SiteAdmin`: `PageShell` owns the content column
+  // and wraps `SettingsShell`, so the width has to be known before the shell renders.
+  const maxWidth = sectionForSlug(SECTIONS, section)?.maxWidth ?? DEFAULT_WIDTH;
 
   // `basePath` carries the conf, so the area can't be a module constant like the other two.
   const area = useMemo<SettingsArea>(
@@ -84,7 +106,7 @@ export default function LeagueAdmin() {
   );
 
   return (
-    <PageShell maxWidth={1000}>
+    <PageShell maxWidth={maxWidth}>
       {/* `null` while access is still resolving — a site admin's leagues come from /tournaments,
           which lands after the session does, so assuming `false` would flash NOT AUTHORIZED. */}
       <RequireAuth allow={ready ? canAdminLeague(conf) : null}>

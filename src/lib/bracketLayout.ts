@@ -1,30 +1,34 @@
 /**
- * Arranging a bracket phase into columns and rows, from the wiring alone.
+ * Arranging a bracket phase into columns and rows.
  *
  * The server stores **no positions** — `phases_bracket` carried a `layout` jsonb for exactly one
  * release, it was always `{}`, and it is gone, because a stored coordinate is only what the client
- * last sent and goes stale the moment the graph is rewired. What it sends instead is enough: every
- * side of every match names the node whose winner or loser lands there, so a bracket is *walked*
- * rather than read.
+ * last sent and goes stale the moment the graph is rewired. What it sends instead is enough: the
+ * rounds say when each match is played, and every side of every match names the node whose winner or
+ * loser lands there.
  *
- * Two axes, and they are not the same axis:
+ * The two axes come from those two facts, and they are answered separately:
  *
- *   - **`SeasonRound`** (`matchDay`) is chronology — *when* a match is played. Two rounds can share a
- *     Saturday and one round can straddle two days, and upstream explicitly permits a feeder and its
- *     consumer on the same match day.
- *   - **A column here** is the graph — *what feeds what*. That is what a bracket draws.
+ *   - **A column is a match day.** `SeasonRound` is already the phase's own grouping, so column *is*
+ *     the round's index. This used to be derived from graph depth instead, and the result was a
+ *     bracket that argued with the schedule: a match played on day 4 whose feeders both happened to
+ *     resolve early would be drawn a column left, sitting among the day-3 matches. Depth was right
+ *     about the graph and wrong about the thing a reader is looking at.
+ *   - **A row is the graph.** Where a card sits *within* its column comes from the wiring, so a match
+ *     lands level with the midpoint of whatever feeds it.
  *
- * So this ignores `rounds` for placement and uses it only to carry each match's day through for the
- * column headers. The mobile view goes the other way and lays out by round, which is right: when you
- * cannot see the graph, chronology is the useful axis.
+ * **Losers are wiring, not lines.** Rows are derived from winner edges alone, and only winner edges
+ * are returned to be drawn. `UNIQUE(src_node_id, src_output)` means a node's winner lands in at most
+ * one slot, so the winner-only graph is a **forest** — and a forest is what a bracket looks like.
+ * Fold the drops back in and it is a DAG, where a lower-bracket match is pulled between an
+ * upper-bracket feeder several columns back and its own previous round; every one of those edges is
+ * long, diagonal, and crosses the ones beside it. Nothing is lost by leaving them out, because a slot
+ * fed by a drop already reads "Loser of Semifinal 1" — see `sideProvenance`, which is why that
+ * fallback carries its weight twice.
  *
- * The depth rule is the same one `api/season.ts#bracketRounds` applies for the admin editor, and the
- * duplication is deliberate rather than a missed abstraction. That function takes the *save* shape
- * (`node.id`, `node.top.src`) and lives in a module whose header declares it site-admin structure;
- * this takes the *read* shape (`match.node`, `match.top.from`) and answers a bigger question — rows
- * and edges as well as columns. Generalising would mean a type parameter plus two accessor callbacks
- * wrapped around forty lines whose entire value is that they read plainly. If the depth rule ever
- * changes, it has to change in both places.
+ * One consequence of columns being days: upstream explicitly permits a feeder and its consumer on the
+ * **same** match day. Such an edge fails the strictly-left guard used throughout below, so it is not
+ * drawn and does not pull its consumer's row. The slot's own "Winner of Match 7" is what carries it.
  */
 
 import type {
@@ -39,24 +43,37 @@ const SIDES: readonly SlotSide[] = ["top", "bottom"];
 export interface BracketNodeLayout {
   match: SeasonBracketMatch;
   node: number;
-  /** 0-based, left to right. Entry matches are 0. */
+  /** 0-based, left to right. The index of this match's day among the phase's rounds. */
   column: number;
-  /** 0-based within the column, top to bottom. */
+  /** 0-based index within the column, top to bottom. Identity, not position — see `y`. */
   row: number;
+  /**
+   * Vertical position, in row units, where 1 unit is one card plus its gap.
+   *
+   * Fractional on purpose: a match centred between two feeders three rows apart sits at 1.5, which is
+   * the whole point. Multiply by a pitch to get pixels. Never overlaps a sibling in the same column —
+   * the sweep at the end of `bracketLayout` guarantees a full unit between them.
+   */
+  y: number;
+  /** The day within the phase, as the phase numbers them. 1-based, and what a column header shows. */
   matchDay: number;
-  seasonDay: number;
   /** In the phase's `terminalNodes` — nothing consumes this result. Emphasis only, never placement. */
   terminal: boolean;
 }
 
+/**
+ * A drawable connector: one match's **winner** travelling into a slot of the next.
+ *
+ * Loser edges are deliberately absent — see the note in the module header. There is no `output`
+ * field because there is nothing left for it to distinguish.
+ */
 export interface BracketEdge {
   /** Source node — the match whose result travels. */
   from: number;
   /** Consuming node. */
   to: number;
-  /** Which slot of `to` this fills. */
+  /** Which slot of `to` this fills. The line lands on that row of the card, not the card's middle. */
   side: SlotSide;
-  output: SlotOutput;
   /**
    * The colour of the team that actually travelled this edge, or null while it is hypothetical.
    *
@@ -67,13 +84,13 @@ export interface BracketEdge {
 }
 
 export interface BracketLayout {
-  /** Indexed by column, each already in row order. */
+  /** Indexed by column, each already in row order. One entry per round, so a column can be empty. */
   columns: BracketNodeLayout[][];
   byNode: Map<number, BracketNodeLayout>;
-  /** Only edges safe to draw — see the guard in `bracketLayout`. */
+  /** How tall the whole thing is, in the same row units as `y`. Canvas height is this times a pitch. */
+  rows: number;
+  /** Winner edges only, and only ones safe to draw — see the guard in `bracketLayout`. */
   edges: BracketEdge[];
-  /** Nodes caught in a cycle. Upstream refuses to save one, so this should always be empty. */
-  cyclic: number[];
   /** Sources named by a slot but absent from the phase. `ON DELETE SET NULL` makes these real. */
   dangling: number[];
 }
@@ -81,16 +98,16 @@ export interface BracketLayout {
 /**
  * A human name for the match a slot draws from, for "Winner of …".
  *
- * The admin's own `label` when there is one. Otherwise a *position* — `Match 2·1`, meaning column 2,
- * row 1 — rather than the node id, which is a database serial that means nothing to a reader and
- * cannot be found anywhere on the page. Null feeder is the dangling case, and gets phrasing that
- * promises nothing.
+ * The admin's own `label` when there is one. Otherwise a *position* — `Match 2·1`, meaning the second
+ * match day, first card — rather than the node id, which is a database serial that means nothing to a
+ * reader and cannot be found anywhere on the page. Null feeder is the dangling case, and gets
+ * phrasing that promises nothing.
  */
 export function feederName(layout: BracketLayout, node: number): string | null {
   const feeder = layout.byNode.get(node);
   if (!feeder) return null;
   const label = feeder.match.label?.trim();
-  return label ? label : `Match ${feeder.column + 1}·${feeder.row + 1}`;
+  return label ? label : `Match ${feeder.matchDay}·${feeder.row + 1}`;
 }
 
 /** "Winner of Semifinal 1", or "Winner of an earlier match" when the source is gone. */
@@ -101,112 +118,126 @@ export function sideProvenance(layout: BracketLayout, from: { node: number; outp
 }
 
 export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
-  // Flattened in serve order — match day, then the ordinal the admin set within that day. The index
-  // here is the tie-break for everything below, and it is the only ordering a human actually chose.
-  const flat = phase.rounds.flatMap(round =>
-    round.matches.map(match => ({ match, matchDay: round.matchDay, seasonDay: round.seasonDay })),
+  // Sorted rather than taken as served: serve order is right today, but this is the axis the whole
+  // layout hangs off, and a column strip that reads 1, 3, 2 is not a thing to discover at render time.
+  const rounds = [...phase.rounds].sort((a, b) => a.matchDay - b.matchDay);
+
+  // The `seq` an entry gets here — day, then the ordinal the admin set within that day — is the
+  // tie-break for everything below, and it is the only ordering a human actually chose.
+  const flat = rounds.flatMap((round, column) =>
+    round.matches.map(match => ({ match, matchDay: round.matchDay, column })),
   );
   const byId = new Map(flat.map((entry, seq) => [entry.match.node, { ...entry, seq }]));
   const terminals = new Set(phase.terminalNodes);
 
-  const column = new Map<number, number>();
-  const cyclic = new Set<number>();
+  const buckets: number[][] = rounds.map(() => []);
+  for (const entry of flat) buckets[entry.column].push(entry.match.node);
+
+  // Upstream nulls `src_node_id` when a source is deleted, so a slot naming a node that is not in
+  // this phase really occurs. Collected for the dev warning; every walk below simply skips it.
   const dangling = new Set<number>();
-
-  // A stack rather than a set: meeting a node still on the path *is* the back edge, and the slice
-  // from it upward is the cycle itself — which is what needs naming, not just the node the walk
-  // happened to re-enter. Without it, `A → B → A` never bottoms out.
-  const path: number[] = [];
-  const onPath = new Set<number>();
-
-  const depthOf = (node: number): number => {
-    const known = column.get(node);
-    if (known !== undefined) return known;
-
-    if (onPath.has(node)) {
-      for (const id of path.slice(path.indexOf(node))) cyclic.add(id);
-      return 0;
+  for (const { match } of flat) {
+    for (const side of SIDES) {
+      const from = match[side].from;
+      if (from && !byId.has(from.node)) dangling.add(from.node);
     }
+  }
 
+  /**
+   * The winner feeders of a node, in slot order, filtered to the ones that are real.
+   *
+   * Strictly-left is the same guard the edge list uses below, and it is doing the same job: it drops
+   * a dangling source, a same-day feeder, and any back edge a malformed graph left behind — which is
+   * what makes the walk that uses this terminate without a visited set of its own.
+   */
+  const winnerFeeders = (node: number): number[] => {
     const entry = byId.get(node);
-    if (!entry) return 0;
-
-    path.push(node);
-    onPath.add(node);
-    let depth = 0;
+    if (!entry) return [];
+    const out: number[] = [];
     for (const side of SIDES) {
       const from = entry.match[side].from;
-      if (!from) continue;
-      if (!byId.has(from.node)) {
-        // A source that isn't in this phase is ignored rather than counted as depth 0: upstream
-        // nulls `src_node_id` when a source is deleted, so a dangling edge really occurs, and
-        // treating it as an entry would pull the node a column left of where its real feeders put it.
-        dangling.add(from.node);
-        continue;
-      }
-      depth = Math.max(depth, depthOf(from.node) + 1);
+      if (!from || from.output !== "winner") continue;
+      const source = byId.get(from.node);
+      if (!source || source.column >= entry.column) continue;
+      out.push(from.node);
     }
-    path.pop();
-    onPath.delete(node);
-
-    // A node in a cycle has no honest depth, and the one computed above counted a partial walk.
-    // Memoising after the marking means a node can never be cached at a depth and found cyclic
-    // later: a cycle through it would have been seen while it was still on the path.
-    const answer = cyclic.has(node) ? 0 : depth;
-    column.set(node, answer);
-    return answer;
+    return out;
   };
 
-  for (const { match } of flat) depthOf(match.node);
+  /*
+   * Vertical placement: a post-order walk of the winner forest.
+   *
+   * A node with no winner feeder takes the next free row; every other node centres on the mean of
+   * its feeders. That is the entire rule, and on a single-elimination bracket it reproduces the shape
+   * exactly — entry matches on 0, 1, 2, 3, their consumers on 0.5 and 2.5, the final on 1.5.
+   *
+   * Roots are the nodes whose winner nobody claims, latest column first. A superset of
+   * `terminalNodes` — a match whose winner ends the bracket but whose loser drops again is still the
+   * top of its own tree — and the column ordering is what makes the grand final lay out its whole
+   * tree before a third-place match slots in underneath.
+   *
+   * In double elimination this separates the brackets with nothing labelled. The upper bracket hangs
+   * off the last root and is walked first, so it takes rows 0..n. The lower bracket's opening round
+   * is fed only by drops, so it has no winner feeder at all, falls through to the leaf branch, and
+   * lands on fresh rows below everything the upper bracket claimed. Its later rounds then chain off
+   * it and stay down there.
+   */
+  const y = new Map<number, number>();
+  const seen = new Set<number>();
+  let cursor = 0;
 
-  const width = flat.length === 0 ? 0 : Math.max(...flat.map(e => column.get(e.match.node) ?? 0)) + 1;
-  const buckets: number[][] = Array.from({ length: width }, () => []);
-  for (const { match } of flat) buckets[column.get(match.node) ?? 0].push(match.node);
+  const place = (node: number): void => {
+    if (seen.has(node)) return;
+    seen.add(node);
+
+    const feeders = winnerFeeders(node);
+    if (feeders.length === 0) {
+      y.set(node, cursor);
+      cursor += 1;
+      return;
+    }
+    for (const feeder of feeders) place(feeder);
+    // Every feeder is placed by the line above, so the mean is always total.
+    y.set(node, feeders.reduce((sum, f) => sum + (y.get(f) ?? 0), 0) / feeders.length);
+  };
+
+  const claimed = new Set<number>();
+  for (const { match } of flat) for (const feeder of winnerFeeders(match.node)) claimed.add(feeder);
+
+  const roots = flat
+    .map(entry => entry.match.node)
+    .filter(node => !claimed.has(node))
+    .sort(
+      (a, b) =>
+        (byId.get(b)?.column ?? 0) - (byId.get(a)?.column ?? 0) ||
+        (byId.get(a)?.seq ?? 0) - (byId.get(b)?.seq ?? 0),
+    );
+
+  for (const node of roots) place(node);
+  // Rootless only if every node in some group claims another, which takes a malformed graph.
+  for (const { match } of flat) place(match.node);
 
   /*
-   * Row order: one left-to-right barycentre pass.
+   * Non-overlap, per column.
    *
-   * Column 0 keeps the served order — the admin's own arrangement of the opening day, and the only
-   * ordering here that a person chose. Every later column sorts by the mean row of the nodes feeding
-   * it, so a match sits level with its inputs and the lines between columns stop crossing.
+   * Two nodes in one column can want the same row: a match centred on feeders 0 and 2 sits at 1, and
+   * so can a leaf that took row 1 on its own. Sort by the row each wants and push every one down to
+   * at least a full unit below the last.
    *
-   * One forward pass, then stop. Sugiyama layering alternates forward and backward sweeps, but a
-   * backward sweep would reorder column 0 — throwing away that deliberate ordering — and make the
-   * result depend on how many passes were run. Determinism beats a marginally tidier middle.
-   *
-   * The rows are then renumbered to integers rather than kept as the fractional barycentre, so each
-   * column renders as an evenly-stacked flex list. CCS runs double-elimination plus a gauntlet, so
-   * cross-column feeders — a lower-bracket match fed from column 1 and column 3 — are normal, and
-   * positioning cards at a fractional centre degenerates into overlap exactly there. Ordering by the
-   * barycentre keeps the readable part of that idea; positioning by it does not survive the format.
+   * Centring without this degenerates into cards drawn on top of each other exactly where a bracket
+   * is busiest. With it, the degenerate case costs a crossing rather than a collision — and in a
+   * well-formed bracket the means are already a unit apart, so it fires on nothing at all.
    */
-  const row = new Map<number, number>();
-  buckets[0]?.sort((a, b) => (byId.get(a)?.seq ?? 0) - (byId.get(b)?.seq ?? 0));
-  buckets[0]?.forEach((node, i) => row.set(node, i));
-
-  for (let c = 1; c < width; c += 1) {
-    const key = new Map<number, number>();
-
-    for (const node of buckets[c]) {
-      const entry = byId.get(node);
-      const feeders = SIDES.map(side => entry?.match[side].from)
-        .filter((from): from is { node: number; output: SlotOutput } => !!from)
-        // Only feeders strictly to the left have a row yet. That drops dangling sources and any back
-        // edge left by a cycle, which is what keeps this pass total.
-        .map(from => ({ from, col: column.get(from.node) }))
-        .filter(f => f.col !== undefined && f.col < c)
-        .map(f => row.get(f.from.node))
-        .filter((r): r is number => r !== undefined);
-
-      // Unreachable in a well-formed graph: depth is 1 + max(feeder depth), so anything in column
-      // >= 1 has at least one resolvable feeder. Kept as the defence for a graph that isn't.
-      key.set(node, feeders.length ? feeders.reduce((a, b) => a + b, 0) / feeders.length : Infinity);
-    }
-
-    buckets[c].sort(
-      (a, b) => (key.get(a) ?? 0) - (key.get(b) ?? 0) || (byId.get(a)?.seq ?? 0) - (byId.get(b)?.seq ?? 0),
+  for (const bucket of buckets) {
+    bucket.sort(
+      (a, b) => (y.get(a) ?? 0) - (y.get(b) ?? 0) || (byId.get(a)?.seq ?? 0) - (byId.get(b)?.seq ?? 0),
     );
-    buckets[c].forEach((node, i) => row.set(node, i));
+    let floor = -Infinity;
+    for (const node of bucket) {
+      const at = Math.max(y.get(node) ?? 0, floor);
+      y.set(node, at);
+      floor = at + 1;
+    }
   }
 
   const byNode = new Map<number, BracketNodeLayout>();
@@ -218,8 +249,8 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
         node,
         column: c,
         row: i,
+        y: y.get(node) ?? 0,
         matchDay: entry.matchDay,
-        seasonDay: entry.seasonDay,
         terminal: terminals.has(node),
       };
       byNode.set(node, placed);
@@ -227,19 +258,23 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
     }),
   );
 
+  // The lowest card still needs its own height below its top edge, hence the +1 rather than the max.
+  const rows = flat.length === 0 ? 0 : Math.max(...[...y.values()]) + 1;
+
   /*
-   * Edges, with one guard doing all the work.
+   * Edges, with two guards doing all the work.
    *
-   * `column(from) < column(to)` is true of every honest edge and false of every pathological one —
-   * a self-edge, a back edge inside a cycle, an edge into a node the cycle collapsed to column 0. So
-   * the render needs no per-case branching, and a malformed bracket loses a line rather than
-   * throwing. A dangling source fails the same test by not being in `column` at all.
+   * `output === "winner"` is the readability decision argued in the module header. `column(from) <
+   * column(to)` is the correctness one: it is true of every honest edge and false of every edge that
+   * cannot be drawn as a left-to-right line — a same-day feeder, a self-edge, a back edge. So the
+   * render needs no per-case branching, and a malformed bracket loses a line rather than throwing. A
+   * dangling source fails the same test by not being in `byNode` at all.
    */
   const edges: BracketEdge[] = [];
   for (const placed of byNode.values()) {
     for (const side of SIDES) {
       const from = placed.match[side].from;
-      if (!from) continue;
+      if (!from || from.output !== "winner") continue;
       const source = byNode.get(from.node);
       if (!source || source.column >= placed.column) continue;
 
@@ -252,13 +287,12 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
         from: from.node,
         to: placed.node,
         side,
-        output: from.output,
         live: decided && arrived ? arrived.colorHex : null,
       });
     }
   }
 
-  return { columns, byNode, edges, cyclic: [...cyclic], dangling: [...dangling] };
+  return { columns, byNode, rows, edges, dangling: [...dangling] };
 }
 
 /**

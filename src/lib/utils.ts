@@ -52,6 +52,22 @@ export function fmtKickoff(iso: string | null | undefined): string {
   });
 }
 
+/**
+ * Just the day of a kickoff: `Sat 12 Sep`.
+ *
+ * `fmtKickoff` with the clock taken off, for a heading that covers several matches whose individual
+ * times are already on their own cards. Empty string rather than an em dash for absent, because this
+ * is a subheading that should disappear when there is nothing to say — a phase can legitimately have
+ * no kickoff pinned yet.
+ */
+export function fmtDay(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+}
+
 export function fmtTime(d?: string): string {
   if (!d) return "";
   const dt = new Date(d);
