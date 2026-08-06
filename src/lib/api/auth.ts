@@ -20,7 +20,22 @@ export interface SessionProfile {
   id: number;
   /** Discord snowflake, as a string — it exceeds Number.MAX_SAFE_INTEGER. */
   snowflake: string;
+  /**
+   * The site's own name for the player, not a Discord field. Seeded from Discord when the profile
+   * was created and owned by the row from then on — signing in again never rewrites it.
+   */
   name: string | null;
+  /**
+   * The Discord `@` handle. Unlike `name` this *is* a cache, refreshed on every login, so it is
+   * null for anyone who hasn't signed in since upstream added the column. There is no backfill.
+   */
+  handle: string | null;
+  /**
+   * A finished CDN url, not the hash the profile row holds — upstream applies the numbered-default
+   * fallback and picks `.gif` for animated avatars (`utils/discordAvatar.ts`), so this is never
+   * null from a current deployment and a client must not reimplement either rule.
+   */
+  avatar: string | null;
   puuids: string[];
 }
 
@@ -174,9 +189,33 @@ export async function me(opts?: RequestOpts): Promise<Identity> {
 
   return {
     authenticated: data.authenticated === true,
-    profile: data.profile ?? null,
+    profile: normalizeProfile(data.profile),
     roles: Array.isArray(data.roles) ? data.roles : [],
     leagues: normalizeLeagues(data.leagues),
+  };
+}
+
+/**
+ * Coerces the `profile` object into the declared shape.
+ *
+ * The body used to be passed through as-is, which was survivable while every field was rendered as
+ * text. `avatar` ends the tolerance: a deployment predating the field would put `undefined` into an
+ * `<img src>`, and a broken-image glyph is worse than no picture. Each nullable field reads as
+ * `null` when absent, so a component can branch on absence rather than on a value that lies about
+ * its type.
+ */
+function normalizeProfile(value: unknown): SessionProfile | null {
+  if (typeof value !== "object" || value === null) return null;
+  const raw = value as Record<string, unknown>;
+  const str = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
+
+  return {
+    id: typeof raw.id === "number" && Number.isFinite(raw.id) ? raw.id : 0,
+    snowflake: str(raw.snowflake) ?? "",
+    name: str(raw.name),
+    handle: str(raw.handle),
+    avatar: str(raw.avatar),
+    puuids: Array.isArray(raw.puuids) ? raw.puuids.filter((p): p is string => typeof p === "string") : [],
   };
 }
 

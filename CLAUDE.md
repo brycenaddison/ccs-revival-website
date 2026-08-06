@@ -56,6 +56,7 @@ Import from the barrel: `import { … } from "../lib/api"` (`index.ts` re-export
 | `normalize.ts` | Boundary coercion: `num`, `numOrNull`, `ratio`, `fmtPct`, `fmtRatio`, `fmtSec`, `hexFromInt`, `lighten`, `httpsUrl`, `sortValue`, plus the role vocabulary (`ROLE_ORDER`, `normalizeRole`, `roleLabel`, `sortByRole`). |
 | `client.ts` | Public reads: tournaments, teams, standings, stats, records, scout, match data. |
 | `feed.ts` | The public fixture feed + one series in full (`scheduleFeed`, `matchResult`). |
+| `profiles.ts` | `GET /profiles/:id/accounts` — one profile's linked Riot accounts with live rank. The only public read that hits Riot at request time, so entries degrade one at a time and `ranked: null` (Riot declined) is not `ranked: []` (unranked). |
 | `seasonView.ts` | `GET /:conf/season` — the season **as rendered**. See below. |
 | `season.ts` | `GET /:conf/phases` — the season's **structure**, site-admin only. See below. |
 | `schedule.ts` | League-admin schedule surface: matches, forfeits, tournament codes, game linking. |

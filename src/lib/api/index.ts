@@ -27,6 +27,8 @@ export type {
   LeagueScope,
   UserSearch,
 } from "./admin";
+export { profilesApi, profileAccounts, RANKED_QUEUES } from "./profiles";
+export type { AccountRank, LinkedAccount, RankedQueue } from "./profiles";
 export { credentialedRequest, issuesOf, SaveRejected } from "./credentialed";
 export type { ValidationIssue } from "./credentialed";
 export {

@@ -29,6 +29,7 @@ import {
   phaseDocument,
   phaseList,
   playerStats,
+  profileAccounts,
   records,
   schedule,
   scheduleFeed,
@@ -88,6 +89,16 @@ const HOME_STALE = 5 * MINUTE;
  * multiply the read traffic tenfold for one badge.
  */
 const LIVE_STALE = 30_000;
+
+/**
+ * How long a profile's Riot accounts stay fresh — `/profiles/:id/accounts`' own `max-age=600`.
+ *
+ * Matched to the server for the same reason `FEED_STALE` and `HOME_STALE` are, plus one this
+ * endpoint alone has: it is the only public route that calls Riot per request, and its ten-minute
+ * server cache is what stands between public traffic and the API key match ingest shares. A client
+ * refetching sooner spends nothing but its own bandwidth on a copy the browser cache already holds.
+ */
+const ACCOUNTS_STALE = 10 * MINUTE;
 
 /**
  * Identity helper. Keeps the literal type of `queryKey` without depending on the library's own
@@ -174,6 +185,23 @@ export const queries = {
       queryKey: ["stats", "scout", conf] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) => scoutIndex(conf, { signal }),
       staleTime: LEAGUE_STALE,
+    }),
+
+  /**
+   * One profile's linked Riot accounts, with live rank.
+   *
+   * The only public read in here that reaches Riot at request time, which is why it gets its own
+   * clock: `ACCOUNTS_STALE` matches the endpoint's `max-age=600` and the server-side cache behind
+   * it. Refetching sooner would just re-read a browser cache entry we cannot bust, and the TTL is
+   * what keeps public traffic off the shared Riot key that match ingest depends on.
+   */
+  profileAccounts: (profileId: number | null) =>
+    query({
+      queryKey: ["profiles", profileId, "accounts"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        profileId === null ? Promise.resolve(null) : profileAccounts(profileId, { signal }),
+      enabled: profileId !== null,
+      staleTime: ACCOUNTS_STALE,
     }),
 
   /** One player's report. Keyed per player, so flipping between two already-seen players is instant. */
@@ -517,6 +545,15 @@ export const queryRoots = {
   announcements: ["announcements"] as const,
   standings: ["standings"] as const,
   stats: ["stats"] as const,
+  /**
+   * Every profile's linked-accounts read.
+   *
+   * Nothing invalidates it today — linking is the one thing that changes what it serves, and that
+   * flow is paused (`RIOT_LINKING_ENABLED`). The root exists so the change that turns linking back
+   * on has an obvious thing to call: without it, a freshly linked account would sit unseen for the
+   * ten minutes `ACCOUNTS_STALE` allows.
+   */
+  profiles: ["profiles"] as const,
   /** The league list. Invalidated by the admin league editor, which is the only thing that writes it. */
   tournaments: ["tournaments"] as const,
   /** Both the directory search and every cached single user. */
