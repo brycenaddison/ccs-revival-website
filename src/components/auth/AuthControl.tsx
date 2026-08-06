@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAdminAccess } from "../../lib/adminAccess";
 import { useAuth } from "../../lib/authContext";
+import { CONTENT_ROLE } from "../../lib/api";
 import { accountMenuEntries, UserMenu } from "./UserMenu";
 
 /**
@@ -24,8 +25,9 @@ interface Props {
 }
 
 export function AuthControl({ variant = "nav", onNavigate }: Props) {
-  const { isAuthenticated, profile, loading, login, linkRiot, logout } = useAuth();
+  const { isAuthenticated, profile, loading, login, linkRiot, logout, hasRole } = useAuth();
   const { isSiteAdmin } = useAdminAccess();
+  const canEditContent = isSiteAdmin || hasRole(CONTENT_ROLE);
 
   // Render nothing until the first /auth/me settles. A "Log in" button that flips to the
   // user's name a moment later reads as a bug, and the check is fast enough to just wait.
@@ -88,7 +90,7 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
         <div className="px-5 py-3 border-t border-border">
           <span className={`${LABEL} text-text-bright truncate`}>{name}</span>
         </div>
-        {accountMenuEntries({ logout, linkRiot, isSiteAdmin }).map((entry, i) => {
+        {accountMenuEntries({ logout, linkRiot, isSiteAdmin, canEditContent }).map((entry, i) => {
           if (entry.kind === "divider") {
             return <div key={`divider-${i}`} role="separator" className="border-t border-border" />;
           }

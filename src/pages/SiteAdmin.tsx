@@ -12,11 +12,12 @@
  */
 
 import { useParams } from "react-router-dom";
-import { CalendarRange, FileText, Inbox, ShieldCheck, Trophy } from "lucide-react";
+import { CalendarRange, Inbox, Megaphone, ShieldCheck, Trophy } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
 import { ComingSoon } from "../components/settings/SettingsSection";
+import { AnnouncementsSection } from "../components/admin/AnnouncementsSection";
 import { LeaguesSection } from "../components/admin/LeaguesSection";
 import { RolesSection } from "../components/admin/RolesSection";
 import { SeasonStructureSection } from "../components/admin/season/SeasonStructureSection";
@@ -64,11 +65,14 @@ const AREA: SettingsArea = {
       Component: () => <ComingSoon needs="GET/PATCH /applications and transactional approval" />,
     },
     {
-      slug: "content",
-      label: "Articles & Socials",
-      icon: FileText,
-      description: "News posts, and the Twitter and Twitch embeds on the home page.",
-      Component: () => <ComingSoon needs="write endpoints for articles and social embeds, plus image upload" />,
+      slug: "announcements",
+      label: "Announcements",
+      icon: Megaphone,
+      // Site admin rather than `content`, matching the API. Articles moved to `/content` when the
+      // writers' portal landed; saying so here is the difference between an admin finding them and
+      // concluding the feature was dropped.
+      description: "The banner on the home page. Articles live in the content portal at /content.",
+      Component: AnnouncementsSection,
     },
   ],
 };

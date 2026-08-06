@@ -9,7 +9,7 @@ import {
 import { queries } from "../../lib/queries";
 import { useChampions } from "../../hooks/useChampions";
 import type { ChampionLookup } from "../../lib/championData";
-import { ChampionIcon } from "./ChampionIcon";
+import { ChampionIcon } from "../ChampionIcon";
 import { ResultOnlyCard } from "./GameSummary";
 
 interface Props {
@@ -41,7 +41,7 @@ function Shell({ onBack, children }: { onBack: () => void; children: ReactNode }
 }
 
 export function RiotMatchView({ matchId, onBack }: Props) {
-  // The raw Riot payload has no champion artwork or display names; resolve them from DDragon.
+  // The raw Riot payload has no champion artwork or display names; resolve them from Community Dragon.
   const champions = useChampions();
   // A finished game never changes, so this is cached for the session and never revalidated.
   const { data, isPending, error } = useQuery(queries.matchData(matchId));

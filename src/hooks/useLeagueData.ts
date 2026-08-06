@@ -5,17 +5,7 @@ import { groupLabels, teamKey, toRosters, toSplits, toStandingsFromTeams, toTeam
 import { queries, queryRoots, resultsKey } from "../lib/queries";
 import type { LeagueData, Roster, Split, Standing, Team } from "../types/league";
 
-export type {
-  Article,
-  LeagueData,
-  Player,
-  Roster,
-  Split,
-  Standing,
-  Team,
-  TwitchEmbed,
-  TwitterFeed,
-} from "../types/league";
+export type { LeagueData, Player, Roster, Split, Standing, Team } from "../types/league";
 
 interface Options {
   /** Confs to load. Usually `useLeague().selectedConfs`. */
@@ -68,6 +58,12 @@ function bundleConf(conf: string, records: readonly TeamRecord[], groupName: str
  * **Fixtures are not here.** They were, as an always-empty `matches` array, and they now come from
  * `GET /schedule` through `useScheduleFeed` — which is cross-conference, clock-relative and windowed per
  * surface, so folding it into a per-conf league load would fetch the wrong thing for every reader of it.
+ *
+ * **Neither are articles or socials**, for the same reason and with the same history: they were
+ * always-empty arrays here until `GET /home` existed. That endpoint serves the banner, the article
+ * rail and the social feed together at its own cache TTL, and it is not per-conf in the way this
+ * loader is — the conf filter widens to include site-wide rows rather than partitioning by conf.
+ * `Home` reads it through `queries.home`.
  */
 export function useLeagueData({ confs, tournaments }: Options): LeagueData {
   const client = useQueryClient();
@@ -93,9 +89,6 @@ export function useLeagueData({ confs, tournaments }: Options): LeagueData {
       standings: bundles.flatMap(b => b.standings),
       rosters: bundles.flatMap(b => b.rosters),
       splits,
-      articles: [],
-      twitterFeeds: [],
-      twitchEmbeds: [],
       // Only the first load blocks the page; a background revalidation keeps the current view.
       loading: results.some(r => r.isLoading),
       error: failed ? errorMessage(failed.error) : null,

@@ -48,24 +48,36 @@ export function PageShell({ maxWidth = 1280, ticker, extraBottom, children }: Pr
 
   const navReserve = isMobile ? "var(--bottom-nav-h)" : "0px";
 
+  // A column with the content set to grow, so the footer sits on the bottom of the *viewport* when a
+  // page is shorter than one — a 404, a login redirect, an empty season — and directly under the
+  // content when it is longer. `min-h-screen` alone only guaranteed the second: anything short left the
+  // footer floating mid-screen with a band of background under it, which reads as content failing to
+  // load rather than as the end of the page.
+  //
+  // The footer keeps its `mt-10`. Margins count towards a flex line's free space, so the grow resolves
+  // around it rather than overflowing by 40px and minting a scrollbar on a page that fits.
   return (
     <div
-      className="bg-bg min-h-screen w-full text-text font-body"
+      className="bg-bg flex min-h-screen w-full flex-col text-text font-body"
       style={{ paddingBottom: extraBottom ? `calc(${extraBottom} + ${navReserve})` : navReserve }}
     >
       {ticker}
       <NavBar isMobile={isMobile} />
 
-      <div className="mx-auto" style={{ maxWidth, padding: isMobile ? 12 : "24px 32px" }}>
-        {children}
-      </div>
+      {/* `flex-1` lives on this wrapper rather than the content column, which has to keep `mx-auto` and
+          a max width to stay centred and capped. */}
+      <main className="flex-1">
+        <div className="mx-auto" style={{ maxWidth, padding: isMobile ? 12 : "24px 32px" }}>
+          {children}
+        </div>
+      </main>
 
       <footer
         className="border-t border-bg3 text-center mt-10"
         style={{ padding: isMobile ? "20px 12px" : "24px 20px" }}
       >
         <span className="font-display text-lg text-text-subtle tracking-widest">CCS</span>
-        <div className="text-[10px] text-text-subtle mt-2">Amateur Esports · Community Driven</div>
+        <div className="text-[10px] text-text-subtle mt-2">Amateur Esports · Community Driven · Website built by gl4cial and dribb</div>
       </footer>
 
       {isMobile && <MobileBottomBar />}

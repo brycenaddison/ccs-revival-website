@@ -1,91 +1,36 @@
-import { useState } from "react";
+/**
+ * The two middle tiers of the home page's news column: feature cards, then the compact list.
+ *
+ * Takes the tiers already partitioned rather than filtering a flat array itself — that decision is
+ * `lib/articleTiers.ts`'s, and it involves a fallback this component has no business knowing about.
+ * The hero is `HeroArticle`, rendered by the page above this.
+ *
+ * There used to be a modal here. Articles have URLs now: a link article opens its source and a
+ * native one routes to `/news/:slug`, both through `ArticleLink`. An overlay that couldn't be
+ * linked to, shared, or closed with the back button was the wrong shape for a news post.
+ */
+
+import { ArrowUpRight } from "lucide-react";
 import { timeAgo } from "../../lib/utils";
-import type { Article } from "../../hooks/useLeagueData";
+import type { ArticleCard } from "../../lib/api";
+import { ArticleLink, isExternal } from "../news/ArticleLink";
 
 interface Props {
-  articles: Article[];
+  features: readonly ArticleCard[];
+  news: readonly ArticleCard[];
   isMobile: boolean;
 }
 
-function ArticleModal({ article, onClose }: { article: Article; onClose: () => void }) {
+function FeatureCard({ article, isMobile }: { article: ArticleCard; isMobile: boolean }) {
   return (
-    <div
-      className="fixed inset-0 z-[300] flex items-center justify-center"
-      style={{ background: "var(--overlay)" }}
-      onClick={onClose}
+    <ArticleLink
+      article={article}
+      className="bg-bg2 rounded-lg border border-border overflow-hidden hover:border-border2 transition-colors group no-underline block"
     >
-      <div
-        className="bg-bg2 border border-border rounded-lg w-full max-h-[85vh] overflow-y-auto relative"
-        style={{ maxWidth: 700 }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header image */}
-        {article.image_url && (
-          <div className="w-full h-48 overflow-hidden rounded-t-lg">
-            <img src={article.image_url} alt="" decoding="async" className="w-full h-full object-cover" />
-          </div>
-        )}
-
-        <div className="p-6">
-          {/* Tag */}
-          {article.tag && (
-            <span className="inline-block bg-accent text-white text-[10px] font-bold font-display tracking-wider px-2.5 py-1 rounded mb-3">
-              {article.tag}
-            </span>
-          )}
-
-          {/* Title */}
-          <h2 className="font-display text-text-bright tracking-wider leading-tight mb-2" style={{ fontSize: 28 }}>
-            {article.title}
-          </h2>
-
-          {/* Meta */}
-          <div className="flex items-center gap-2 text-text-muted text-xs mb-4">
-            {article.author && <span className="font-heading">{article.author}</span>}
-            {article.author && article.published_at && <span>·</span>}
-            {article.published_at && (
-              <span>{new Date(article.published_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
-            )}
-          </div>
-
-          {/* Subtitle */}
-          {article.subtitle && (
-            <p className="text-text-secondary text-sm leading-relaxed mb-4 font-medium italic">
-              {article.subtitle}
-            </p>
-          )}
-
-          {/* Body */}
-          {article.body && (
-            <div className="text-text text-sm leading-relaxed whitespace-pre-wrap">
-              {article.body}
-            </div>
-          )}
-        </div>
-
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-bg/80 border border-border flex items-center justify-center text-text-muted hover:text-text-bright cursor-pointer text-lg leading-none"
-        >
-          ×
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function FeatureCard({ article, isMobile, onClick }: { article: Article; isMobile: boolean; onClick: () => void }) {
-  return (
-    <div
-      className="bg-bg2 rounded-lg border border-border overflow-hidden cursor-pointer hover:border-border2 transition-colors group"
-      onClick={onClick}
-    >
-      {/* Image */}
-      {article.image_url ? (
+      {article.imageUrl ? (
         <div className="w-full overflow-hidden" style={{ height: isMobile ? 140 : 160 }}>
           <img
-            src={article.image_url}
+            src={article.imageUrl}
             alt=""
             loading="lazy"
             decoding="async"
@@ -95,55 +40,73 @@ function FeatureCard({ article, isMobile, onClick }: { article: Article; isMobil
       ) : (
         <div
           className="w-full flex items-center justify-center"
-          style={{ height: isMobile ? 100 : 120, background: "linear-gradient(135deg, var(--accent) 0%, #3f0008 100%)" }}
+          style={{
+            height: isMobile ? 100 : 120,
+            background: "linear-gradient(135deg, var(--accent) 0%, #3f0008 100%)",
+          }}
         >
           <span className="font-display text-white/30 text-4xl tracking-widest">CCS</span>
         </div>
       )}
 
       <div className="p-4">
-        {/* Tag */}
         {article.tag && (
           <span className="text-[9px] font-bold text-accent tracking-wider font-display uppercase">
             {article.tag}
           </span>
         )}
 
-        {/* Title */}
-        <h3 className="font-heading font-semibold text-text-bright leading-tight mt-1 mb-1.5 group-hover:text-accent transition-colors" style={{ fontSize: isMobile ? 14 : 16 }}>
+        <h3
+          className="font-heading font-semibold text-text-bright leading-tight mt-1 mb-1.5 group-hover:text-accent transition-colors"
+          style={{ fontSize: isMobile ? 14 : 16 }}
+        >
           {article.title}
         </h3>
 
-        {/* Subtitle / body preview */}
-        <p className="text-xs text-text-secondary leading-snug line-clamp-2">
-          {article.subtitle || article.body?.slice(0, 120)}
-        </p>
+        {article.subtitle && (
+          <p className="text-xs text-text-secondary leading-snug line-clamp-2">
+            {article.subtitle}
+          </p>
+        )}
 
-        {/* Meta */}
         <div className="flex items-center gap-2 mt-3 text-[10px] text-text-muted">
-          {article.author && <span className="font-heading uppercase tracking-wider">{article.author}</span>}
-          {article.published_at && (
+          {article.author && (
+            <span className="font-heading uppercase tracking-wider">{article.author}</span>
+          )}
+          {article.publishedAt && (
             <>
               {article.author && <span>·</span>}
-              <span>{timeAgo(article.published_at)}</span>
+              <span>{timeAgo(article.publishedAt)}</span>
             </>
+          )}
+          {isExternal(article) && (
+            <ArrowUpRight
+              size={12}
+              className="ml-auto text-text-dim group-hover:text-accent transition-colors"
+              aria-label="Opens on another site"
+            />
           )}
         </div>
       </div>
-    </div>
+    </ArticleLink>
   );
 }
 
-function NewsItem({ article, isLast, onClick }: { article: Article; isLast: boolean; onClick: () => void }) {
+function NewsItem({ article, isLast }: { article: ArticleCard; isLast: boolean }) {
   return (
-    <div
-      className={`flex gap-4 py-3.5 cursor-pointer group ${!isLast ? "border-b border-border" : ""}`}
-      onClick={onClick}
+    <ArticleLink
+      article={article}
+      className={`flex gap-4 py-3.5 group no-underline ${!isLast ? "border-b border-border" : ""}`}
     >
-      {/* Thumbnail */}
-      {article.image_url ? (
+      {article.imageUrl ? (
         <div className="w-20 h-14 rounded overflow-hidden shrink-0">
-          <img src={article.image_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+          <img
+            src={article.imageUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover"
+          />
         </div>
       ) : (
         <div className="w-20 h-14 rounded shrink-0 bg-bg3 flex items-center justify-center">
@@ -152,73 +115,65 @@ function NewsItem({ article, isLast, onClick }: { article: Article; isLast: bool
       )}
 
       <div className="flex-1 min-w-0">
-        {/* Tag + time on same line */}
         <div className="flex items-center gap-2 mb-1">
           {article.tag && (
-            <span className="text-[9px] font-bold text-accent tracking-wider font-display uppercase">{article.tag}</span>
+            <span className="text-[9px] font-bold text-accent tracking-wider font-display uppercase">
+              {article.tag}
+            </span>
           )}
-          {article.published_at && (
-            <span className="text-[10px] text-text-muted">{timeAgo(article.published_at)}</span>
+          {article.publishedAt && (
+            <span className="text-[10px] text-text-muted">{timeAgo(article.publishedAt)}</span>
+          )}
+          {isExternal(article) && (
+            <ArrowUpRight size={11} className="text-text-subtle" aria-label="Opens on another site" />
           )}
         </div>
 
-        {/* Title */}
         <h4 className="font-heading text-[13px] text-text font-medium leading-snug group-hover:text-accent transition-colors truncate">
           {article.title}
         </h4>
 
-        {/* Body preview */}
-        {(article.subtitle || article.body) && (
+        {article.subtitle && (
           <p className="text-[11px] text-text-muted leading-snug mt-0.5 truncate">
-            {article.subtitle || article.body?.slice(0, 80)}
+            {article.subtitle}
           </p>
         )}
       </div>
-    </div>
+    </ArticleLink>
   );
 }
 
-export function NewsFeed({ articles, isMobile }: Props) {
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
-
-  const features = articles.filter(a => a.article_type === "feature").slice(0, 2);
-  const news = articles.filter(a => !["hero", "feature"].includes(a.article_type || "")).slice(0, 8);
-
-  if (!articles.length) {
-    return <div className="p-8 text-center text-text-subtle text-[13px]">No articles yet.</div>;
-  }
+export function NewsFeed({ features, news, isMobile }: Props) {
+  if (features.length === 0 && news.length === 0) return null;
 
   return (
-    <>
-      <div>
-        {/* Feature cards */}
-        {features.length > 0 && (
-          <div className={`grid gap-4 mb-5 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
-            {features.map(f => (
-              <FeatureCard key={f.id} article={f} isMobile={isMobile} onClick={() => setSelectedArticle(f)} />
+    <div>
+      {/* One card per row, at every width.
+          These sit in the home page's 280px left rail, and two across it gave each card about
+          130px — narrower than its own thumbnail wants to be, with the title wrapping to four
+          lines. A feature card's whole job is to be bigger than a news row, which it wasn't. */}
+      {features.length > 0 && (
+        <div className="flex flex-col gap-4 mb-5">
+          {features.map(f => (
+            <FeatureCard key={f.slug} article={f} isMobile={isMobile} />
+          ))}
+        </div>
+      )}
+
+      {news.length > 0 && (
+        <div className="bg-bg2 rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <span className="font-display text-[14px] text-text-bright tracking-widest">
+              LATEST NEWS
+            </span>
+          </div>
+          <div className="px-4">
+            {news.map((n, i) => (
+              <NewsItem key={n.slug} article={n} isLast={i === news.length - 1} />
             ))}
           </div>
-        )}
-
-        {/* News items */}
-        {news.length > 0 && (
-          <div className="bg-bg2 rounded-lg border border-border overflow-hidden">
-            <div className="px-4 py-3 border-b border-border">
-              <span className="font-display text-[14px] text-text-bright tracking-widest">LATEST NEWS</span>
-            </div>
-            <div className="px-4">
-              {news.map((n, i) => (
-                <NewsItem key={n.id} article={n} isLast={i === news.length - 1} onClick={() => setSelectedArticle(n)} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Article modal */}
-      {selectedArticle && (
-        <ArticleModal article={selectedArticle} onClose={() => setSelectedArticle(null)} />
+        </div>
       )}
-    </>
+    </div>
   );
 }

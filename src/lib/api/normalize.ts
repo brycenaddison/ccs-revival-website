@@ -94,9 +94,9 @@ export function lighten(hex: string, amount = 0.35): string {
 /**
  * Upgrade an asset URL to https.
  *
- * Team logos are stored as `http://media.brycenaddison.com/...`. That host does serve
- * https (and 301s http to it), but browsers block mixed content *before* following the
- * redirect, so the upgrade has to happen client-side.
+ * Team logos and article artwork are stored with an `http://` scheme. The media host does serve
+ * https (and 301s http to it), but browsers block mixed content *before* following the redirect,
+ * so the upgrade has to happen client-side.
  */
 export function httpsUrl(u: string | null | undefined): string | undefined {
   if (!u) return undefined;

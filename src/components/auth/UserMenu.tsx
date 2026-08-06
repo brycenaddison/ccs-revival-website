@@ -9,9 +9,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, Link2, LogOut, Settings, Shield, type LucideIcon } from "lucide-react";
+import { ChevronDown, FileText, Link2, LogOut, Settings, Shield, type LucideIcon } from "lucide-react";
 import { useAdminAccess } from "../../lib/adminAccess";
 import { RIOT_LINKING_ENABLED, useAuth } from "../../lib/authContext";
+import { CONTENT_ROLE } from "../../lib/api";
 
 export type MenuEntry =
   | { kind: "divider" }
@@ -34,6 +35,12 @@ interface EntryOpts {
   logout: () => Promise<void>;
   linkRiot: () => Promise<void>;
   isSiteAdmin: boolean;
+  /**
+   * Whether to offer the writers' portal. Already OR'd with site admin by the caller, matching the
+   * API's `content` guard — which lets an admin through, since they could grant themselves the role
+   * in one request anyway.
+   */
+  canEditContent: boolean;
 }
 
 /**
@@ -49,9 +56,17 @@ interface EntryOpts {
  * only way to start linking. While `RIOT_LINKING_ENABLED` is off the entry is dropped rather than
  * shown greyed out: a dead row in a four-item menu is noise, with nothing here to explain it.
  */
-export function accountMenuEntries({ logout, linkRiot, isSiteAdmin }: EntryOpts): MenuEntry[] {
+export function accountMenuEntries({
+  logout,
+  linkRiot,
+  isSiteAdmin,
+  canEditContent,
+}: EntryOpts): MenuEntry[] {
   return [
     { kind: "item", label: "Settings", icon: Settings, to: "/settings" },
+    ...(canEditContent
+      ? [{ kind: "item" as const, label: "Content", icon: FileText, to: "/content" }]
+      : []),
     ...(isSiteAdmin
       ? [{ kind: "item" as const, label: "Site Admin", icon: Shield, to: "/admin" }]
       : []),
@@ -78,7 +93,7 @@ const LABEL = "font-heading text-sm tracking-wider uppercase whitespace-nowrap";
 const ITEM = `flex w-full items-center gap-2 text-left bg-transparent border-none px-4 py-2.5 text-text-secondary ${LABEL}`;
 
 export function UserMenu({ name }: { name: string }) {
-  const { logout, linkRiot } = useAuth();
+  const { logout, linkRiot, hasRole } = useAuth();
   const { isSiteAdmin } = useAdminAccess();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -105,7 +120,12 @@ export function UserMenu({ name }: { name: string }) {
     };
   }, [open]);
 
-  const entries = accountMenuEntries({ logout, linkRiot, isSiteAdmin });
+  const entries = accountMenuEntries({
+    logout,
+    linkRiot,
+    isSiteAdmin,
+    canEditContent: isSiteAdmin || hasRole(CONTENT_ROLE),
+  });
 
   return (
     <div ref={wrapRef} className="relative">

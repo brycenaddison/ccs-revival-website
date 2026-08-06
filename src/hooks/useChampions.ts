@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { loadChampions, type ChampionLookup } from "../lib/championData";
 
 /**
- * Champion metadata lookup, or `null` while loading or if Data Dragon is unreachable.
+ * Champion metadata lookup, or `null` while loading or if Community Dragon is unreachable.
  *
  * Callers should treat `null` as "render the label without artwork" rather than an error —
  * champion icons are decoration, and a CDN hiccup shouldn't blank a box score.

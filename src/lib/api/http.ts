@@ -11,8 +11,26 @@
  *  3. `GET /tournaments` returns an empty body when its database query fails.
  */
 
-export const API_BASE: string =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") || "https://api.brycenaddison.com";
+/**
+ * Where the API lives. **Required** — there is no default.
+ *
+ * A fallback hostname is worse than no hostname here: a deploy that forgot the variable would
+ * silently talk to whatever was baked in, which is the failure that looks like a data bug rather
+ * than a config one. Both workflows in `.github/workflows/` inject it from a repository variable
+ * and `.env` supplies it locally, so the only way to reach this throw is to have skipped setup.
+ *
+ * Thrown at module load rather than per request, so it surfaces on the first page load with a
+ * message naming the variable instead of as a wall of failed fetches.
+ */
+const configuredBase = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "");
+
+if (!configuredBase) {
+  throw new Error(
+    "VITE_API_BASE_URL is not set. Point it at the CCS API (see .env.example) and restart the dev server.",
+  );
+}
+
+export const API_BASE: string = configuredBase;
 
 export class ApiError extends Error {
   constructor(
@@ -36,6 +54,19 @@ export class ApiError extends Error {
 
 export interface RequestOpts {
   signal?: AbortSignal;
+  /**
+   * Force a conditional request instead of letting the browser reuse a cached body.
+   *
+   * Needed by the reads the server marks `Cache-Control: public, max-age=N`. React Query's
+   * `invalidateQueries` refetches, but a refetch is an ordinary `fetch`, and inside the `max-age`
+   * window the browser answers it from its own cache **without contacting the server** — so an
+   * editor that just published something invalidates the key, gets a refetch, and is handed the
+   * same stale payload. The write appears to have done nothing until the window expires.
+   *
+   * `no-cache` means "revalidate", not "don't cache": the request still carries `If-None-Match`, so
+   * an unchanged resource costs a `304` with no body. Correctness with almost none of the traffic.
+   */
+  revalidate?: boolean;
 }
 
 /** Sentinel for a route that does not exist upstream (i.e. a not-yet-built endpoint). */
@@ -44,6 +75,7 @@ const MISSING_ROUTE = Symbol("missing-route");
 async function request(path: string, opts?: RequestOpts): Promise<unknown | typeof MISSING_ROUTE> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Accept: "application/json" },
+    cache: opts?.revalidate ? "no-cache" : "default",
     signal: opts?.signal,
   });
 

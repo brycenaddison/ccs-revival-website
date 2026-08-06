@@ -14,6 +14,7 @@ import {
   ChartColumn,
   ClipboardList,
   House,
+  Newspaper,
   Trophy,
   Users,
   type LucideIcon,
@@ -53,6 +54,10 @@ export const TABS: readonly SiteTab[] = [
   // bar, and none of the league data `Home` loads for its other sections is any use to it.
   { label: "Stats", path: "/stats", icon: ChartColumn, inBottomBar: true, standalone: true },
   { label: "Teams", path: "/teams", icon: Users, inBottomBar: true },
+  // Standalone for the same reason as the three above: it reads `/articles` and nothing else, so as
+  // a section of `Home` it would wait on a whole-league load it has no use for. Out of the bottom
+  // bar, which is already at six items and is for the things a phone reader opens mid-match.
+  { label: "News", path: "/news", icon: Newspaper, inBottomBar: false, standalone: true },
 ];
 
 /**

@@ -28,6 +28,7 @@ import { queries } from "../../lib/queries";
 import { dec, int, pct, signed } from "../../lib/statFormat";
 import { sortByCell, type StatCell } from "../../lib/statGroups";
 import { shortName } from "../../lib/statViews";
+import { ChampionIcon } from "../ChampionIcon";
 import { StatTile } from "./StatTile";
 import { StatTable } from "./StatTable";
 import { CONTROL_CLASS, Field, FilterBar } from "./FilterBar";
@@ -248,7 +249,7 @@ export function ScoutPanel({ conf, isMobile }: Props) {
               onExpand={() => {}}
               renderName={c => (
                 <div className="flex items-center gap-2">
-                  {c.img && <img src={c.img} alt="" loading="lazy" className="w-7 h-7 rounded shrink-0" />}
+                  <ChampionIcon src={c.img} size={28} decorative className="flex shrink-0" />
                   <span className="font-heading font-bold text-text-bright truncate">{c.champ}</span>
                 </div>
               )}
@@ -275,7 +276,7 @@ export function ScoutPanel({ conf, isMobile }: Props) {
                   onClick={() => navigate(`/game/${encodeURIComponent(g.matchId)}`)}
                   className="flex items-center gap-2 text-left w-full min-w-0"
                 >
-                  {g.champImg && <img src={g.champImg} alt="" loading="lazy" className="w-7 h-7 rounded shrink-0" />}
+                  <ChampionIcon src={g.champImg} size={28} decorative className="flex shrink-0" />
                   <div className="min-w-0">
                     <div className="font-heading font-bold text-text-bright truncate">{g.champ ?? "—"}</div>
                     <div className="text-[10px] text-text-secondary font-heading tracking-wide truncate">

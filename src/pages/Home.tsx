@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useEffect, useMemo, useRef } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useWindowSize } from "../hooks/useWindowSize";
 import { useScheduleFeed } from "../hooks/useScheduleFeed";
 import { useLeagueData } from "../hooks/useLeagueData";
@@ -9,14 +10,19 @@ import { PageShell } from "../components/layout/PageShell";
 import { ScoreboardTicker, TICKER_WINDOW } from "../components/home/ScoreboardTicker";
 import { HeroArticle } from "../components/home/HeroArticle";
 import { NewsFeed } from "../components/home/NewsFeed";
+import { AnnouncementCard } from "../components/home/AnnouncementCard";
 import { StandingsWidget } from "../components/home/StandingsWidget";
 import { PlayerLeaders } from "../components/home/PlayerLeaders";
 import { UpcomingSchedule } from "../components/home/UpcomingSchedule";
-import { SocialLinks } from "../components/home/SocialLinks";
+import { SocialFeed } from "../components/home/SocialFeed";
+import { VideoGrid } from "../components/home/VideoGrid";
 import { TwitchStreams } from "../components/home/TwitchStreams";
 import { StandingsView } from "../components/views/StandingsView";
 import { TeamsView } from "../components/views/TeamsView";
 import { useLeague } from "../lib/leagueContext";
+import { errorMessage } from "../lib/api";
+import { queries } from "../lib/queries";
+import { tierArticles } from "../lib/articleTiers";
 import { tabForPathname } from "../lib/tabs";
 
 export default function Home() {
@@ -29,8 +35,32 @@ export default function Home() {
   const isMobile = w < 768;
   const isTablet = w >= 768 && w < 1024;
   const { tournaments, selectedConfs, loading: leagueLoading } = useLeague();
-  const { teams, standings, rosters, articles, splits, twitterFeeds, twitchEmbeds, loading: dataLoading, error, refresh } =
+  const { teams, standings, rosters, splits, loading: dataLoading, error, refresh } =
     useLeagueData({ confs: selectedConfs, tournaments });
+
+  // The banner, the article rail and the social feed, in one request shared by three components.
+  //
+  // `/home` takes a single optional conf while the site can have several selected. Taking the first
+  // is right rather than a compromise: the filter *widens* to include site-wide rows, and news is
+  // mostly site-wide — so a multi-conf selection would mostly duplicate one answer. Only rendered on
+  // the Home tab, so Standings and Teams don't pay for it.
+  const { data: homeData, error: homeError } = useQuery({
+    ...queries.home(tab === "Home" ? selectedConfs[0] : undefined),
+    enabled: tab === "Home",
+  });
+  const tiers = useMemo(() => tierArticles(homeData?.articles ?? []), [homeData?.articles]);
+  const hasNews = tiers.hero !== null || tiers.features.length > 0 || tiers.news.length > 0;
+
+  // One merged feed upstream, two surfaces here: videos are large cards in the wide centre column,
+  // everything else stays a compact rail in the 280px left one. Split rather than duplicated, so a
+  // source that isn't YouTube still has somewhere to land if the X bridge is ever configured.
+  const { videos, posts } = useMemo(() => {
+    const feed = homeData?.feed ?? [];
+    return {
+      videos: feed.filter(i => i.source.toLowerCase() === "youtube"),
+      posts: feed.filter(i => i.source.toLowerCase() !== "youtube"),
+    };
+  }, [homeData?.feed]);
 
   // `useLeagueData` is one call per conf and covers every section. Two things need their own
   // request, so each is loaded only by the sections that render it — passing nothing is how a
@@ -61,8 +91,6 @@ export default function Home() {
 
   const parentDomain = window.location.hostname;
   const split = splits[0];
-  const hero = articles.find(a => a.article_type === "hero");
-  const rest = articles.filter(a => a.id !== hero?.id);
 
   return (
     <PageShell maxWidth={1440} ticker={<ScoreboardTicker />}>
@@ -91,40 +119,48 @@ export default function Home() {
           : tab === "Teams" ? <TeamsView teams={teams} standings={standings} rosters={rosters} isMobile={isMobile} />
           : (
             <div className={`grid ${isMobile ? "grid-cols-1" : isTablet ? "grid-cols-1" : "grid-cols-[280px_1fr_280px]"}`} style={{ gap: isMobile ? 16 : 24 }}>
-              {/* LEFT COLUMN — Articles + Twitter */}
+              {/* LEFT COLUMN — Articles + social feed */}
               <div className="flex flex-col gap-5">
-                {hero && <HeroArticle article={hero} isMobile={isMobile} />}
-                {rest.length > 0 && (
+                {tiers.hero && <HeroArticle article={tiers.hero} isMobile={isMobile} />}
+                {(tiers.features.length > 0 || tiers.news.length > 0) && (
                   <>
                     <div className="flex justify-between items-center">
                       <span className="font-display text-text-bright tracking-widest" style={{ fontSize: isMobile ? 16 : 18 }}>TOP STORIES</span>
+                      <Link
+                        to="/news"
+                        className="font-heading text-[10px] tracking-wider uppercase text-text-dim hover:text-text-bright no-underline"
+                      >
+                        All news →
+                      </Link>
                     </div>
-                    <NewsFeed articles={rest} isMobile={isMobile} />
+                    <NewsFeed features={tiers.features} news={tiers.news} isMobile={isMobile} />
                   </>
                 )}
-                {!articles.length && (
+                {!hasNews && (
                   <div className="bg-bg2 rounded-md border border-border p-6 text-center">
-                    <span className="text-text-dim text-[13px]">No news yet.</span>
+                    {/* A failed `/home` and a quiet week are not the same thing, and this column
+                        showing "No news yet." for both is how a broken endpoint stays invisible.
+                        The rest of the page is unaffected either way — articles are not the league
+                        data, so a failure here must not take the standings down with it. */}
+                    <span className="text-text-dim text-[13px]">
+                      {homeError ? errorMessage(homeError) : "No news yet."}
+                    </span>
                   </div>
                 )}
-                <SocialLinks feeds={twitterFeeds} />
+                <SocialFeed items={posts} />
               </div>
 
-              {/* MIDDLE COLUMN — Welcome banner + Streams/VODs */}
+              {/* MIDDLE COLUMN — Announcement + stream + schedule */}
               <div className="flex flex-col gap-5">
-                {!hero && (
-                  <div className="rounded-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg, var(--accent), var(--dark-red, #3f0008))", padding: isMobile ? "14px 12px" : "16px 20px" }}>
-                    <div className="relative flex items-center gap-3">
-                      <span className="text-lg">⚔️</span>
-                      <div>
-                        <h2 className="font-display text-white tracking-wider" style={{ fontSize: isMobile ? 16 : 18 }}>WELCOME TO CCS</h2>
-                        <p className="text-white/70 text-xs">{teams.length} teams · {split?.name || "Season starting soon"}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <TwitchStreams embeds={twitchEmbeds} parentDomain={parentDomain} />
+                <AnnouncementCard
+                  announcement={homeData?.announcement ?? null}
+                  teamCount={teams.length}
+                  splitName={split?.name}
+                  isMobile={isMobile}
+                />
+                <TwitchStreams parentDomain={parentDomain} />
                 <UpcomingSchedule isMobile={isMobile} />
+                <VideoGrid videos={videos} isMobile={isMobile} />
               </div>
 
               {/* RIGHT COLUMN — Standings + Stats */}

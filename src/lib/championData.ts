@@ -1,21 +1,39 @@
 /**
- * Champion metadata from Riot's Data Dragon CDN.
+ * Champion metadata from Community Dragon.
  *
  * `GET /m/:matchId` returns the raw Riot payload, which identifies champions only by numeric
  * id and internal name (`62`, `MonkeyKing`) — not by display name and with no artwork. The
- * CCS API enriches champions elsewhere, but not there, so the lookup happens client-side
- * against the same CDN the API itself uses.
+ * CCS API enriches champions elsewhere, but not there, so the lookup happens client-side.
  *
- * Data Dragon is a static, heavily-cached CDN. The fetch is memoized for the page lifetime.
+ * **Community Dragon, not Data Dragon, and the same file the API reads.** `champion-summary.json`
+ * is what `tournament-bot`'s `utils/championData.ts` fetches, and `icon` here is byte-identical to
+ * the `img` the API serves on every enriched champion shape — so a lookup-resolved icon and a
+ * served one are the same URL and the same cache entry, and the site can't show two different
+ * pictures of one champion. Data Dragon also requires a concrete patch in every path, which is how
+ * the API ended up pinned to a two-year-old one; `latest` here needs no version fetch at all.
+ *
+ * Static, heavily-cached CDN. The fetch is memoized for the page lifetime.
  */
 
-const VERSIONS_URL = "https://ddragon.leagueoflegends.com/api/versions.json";
+const SUMMARY_URL =
+  "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-summary.json";
 
-/** Used when the version list can't be fetched; any recent patch resolves every champion. */
-const FALLBACK_VERSION = "15.1.1";
+/** 128x128 square icon — mirrors `championIcon()` in the API repo. */
+const iconUrl = (id: number): string => `https://cdn.communitydragon.org/latest/champion/${id}/square`;
+
+/**
+ * Ids at or above this are game-mode variants, not champions.
+ *
+ * Riot allocates them in the 60000s — `Jade_Ahri` is 60103 — and each one carries the *display
+ * name of the champion it re-skins*. Indexing them by name is what made a name-keyed lookup
+ * return a jade statue: whichever entry landed in the map last won, and the variants sort after
+ * roughly half the roster. They are dropped rather than de-prioritised because nothing on this
+ * site can ever want one — no CCS game is played in a mode that has them.
+ */
+const VARIANT_ID_FLOOR = 1000;
 
 export interface ChampionInfo {
-  /** Internal id, e.g. "MonkeyKing". */
+  /** Internal alias, e.g. "MonkeyKing". */
   id: string;
   /** Numeric champion id, e.g. 62. */
   key: number;
@@ -26,40 +44,39 @@ export interface ChampionInfo {
 }
 
 export interface ChampionLookup {
-  version: string;
   /**
    * Resolve a champion from whatever the payload happens to carry — a numeric id, a numeric
-   * id as a string, an internal name, or a display name.
+   * id as a string, an internal alias, or a display name.
    */
   get(ref: number | string | null | undefined): ChampionInfo | undefined;
 }
 
-interface DDragonChampion {
-  id: string;
-  key: string;
+interface SummaryEntry {
+  id: number;
   name: string;
-  image?: { full?: string };
+  alias: string;
 }
 
-function buildLookup(version: string, data: Record<string, DDragonChampion>): ChampionLookup {
+function buildLookup(entries: readonly SummaryEntry[]): ChampionLookup {
   const byKey = new Map<number, ChampionInfo>();
   const byText = new Map<string, ChampionInfo>();
 
-  for (const raw of Object.values(data)) {
-    const key = Number.parseInt(raw.key, 10);
+  for (const raw of entries) {
+    // -1 is the "None" sentinel Riot uses for a declined ban.
+    if (!Number.isFinite(raw.id) || raw.id <= 0 || raw.id >= VARIANT_ID_FLOOR) continue;
+
     const info: ChampionInfo = {
-      id: raw.id,
-      key,
+      id: raw.alias,
+      key: raw.id,
       name: raw.name,
-      icon: `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${raw.image?.full ?? `${raw.id}.png`}`,
+      icon: iconUrl(raw.id),
     };
-    if (Number.isFinite(key)) byKey.set(key, info);
-    byText.set(raw.id.toLowerCase(), info);
-    byText.set(raw.name.toLowerCase(), info);
+    byKey.set(raw.id, info);
+    if (raw.alias) byText.set(raw.alias.toLowerCase(), info);
+    if (raw.name) byText.set(raw.name.toLowerCase(), info);
   }
 
   return {
-    version,
     get(ref) {
       if (ref === null || ref === undefined || ref === "" || ref === 0) return undefined;
       if (typeof ref === "number") return byKey.get(ref);
@@ -76,21 +93,10 @@ export function loadChampions(): Promise<ChampionLookup> {
   if (pending) return pending;
 
   pending = (async () => {
-    let version = FALLBACK_VERSION;
-    try {
-      const res = await fetch(VERSIONS_URL);
-      if (res.ok) {
-        const versions: unknown = await res.json();
-        if (Array.isArray(versions) && typeof versions[0] === "string") version = versions[0];
-      }
-    } catch {
-      // Keep the fallback version.
-    }
-
-    const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/champion.json`);
-    if (!res.ok) throw new Error(`Data Dragon ${res.status}`);
-    const body = (await res.json()) as { data?: Record<string, DDragonChampion> };
-    return buildLookup(version, body.data ?? {});
+    const res = await fetch(SUMMARY_URL);
+    if (!res.ok) throw new Error(`Community Dragon ${res.status}`);
+    const body: unknown = await res.json();
+    return buildLookup(Array.isArray(body) ? (body as SummaryEntry[]) : []);
   })();
 
   // Don't cache a rejection — a transient failure shouldn't disable icons for the session.

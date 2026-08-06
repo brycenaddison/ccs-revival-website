@@ -15,6 +15,10 @@ import Login from './pages/Login'
 import Settings from './pages/Settings'
 import SiteAdmin from './pages/SiteAdmin'
 import LeagueAdmin from './pages/LeagueAdmin'
+import ContentPortal from './pages/ContentPortal'
+import News from './pages/News'
+import Article from './pages/Article'
+import NotFound from './pages/NotFound'
 import { LeagueProvider } from './lib/leagueContext'
 import { AuthProvider } from './lib/authContext'
 import { TABS } from './lib/tabs'
@@ -67,6 +71,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/game/:matchId" element={<GameDetail />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
+              {/* News is a tab (see `lib/tabs.ts`) but standalone, because it reads `/articles`
+                  alone and none of the league data `Home` loads. `/news/:slug` renders a native
+                  article; a link article's cards go straight to their source, so this route only
+                  sees one when a URL was shared. */}
+              <Route path="/news" element={<News />} />
+              <Route path="/news/:slug" element={<Article />} />
               {/* Each settings area is two routes rather than one optional `:section?` segment.
                   The no-slug form is a real state — it's the mobile section list, and on desktop it
                   redirects to the first section — so spelling both out keeps that explicit. */}
@@ -76,6 +86,14 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/admin/:section" element={<SiteAdmin />} />
               <Route path="/league/:conf/admin" element={<LeagueAdmin />} />
               <Route path="/league/:conf/admin/:section" element={<LeagueAdmin />} />
+              <Route path="/content" element={<ContentPortal />} />
+              <Route path="/content/:section" element={<ContentPortal />} />
+              {/* The catch-all, and it has to exist because of the nginx SPA fallback: every unmatched
+                  URL is served `index.html` so a refresh on `/schedule` works, so a typo arrives here
+                  rather than at the server's own 404. Without it `Routes` rendered nothing and a bad
+                  URL was a blank page. Position is cosmetic — React Router ranks routes by specificity,
+                  not source order, and `*` scores last by construction. */}
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </LeagueProvider>
         </AuthProvider>

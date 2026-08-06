@@ -34,7 +34,7 @@ import {
 import { queries } from "../../lib/queries";
 import { useChampions } from "../../hooks/useChampions";
 import type { ChampionLookup } from "../../lib/championData";
-import { ChampionIcon } from "./ChampionIcon";
+import { ChampionIcon } from "../ChampionIcon";
 
 /** Riot's side ids. 100 is blue, 200 is red, and nothing else appears in a tournament game. */
 const BLUE = 100;

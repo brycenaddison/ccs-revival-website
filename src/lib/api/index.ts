@@ -1,7 +1,7 @@
 export { api, tournaments, teams, teamsForConf, teamDetail, standings, playerStats, teamStats, championStats, statTotals, records, scoutIndex, scout, matchData, articleViews, bumpArticleView, mapTeamRecord, mapTournament } from "./client";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
 export type { RequestOpts } from "./http";
-export { auth, ANONYMOUS, isRiotLinkMessage, riotLinkUrl, SITE_ADMIN_ROLE } from "./auth";
+export { auth, ANONYMOUS, isRiotLinkMessage, riotLinkUrl, CONTENT_ROLE, SITE_ADMIN_ROLE } from "./auth";
 export type { AdminLeague, Identity, RiotLinkMessage, RiotLinkStatus, SessionProfile } from "./auth";
 export {
   adminApi,
@@ -29,6 +29,70 @@ export type {
 } from "./admin";
 export { credentialedRequest, issuesOf, SaveRejected } from "./credentialed";
 export type { ValidationIssue } from "./credentialed";
+export {
+  homeApi,
+  home,
+  homeLive,
+  isAnnouncementLevel,
+  isArticleType,
+  mapAnnouncement,
+  mapArticleCard,
+  ANNOUNCEMENT_LEVELS,
+  ARTICLE_KINDS,
+  ARTICLE_TYPES,
+} from "./home";
+export type {
+  Announcement,
+  AnnouncementLevel,
+  ArticleCard,
+  ArticleKind,
+  ArticleType,
+  FeedItem,
+  HomePayload,
+  HomeQuery,
+  LiveStream,
+} from "./home";
+export {
+  articlesApi,
+  article,
+  articles,
+  createArticle,
+  deleteArticle,
+  isReservedSlug,
+  manageArticles,
+  slugify,
+  updateArticle,
+  AUTHOR_MAX,
+  DEFAULT_LIMIT,
+  EXTERNAL_URL_MAX,
+  IMAGE_URL_MAX,
+  MAX_LIMIT,
+  RESERVED_SLUGS,
+  SLUG_MAX,
+  SUBTITLE_MAX,
+  TAG_MAX,
+  TITLE_MAX,
+} from "./articles";
+export type {
+  ArticleCreate,
+  ArticleQuery,
+  ArticleRecord,
+  ArticleUpdate,
+  ManageQuery,
+} from "./articles";
+export {
+  announcementsApi,
+  announcement,
+  announcements,
+  createAnnouncement,
+  deleteAnnouncement,
+  updateAnnouncement,
+  windowError,
+  LINK_LABEL_MAX,
+  LINK_URL_MAX,
+  MESSAGE_MAX,
+} from "./announcements";
+export type { AnnouncementCreate, AnnouncementUpdate } from "./announcements";
 export {
   seasonApi,
   phaseList,

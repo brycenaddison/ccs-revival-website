@@ -1,124 +1,73 @@
-interface TwitchEmbed {
-  id: string;
-  embed_type: "channel" | "clip" | "youtube";
-  channel_name?: string;
-  clip_url?: string;
-  title?: string;
-  is_active: boolean;
-  sort_order: number;
-}
+/**
+ * The featured Twitch stream, live only.
+ *
+ * `GET /home/live` answers with one stream or `null` — when both configured channels are live,
+ * upstream features the busier one. That is a change from the old panel, which rendered a
+ * hand-curated list of channel, clip and YouTube embeds out of a Supabase table that no longer
+ * exists; there is no clip or VOD surface in the API today, so this shows the live channel or
+ * nothing.
+ *
+ * **`null` renders nothing.** The route is always mounted upstream even with no Twitch credentials
+ * configured, because "nobody is streaming" and "we cannot ask" are the same answer to a page. So
+ * there is no error state to distinguish and no empty box to show — most of the week there simply
+ * is no stream.
+ *
+ * The payload carries a `thumbnailUrl`, but this keeps the iframe player: the panel sits in the
+ * centre column of a page a reader leaves open, and a still image of a live match is worse than the
+ * match. `login` is what the player URL needs, and `parent` is required by Twitch for any embed.
+ */
+
+import { useQuery } from "@tanstack/react-query";
+import { queries } from "../../lib/queries";
 
 interface Props {
-  embeds: TwitchEmbed[];
+  /** `window.location.hostname`. Twitch refuses to embed without a matching `parent`. */
   parentDomain: string;
 }
 
-function extractClipSlug(url: string): string | null {
-  const parts = url.split("/").filter(Boolean);
-  return parts[parts.length - 1] || null;
-}
+export function TwitchStreams({ parentDomain }: Props) {
+  const { data: stream } = useQuery(queries.homeLive());
 
-function extractYoutubeId(url: string): string | null {
-  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
-  return match ? match[1] : null;
-}
-
-export function TwitchStreams({ embeds, parentDomain }: Props) {
-  const activeEmbeds = embeds
-    .filter((e) => e.is_active)
-    .sort((a, b) => a.sort_order - b.sort_order);
-
-  const channels = activeEmbeds.filter((e) => e.embed_type === "channel");
-  const clips = activeEmbeds.filter((e) => e.embed_type === "clip");
-  const youtube = activeEmbeds.filter((e) => e.embed_type === "youtube");
-  const sorted = [...channels, ...clips, ...youtube];
-
-  if (sorted.length === 0) return null;
+  if (!stream) return null;
 
   return (
     <div className="bg-bg2 rounded-lg border border-border overflow-hidden">
-      <div className="px-4 py-3.5 border-b border-border">
-        <span className="font-display text-[15px] text-text-bright tracking-widest">
-          STREAMS & VODS
+      <div className="px-4 py-3.5 border-b border-border flex items-center gap-2.5">
+        <span className="font-display text-[15px] text-text-bright tracking-widest">LIVE NOW</span>
+        <span className="w-1.5 h-1.5 rounded-full bg-ccs-red animate-pulse" aria-hidden />
+        <span className="ml-auto font-mono text-[11px] text-text-muted">
+          {stream.viewers.toLocaleString()} watching
         </span>
       </div>
-      <div className="flex flex-col gap-4 p-4">
-        {sorted.map((embed) => {
-          if (embed.embed_type === "channel" && embed.channel_name) {
-            return (
-              <div key={embed.id}>
-                {embed.title && (
-                  <p className="text-xs text-text-muted font-display tracking-wider mb-2">
-                    {embed.title}
-                  </p>
-                )}
-                <div className="aspect-video overflow-hidden rounded-md">
-                  <iframe
-                    src={`https://player.twitch.tv/?channel=${embed.channel_name}&parent=${parentDomain}&muted=true`}
-                    height="300"
-                    width="100%"
-                    className="border-0 w-full h-full"
-                    allowFullScreen
-                    title={embed.title || embed.channel_name}
-                  />
-                </div>
-              </div>
-            );
-          }
 
-          if (embed.embed_type === "clip" && embed.clip_url) {
-            const slug = extractClipSlug(embed.clip_url);
-            if (!slug) return null;
-
-            return (
-              <div key={embed.id}>
-                <div className="aspect-video overflow-hidden rounded-md">
-                  <iframe
-                    src={`https://clips.twitch.tv/embed?clip=${slug}&parent=${parentDomain}&muted=true`}
-                    height="200"
-                    width="100%"
-                    className="border-0 w-full h-full"
-                    allowFullScreen
-                    title={embed.title || slug}
-                  />
-                </div>
-                {embed.title && (
-                  <p className="text-xs text-text-muted font-display tracking-wider mt-2">
-                    {embed.title}
-                  </p>
-                )}
-              </div>
-            );
-          }
-
-          if (embed.embed_type === "youtube" && embed.clip_url) {
-            const videoId = extractYoutubeId(embed.clip_url);
-            if (!videoId) return null;
-
-            return (
-              <div key={embed.id}>
-                {embed.title && (
-                  <p className="text-xs text-text-muted font-heading tracking-wider mb-2 uppercase">
-                    {embed.title}
-                  </p>
-                )}
-                <div className="aspect-video overflow-hidden rounded-md">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${videoId}`}
-                    width="100%"
-                    className="border-0 w-full h-full"
-                    allowFullScreen
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    title={embed.title || "YouTube video"}
-                  />
-                </div>
-              </div>
-            );
-          }
-
-          return null;
-        })}
+      <div className="aspect-video">
+        <iframe
+          src={`https://player.twitch.tv/?channel=${encodeURIComponent(stream.login)}&parent=${encodeURIComponent(parentDomain)}&muted=true`}
+          className="border-0 w-full h-full"
+          allowFullScreen
+          title={stream.title || stream.displayName}
+        />
       </div>
+
+      <a
+        href={stream.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block px-4 py-3 no-underline group"
+      >
+        <p className="text-[13px] text-text leading-snug m-0 truncate group-hover:text-accent transition-colors">
+          {stream.title || stream.displayName}
+        </p>
+        <div className="flex items-center gap-2 mt-1 text-[10px] text-text-muted">
+          <span className="font-heading uppercase tracking-wider">{stream.displayName}</span>
+          {stream.gameName && (
+            <>
+              <span>·</span>
+              <span>{stream.gameName}</span>
+            </>
+          )}
+        </div>
+      </a>
     </div>
   );
 }

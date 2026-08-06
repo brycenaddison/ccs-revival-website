@@ -21,7 +21,7 @@ import { fmtSec } from "../../lib/api";
 import type { SeriesGame, SeriesSide } from "../../lib/api";
 import { useChampions } from "../../hooks/useChampions";
 import type { ChampionLookup } from "../../lib/championData";
-import { ChampionIcon } from "./ChampionIcon";
+import { ChampionIcon } from "../ChampionIcon";
 import { TeamNameLink, type TeamNamer } from "./TeamNameLink";
 
 const BLUE = "#3b82f6";

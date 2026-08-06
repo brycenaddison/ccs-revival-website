@@ -117,54 +117,20 @@ export interface Split {
   seasons?: { name: string };
 }
 
-export interface Article {
-  id: string;
-  title: string;
-  subtitle?: string;
-  body?: string;
-  tag?: string;
-  article_type?: string;
-  author?: string;
-  published_at?: string;
-  is_published?: boolean;
-  image_url?: string;
-}
-
-export interface TwitterFeed {
-  id: string;
-  feed_type: "timeline" | "tweet";
-  handle?: string;
-  tweet_url?: string;
-  title?: string;
-  is_active: boolean;
-  sort_order: number;
-  created_at?: string;
-}
-
-export interface TwitchEmbed {
-  id: string;
-  embed_type: "channel" | "clip" | "youtube";
-  channel_name?: string;
-  clip_url?: string;
-  title?: string;
-  is_active: boolean;
-  sort_order: number;
-  created_at?: string;
-}
-
 /**
  * What the shared league loader provides. Player leaderboards, the season document and the fixture feed
  * are not here: each needs its own request, so they load through `usePlayers`, `useSeason` and
  * `useScheduleFeed` only where they are shown.
+ *
+ * Articles and socials aren't here either. They were, as `Article`, `TwitterFeed` and `TwitchEmbed`
+ * — three Supabase-shaped types the loader filled with empty arrays because nothing served them.
+ * `GET /home` does now, and its payload is mapped in `lib/api/home.ts` like every other endpoint.
  */
 export interface LeagueData {
   teams: Team[];
   standings: Standing[];
   rosters: Roster[];
-  articles: Article[];
   splits: Split[];
-  twitterFeeds: TwitterFeed[];
-  twitchEmbeds: TwitchEmbed[];
   loading: boolean;
   error: string | null;
   refresh: () => void;

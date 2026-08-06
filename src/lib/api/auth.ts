@@ -49,8 +49,25 @@ export interface Identity {
   leagues: AdminLeague[];
 }
 
-/** The one role the API grants today. Site admin implies league admin everywhere. */
+/**
+ * Site admin. Implies league admin everywhere, and satisfies every other role's guard.
+ *
+ * The only one that is **not assignable through the API** — `ASSIGNABLE_ROLES` omits it upstream and
+ * `setRoles` preserves one already on a row, so the role editor can neither grant nor revoke it.
+ * Every route that hands out authority is reachable by an admin, so an assignable one would let a
+ * single compromised session mint a permanent second. It is granted by hand-written SQL.
+ */
 export const SITE_ADMIN_ROLE = "admin";
+
+/**
+ * Article CRUD, drafts included — the writers' portal at `/content`.
+ *
+ * A site admin satisfies this too, and the check is an explicit OR at every call site rather than a
+ * hierarchy baked into `hasRole`. That mirrors the API, whose guard builder has no implicit ranking:
+ * a route that wants an admin to pass has to say so. `content` says so, on the reasoning that an
+ * admin could grant themselves the role in one request anyway.
+ */
+export const CONTENT_ROLE = "content";
 
 export const ANONYMOUS: Identity = { authenticated: false, profile: null, roles: [], leagues: [] };
 

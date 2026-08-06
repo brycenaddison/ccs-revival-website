@@ -12,6 +12,7 @@ import {
 } from "../../lib/api";
 import { queries } from "../../lib/queries";
 import { joinRoster, type JoinedRoster } from "../../lib/roster";
+import { ChampionIcon } from "../ChampionIcon";
 import { TeamLink } from "../league/TeamLink";
 
 interface Props {
@@ -84,7 +85,7 @@ function StatCells({ p }: { p: PlayerStatsRanked | null }) {
       <td className="py-2.5 px-2">
         <div className="flex gap-1">
           {p.champs.slice(0, 3).map(ch => (
-            <img key={ch.champid} src={ch.img} alt={ch.name} title={`${ch.name} (${ch.picks ?? 0}p)`} loading="lazy" decoding="async" className="w-6 h-6 rounded" />
+            <ChampionIcon key={ch.champid} src={ch.img} name={ch.name} title={`${ch.name} (${ch.picks ?? 0}p)`} className="flex shrink-0" />
           ))}
         </div>
       </td>
@@ -260,7 +261,7 @@ export function TeamDetailPanel({ conf, code, onBack, onSelectMatch }: Props) {
               <div className="flex flex-wrap gap-2">
                 {team.bannedAgainst.slice(0, 10).map(b => (
                   <div key={b.championId} className="flex items-center gap-2 bg-bg3 border border-border rounded px-2 py-1">
-                    <img src={b.img} alt={b.name} loading="lazy" decoding="async" className="w-6 h-6 rounded" />
+                    <ChampionIcon src={b.img} name={b.name} className="flex shrink-0" />
                     <span className="text-xs">{b.name}</span>
                     <span className="text-xs text-text-dim font-mono">{b.bans}x</span>
                   </div>
@@ -272,7 +273,7 @@ export function TeamDetailPanel({ conf, code, onBack, onSelectMatch }: Props) {
               <div className="flex flex-wrap gap-2">
                 {team.bannedBy.slice(0, 10).map(b => (
                   <div key={b.championId} className="flex items-center gap-2 bg-bg3 border border-border rounded px-2 py-1">
-                    <img src={b.img} alt={b.name} loading="lazy" decoding="async" className="w-6 h-6 rounded" />
+                    <ChampionIcon src={b.img} name={b.name} className="flex shrink-0" />
                     <span className="text-xs">{b.name}</span>
                     <span className="text-xs text-text-dim font-mono">{b.bans}x</span>
                   </div>

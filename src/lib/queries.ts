@@ -13,7 +13,13 @@
 import { keepPreviousData } from "@tanstack/react-query";
 import {
   adminUser,
+  announcements,
+  article,
+  articles,
   championStats,
+  home,
+  homeLive,
+  manageArticles,
   gameCandidates,
   matchCodes,
   matchData,
@@ -37,8 +43,10 @@ import {
   teamsForConf,
   tournaments,
   unscheduledGames,
+  type ArticleQuery,
   type FeedPage,
   type FeedQuery,
+  type ManageQuery,
   type Role,
 } from "./api";
 
@@ -61,6 +69,25 @@ const LEAGUE_STALE = MINUTE;
  * league data above would leave a series reading `upcoming` a minute after it kicked off.
  */
 const FEED_STALE = 15_000;
+
+/**
+ * How long the home page's content stays fresh — the banner, the article rail and the social feed.
+ *
+ * Matched to `/home`'s own `Cache-Control: max-age=300`, for the same reason `FEED_STALE` matches
+ * the schedule feed's `max-age=15`: the server has already decided how stale this may be, and a
+ * client that disagrees either refetches behind a CDN copy it cannot bust or holds one past the
+ * point the server thought it would. Articles move a few times a week, so five minutes is invisible.
+ */
+const HOME_STALE = 5 * MINUTE;
+
+/**
+ * The Twitch check, on its own key and its own clock — `/home/live`'s `max-age=30`.
+ *
+ * This is the entire reason upstream split the two routes: a live badge has to move within the
+ * minute, and folding it into `/home` would drag the article rail down to a 30-second TTL and
+ * multiply the read traffic tenfold for one badge.
+ */
+const LIVE_STALE = 30_000;
 
 /**
  * Identity helper. Keeps the literal type of `queryKey` without depending on the library's own
@@ -266,6 +293,81 @@ export const queries = {
     }),
 
   /**
+   * The home page's own payload — banner, article rail and social feed in one call.
+   *
+   * Keyed on the conf because the filter **widens**: `?conf=wed` returns that league's rows *plus*
+   * the site-wide ones, so two confs are two genuinely different answers rather than one being a
+   * subset to filter down from.
+   *
+   * Every surface that reads a piece of this shares the key: the announcement card, the article
+   * rail and the social feed are three components and one request. The announcements editor reads
+   * it too — that is how it knows which banner is live — which is free, because by then the home
+   * page has usually already fetched it.
+   */
+  home: (conf?: string) =>
+    query({
+      queryKey: ["home", conf ?? "all"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => home({ conf, limit: 10 }, { signal }),
+      staleTime: HOME_STALE,
+    }),
+
+  /** The featured Twitch stream. Its own key so its 30s clock doesn't drag `home` down with it. */
+  homeLive: () =>
+    query({
+      queryKey: ["home", "live"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => homeLive({ signal }),
+      staleTime: LIVE_STALE,
+    }),
+
+  /**
+   * The `/news` index. Paged by `offset`, so each page is its own entry and going back is instant.
+   *
+   * A plain paged query rather than an infinite one, unlike `scores`: there is a real `offset`
+   * here, so a page is addressable directly and doesn't need the window-as-cursor trick that the
+   * fixture feed's missing `offset` forced.
+   */
+  articles: (q: ArticleQuery) =>
+    query({
+      queryKey: ["articles", "list", q] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => articles(q, { signal }),
+      staleTime: HOME_STALE,
+      placeholderData: keepPreviousData,
+    }),
+
+  /** One published article, for `/news/:slug`. `null` for a draft or an unknown slug alike. */
+  article: (slug: string | null) =>
+    query({
+      queryKey: ["articles", "one", slug] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        slug === null ? Promise.resolve(null) : article(slug, { signal }),
+      enabled: slug !== null,
+      staleTime: HOME_STALE,
+    }),
+
+  /**
+   * The writers' list, drafts included. `staleTime: 0` and no focus refetch, like the other editor
+   * reads below — this backs a form, and a list that moves under a half-finished edit is worse
+   * than one refetched on mount.
+   */
+  manageArticles: (q: ManageQuery) =>
+    query({
+      queryKey: ["articles", "manage", q] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => manageArticles(q, { signal }),
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+      placeholderData: keepPreviousData,
+    }),
+
+  /** Every banner, retired included. An editor read, so never cached. */
+  announcements: () =>
+    query({
+      queryKey: ["announcements"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => announcements({ signal }),
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+    }),
+
+  /**
    * The admin user directory, one page of it.
    *
    * `staleTime: 0` unlike everything above: this reads roles, and a role list is exactly the thing
@@ -399,6 +501,20 @@ export const queries = {
 /** Key prefixes, for invalidating a whole family on refresh. */
 export const queryRoots = {
   teams: ["teams"] as const,
+  /**
+   * The home payload and the Twitch check.
+   *
+   * **Both content editors must invalidate this alongside their own root.** `/home` carries its own
+   * copy of the article rail and the active banner, so publishing an article while invalidating
+   * only `["articles"]` leaves the home page serving the old rail for five minutes — the surface
+   * the writer was actually editing for. Same shape of trap as `queryRoots.season` covering the
+   * public season read.
+   */
+  home: ["home"] as const,
+  /** The public index, one article, and the writers' list. */
+  articles: ["articles"] as const,
+  /** The banner list behind the site-admin editor. The public copy lives under `home`. */
+  announcements: ["announcements"] as const,
   standings: ["standings"] as const,
   stats: ["stats"] as const,
   /** The league list. Invalidated by the admin league editor, which is the only thing that writes it. */

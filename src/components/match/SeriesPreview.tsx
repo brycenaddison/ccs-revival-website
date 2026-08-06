@@ -35,7 +35,7 @@ import { joinRoster, type RosterEntry } from "../../lib/roster";
 import { fmtRelativeDay } from "../../lib/utils";
 import { TeamBadge } from "../TeamBadge";
 import { TeamLink } from "../league/TeamLink";
-import { ChampionIcon } from "./ChampionIcon";
+import { ChampionIcon } from "../ChampionIcon";
 import { HeadToHead, asOne, asPct, asRatio, compare, compareText, type ComparisonRow } from "./HeadToHead";
 
 interface Props {
@@ -165,17 +165,32 @@ function SeasonComparison({ a, b }: { a: TeamDetail; b: TeamDetail }) {
  * Widths are declared rather than left to the browser because the alternative is what this table used to
  * do: distribute the slack to whichever column had the loosest content, which put a hundred pixels of
  * nothing beside three champion icons and pushed the rest off the card.
+ *
+ * **Every width holds its widest content plus its `px-2`, and that is not negotiable.** Under
+ * `table-fixed` a cell narrower than its `whitespace-nowrap` contents doesn't grow, it *overflows* —
+ * the text runs under the neighbouring column and the two read as one smudged number. `K / D / A` at
+ * 92px was ~120px of monospace, which is why it collided with `DMG/M`. Sized from the worst realistic
+ * line (`10.4 / 10.2 / 15.6`, 18 monospace characters at 11px ≈ 119px) rather than the typical one.
+ * The slack all comes out of Player, which had far more than it could use.
  */
 const STARTER_COLUMNS = [
   { label: "GP", width: "w-[38px]" },
-  { label: "KDA", width: "w-[46px]" },
-  { label: "K / D / A", width: "w-[92px]" },
-  { label: "CS/M", width: "w-[46px]" },
-  { label: "DMG/M", width: "w-[52px]" },
-  { label: "GOLD/M", width: "w-[54px]" },
-  { label: "KP", width: "w-[44px]" },
-  { label: "WIN%", width: "w-[48px]" },
+  { label: "KDA", width: "w-[50px]" },
+  { label: "K / D / A", width: "w-[136px]" },
+  { label: "CS/M", width: "w-[50px]" },
+  { label: "DMG/M", width: "w-[56px]" },
+  { label: "GOLD/M", width: "w-[58px]" },
+  { label: "KP", width: "w-[50px]" },
+  { label: "WIN%", width: "w-[56px]" },
 ] as const;
+
+/**
+ * The Champs column: three 24px icons, two 6px gaps, `pl-2 pr-4` — 108px exactly.
+ *
+ * 86px held 104px of icons, so the row's last column overhung `WIN%`. Declared as one constant
+ * because the header and the cell have to agree on it and a drifting pair is what caused the overlap.
+ */
+const CHAMPS_WIDTH = "w-[108px]";
 
 /**
  * The five declared starters with their season lines.
@@ -208,9 +223,9 @@ function Starters({ team, conf }: { team: TeamDetail; conf: string }) {
         <p className="px-4 py-3 text-xs text-text-dim">No roster set for this team.</p>
       ) : (
         <div className="overflow-x-auto">
-          {/* `min-w-[620px]` is the point below which the fixed columns alone won't fit; under that the
+          {/* `min-w-[800px]` is the point below which the fixed columns alone won't fit; under that the
               wrapper scrolls rather than crushing them. On a desktop card it never applies. */}
-          <table className="w-full min-w-[620px] table-fixed border-collapse">
+          <table className="w-full min-w-[800px] table-fixed border-collapse">
             <thead>
               <tr className="border-b border-border">
                 {/*
@@ -235,7 +250,9 @@ function Starters({ team, conf }: { team: TeamDetail; conf: string }) {
                     {label}
                   </th>
                 ))}
-                <th className="w-[86px] whitespace-nowrap py-2 pl-2 pr-4 text-right font-heading text-[9px] font-normal uppercase tracking-wider text-text-dim">
+                <th
+                  className={`${CHAMPS_WIDTH} whitespace-nowrap py-2 pl-2 pr-4 text-right font-heading text-[9px] font-normal uppercase tracking-wider text-text-dim`}
+                >
                   Champs
                 </th>
               </tr>
@@ -298,18 +315,17 @@ function StarterRow({ entry }: { entry: RosterEntry<PlayerStatsRanked> }) {
           </td>
           <td className="py-2 px-2 text-right font-mono text-[11px] text-text-muted">{fmtPct(p.winPercent)}</td>
           <td className="py-2 pl-2 pr-4">
-            <div className="flex justify-end gap-1">
-              {/* The served icon rather than the DDragon lookup, because `Champ` carries a resolved
-                  `img` and a `picks` count that the lookup has no idea about. */}
+            <div className="flex justify-end gap-1.5">
+              {/* `src` rather than a lookup, because `Champ` already carries the resolved icon — and
+                  it is the same URL the lookup would build, so the two paths can't disagree. */}
               {p.champs.slice(0, 3).map(ch => (
-                <img
+                <ChampionIcon
                   key={ch.champid}
                   src={ch.img}
-                  alt={ch.name}
+                  name={ch.name}
                   title={`${ch.name} — ${ch.picks ?? 0} game${ch.picks === 1 ? "" : "s"}`}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-6 w-6 rounded"
+                  size={24}
+                  className="flex shrink-0"
                 />
               ))}
             </div>
@@ -337,7 +353,8 @@ const LANES: readonly MatchlistRoleKey[] = ["top", "jg", "mid", "bot", "sup"];
  *
  * The champions are the point of showing a dozen rather than a handful: five icons a row is a read on what
  * a team actually plays, which three rows of it isn't. They come off `roles`, which carries a champion
- * **name** rather than an id — `ChampionIcon` resolves either.
+ * **name** and no icon — the one place on the site that resolves artwork from a name rather than an id,
+ * and so the only place a name-keyed index being wrong was ever visible. See `lib/championData.ts`.
  */
 function RecentGames({ team, conf }: { team: TeamDetail; conf: string }) {
   const champions = useChampions();

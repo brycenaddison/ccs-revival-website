@@ -34,6 +34,7 @@ import {
 } from "../../lib/statGroups";
 import { int, pct } from "../../lib/statFormat";
 import { MIN_PICKS_OPTIONS, ROLE_FILTERS } from "../../lib/statUi";
+import { ChampionIcon } from "../ChampionIcon";
 import { StatGroupSwitcher } from "./StatGroupSwitcher";
 import { StatTile } from "./StatTile";
 import { HighlightChip, HighlightPanel } from "./HighlightPanel";
@@ -306,7 +307,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
           </>}
           renderName={c => (
             <div className="flex items-center gap-2">
-              {c.img && <img src={c.img} alt="" loading="lazy" className="w-7 h-7 rounded shrink-0" />}
+              <ChampionIcon src={c.img} size={28} decorative className="flex shrink-0" />
               <span className="font-heading font-bold text-text-bright">{c.name}</span>
             </div>
           )}
