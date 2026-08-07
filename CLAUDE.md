@@ -40,6 +40,8 @@ you find it wrong, fix it in the same change.
 | `src/lib/authContext.tsx` | `AuthProvider`, `useAuth()`. Session identity, roles, `hasRole`, `logout`, `refresh`. |
 | `src/lib/leagueContext.tsx` | `LeagueProvider`, `useLeague()`, `useSeasonLink()`. Owns the `?conf=` param (`CONF_PARAM`, `CURRENT`) and the tournament list. |
 | `src/lib/tabs.ts` | `TABS` — the nav registry. Tabs without `standalone` all render `Home`; `tabForPathname` resolves the active one. |
+| `src/assets/` | Build-bundled artwork. `ccs-logo.png` is the shared desktop/mobile brand mark rendered by `NavBar`. |
+| `static/` | Vite's configured `publicDir`: favicon files, Apple touch icon, Android/PWA icons, and `site.webmanifest`. Assets here are served and copied to the build root. |
 
 Routes: `/` + the non-standalone `TABS` paths → `Home`; `/scores`, `/schedule`, `/stats`, `/info`,
 `/teams/:conf/:code`, `/match/:id`, `/game/:matchId`, `/register`, `/login`,

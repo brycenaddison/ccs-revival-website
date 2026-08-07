@@ -217,7 +217,7 @@ function Leader({
 
   return (
     <div className="flex items-baseline gap-2 border-b border-border/50 py-1.5 last:border-b-0">
-      <span className="w-[68px] shrink-0 font-heading text-[9px] uppercase tracking-wider text-text-dim">
+      <span className="w-17 shrink-0 font-heading text-[9px] uppercase tracking-wider text-text-dim">
         {label}
       </span>
       <span className="flex min-w-0 grow items-baseline gap-1.5">

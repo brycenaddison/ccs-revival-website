@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import ccsLogo from "../../assets/ccs-logo.png";
 import { ThemeToggle } from "../ThemeToggle";
 import { AuthControl } from "../auth/AuthControl";
 import { SeasonPicker } from "../league/SeasonPicker";
@@ -12,6 +13,22 @@ interface Props {
 }
 
 const EXTERNAL_LINKS = [{ label: "Merch", href: "https://classicchampionshipseries.itemorder.com/shop/sale/" }];
+
+function CcsBrand({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className={`flex items-center ${compact ? "gap-2" : "gap-3"}`}>
+      <img
+        src={ccsLogo}
+        alt=""
+        aria-hidden="true"
+        className={`${compact ? "h-7" : "h-8"} w-auto shrink-0 object-contain`}
+      />
+      <span className={`font-display text-text-bright tracking-widest ${compact ? "text-xl" : "text-[22px]"}`}>
+        CCS
+      </span>
+    </div>
+  );
+}
 
 /**
  * Pages that aren't showing league data, where a season selector would be a control over nothing.
@@ -74,11 +91,8 @@ export function NavBar({ isMobile }: Props) {
       // what the drawer's `absolute top-full` needs.
       <nav className="bg-bg2 border-b-2 border-accent sticky top-0 z-[150]">
         <div className="flex items-center justify-between gap-2 px-4">
-          <div className="flex items-center gap-2 py-2.5 shrink-0">
-            <span className="text-xl">⚔️</span>
-            <span className="font-display text-xl text-text-bright tracking-widest">
-              CCS
-            </span>
+          <div className="py-2.5 shrink-0">
+            <CcsBrand compact />
           </div>
           {/* Between the mark and the hamburger, so which season you're viewing stays visible
               without opening the menu. `min-w-0` lets it give up space before the logo does. */}
@@ -158,10 +172,7 @@ export function NavBar({ isMobile }: Props) {
     // beneath it, which the desktop branch previously had no reason to declare.
     <nav className="bg-bg2 border-b-2 border-accent w-full px-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4 sticky top-0 z-[150]">
       <div className="justify-self-start flex items-center gap-3 py-3 min-w-fit">
-        <span className="text-[22px]">⚔️</span>
-        <span className="font-display text-[22px] text-text-bright tracking-widest">
-          CCS
-        </span>
+        <CcsBrand />
         {season && (
           <div className="flex items-center gap-2 text-[11px]">
             {season}
