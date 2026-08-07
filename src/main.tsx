@@ -18,6 +18,7 @@ import LeagueAdmin from './pages/LeagueAdmin'
 import ContentPortal from './pages/ContentPortal'
 import News from './pages/News'
 import Article from './pages/Article'
+import Info from './pages/Info'
 import NotFound from './pages/NotFound'
 import { LeagueProvider } from './lib/leagueContext'
 import { AuthProvider } from './lib/authContext'
@@ -77,6 +78,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   sees one when a URL was shared. */}
               <Route path="/news" element={<News />} />
               <Route path="/news/:slug" element={<Article />} />
+              <Route path="/info" element={<Info />} />
               {/* Each settings area is two routes rather than one optional `:section?` segment.
                   The no-slug form is a real state — it's the mobile section list, and on desktop it
                   redirects to the first section — so spelling both out keeps that explicit. */}

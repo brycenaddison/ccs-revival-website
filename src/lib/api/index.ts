@@ -1,6 +1,17 @@
 export { api, tournaments, teams, teamsForConf, teamDetail, standings, playerStats, teamStats, championStats, statTotals, records, scoutIndex, scout, matchData, articleViews, bumpArticleView, mapTeamRecord, mapTournament } from "./client";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
 export type { RequestOpts } from "./http";
+export {
+  infoApi,
+  leagueInfo,
+  manageLeagueInfo,
+  saveLeagueInfo,
+  INFO_LINK_LABEL_MAX,
+  INFO_LINK_MAX,
+  INFO_LINK_URL_MAX,
+  INFO_TITLE_MAX,
+} from "./info";
+export type { InfoLink, LeagueInfo, LeagueInfoInput } from "./info";
 export { auth, ANONYMOUS, isRiotLinkMessage, riotLinkUrl, CONTENT_ROLE, SITE_ADMIN_ROLE } from "./auth";
 export type { AdminLeague, Identity, RiotLinkMessage, RiotLinkStatus, SessionProfile } from "./auth";
 export {
@@ -10,8 +21,11 @@ export {
   revokeLeague,
   searchUsers,
   setLeagueScopes,
+  setSiteRoles,
   updateLeague,
+  isAssignableSiteRole,
   isLeagueScope,
+  ASSIGNABLE_SITE_ROLES,
   CONF_PATTERN,
   LEAGUE_ADMIN_SCOPE,
   LEAGUE_SCOPES,
@@ -19,6 +33,7 @@ export {
   SHORTNAME_MAX,
 } from "./admin";
 export type {
+  AssignableSiteRole,
   DirectoryPage,
   DirectoryUser,
   LeagueCreate,

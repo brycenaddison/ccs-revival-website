@@ -1,31 +1,22 @@
 /**
- * A native article's body.
+ * Editorial Markdown shared by native articles and league Info pages.
  *
- * `articles.body` is free text a writer typed, rendered on a public page, so the safety decisions
- * live here in one file rather than at the call site.
+ * These bodies are free text typed in an authenticated editor and rendered publicly, so the safety
+ * decisions live here rather than at either call site.
  *
  * **Do not add `rehype-raw`.** react-markdown does not render raw HTML by default, and that default
- * *is* the XSS story for this field — a `<script>` or an `<img onerror=…>` in a body comes out as
- * visible text. `rehype-raw` is precisely what a future reader will reach for when they see an
- * escaped tag and assume it is a bug; it is not, and turning it on would make every article body an
- * injection point. If real HTML is ever needed, sanitize with `rehype-sanitize` in the same change.
- *
- * The default `urlTransform` is also kept, which strips `javascript:` and `data:` hrefs. Upstream
- * already refuses those on `imageUrl`/`externalUrl`, but nothing validates URLs *inside* a body.
- *
- * Everything else here is typography: react-markdown emits bare tags, and the page has a type scale.
+ * is the XSS boundary for these fields. The default `urlTransform` is also kept, which strips
+ * unsafe protocols from links and images inside a body.
  */
 
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
-interface Props {
-  body: string;
-}
-
-export function Markdown({ body }: Props) {
+export function Markdown({ body }: { body: string }) {
   return (
     <div className="text-text text-[15px] leading-relaxed">
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
             <h2 className="font-display text-[26px] text-text-bright tracking-widest mt-8 mb-3 first:mt-0">
@@ -82,6 +73,27 @@ export function Markdown({ body }: Props) {
           ),
           strong: ({ children }) => (
             <strong className="text-text-bright font-semibold">{children}</strong>
+          ),
+          del: ({ children }) => <del className="text-text-dim">{children}</del>,
+          table: ({ children }) => (
+            <div className="overflow-x-auto mb-5 rounded-lg border border-border">
+              <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                {children}
+              </table>
+            </div>
+          ),
+          thead: ({ children }) => <thead className="bg-bg3">{children}</thead>,
+          tbody: ({ children }) => <tbody className="divide-y divide-border">{children}</tbody>,
+          tr: ({ children }) => <tr className="align-top">{children}</tr>,
+          th: ({ children }) => (
+            <th className="border-r border-border px-3 py-2 font-heading text-xs font-normal uppercase tracking-wider text-text-bright last:border-r-0">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="border-r border-border px-3 py-2 text-text-secondary last:border-r-0">
+              {children}
+            </td>
           ),
         }}
       >

@@ -41,7 +41,7 @@ you find it wrong, fix it in the same change.
 | `src/lib/leagueContext.tsx` | `LeagueProvider`, `useLeague()`, `useSeasonLink()`. Owns the `?conf=` param (`CONF_PARAM`, `CURRENT`) and the tournament list. |
 | `src/lib/tabs.ts` | `TABS` — the nav registry. Tabs without `standalone` all render `Home`; `tabForPathname` resolves the active one. |
 
-Routes: `/` + the non-standalone `TABS` paths → `Home`; `/scores`, `/schedule`, `/stats`,
+Routes: `/` + the non-standalone `TABS` paths → `Home`; `/scores`, `/schedule`, `/stats`, `/info`,
 `/teams/:conf/:code`, `/match/:id`, `/game/:matchId`, `/register`, `/login`,
 `/settings/:section?`, `/admin/:section?`, `/league/:conf/admin/:section?`, `*` → `NotFound`.
 
@@ -57,6 +57,7 @@ Import from the barrel: `import { … } from "../lib/api"` (`index.ts` re-export
 | `client.ts` | Public reads: tournaments, teams, standings, stats, records, scout, match data. |
 | `feed.ts` | The public fixture feed + one series in full (`scheduleFeed`, `matchResult`). |
 | `profiles.ts` | `GET /profiles/:id/accounts` — one profile's linked Riot accounts with live rank. The only public read that hits Riot at request time, so entries degrade one at a time and `ranked: null` (Riot declined) is not `ranked: []` (unranked). |
+| `info.ts` | League Info documents: public `GET /:conf/info`, draft-aware `GET /:conf/info/manage`, and complete-document `PUT /:conf/info`. Ordered quick links plus Markdown; writes require full admin access to that conf. |
 | `seasonView.ts` | `GET /:conf/season` — the season **as rendered**. See below. |
 | `season.ts` | `GET /:conf/phases` — the season's **structure**, site-admin only. See below. |
 | `schedule.ts` | League-admin schedule surface: matches, forfeits, tournament codes, game linking. |
@@ -99,6 +100,9 @@ draft-backed editors also set `refetchOnWindowFocus: false`).
 - `ChampionIcon.tsx` — **the only way a champion's square icon reaches the screen.** Takes either an
   API-served URL (`src`) or an id/name plus the `useChampions()` lookup; both resolve to the same
   Community Dragon URL, which is the point. Don't write a bare `<img>` for a champion.
+- `Markdown.tsx` — the shared safe renderer for native article bodies and league Info pages. It uses
+  `remark-gfm` for pipe tables, autolinks, task lists and strikethrough; raw HTML stays disabled. Do
+  not introduce a second Markdown policy in a feature folder.
 - `home/`, `league/`, `match/`, `season/`, `stats/`, `views/` — feature areas.
 - `src/_disabled/` — the dead Supabase-era dashboard, kept for reference only. **Never import
   from it.** It shows what a screen used to do, not how to build one now.
@@ -113,6 +117,12 @@ relevant page — the sidebar, links, mobile drill-down and active state all fol
 `src/lib/settingsAreas.ts` defines `SettingsSection` / `SettingsArea` / `sectionForSlug`.
 `src/lib/adminAccess.ts` — `useAdminAccess()` composes role + resource: `isSiteAdmin`,
 `leagues`, `canAdminLeague(conf)`, `ready`.
+
+League Admin → Info Page is `src/components/league/info/InfoSection.tsx`. There is exactly one
+document per conf, so it uses a complete-document `PUT`; link order is editor-owned and must never
+be sorted in the client. The reader is the standalone `/info` tab in `src/pages/Info.tsx`, mounts the
+shared scoreboard ticker like the other public data tabs, and renders every conf when the `current`
+selection resolves to concurrent leagues.
 
 ### Deliverables
 

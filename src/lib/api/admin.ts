@@ -20,9 +20,8 @@ import type { Tournament } from "./types";
 /**
  * Every scope a league grant may carry, mirroring `LEAGUE_SCOPES` upstream.
  *
- * Only `admin` is issued today and it implies the other three **within its own conf**. The rest
- * exist because `league_admins` is keyed by scope, so narrowing a grant later is a new row rather
- * than a migration — which is why the editor offers all four.
+ * `admin` implies the other three **within its own conf**. Granular grants are separate rows because
+ * `league_admins` is keyed by scope, which is why the editor offers all four.
  */
 export const LEAGUE_SCOPES = ["admin", "schedule", "roster", "stats"] as const;
 
@@ -33,6 +32,18 @@ export const LEAGUE_ADMIN_SCOPE: LeagueScope = "admin";
 
 export function isLeagueScope(value: unknown): value is LeagueScope {
   return typeof value === "string" && (LEAGUE_SCOPES as readonly string[]).includes(value);
+}
+
+/** Site-wide roles the admin API may grant. `admin` is deliberately absent and remains SQL-only. */
+export const ASSIGNABLE_SITE_ROLES = ["content", "viewer"] as const;
+
+export type AssignableSiteRole = (typeof ASSIGNABLE_SITE_ROLES)[number];
+
+export function isAssignableSiteRole(value: unknown): value is AssignableSiteRole {
+  return (
+    typeof value === "string" &&
+    (ASSIGNABLE_SITE_ROLES as readonly string[]).includes(value)
+  );
 }
 
 /** One `league_admins` row, joined to the conf's display name. */
@@ -57,7 +68,7 @@ export interface DirectoryUser {
   name: string | null;
   handle: string | null;
   avatar: string;
-  /** Site-wide roles. Granted by hand-written SQL upstream; this API cannot change them. */
+  /** Site-wide roles. `content` and `viewer` are assignable; `admin` remains hand-written SQL. */
   roles: string[];
   leagues: LeagueGrant[];
   /** How many Riot accounts are linked. */
@@ -112,6 +123,9 @@ const strOrNull = (v: unknown): string | null => (typeof v === "string" && v !==
 const int = (v: unknown, fallback = 0): number =>
   typeof v === "number" && Number.isFinite(v) ? v : fallback;
 
+const mapRoles = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((role): role is string => typeof role === "string") : [];
+
 /**
  * Grants are dropped rather than repaired when the scope is unrecognised.
  *
@@ -136,7 +150,7 @@ function mapUser(raw: unknown): DirectoryUser {
     name: strOrNull(u.name),
     handle: strOrNull(u.handle),
     avatar: typeof u.avatar === "string" ? u.avatar : "",
-    roles: Array.isArray(u.roles) ? u.roles.filter((r): r is string => typeof r === "string") : [],
+    roles: mapRoles(u.roles),
     leagues: mapGrants(u.leagues),
     accounts: int(u.accounts),
     lastLogin: strOrNull(u.lastLogin),
@@ -193,6 +207,22 @@ export function adminUser(profileId: number, opts?: RequestOpts): Promise<Direct
       if (e instanceof ApiError && e.status === 404) return null;
       throw e;
     });
+}
+
+/**
+ * Sets every API-assignable site role on a profile. The server preserves an existing `admin` role,
+ * so this editor can neither grant nor accidentally revoke the SQL-only authority above it.
+ */
+export function setSiteRoles(
+  profileId: number,
+  roles: readonly AssignableSiteRole[],
+  opts?: RequestOpts,
+): Promise<string[]> {
+  return adminRequest(
+    `/admin/users/${profileId}/roles`,
+    { method: "PUT", body: { roles } },
+    opts,
+  ).then(raw => mapRoles(asRaw(raw).roles));
 }
 
 /**
@@ -257,6 +287,7 @@ export function updateLeague(
 export const adminApi = {
   searchUsers,
   adminUser,
+  setSiteRoles,
   setLeagueScopes,
   revokeLeague,
   createLeague,

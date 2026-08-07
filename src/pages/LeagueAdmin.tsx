@@ -13,7 +13,7 @@
 
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { CalendarDays, ClipboardList, GitFork, Users, UsersRound } from "lucide-react";
+import { BookOpen, CalendarDays, ClipboardList, GitFork, Users, UsersRound } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
@@ -21,6 +21,7 @@ import { ComingSoon } from "../components/settings/SettingsSection";
 import { LeaguePicker } from "../components/settings/LeaguePicker";
 import { ScheduleSection } from "../components/league/schedule/ScheduleSection";
 import { BracketSection } from "../components/league/bracket/BracketSection";
+import { InfoSection } from "../components/league/info/InfoSection";
 import { useAdminAccess } from "../lib/adminAccess";
 import { sectionForSlug, type SettingsArea, type SettingsSection } from "../lib/settingsAreas";
 
@@ -31,6 +32,13 @@ import { sectionForSlug, type SettingsArea, type SettingsSection } from "../lib/
 // is site-admin work and Site Admin → Leagues is where it happens; a tab that could only ever say
 // "coming soon" was a section an admin opened once and learned nothing from.
 const SECTIONS: readonly SettingsSection[] = [
+  {
+    slug: "info",
+    label: "Info Page",
+    icon: BookOpen,
+    description: "Quick links and important information shown on this league's public Info page.",
+    Component: InfoSection,
+  },
   {
     slug: "teams",
     label: "Teams",

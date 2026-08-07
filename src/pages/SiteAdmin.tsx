@@ -5,10 +5,9 @@
  * editor. The rest are placeholders, and each names the endpoint that unblocks it; see
  * `API-GAP-ANALYSIS.md` for the full remaining surface.
  *
- * `SITE_ADMIN_ROLE` is the only role the API grants today, and it implies league admin everywhere —
- * see `lib/adminAccess.ts`. The gate below is the same answer the API gives: every route under
- * `/admin` is site-admin only, never a league grant, because this is the surface that hands league
- * grants *out*.
+ * `SITE_ADMIN_ROLE` implies league admin everywhere — see `lib/adminAccess.ts`. The gate below is
+ * the same answer the API gives: every route under `/admin` is site-admin only, never a league
+ * grant, because this is the surface that hands site roles and league grants *out*.
  */
 
 import { useParams } from "react-router-dom";
@@ -32,7 +31,7 @@ const AREA: SettingsArea = {
       slug: "roles",
       label: "Roles & Permissions",
       icon: ShieldCheck,
-      description: "Who can administer the site, and which leagues each admin owns.",
+      description: "Site roles and per-league permissions for people with Discord accounts.",
       Component: RolesSection,
     },
     {

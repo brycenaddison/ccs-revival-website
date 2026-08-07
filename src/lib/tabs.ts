@@ -13,6 +13,7 @@ import {
   CalendarDays,
   ChartColumn,
   ClipboardList,
+  CircleHelp,
   House,
   Newspaper,
   Trophy,
@@ -58,6 +59,9 @@ export const TABS: readonly SiteTab[] = [
   // a section of `Home` it would wait on a whole-league load it has no use for. Out of the bottom
   // bar, which is already at six items and is for the things a phone reader opens mid-match.
   { label: "News", path: "/news", icon: Newspaper, inBottomBar: false, standalone: true },
+  // Info is league-scoped evergreen content rather than a Home section. It stays out of the bottom
+  // bar for the same reason as News: that bar is reserved for match-day destinations on phones.
+  { label: "Info", path: "/info", icon: CircleHelp, inBottomBar: false, standalone: true },
 ];
 
 /**

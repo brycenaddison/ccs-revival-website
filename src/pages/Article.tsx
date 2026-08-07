@@ -16,7 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { NoticePanel } from "../components/auth/RequireAuth";
-import { Markdown } from "../components/news/Markdown";
+import { Markdown } from "../components/Markdown";
 import { queries } from "../lib/queries";
 import { bumpArticleView, errorMessage } from "../lib/api";
 import { fmtDay } from "../lib/utils";

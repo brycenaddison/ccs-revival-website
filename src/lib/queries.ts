@@ -19,7 +19,9 @@ import {
   championStats,
   home,
   homeLive,
+  leagueInfo,
   manageArticles,
+  manageLeagueInfo,
   gameCandidates,
   matchCodes,
   matchData,
@@ -386,6 +388,28 @@ export const queries = {
       placeholderData: keepPreviousData,
     }),
 
+  /** One league's published evergreen page. It changes on the same human timescale as articles. */
+  leagueInfo: (conf: string) =>
+    query({
+      queryKey: ["info", "public", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => leagueInfo(conf, { signal }),
+      enabled: conf !== "",
+      staleTime: HOME_STALE,
+    }),
+
+  /**
+   * The draft-aware Info document behind a form. Focus refetch is disabled so a half-written page
+   * is never replaced merely because its editor followed one of its own quick links.
+   */
+  manageLeagueInfo: (conf: string) =>
+    query({
+      queryKey: ["info", "manage", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => manageLeagueInfo(conf, { signal }),
+      enabled: conf !== "",
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+    }),
+
   /** Every banner, retired included. An editor read, so never cached. */
   announcements: () =>
     query({
@@ -541,6 +565,8 @@ export const queryRoots = {
   home: ["home"] as const,
   /** The public index, one article, and the writers' list. */
   articles: ["articles"] as const,
+  /** The public Info pages and their draft-aware League Admin editors. */
+  info: ["info"] as const,
   /** The banner list behind the site-admin editor. The public copy lives under `home`. */
   announcements: ["announcements"] as const,
   standings: ["standings"] as const,
