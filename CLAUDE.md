@@ -81,6 +81,8 @@ draft-backed editors also set `refetchOnWindowFocus: false`).
 `useLeagueData` (teams/standings for a conf selection, plus `findTeam`), `usePlayers`,
 `useSeason`, `useScheduleFeed` / `useFeedQuery` (+ `MINUTE_MS`/`HOUR_MS`/`DAY_MS`),
 `useChampions`, `useWindowSize`, `useDebounced`, `useDragScroll`, `useGoBack`.
+Match and game detail pages use `useBackNavigation(fallback)` so their button says Home on a
+cold/direct arrival and Back when it can preserve useful in-app navigation.
 
 ### Components — `src/components/`
 
@@ -105,6 +107,9 @@ draft-backed editors also set `refetchOnWindowFocus: false`).
 - `Markdown.tsx` — the shared safe renderer for native article bodies and league Info pages. It uses
   `remark-gfm` for pipe tables, autolinks, task lists and strikethrough; raw HTML stays disabled. Do
   not introduce a second Markdown policy in a feature folder.
+- `match/SeriesTotals.tsx` — series totals and player leaders reduced from the loaded game box scores.
+  Rate and efficiency leaders (including damage per gold) use aggregate player totals, not averages of
+  per-game rates.
 - `home/`, `league/`, `match/`, `season/`, `stats/`, `views/` — feature areas.
 - `src/_disabled/` — the dead Supabase-era dashboard, kept for reference only. **Never import
   from it.** It shows what a screen used to do, not how to build one now.

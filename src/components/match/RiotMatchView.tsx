@@ -15,17 +15,26 @@ import { ResultOnlyCard } from "./GameSummary";
 interface Props {
   matchId: string;
   onBack: () => void;
+  backLabel: "Back" | "Home";
 }
 
 /**
- * The back button, and whatever there is to show under it.
+ * The history-aware navigation button, and whatever there is to show under it.
  *
  * Hoisted out of the success branch, where it used to live: every other outcome — loading, a failure,
  * a game with no payload — rendered a page with no way off it but the browser's own history. Those are
- * exactly the pages most likely to be reached from a stale link, and the box-score link opens in a new
- * tab, where there is no history to go back through.
+ * exactly the pages most likely to be reached from a stale link, so the caller supplies the safe action
+ * and whether that action means Back or Home.
  */
-function Shell({ onBack, children }: { onBack: () => void; children: ReactNode }) {
+function Shell({
+  onBack,
+  backLabel,
+  children,
+}: {
+  onBack: () => void;
+  backLabel: "Back" | "Home";
+  children: ReactNode;
+}) {
   return (
     <div>
       <button
@@ -33,14 +42,14 @@ function Shell({ onBack, children }: { onBack: () => void; children: ReactNode }
         onClick={onBack}
         className="mb-4 text-xs text-text-secondary hover:text-accent font-heading tracking-wider uppercase"
       >
-        ← Back
+        ← {backLabel}
       </button>
       {children}
     </div>
   );
 }
 
-export function RiotMatchView({ matchId, onBack }: Props) {
+export function RiotMatchView({ matchId, onBack, backLabel }: Props) {
   // The raw Riot payload has no champion artwork or display names; resolve them from Community Dragon.
   const champions = useChampions();
   // A finished game never changes, so this is cached for the session and never revalidated.
@@ -48,14 +57,14 @@ export function RiotMatchView({ matchId, onBack }: Props) {
 
   if (isPending) {
     return (
-      <Shell onBack={onBack}>
+      <Shell onBack={onBack} backLabel={backLabel}>
         <div className="text-center py-10 text-text-subtle">Loading match...</div>
       </Shell>
     );
   }
   if (error) {
     return (
-      <Shell onBack={onBack}>
+      <Shell onBack={onBack} backLabel={backLabel}>
         <div className="text-center py-10 text-ccs-red">{errorMessage(error)}</div>
       </Shell>
     );
@@ -77,7 +86,7 @@ export function RiotMatchView({ matchId, onBack }: Props) {
   */
   if (!data) {
     return (
-      <Shell onBack={onBack}>
+      <Shell onBack={onBack} backLabel={backLabel}>
         <ResultOnlyCard
           matchId={matchId}
           label="no data"
@@ -92,7 +101,7 @@ export function RiotMatchView({ matchId, onBack }: Props) {
   // its payload is malformed.
   if (!data.info) {
     return (
-      <Shell onBack={onBack}>
+      <Shell onBack={onBack} backLabel={backLabel}>
         <ResultOnlyCard
           matchId={matchId}
           label="unreadable"
@@ -110,7 +119,7 @@ export function RiotMatchView({ matchId, onBack }: Props) {
   const redTeam = teams.find(t => t.teamId === 200);
 
   return (
-    <Shell onBack={onBack}>
+    <Shell onBack={onBack} backLabel={backLabel}>
       {/* Header */}
       <div className="bg-bg2 border border-border rounded-md p-4 mb-5 text-center">
         <div className="text-[10px] text-text-secondary font-heading tracking-wider uppercase">Match</div>

@@ -21,7 +21,7 @@
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useGoBack } from "../hooks/useGoBack";
+import { useBackNavigation } from "../hooks/useGoBack";
 import { errorMessage, type SeriesDetail, type TeamRecord } from "../lib/api";
 import { toBadge } from "../lib/leagueAdapters";
 import { queries } from "../lib/queries";
@@ -37,9 +37,8 @@ type Tab = "preview" | "results";
 
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
-  // A match page is the most-shared URL on the site, so it is the most likely to be opened cold — where
-  // `navigate(-1)` would leave for wherever the link came from. See `useGoBack`.
-  const goBack = useGoBack("/");
+  const { goBack, isFallback } = useBackNavigation("/");
+  const backLabel = isFallback ? "Home" : "Back";
   /**
    * Null until the reader picks one, so the default can follow the data without an effect: the fixture
    * hasn't loaded on the first render, and seeding state from it would need a second pass to correct.
@@ -55,7 +54,9 @@ export default function MatchDetail() {
 
   const { data, error, isPending } = useQuery(queries.matchResult(matchId));
 
-  if (matchId === null) return <Missing message="That match link isn't valid." onBack={goBack} />;
+  if (matchId === null) {
+    return <Missing message="That match link isn't valid." onBack={goBack} backLabel={backLabel} />;
+  }
   if (isPending) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-bg font-body text-text">
@@ -63,8 +64,10 @@ export default function MatchDetail() {
       </div>
     );
   }
-  if (error) return <Missing message={errorMessage(error)} onBack={goBack} />;
-  if (!data) return <Missing message="That match doesn't exist." onBack={goBack} />;
+  if (error) return <Missing message={errorMessage(error)} onBack={goBack} backLabel={backLabel} />;
+  if (!data) {
+    return <Missing message="That match doesn't exist." onBack={goBack} backLabel={backLabel} />;
+  }
 
   // With no games there is only one tab, so nothing the reader picked can apply.
   const hasResults = data.games.length > 0;
@@ -75,10 +78,11 @@ export default function MatchDetail() {
       <div className="border-b border-bg2 bg-bg px-4 py-3">
         <div className="mx-auto max-w-[1100px]">
           <button
+            type="button"
             onClick={goBack}
             className="cursor-pointer border-none bg-transparent font-heading text-xs tracking-wider text-ccs-green hover:underline"
           >
-            &larr; BACK
+            &larr; {backLabel.toUpperCase()}
           </button>
         </div>
       </div>
@@ -156,15 +160,24 @@ function Tabs({
   );
 }
 
-function Missing({ message, onBack }: { message: string; onBack: () => void }) {
+function Missing({
+  message,
+  onBack,
+  backLabel,
+}: {
+  message: string;
+  onBack: () => void;
+  backLabel: "Back" | "Home";
+}) {
   return (
     <div className="flex min-h-screen w-full flex-col items-center justify-center gap-4 bg-bg font-body text-text">
       <div className="font-heading text-sm tracking-wider text-text-muted">{message}</div>
       <button
+        type="button"
         onClick={onBack}
         className="cursor-pointer border-none bg-transparent font-heading text-sm text-ccs-green hover:underline"
       >
-        &larr; Back
+        &larr; {backLabel}
       </button>
     </div>
   );

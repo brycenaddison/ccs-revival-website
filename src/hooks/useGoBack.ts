@@ -15,16 +15,29 @@
 import { useCallback } from "react";
 import { useLocation, useNavigate, type To } from "react-router-dom";
 
+export interface BackNavigation {
+  goBack: () => void;
+  isFallback: boolean;
+}
+
 /**
  * `fallback` is where to go when this page *is* the first entry — the place the reader would have come
  * from, had they come from anywhere.
  */
-export function useGoBack(fallback: To): () => void {
+export function useBackNavigation(fallback: To): BackNavigation {
   const navigate = useNavigate();
   const { key } = useLocation();
+  const isFallback = key === "default";
 
-  return useCallback(() => {
-    if (key === "default") navigate(fallback);
+  const goBack = useCallback(() => {
+    if (isFallback) navigate(fallback);
     else navigate(-1);
-  }, [key, navigate, fallback]);
+  }, [isFallback, navigate, fallback]);
+
+  return { goBack, isFallback };
+}
+
+/** Use when the caller only needs the action and always labels it as Back. */
+export function useGoBack(fallback: To): () => void {
+  return useBackNavigation(fallback).goBack;
 }

@@ -10,7 +10,7 @@
  * `MatchOutcome` is counted upstream from the fixture's own games and the header renders that.
  *
  * **Two cards, not one.** They answer different questions and they are read differently: the totals are
- * a paired comparison scanned down the middle, the leaders are eight independent rows. Sharing a frame
+ * a paired comparison scanned down the middle, while the leaders are independent rows. Sharing a frame
  * meant one header for both and no way to caption either.
  */
 
@@ -146,12 +146,20 @@ interface LeaderMetric {
  * A **total** is right for a count over a best-of: "most damage in the series" is the honest superlative,
  * and a rate would flatter whoever played fewest games. A **rate** is right for anything a long game
  * inflates, so damage and farm are also given per minute *played* rather than per game — a 45-minute game
- * and a 22-minute one are not two equal samples. An **average** is right for a snapshot: a gold lead at
- * fourteen minutes is a per-game fact, and adding four of them together produces a number with no meaning.
+ * and a 22-minute one are not two equal samples. Damage per gold is the quotient of the player's series
+ * totals, so each point of damage and gold has the same weight regardless of which game it came from. An
+ * **average** is right for a snapshot: a gold lead at fourteen minutes is a per-game fact, and adding four
+ * of them together produces a number with no meaning.
  */
 const LEADERS: LeaderMetric[] = [
   { label: "Damage", value: p => p.damage, format: asK, hideZero: true },
   { label: "Damage / min", value: p => perMinute(p.damage, p.seconds), format: v => v.toFixed(0), hideZero: true },
+  {
+    label: "DMG / gold",
+    value: p => (p.gold > 0 ? p.damage / p.gold : null),
+    format: fmtRatio,
+    hideZero: true,
+  },
   { label: "Kills", value: p => p.kills, format: v => String(v), hideZero: true },
   { label: "Assists", value: p => p.assists, format: v => String(v), hideZero: true },
   { label: "KDA", value: kdaOf, format: v => fmtRatio(v), hideZero: true },
