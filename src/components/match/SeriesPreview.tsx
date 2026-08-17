@@ -18,25 +18,21 @@
  */
 
 import { useQueries } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 import {
   errorMessage,
   fmtPct,
   fmtRatio,
-  fmtSec,
   roleLabel,
-  type MatchlistRoleKey,
   type PlayerStatsRanked,
   type TeamDetail,
 } from "../../lib/api";
-import { useChampions } from "../../hooks/useChampions";
 import { queries } from "../../lib/queries";
 import { joinRoster, type RosterEntry } from "../../lib/roster";
-import { fmtRelativeDay } from "../../lib/utils";
 import { TeamBadge } from "../TeamBadge";
 import { TeamLink } from "../league/TeamLink";
 import { ChampionIcon } from "../ChampionIcon";
 import { HeadToHead, asOne, asPct, asRatio, compare, compareText, type ComparisonRow } from "./HeadToHead";
+import { MatchResultList } from "./MatchResultList";
 
 interface Props {
   conf: string;
@@ -340,9 +336,6 @@ function StarterRow({ entry }: { entry: RosterEntry<PlayerStatsRanked> }) {
 
 const RECENT = 12;
 
-/** The five starting slots, in lane order — the order `roles` is keyed by and the order to draw. */
-const LANES: readonly MatchlistRoleKey[] = ["top", "jg", "mid", "bot", "sup"];
-
 /**
  * The recent games, most recent first, with what the team played in each.
  *
@@ -357,7 +350,6 @@ const LANES: readonly MatchlistRoleKey[] = ["top", "jg", "mid", "bot", "sup"];
  * and so the only place a name-keyed index being wrong was ever visible. See `lib/championData.ts`.
  */
 function RecentGames({ team, conf }: { team: TeamDetail; conf: string }) {
-  const champions = useChampions();
   const recent = [...team.matchlist]
     .sort((x, y) => new Date(y.startTime).getTime() - new Date(x.startTime).getTime())
     .slice(0, RECENT);
@@ -375,74 +367,7 @@ function RecentGames({ team, conf }: { team: TeamDetail; conf: string }) {
         </span>
       </div>
 
-      {recent.length === 0 ? (
-        <p className="px-4 py-3 text-xs text-text-dim">No games played yet.</p>
-      ) : (
-        <ul className="flex flex-col">
-          {recent.map(m => (
-            <li key={m.matchId} className="border-b border-border/40 last:border-b-0">
-              {/*
-                A grid, not a flex row. Every cell has a fixed share of the width, so the champion columns
-                line up down the list and the numbers sit in the same place on every row — with a flex row
-                the opponent code's own width pushed each row's icons somewhere different.
-
-                The date column is dropped below `sm`, where a card is the full width of a phone and the
-                relative day is the least of what the row has to say.
-              */}
-              <Link
-                to={`/game/${encodeURIComponent(m.matchId)}`}
-                className={`grid grid-cols-[14px_66px_auto_minmax(0,1fr)_46px] items-center gap-x-2 px-3 py-1.5 no-underline sm:grid-cols-[14px_58px_auto_minmax(0,1fr)_46px_58px] ${
-                  // A tint as well as the letter: at a glance the shape of a team's recent form should be
-                  // legible from the shading down the card, not from reading a dozen letters. Strong
-                  // enough to read as colour rather than as a rendering artefact — a few percent of alpha
-                  // over `bg2` was invisible next to the row above it.
-                  m.win ? "bg-ccs-green/20 hover:bg-ccs-green/30" : "bg-ccs-red/20 hover:bg-ccs-red/30"
-                }`}
-              >
-                <span
-                  className={`font-heading text-xs font-bold ${m.win ? "text-ccs-green" : "text-ccs-red"}`}
-                >
-                  {m.win ? "W" : "L"}
-                </span>
-
-                <TeamLink conf={conf} code={m.opponent} stopPropagation className="min-w-0 no-underline">
-                  <span className="block truncate font-heading text-xs text-text hover:text-accent">
-                    vs {m.opponent}
-                  </span>
-                </TeamLink>
-
-                <div className="flex items-center gap-0.5">
-                  {LANES.map(lane => {
-                    const p = m.roles[lane];
-                    return (
-                      <ChampionIcon
-                        key={lane}
-                        champion={p?.champ}
-                        lookup={champions}
-                        fallbackLabel={p?.champ ?? "—"}
-                        size={18}
-                        // `className` replaces `ChampionIcon`'s default on *both* branches, so it has to
-                        // carry the sizing too — an unresolved champion falls back to its name, and at
-                        // default size that name is twice the height of this row. `w-[18px]` keeps the
-                        // fallback in the same column as the icon it stands in for.
-                        className="flex w-[18px] shrink-0 items-center justify-center overflow-hidden text-[9px] text-text-dim"
-                      />
-                    );
-                  })}
-                </div>
-
-                <span className="truncate text-right font-mono text-[11px] text-text-secondary">
-                  {m.kills}/{m.deaths}/{m.assists}
-                </span>
-                <span className="text-center font-mono text-[11px] text-text-dim">{fmtSec(m.time)}</span>
-                <span className="hidden text-right font-mono text-[10px] text-text-dim sm:block">
-                  {fmtRelativeDay(m.startTime)}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <MatchResultList matches={recent} conf={conf} />
     </div>
   );
 }

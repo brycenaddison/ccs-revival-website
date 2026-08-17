@@ -10,6 +10,7 @@ import { queries } from "../../lib/queries";
 import { useChampions } from "../../hooks/useChampions";
 import type { ChampionLookup } from "../../lib/championData";
 import { ChampionIcon } from "../ChampionIcon";
+import { BanIcons } from "./BanIcons";
 import { ResultOnlyCard } from "./GameSummary";
 
 interface Props {
@@ -213,18 +214,12 @@ function TeamPanel({
         <div className="mt-3 pt-3 border-t border-border">
           <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-1.5">Bans</div>
           <div className="flex flex-wrap gap-1.5">
-            {team.bans
-              // championId is -1 when a team declined to ban.
-              .filter(b => typeof b.championId === "number" && b.championId > 0)
-              .map((b, i) => (
-                <ChampionIcon
-                  key={`${b.pickTurn ?? i}-${b.championId}`}
-                  champion={b.championId}
-                  lookup={champions}
-                  size={26}
-                  className="flex items-center opacity-70 grayscale hover:opacity-100 hover:grayscale-0 transition"
-                />
-              ))}
+            <BanIcons
+              bans={team.bans}
+              champions={champions}
+              size={26}
+              className="flex items-center opacity-70 grayscale hover:opacity-100 hover:grayscale-0 transition"
+            />
           </div>
         </div>
       )}

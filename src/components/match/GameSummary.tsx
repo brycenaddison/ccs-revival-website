@@ -30,11 +30,13 @@ import {
   type GameResult,
   type RiotMatch,
   type RiotParticipant,
+  type RiotTeam,
 } from "../../lib/api";
 import { queries } from "../../lib/queries";
 import { useChampions } from "../../hooks/useChampions";
 import type { ChampionLookup } from "../../lib/championData";
 import { ChampionIcon } from "../ChampionIcon";
+import { BanIcons } from "./BanIcons";
 
 /** Riot's side ids. 100 is blue, 200 is red, and nothing else appears in a tournament game. */
 const BLUE = 100;
@@ -68,6 +70,9 @@ export function GameSummary({
 
   const info = data.info;
   const participants = info.participants ?? [];
+  const teams = info.teams ?? [];
+  const blueTeam = teams.find(t => t.teamId === BLUE);
+  const redTeam = teams.find(t => t.teamId === RED);
   const id = matchId ?? data.metadata?.matchId;
 
   return (
@@ -101,13 +106,13 @@ export function GameSummary({
       <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
         <SideColumn
           label="BLUE"
-          win={info.teams?.find(t => t.teamId === BLUE)?.win}
+          team={blueTeam}
           players={participants.filter(p => p.teamId === BLUE)}
           champions={champions}
         />
         <SideColumn
           label="RED"
-          win={info.teams?.find(t => t.teamId === RED)?.win}
+          team={redTeam}
           players={participants.filter(p => p.teamId === RED)}
           champions={champions}
         />
@@ -219,15 +224,17 @@ export function LinkedGameSummary({
  */
 function SideColumn({
   label,
-  win,
+  team,
   players,
   champions,
 }: {
   label: "BLUE" | "RED";
-  win: boolean | undefined;
+  team: RiotTeam | undefined;
   players: RiotParticipant[];
   champions: ChampionLookup | null;
 }) {
+  const win = team?.win;
+
   return (
     <div className="px-3 py-2 min-w-0">
       <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -264,6 +271,18 @@ function SideColumn({
           </li>
         ))}
       </ul>
+
+      {team?.bans && team.bans.length > 0 && (
+        <div className="mt-2 flex items-center gap-1.5 border-t border-border/60 pt-2">
+          <span className="shrink-0 font-heading text-[10px] tracking-wider text-text-muted">BANS</span>
+          <BanIcons
+            bans={team.bans}
+            champions={champions}
+            size={20}
+            className="flex items-center opacity-70 grayscale"
+          />
+        </div>
+      )}
     </div>
   );
 }

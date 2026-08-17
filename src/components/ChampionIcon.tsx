@@ -1,4 +1,8 @@
-import type { ChampionLookup } from "../lib/championData";
+import {
+  isNoBanChampion,
+  NO_BAN_CHAMPION,
+  type ChampionLookup,
+} from "../lib/championData";
 
 interface Props {
   /** Numeric champion id, internal alias, or display name — whatever the payload carries. */
@@ -36,6 +40,9 @@ interface Props {
  * the way the API does. Callers that hold a served `img` pass it as `src` and skip the lookup;
  * callers holding only a Riot payload's `championId` pass `champion` + `lookup`.
  *
+ * `-1` always resolves to Community Dragon's dedicated no-ban icon, even when an API supplies a
+ * broken normal-champion URL or the champion lookup has not loaded yet.
+ *
  * Degrades to text when neither resolves, so a CDN failure costs artwork rather than information.
  */
 export function ChampionIcon({
@@ -50,13 +57,16 @@ export function ChampionIcon({
   decorative = false,
   className,
 }: Props) {
-  const info = src ? undefined : lookup?.get(champion);
+  const noBan = isNoBanChampion(champion);
+  const info = noBan ? NO_BAN_CHAMPION : src ? undefined : lookup?.get(champion);
   const label =
-    name ??
+    (noBan ? NO_BAN_CHAMPION.name : name) ??
     info?.name ??
     fallbackLabel ??
     (typeof champion === "string" && champion !== "" ? champion : "—");
-  const icon = src ?? info?.icon ?? null;
+  // A served `src` for -1 usually points at the normal champion route, where this asset does not
+  // exist. The sentinel's dedicated path therefore wins even though `src` wins for real champions.
+  const icon = noBan ? NO_BAN_CHAMPION.icon : src ?? info?.icon ?? null;
 
   // A decorative icon that failed to resolve renders nothing: its label is already on screen, so
   // a text fallback here would print the champion's name twice.

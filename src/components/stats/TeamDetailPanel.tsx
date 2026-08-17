@@ -1,26 +1,26 @@
-import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   errorMessage,
   fmtPct,
   fmtRatio,
-  fmtSec,
   roleLabel,
   sortByRole,
+  type BanCount,
   type PlayerStatsRanked,
   type TeamDetail,
 } from "../../lib/api";
 import { queries } from "../../lib/queries";
+import { isNoBanChampion } from "../../lib/championData";
 import { joinRoster, type JoinedRoster } from "../../lib/roster";
 import { ChampionIcon } from "../ChampionIcon";
 import { TeamLink } from "../league/TeamLink";
+import { MatchResultList } from "../match/MatchResultList";
 
 interface Props {
   conf: string;
   code: string;
   /** Omit when the panel is a whole page and the page provides its own navigation. */
   onBack?: () => void;
-  onSelectMatch: (matchId: string) => void;
 }
 
 function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -39,6 +39,18 @@ function stat(v: number | null | undefined, digits = 2): string {
 
 function rounded(v: number | null | undefined): string {
   return v === null || v === undefined ? "—" : String(Math.round(v));
+}
+
+function BanCountChip({ ban }: { ban: BanCount }) {
+  const name = isNoBanChampion(ban.championId) ? "No ban" : ban.name;
+
+  return (
+    <div className="flex items-center gap-2 bg-bg3 border border-border rounded px-2 py-1">
+      <ChampionIcon champion={ban.championId} src={ban.img} name={name} className="flex shrink-0" />
+      <span className="text-xs">{name}</span>
+      <span className="text-xs text-text-dim font-mono">{ban.bans}x</span>
+    </div>
+  );
 }
 
 /**
@@ -171,7 +183,7 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
   );
 }
 
-export function TeamDetailPanel({ conf, code, onBack, onSelectMatch }: Props) {
+export function TeamDetailPanel({ conf, code, onBack }: Props) {
   // Fans out to `/teams/:c/:t` plus the conf listing for the roster and record — and that listing
   // is the same query the league loader uses, so arriving from the Teams tab reuses it.
   const { data: team, isPending, error } = useQuery(queries.teamDetail(conf, code));
@@ -260,11 +272,7 @@ export function TeamDetailPanel({ conf, code, onBack, onSelectMatch }: Props) {
               <h3 className="font-display text-sm text-text-bright tracking-wider mb-3">Most Banned Against {team.code}</h3>
               <div className="flex flex-wrap gap-2">
                 {team.bannedAgainst.slice(0, 10).map(b => (
-                  <div key={b.championId} className="flex items-center gap-2 bg-bg3 border border-border rounded px-2 py-1">
-                    <ChampionIcon src={b.img} name={b.name} className="flex shrink-0" />
-                    <span className="text-xs">{b.name}</span>
-                    <span className="text-xs text-text-dim font-mono">{b.bans}x</span>
-                  </div>
+                  <BanCountChip key={b.championId} ban={b} />
                 ))}
               </div>
             </div>
@@ -272,72 +280,18 @@ export function TeamDetailPanel({ conf, code, onBack, onSelectMatch }: Props) {
               <h3 className="font-display text-sm text-text-bright tracking-wider mb-3">Most Banned By {team.code}</h3>
               <div className="flex flex-wrap gap-2">
                 {team.bannedBy.slice(0, 10).map(b => (
-                  <div key={b.championId} className="flex items-center gap-2 bg-bg3 border border-border rounded px-2 py-1">
-                    <ChampionIcon src={b.img} name={b.name} className="flex shrink-0" />
-                    <span className="text-xs">{b.name}</span>
-                    <span className="text-xs text-text-dim font-mono">{b.bans}x</span>
-                  </div>
+                  <BanCountChip key={b.championId} ban={b} />
                 ))}
               </div>
             </div>
           </div>
 
           {/* Matchlist */}
-          <div className="bg-bg2 border border-border rounded-md p-4">
-            <h3 className="font-display text-sm text-text-bright tracking-wider mb-3">Match History</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-[10px] text-text-secondary uppercase tracking-wider border-b border-border">
-                    <th className="text-left py-2 pr-3">Wk</th>
-                    <th className="text-left py-2 px-2">Result</th>
-                    <th className="text-left py-2 px-2">Opponent</th>
-                    <th className="text-center py-2 px-2">Side</th>
-                    <th className="text-center py-2 px-2">Time</th>
-                    <th className="text-center py-2 px-2">K/D/A</th>
-                    <th className="text-center py-2 px-2">Towers</th>
-                    <th className="text-center py-2 px-2">Drag</th>
-                    <th className="text-center py-2 px-2">Baron</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {team.matchlist.map(m => (
-                    <tr
-                      key={m.matchId}
-                      onClick={() => onSelectMatch(m.matchId)}
-                      className="border-b border-border last:border-b-0 hover:bg-bg3 cursor-pointer"
-                    >
-                      <td className="py-2.5 pr-3 font-mono text-xs">
-                        {/* A real link as well as the row click, so games can open in a new tab. */}
-                        <Link
-                          to={`/game/${encodeURIComponent(m.matchId)}`}
-                          onClick={e => e.stopPropagation()}
-                          className="no-underline text-text hover:text-accent"
-                        >
-                          W{m.seasonDay}
-                        </Link>
-                      </td>
-                      <td className="py-2.5 px-2">
-                        <span className={`font-bold ${m.win ? "text-ccs-green" : "text-ccs-red"}`}>{m.win ? "W" : "L"}</span>
-                        <span className="text-text-dim ml-2 text-xs">G{m.game}</span>
-                      </td>
-                      <td className="py-2.5 px-2 font-heading font-bold">
-                        <TeamLink conf={conf} code={m.opponent} stopPropagation className="no-underline text-text hover:text-accent">
-                          {m.opponent}
-                        </TeamLink>
-                      </td>
-                      <td className="text-center py-2.5 px-2 text-[10px] font-bold" style={{ color: m.blueside ? "#3b82f6" : "#ef4444" }}>{m.blueside ? "BLUE" : "RED"}</td>
-                      <td className="text-center py-2.5 px-2 font-mono text-xs">{fmtSec(m.time)}</td>
-                      <td className="text-center py-2.5 px-2 font-mono text-xs">{m.kills}/{m.deaths}/{m.assists}</td>
-                      <td className="text-center py-2.5 px-2 font-mono text-xs">{m.towers ?? "—"}</td>
-                      <td className="text-center py-2.5 px-2 font-mono text-xs">{m.dragons ?? "—"}</td>
-                      <td className="text-center py-2.5 px-2 font-mono text-xs">{m.barons ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="overflow-hidden rounded-lg border border-border bg-bg2">
+            <div className="border-b border-border bg-bg3 px-4 py-2.5">
+              <h3 className="font-display text-sm tracking-wider text-text-bright">Match History</h3>
             </div>
-            <div className="mt-2 text-[10px] text-text-dim">Click a row to view the full game</div>
+            <MatchResultList matches={team.matchlist} conf={conf} />
           </div>
         </>
       )}

@@ -9,7 +9,9 @@
  * is what `tournament-bot`'s `utils/championData.ts` fetches, and `icon` here is byte-identical to
  * the `img` the API serves on every enriched champion shape — so a lookup-resolved icon and a
  * served one are the same URL and the same cache entry, and the site can't show two different
- * pictures of one champion. Data Dragon also requires a concrete patch in every path, which is how
+ * pictures of one champion. The lone exception is Riot's `-1` "no ban" sentinel: Community Dragon
+ * exposes its generic artwork by name rather than numeric id, so it is resolved explicitly below.
+ * Data Dragon also requires a concrete patch in every path, which is how
  * the API ended up pinned to a two-year-old one; `latest` here needs no version fetch at all.
  *
  * Static, heavily-cached CDN. The fetch is memoized for the page lifetime.
@@ -43,6 +45,21 @@ export interface ChampionInfo {
   icon: string;
 }
 
+/** Riot records a declined ban as champion -1; Community Dragon names that artwork `generic`. */
+export const NO_BAN_CHAMPION: Readonly<ChampionInfo> = {
+  id: "None",
+  key: -1,
+  name: "No ban",
+  icon: "https://cdn.communitydragon.org/latest/champion/generic/square",
+};
+
+export function isNoBanChampion(ref: number | string | null | undefined): boolean {
+  return (
+    ref === NO_BAN_CHAMPION.key ||
+    (typeof ref === "string" && ref.trim() === String(NO_BAN_CHAMPION.key))
+  );
+}
+
 export interface ChampionLookup {
   /**
    * Resolve a champion from whatever the payload happens to carry — a numeric id, a numeric
@@ -62,7 +79,7 @@ function buildLookup(entries: readonly SummaryEntry[]): ChampionLookup {
   const byText = new Map<string, ChampionInfo>();
 
   for (const raw of entries) {
-    // -1 is the "None" sentinel Riot uses for a declined ban.
+    // Non-champions are excluded from the maps. The useful -1 sentinel is resolved directly below.
     if (!Number.isFinite(raw.id) || raw.id <= 0 || raw.id >= VARIANT_ID_FLOOR) continue;
 
     const info: ChampionInfo = {
@@ -78,6 +95,7 @@ function buildLookup(entries: readonly SummaryEntry[]): ChampionLookup {
 
   return {
     get(ref) {
+      if (isNoBanChampion(ref)) return NO_BAN_CHAMPION;
       if (ref === null || ref === undefined || ref === "" || ref === 0) return undefined;
       if (typeof ref === "number") return byKey.get(ref);
       const numeric = Number.parseInt(ref, 10);

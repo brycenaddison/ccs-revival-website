@@ -22,6 +22,7 @@ import type { SeriesGame, SeriesSide } from "../../lib/api";
 import { useChampions } from "../../hooks/useChampions";
 import type { ChampionLookup } from "../../lib/championData";
 import { ChampionIcon } from "../ChampionIcon";
+import { BanIcons } from "./BanIcons";
 import { TeamNameLink, type TeamNamer } from "./TeamNameLink";
 
 const BLUE = "#3b82f6";
@@ -221,16 +222,12 @@ function SideTable({
         {side.bans.length > 0 && (
           <div className="flex items-center gap-1.5">
             <span className="shrink-0 font-heading text-[10px] tracking-wider text-text-muted">BANS</span>
-            {side.bans.map((ban, i) => (
-              <ChampionIcon
-                key={`${i}-${ban.championId}`}
-                champion={ban.championId}
-                lookup={champions}
-                fallbackLabel={ban.champion ?? undefined}
-                size={20}
-                className="flex items-center opacity-70 grayscale"
-              />
-            ))}
+            <BanIcons
+              bans={side.bans}
+              champions={champions}
+              size={20}
+              className="flex items-center opacity-70 grayscale"
+            />
           </div>
         )}
       </div>

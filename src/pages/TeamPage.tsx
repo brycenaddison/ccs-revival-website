@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { TeamDetailPanel } from "../components/stats/TeamDetailPanel";
 import { useGoBack } from "../hooks/useGoBack";
 import { useSeasonLink } from "../lib/leagueContext";
@@ -17,7 +17,6 @@ import { useSeasonLink } from "../lib/leagueContext";
  */
 export default function TeamPage() {
   const { conf, code } = useParams<{ conf: string; code: string }>();
-  const navigate = useNavigate();
   // The fallback shouldn't reset which season the visitor was browsing.
   const seasonLink = useSeasonLink();
   const goBack = useGoBack(seasonLink("/"));
@@ -38,11 +37,7 @@ export default function TeamPage() {
 
       <div className="max-w-[1200px] mx-auto px-4 py-6">
         {conf && code ? (
-          <TeamDetailPanel
-            conf={conf}
-            code={code}
-            onSelectMatch={matchId => navigate(`/game/${encodeURIComponent(matchId)}`)}
-          />
+          <TeamDetailPanel conf={conf} code={code} />
         ) : (
           <div className="text-center py-10 text-text-dim">No team specified.</div>
         )}

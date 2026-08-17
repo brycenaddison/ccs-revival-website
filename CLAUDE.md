@@ -103,13 +103,31 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
 - `Toast.tsx`, `ThemeToggle.tsx`, `TeamBadge.tsx`, `ScrollRail.tsx` — standalone primitives.
 - `ChampionIcon.tsx` — **the only way a champion's square icon reaches the screen.** Takes either an
   API-served URL (`src`) or an id/name plus the `useChampions()` lookup; both resolve to the same
-  Community Dragon URL, which is the point. Don't write a bare `<img>` for a champion.
+  Community Dragon URL, which is the point. Pass `championId` even when `src` is available: Riot's
+  `-1` means "no ban", and the component uses that id to override the broken normal-champion URL with
+  Community Dragon's dedicated no-ban icon. Ban renderers must preserve every `-1` entry rather than
+  filtering it out. Don't write a bare `<img>` for a champion.
 - `Markdown.tsx` — the shared safe renderer for native article bodies and league Info pages. It uses
   `remark-gfm` for pipe tables, autolinks, task lists and strikethrough; raw HTML stays disabled. Do
   not introduce a second Markdown policy in a feature folder.
 - `match/SeriesTotals.tsx` — series totals and player leaders reduced from the loaded game box scores.
   Rate and efficiency leaders (including damage per gold) use aggregate player totals, not averages of
   per-game rates.
+- `match/BanIcons.tsx` — renders every ban slot a payload supplies and deliberately preserves champion
+  `-1`, which `ChampionIcon` turns into the no-ban artwork. Both the season-result payload behind
+  `/match/:id` and the team matchlist preserve skipped-ban entries.
+- `match/MatchResultList.tsx` — the shared team-perspective game row used by a match's Preview tab and a
+  team page's Match History: result, opponent, picks, bans, K/D/A, duration, date and side. Callers own
+  ordering and truncation. Its draft strip is a fixed-column grid; narrow rows abbreviate Picks/Bans and
+  hide objectives before falling back to scrolling. Do not reintroduce wrapping: the side and objective
+  columns must align across results. The list is a Tailwind `@container`: at `@4xl` its existing elements
+  collapse into one dense row, which keeps the full-width team history from looking stretched while the
+  half-width match-preview cards retain two independent rows: flexible left/right alignment above and a
+  fixed draft grid below. At `@4xl`, only those two non-semantic row wrappers become `contents`, promoting
+  nine individual cells into equal 140px Picks/Bans tracks plus separate centered K/D/A, time, date,
+  objectives and side tracks. The opponent `TeamLink` is `justify-self-start` so its click target hugs
+  the name instead of filling the flexible column. Readable metadata uses `text-text-secondary`, not the
+  dim tokens.
 - `home/`, `league/`, `match/`, `season/`, `stats/`, `views/` — feature areas.
 - `src/_disabled/` — the dead Supabase-era dashboard, kept for reference only. **Never import
   from it.** It shows what a screen used to do, not how to build one now.
