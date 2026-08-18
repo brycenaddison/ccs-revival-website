@@ -22,6 +22,7 @@ import type { SeriesGame, SeriesSide } from "../../lib/api";
 import { useChampions } from "../../hooks/useChampions";
 import type { ChampionLookup } from "../../lib/championData";
 import { ChampionIcon } from "../ChampionIcon";
+import { PlayerLink } from "../profile/PlayerLink";
 import { BanIcons } from "./BanIcons";
 import { TeamNameLink, type TeamNamer } from "./TeamNameLink";
 
@@ -263,9 +264,9 @@ function SideTable({
                       size={22}
                       className="flex w-[22px] shrink-0 items-center justify-center overflow-hidden text-[9px] text-text-dim"
                     />
-                    <span className="min-w-0 truncate text-xs text-text" title={p.name ?? undefined}>
+                    <PlayerLink profileId={p.profileId} className="min-w-0 truncate text-xs text-text no-underline hover:text-accent" title={p.name ?? undefined}>
                       {p.name ?? "Unknown"}
-                    </span>
+                    </PlayerLink>
                   </div>
                 </td>
                 <td className="whitespace-nowrap py-1.5 pl-2 text-right font-mono text-[11px] text-text-secondary">

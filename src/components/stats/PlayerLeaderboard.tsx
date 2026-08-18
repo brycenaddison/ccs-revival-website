@@ -39,6 +39,7 @@ import { StatGroupDetail, StatTable } from "./StatTable";
 import { StatBars, type BarDirection } from "./StatBars";
 import { STAT_VIEW_OPTIONS, ViewToggle, type StatView } from "./ViewToggle";
 import { CONTROL_CLASS, Field, FilterBar, PillGroup } from "./FilterBar";
+import { PlayerLink } from "../profile/PlayerLink";
 
 interface Props {
   conf: string;
@@ -295,6 +296,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
           onSelect={toggleCompare}
           rowMeta={p => ({
             key: p.rowKey,
+            profileId: p.id,
             name: shortName(p.name),
             sub: isMobile ? p.team : `${p.team} · ${roleLabel(p.role)} · ${p.games}G`,
             logo: branding.get(p.team)?.logo,
@@ -325,7 +327,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
                   ? <img src={brand.logo} alt="" loading="lazy" decoding="async" className="w-7 h-7 rounded object-contain shrink-0" />
                   : <span className="w-7 h-7 rounded shrink-0" style={{ background: brand?.hex ?? "var(--bar-unset)" }} />}
                 <div className="min-w-0">
-                  <div className="font-heading font-bold text-text-bright truncate">{shortName(p.name)}</div>
+                  <PlayerLink profileId={p.id} stopPropagation className="block truncate font-heading font-bold text-text-bright no-underline hover:text-accent">{shortName(p.name)}</PlayerLink>
                   <div className="text-[10px] text-text-secondary font-heading tracking-wide truncate">
                     {p.team} · {roleLabel(p.role)}
                   </div>

@@ -542,146 +542,6 @@ export interface RecordsResponse {
   teams: RecordBoard[];
 }
 
-// -------------------------------------------------------------------- scouting
-
-/** One entry of `GET /stats/scout/:conf` — enough to populate a player picker. */
-export interface ScoutIndexEntry {
-  profileId: number;
-  /** A banned or deleted Riot account is normal. */
-  name: string | null;
-  /** The team this player has played most for in the conf. */
-  team: string;
-  games: number;
-  /** Most-played first. */
-  roles: Role[];
-}
-
-/**
- * Season aggregate for one player.
- *
- * `kp` and `csm` are ratios of sums rather than means of per-game ratios — a 40-minute game should not
- * weigh the same as a 20-minute one. `kp` is `null` when the side recorded no kills at all; `gd14` is
- * averaged over only the games that have a 14-minute snapshot.
- */
-export interface ScoutTotals {
-  games: number;
-  wins: number;
-  losses: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  /** May be `Infinity` — the API's convention for a deathless aggregate. */
-  kda: number;
-  avgKills: number | null;
-  avgDeaths: number | null;
-  avgAssists: number | null;
-  avgDmg: number | null;
-  avgCs: number | null;
-  csm: number | null;
-  kp: number | null;
-  gd14: number | null;
-}
-
-/** One champion in a player's pool for the season. */
-export interface ScoutChamp {
-  champ: string;
-  champId: number;
-  img: string | null;
-  games: number;
-  wins: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  /** May be `Infinity`. */
-  kda: number;
-}
-
-/**
- * The lane opponent on one game.
- *
- * Carries less than a full line — no CS, no lane diffs, no kill participation. `name` can be `null` for a
- * banned account, so test presence on the object rather than on the name.
- */
-export interface ScoutOpponent {
-  profileId: number | null;
-  name: string | null;
-  champ: string | null;
-  champImg: string | null;
-  kills: number;
-  deaths: number;
-  assists: number;
-  /** May be `Infinity`. */
-  kda: number;
-  dmg: number;
-}
-
-/** One game in a player's season, **oldest first** as served, because it drives a form reading. */
-export interface ScoutGame {
-  matchId: string;
-  game: number;
-  seasonDay: number;
-  startTime: string | null;
-  durationS: number;
-  team: string;
-  opponent: string;
-  win: boolean;
-  blueside: boolean;
-  role: Role | null;
-  champ: string | null;
-  champId: number | null;
-  champImg: string | null;
-  kills: number;
-  deaths: number;
-  assists: number;
-  /** May be `Infinity`. */
-  kda: number;
-  dmg: number;
-  cs: number;
-  csm: number | null;
-  gd8: number | null;
-  gd14: number | null;
-  kp: number | null;
-  visionScore: number;
-  /** The denominator of `kp`. */
-  teamKills: number;
-  /** `null` when the lane opponent can't be resolved — the game is still kept. */
-  vs: ScoutOpponent | null;
-}
-
-/** One opponent faced in the lane this season. A game with no resolvable opponent contributes none. */
-export interface ScoutMatchup {
-  profileId: number;
-  name: string | null;
-  team: string;
-  games: number;
-  wins: number;
-  losses: number;
-  /**
-   * Newest first, but the element shape is undocumented upstream — left unread rather than guessed at.
-   */
-  games_detail: unknown[];
-}
-
-/**
- * One player's scouting report for one conf. Strictly per-season: career totals and cross-season
- * champion pools belong to a future `/players/:profileId`.
- *
- * `name` on any row is that player's Riot ID *now* — renames propagate through historical data, so an
- * old game is attributed to the current name. Nothing here can render who a player was called at the
- * time, and the UI should not imply otherwise.
- */
-export interface ScoutReport {
-  profileId: number;
-  name: string | null;
-  conf: string;
-  teams: string[];
-  roles: Role[];
-  totals: ScoutTotals;
-  champs: ScoutChamp[];
-  timeline: ScoutGame[];
-  matchups: ScoutMatchup[];
-}
-
 export interface ChampionStats {
   champid: number;
   conf: string;
@@ -796,6 +656,15 @@ export interface RiotParticipant {
   visionWardsBoughtInGame?: number;
   turretKills?: number;
   champLevel?: number;
+  /**
+   * Summoner spell ids, resolved against Community Dragon by `lib/gameAssets.ts`.
+   *
+   * Riot names these after the *slots*, not the spells: `summoner1Id` is whatever sits in D. They
+   * are read only by the profile page's expandable build detail — no aggregate carries them,
+   * because the `performance` table has no spell or item columns at all.
+   */
+  summoner1Id?: number;
+  summoner2Id?: number;
   item0?: number;
   item1?: number;
   item2?: number;

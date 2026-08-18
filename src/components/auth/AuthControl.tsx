@@ -80,7 +80,7 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
     );
   }
 
-  const name = profile?.name ?? "Account";
+  const name = profile?.nickname ?? profile?.name ?? "Account";
 
   // The drawer is already a menu, so the same actions render as flat rows rather than a
   // nested popup — same list, same order, styled to match the tab rows above them.
@@ -90,7 +90,7 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
         <div className="px-5 py-3 border-t border-border">
           <span className={`${LABEL} text-text-bright truncate`}>{name}</span>
         </div>
-        {accountMenuEntries({ logout, linkRiot, isSiteAdmin, canEditContent }).map((entry, i) => {
+        {accountMenuEntries({ profileId: profile?.id ?? null, logout, linkRiot, isSiteAdmin, canEditContent }).map((entry, i) => {
           if (entry.kind === "divider") {
             return <div key={`divider-${i}`} role="separator" className="border-t border-border" />;
           }

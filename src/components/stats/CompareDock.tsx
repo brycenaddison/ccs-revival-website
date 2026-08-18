@@ -23,6 +23,7 @@ import { roleLabel, type PlayerStats } from "../../lib/api";
 import { shortName } from "../../lib/statViews";
 import { COMPARE_COLORS } from "../../lib/statUi";
 import { CompareRadar, type RadarSeries } from "./CompareRadar";
+import { PlayerLink } from "../profile/PlayerLink";
 
 /**
  * Desktop height cap, and the bottom padding the page reserves while the dock is open.
@@ -55,7 +56,7 @@ function PlayerColumn({
   return (
     <div className="bg-bg3 border border-border rounded-lg p-3 relative overflow-hidden">
       <span className="absolute top-0 left-0 right-0 h-0.5" style={{ background: COMPARE_COLORS[slot] }} />
-      <div className="font-heading font-bold text-sm text-text-bright truncate">{shortName(player.name)}</div>
+      <PlayerLink profileId={player.id} className="block truncate font-heading text-sm font-bold text-text-bright no-underline hover:text-accent">{shortName(player.name)}</PlayerLink>
       <div className="text-[10px] text-text-muted font-heading tracking-wide mb-2">
         {player.team} · {roleLabel(player.role)} · {player.games}G
       </div>

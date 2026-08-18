@@ -1,8 +1,7 @@
 /**
  * Who you are, as the API sees you.
  *
- * Everything here is read-only, and that is the API's shape rather than a simplification: there is
- * no `PATCH /auth/me`. Saying so once in a hint is better than rendering an input that can't save.
+ * Public presentation is editable through the same complete-document form first-time setup uses.
  *
  * What it deliberately does *not* show is the join keys. The Discord snowflake, the CCS profile id
  * and the roles list were all on this page and none of them are yours to act on — the ids are what
@@ -17,6 +16,7 @@
 
 import { User } from "lucide-react";
 import { useAuth } from "../../../lib/authContext";
+import { ProfilePresentationForm } from "../../profile/ProfilePresentationForm";
 import { ReadOnlyValue, SettingsRow } from "../SettingsSection";
 
 export function AccountSection() {
@@ -50,7 +50,7 @@ export function AccountSection() {
         )}
         <div className="min-w-0">
           <p className="font-display text-2xl text-text-bright tracking-wide truncate">
-            {profile.name ?? "—"}
+            {profile.nickname ?? profile.name ?? "—"}
           </p>
           {profile.handle && (
             <p className="text-text-secondary text-sm font-mono truncate">@{profile.handle}</p>
@@ -58,12 +58,16 @@ export function AccountSection() {
         </div>
       </div>
 
-      <SettingsRow
-        label="Display name"
-        hint="The league's own name for you. It was taken from Discord when your profile was created, and signing in again doesn't change it."
-      >
-        <ReadOnlyValue>{profile.name ?? "—"}</ReadOnlyValue>
-      </SettingsRow>
+      <ProfilePresentationForm
+        initial={{
+          nickname: profile.nickname ?? profile.name ?? "",
+          pronouns: profile.pronouns ?? "",
+          pronunciation: profile.pronunciation ?? "",
+        }}
+        submitLabel="Save profile"
+      />
+
+      <div className="my-6 border-t border-border" />
 
       <SettingsRow
         label="Discord"

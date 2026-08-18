@@ -25,6 +25,13 @@ export interface SessionProfile {
    * was created and owned by the row from then on — signing in again never rewrites it.
    */
   name: string | null;
+  /** Explicit public name; `name` remains the API's compatibility alias. */
+  nickname: string | null;
+  /** Public player-owned presentation fields. */
+  pronouns: string | null;
+  pronunciation: string | null;
+  /** New Discord profiles stay behind `/setup` until their presentation document is saved. */
+  setupRequired: boolean;
   /**
    * The Discord `@` handle. Unlike `name` this *is* a cache, refreshed on every login, so it is
    * null for anyone who hasn't signed in since upstream added the column. There is no backfill.
@@ -213,6 +220,10 @@ function normalizeProfile(value: unknown): SessionProfile | null {
     id: typeof raw.id === "number" && Number.isFinite(raw.id) ? raw.id : 0,
     snowflake: str(raw.snowflake) ?? "",
     name: str(raw.name),
+    nickname: str(raw.nickname) ?? str(raw.name),
+    pronouns: str(raw.pronouns),
+    pronunciation: str(raw.pronunciation),
+    setupRequired: raw.setupRequired === true,
     handle: str(raw.handle),
     avatar: str(raw.avatar),
     puuids: Array.isArray(raw.puuids) ? raw.puuids.filter((p): p is string => typeof p === "string") : [],

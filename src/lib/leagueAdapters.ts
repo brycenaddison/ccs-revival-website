@@ -177,6 +177,7 @@ export function toStandingsFromTeams(
 
 export function toPlayers(stats: readonly PlayerStats[], teamsById: ReadonlyMap<string, Team>): Player[] {
   return stats.map((p): Player => ({
+    profileId: p.id,
     id: p.rowKey,
     name: p.name,
     role: p.role ?? undefined,

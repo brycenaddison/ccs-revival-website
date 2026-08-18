@@ -35,6 +35,7 @@ import {
 } from "../../lib/api";
 import { queries } from "../../lib/queries";
 import { joinRoster } from "../../lib/roster";
+import { PlayerLink } from "../profile/PlayerLink";
 import { flattenGroups, sortByCell, TEAM_STAT_GROUPS, type StatCell } from "../../lib/statGroups";
 import { int, pct } from "../../lib/statFormat";
 import { StatGroupSwitcher } from "./StatGroupSwitcher";
@@ -342,7 +343,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
                     {starters.map((e, j) => (
                       <span key={e.key}>
                         {j > 0 && <span className="text-text-subtle"> · </span>}
-                        <span className="text-text-secondary">{e.name}</span>
+                        <PlayerLink profileId={e.profileId} stopPropagation className="text-text-secondary no-underline hover:text-accent">{e.name}</PlayerLink>
                         {e.role && <span className="text-text-subtle"> {roleLabel(e.role).slice(0, 3)}</span>}
                       </span>
                     ))}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { roleLabel } from "../../lib/api";
 import { teamInitial } from "../../lib/utils";
 import { TeamLink } from "../league/TeamLink";
+import { PlayerLink } from "../profile/PlayerLink";
 import type { Player } from "../../hooks/useLeagueData";
 
 interface Props {
@@ -75,22 +76,24 @@ export function PlayerLeaders({ players, isMobile }: Props) {
           <span className={`font-display text-xl min-w-[24px] text-center ${i === 0 ? "text-accent" : "text-text-subtle"}`}>
             {i + 1}
           </span>
-          <TeamLink team={p.team} className="flex items-center gap-2.5 flex-1 min-w-0 no-underline group">
-            {p.team?.logo_url ? (
-              <img src={p.team.logo_url} alt={p.team.name || ""} loading="lazy" decoding="async" className="w-8 h-8 rounded-full object-contain shrink-0" />
-            ) : (
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] text-white font-bold font-heading shrink-0"
-                style={{ background: p.team ? `linear-gradient(135deg, ${p.team.color_primary || "#333"}, ${p.team.color_accent || "#555"})` : "var(--text-subtle)" }}
-              >
-                {teamInitial(p.team?.name)}
-              </div>
-            )}
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <TeamLink team={p.team} className="shrink-0 no-underline">
+              {p.team?.logo_url ? (
+                <img src={p.team.logo_url} alt={p.team.name || ""} loading="lazy" decoding="async" className="w-8 h-8 rounded-full object-contain shrink-0" />
+              ) : (
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] text-white font-bold font-heading shrink-0"
+                  style={{ background: p.team ? `linear-gradient(135deg, ${p.team.color_primary || "#333"}, ${p.team.color_accent || "#555"})` : "var(--text-subtle)" }}
+                >
+                  {teamInitial(p.team?.name)}
+                </div>
+              )}
+            </TeamLink>
             <div className="flex-1 min-w-0">
-              <div className="font-heading text-[13px] text-text font-medium truncate">{p.name}</div>
-              <div className="text-[10px] text-text-muted group-hover:text-accent">{p.team?.name || "FA"} · {roleLabel(p.role)}</div>
+              <PlayerLink profileId={p.profileId} className="block truncate font-heading text-[13px] font-medium text-text no-underline hover:text-accent">{p.name}</PlayerLink>
+              <TeamLink team={p.team} className="block truncate text-[10px] text-text-muted no-underline hover:text-accent">{p.team?.name || "FA"} · {roleLabel(p.role)}</TeamLink>
             </div>
-          </TeamLink>
+          </div>
           <span className={`font-display text-[22px] tracking-wider ${i === 0 ? "text-accent" : "text-text-bright"}`}>
             {display(p)}
           </span>

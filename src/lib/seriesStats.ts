@@ -66,6 +66,7 @@ export interface SeriesTeamTotals {
 export interface SeriesPlayerTotals {
   /** Stable key: the profile where there is one, else the name, else the slot's position. */
   key: string;
+  profileId: number | null;
   name: string;
   team: string;
   games: number;
@@ -177,6 +178,7 @@ function addPlayer(
     existing ??
     {
       key,
+      profileId: p.profileId,
       name: p.name ?? "Unknown",
       team,
       games: 0,

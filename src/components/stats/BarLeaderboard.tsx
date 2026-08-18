@@ -12,6 +12,7 @@
  */
 
 import { MEDAL_COLORS } from "../../lib/statUi";
+import { PlayerLink } from "../profile/PlayerLink";
 
 export interface BarLeaderboardRow {
   /** Stable key. For players this is the per-role row key, not the player id. */
@@ -24,6 +25,8 @@ export interface BarLeaderboardRow {
    */
   rank?: string;
   name: string;
+  /** When present, the name is a durable player reference rather than an ordinary row label. */
+  profileId?: number | null;
   sub?: string;
   /** Numeric value used for bar length. May be negative or Infinity. */
   value: number;
@@ -133,13 +136,15 @@ export function BarLeaderboard({
                     <span className="rounded shrink-0" style={{ width: 20, height: 20, background: brand ?? "var(--bar-unset)" }} />
                   )}
                   <div className="min-w-0">
-                    <div
-                      className={`font-heading truncate text-[13px] ${
+                    <PlayerLink
+                      profileId={row.profileId}
+                      stopPropagation
+                      className={`block truncate font-heading text-[13px] no-underline hover:text-accent ${
                         isTop3 ? "text-text-bright font-bold" : "text-text font-medium"
                       }`}
                     >
                       {row.name}
-                    </div>
+                    </PlayerLink>
                     {row.sub && (
                       <div className="text-[10px] text-text-secondary font-heading tracking-wide truncate">{row.sub}</div>
                     )}
@@ -189,14 +194,21 @@ export function BarLeaderboard({
             } ${isMobile ? "gap-2" : "gap-3"}`;
 
             return onSelect ? (
-              <button
+              <div
                 key={row.key}
                 onClick={() => onSelect(row.key)}
+                onKeyDown={event => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  onSelect(row.key);
+                }}
+                role="button"
+                tabIndex={0}
                 aria-pressed={selected}
                 className={`${layout} ${selected ? "bg-accent/10" : "hover:bg-bg3"}`}
               >
                 {body}
-              </button>
+              </div>
             ) : (
               <div key={row.key} className={layout}>
                 {body}

@@ -37,7 +37,7 @@ function CcsBrand({ compact = false }: { compact?: boolean }) {
  * you're editing, and a second one in the nav — meaning what the *public* views show — reads as the
  * same control twice.
  */
-const SEASONLESS_PREFIXES = ["/settings", "/admin", "/league/"];
+const SEASONLESS_PREFIXES = ["/settings", "/setup", "/players/", "/admin", "/league/"];
 
 /**
  * Tabs are real links, so they can be opened in a new tab, bookmarked and shared. Which one is

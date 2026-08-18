@@ -15,15 +15,13 @@
  *    Unranked; see the header on `lib/api/profiles.ts`.
  */
 
-import { Flame, Link2 } from "lucide-react";
+import { Link2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { errorMessage, type AccountRank, type LinkedAccount } from "../../../lib/api";
+import { errorMessage } from "../../../lib/api";
 import { queries } from "../../../lib/queries";
 import { RIOT_LINKING_ENABLED, useAuth } from "../../../lib/authContext";
-import { shortName } from "../../../lib/statViews";
-import { ACTION_PRIMARY, ErrorLine, Pill } from "../../admin/adminUi";
-
-const QUEUE_LABEL: Record<AccountRank["queue"], string> = { solo: "Solo/Duo", flex: "Flex" };
+import { ACTION_PRIMARY, ErrorLine } from "../../admin/adminUi";
+import { RiotAccountCards } from "../../profile/RiotAccountCards";
 
 export function ConnectionsSection() {
   const { profile, linkRiot } = useAuth();
@@ -45,14 +43,8 @@ export function ConnectionsSection() {
             ? "1 Riot account is linked, but its details aren't available right now."
             : `${profile.puuids.length} Riot accounts are linked, but their details aren't available right now.`}
         </p>
-      ) : data.length === 0 ? (
-        <p className="text-text-dim">No Riot accounts linked yet.</p>
       ) : (
-        <div className="flex flex-col gap-3">
-          {data.map(account => (
-            <AccountCard key={account.puuid} account={account} />
-          ))}
-        </div>
+        <RiotAccountCards accounts={data} />
       )}
 
       {/* Unlike the account menu, this section keeps the button when linking is off and disables it:
@@ -73,80 +65,5 @@ export function ConnectionsSection() {
           : "Linking new Riot accounts is temporarily unavailable. Anything already linked stays linked."}
       </p>
     </>
-  );
-}
-
-function AccountCard({ account }: { account: LinkedAccount }) {
-  const { riotId, summonerLevel, profileIconUrl, ranked } = account;
-  // `shortName` keeps the identity intact and strips the tag for display; the remainder is the tag
-  // itself, dimmed rather than dropped — two accounts can share a game name.
-  const gameName = riotId ? shortName(riotId) : null;
-  const tag = riotId && gameName ? riotId.slice(gameName.length) : "";
-
-  return (
-    <div className="flex items-start gap-3 bg-bg3 border border-border rounded-md p-3">
-      {profileIconUrl ? (
-        <img
-          src={profileIconUrl}
-          alt=""
-          width={48}
-          height={48}
-          loading="lazy"
-          decoding="async"
-          className="w-12 h-12 rounded-md shrink-0"
-        />
-      ) : (
-        <div className="w-12 h-12 rounded-md bg-bg border border-border shrink-0" />
-      )}
-
-      <div className="min-w-0 flex-1">
-        {gameName ? (
-          <p className="truncate">
-            <span className="text-text-bright font-heading tracking-wide">{gameName}</span>
-            {tag && <span className="text-text-dim">{tag}</span>}
-          </p>
-        ) : (
-          // Routine rather than an error: Riot stops resolving banned and deleted accounts.
-          <p className="text-text-dim">Name unavailable — Riot no longer resolves this account.</p>
-        )}
-
-        {summonerLevel !== null && (
-          <p className="text-text-secondary text-xs mt-0.5">Level {summonerLevel}</p>
-        )}
-
-        <div className="mt-2">
-          {ranked === null ? (
-            <p className="text-text-dim text-xs">Rank unavailable — Riot didn't answer.</p>
-          ) : ranked.length === 0 ? (
-            <p className="text-text-secondary text-xs">Unranked</p>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              {ranked.map(rank => (
-                <RankLine key={rank.queue} rank={rank} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RankLine({ rank }: { rank: AccountRank }) {
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <Pill muted>{QUEUE_LABEL[rank.queue]}</Pill>
-      <span className="font-heading text-sm tracking-wider uppercase text-text-bright">
-        {rank.division ? `${rank.tier} ${rank.division}` : rank.tier}
-      </span>
-      <span className="text-text-secondary text-xs">{rank.leaguePoints} LP</span>
-      {/* Per queue and never summed — a combined total would hide which tier the record belongs to. */}
-      <span className="text-text-dim text-xs">
-        {rank.wins}W {rank.losses}L
-      </span>
-      {rank.hotStreak && (
-        <Flame size={13} className="text-ccs-orange" aria-label="On a win streak" />
-      )}
-    </div>
   );
 }

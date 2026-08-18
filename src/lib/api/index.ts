@@ -1,4 +1,4 @@
-export { api, tournaments, teams, teamsForConf, teamDetail, standings, playerStats, teamStats, championStats, statTotals, records, scoutIndex, scout, matchData, articleViews, bumpArticleView, mapTeamRecord, mapTournament } from "./client";
+export { api, tournaments, teams, teamsForConf, teamDetail, standings, playerStats, teamStats, championStats, statTotals, records, matchData, articleViews, bumpArticleView, mapTeamRecord, mapTournament } from "./client";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
 export type { RequestOpts } from "./http";
 export {
@@ -42,8 +42,40 @@ export type {
   LeagueScope,
   UserSearch,
 } from "./admin";
-export { profilesApi, profileAccounts, RANKED_QUEUES } from "./profiles";
-export type { AccountRank, LinkedAccount, RankedQueue } from "./profiles";
+export {
+  profilesApi,
+  playerProfile,
+  profileAccounts,
+  refreshProfileAccounts,
+  updateMyProfile,
+  ACCOUNT_REFRESH_STATUSES,
+  NICKNAME_MAX,
+  PRONOUNS_MAX,
+  PRONUNCIATION_MAX,
+  RANKED_QUEUES,
+} from "./profiles";
+export type {
+  AccountRank,
+  AccountRefreshStatus,
+  LinkedAccount,
+  PlayerProfile,
+  ProfileAccountRefresh,
+  ProfileAccolade,
+  ProfileBestGame,
+  ProfileChampionBreakdown,
+  ProfileGame,
+  ProfileLaneMatchup,
+  ProfileLinks,
+  ProfileMatch,
+  ProfileMetrics,
+  ProfilePersonalBest,
+  ProfilePresentation,
+  ProfilePresentationInput,
+  ProfileRoleBreakdown,
+  ProfileTeamBreakdown,
+  RankedQueue,
+  TeamMetadata,
+} from "./profiles";
 export { credentialedRequest, issuesOf, SaveRejected } from "./credentialed";
 export type { ValidationIssue } from "./credentialed";
 export {

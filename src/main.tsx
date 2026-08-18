@@ -19,9 +19,12 @@ import ContentPortal from './pages/ContentPortal'
 import News from './pages/News'
 import Article from './pages/Article'
 import Info from './pages/Info'
+import Setup from './pages/Setup'
+import PlayerProfile from './pages/PlayerProfile'
 import NotFound from './pages/NotFound'
 import { LeagueProvider } from './lib/leagueContext'
 import { AuthProvider } from './lib/authContext'
+import { SetupGate } from './components/auth/SetupGate'
 import { TABS } from './lib/tabs'
 import './index.css'
 
@@ -53,7 +56,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <AuthProvider>
           <LeagueProvider>
-            <Routes>
+            <SetupGate>
+              <Routes>
               {/* Every tab is its own URL. The sections of `Home` all mount the same element, which
                   React reconciles in place — switching between them is not a remount, so the league
                   data loads once rather than on every click. Tabs marked `standalone` are their own
@@ -72,6 +76,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/game/:matchId" element={<GameDetail />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/setup" element={<Setup />} />
+              <Route path="/players/:profileId" element={<PlayerProfile />} />
               {/* News is a tab (see `lib/tabs.ts`) but standalone, because it reads `/articles`
                   alone and none of the league data `Home` loads. `/news/:slug` renders a native
                   article; a link article's cards go straight to their source, so this route only
@@ -96,7 +102,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   URL was a blank page. Position is cosmetic — React Router ranks routes by specificity,
                   not source order, and `*` scores last by construction. */}
               <Route path="*" element={<NotFound />} />
-            </Routes>
+              </Routes>
+            </SetupGate>
           </LeagueProvider>
         </AuthProvider>
       </BrowserRouter>

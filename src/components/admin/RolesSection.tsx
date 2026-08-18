@@ -16,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Plus, Search, Trash2 } from "lucide-react";
 import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
 import { Toast } from "../Toast";
+import { PlayerLink } from "../profile/PlayerLink";
 import {
   ACTION,
   ACTION_SM,
@@ -276,7 +277,7 @@ function UserDetail({ user }: { user: DirectoryUser }) {
         <img src={user.avatar} alt="" className="w-12 h-12 rounded-full shrink-0" />
         <div className="min-w-0">
           <h3 className="font-display text-lg text-text-bright tracking-wider truncate">
-            {user.name ?? `Profile ${user.profileId}`}
+            <PlayerLink profileId={user.profileId} className="text-text-bright no-underline hover:text-accent">{user.name ?? `Profile ${user.profileId}`}</PlayerLink>
           </h3>
           <p className="text-text-dim text-xs truncate">
             {user.handle ? `@${user.handle} · ` : ""}Discord {user.snowflake} · profile{" "}

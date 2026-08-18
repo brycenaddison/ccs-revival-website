@@ -27,6 +27,7 @@ import {
 } from "../../lib/seriesStats";
 import { HeadToHead, asInt, asK, compare, type ComparisonRow } from "./HeadToHead";
 import { TeamNameLink, type TeamNamer } from "./TeamNameLink";
+import { PlayerLink } from "../profile/PlayerLink";
 
 /** A gold lead reads as a lead — the sign is the whole content of the number. */
 const signed = (v: number): string => `${v > 0 ? "+" : ""}${Math.round(v).toLocaleString()}`;
@@ -232,9 +233,9 @@ function Leader({
         <span className="shrink-0 font-mono text-[10px] text-text-dim" title={team?.name ?? player.team}>
           {player.team}
         </span>
-        <span className="min-w-0 truncate text-[12px] text-text" title={player.name}>
+        <PlayerLink profileId={player.profileId} className="min-w-0 truncate text-[12px] text-text no-underline hover:text-accent" title={player.name}>
           {player.name}
-        </span>
+        </PlayerLink>
       </span>
       <span className="shrink-0 text-right font-mono text-[12px] font-bold text-text-bright">{value}</span>
     </div>

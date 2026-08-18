@@ -44,8 +44,13 @@ you find it wrong, fix it in the same change.
 | `static/` | Vite's configured `publicDir`: favicon files, Apple touch icon, Android/PWA icons, and `site.webmanifest`. Assets here are served and copied to the build root. |
 
 Routes: `/` + the non-standalone `TABS` paths → `Home`; `/scores`, `/schedule`, `/stats`, `/info`,
-`/teams/:conf/:code`, `/match/:id`, `/game/:matchId`, `/register`, `/login`,
-`/settings/:section?`, `/admin/:section?`, `/league/:conf/admin/:section?`, `*` → `NotFound`.
+`/teams/:conf/:code`, `/match/:id`, `/game/:matchId`, `/players/:profileId`, `/register`, `/login`,
+`/setup`, `/settings/:section?`, `/admin/:section?`, `/league/:conf/admin/:section?`, `*` →
+`NotFound`. The whole tree sits inside `SetupGate`, which holds a signed-in user with an incomplete
+profile on `/setup`.
+
+The browser says `players` where the API says `profiles`: the public concept is a player, while
+`profile` stays the server's durable identity model.
 
 ### API layer — `src/lib/api/`
 
@@ -56,9 +61,9 @@ Import from the barrel: `import { … } from "../lib/api"` (`index.ts` re-export
 | `http.ts` | **Anonymous** transport. `getList`, `getOne`, `post`, `ApiError`, `errorMessage`, `isAbort`, `API_BASE`. Never sends credentials — the public routes use a wildcard CORS origin, which a browser rejects on a credentialed request. |
 | `credentialed.ts` | **Signed-in** transport. `credentialedRequest(path, {method, body})`, `SaveRejected`, `issuesOf`, `ValidationIssue`. Sends `credentials: "include"`; the JSON content type is the CSRF defence, not decoration. A `422` becomes `SaveRejected` carrying field-pointer issues. |
 | `normalize.ts` | Boundary coercion: `num`, `numOrNull`, `ratio`, `fmtPct`, `fmtRatio`, `fmtSec`, `hexFromInt`, `lighten`, `httpsUrl`, `sortValue`, plus the role vocabulary (`ROLE_ORDER`, `normalizeRole`, `roleLabel`, `sortByRole`). |
-| `client.ts` | Public reads: tournaments, teams, standings, stats, records, scout, match data. |
+| `client.ts` | Public reads: tournaments, teams, standings, stats, records, match data. |
 | `feed.ts` | The public fixture feed + one series in full (`scheduleFeed`, `matchResult`). |
-| `profiles.ts` | `GET /profiles/:id/accounts` — one profile's linked Riot accounts with live rank. The only public read that hits Riot at request time, so entries degrade one at a time and `ranked: null` (Riot declined) is not `ranked: []` (unranked). |
+| `profiles.ts` | The player-profile surface. `GET /profiles/:id/accounts` is the only public read that hits Riot at request time, so entries degrade one at a time and `ranked: null` (Riot declined) is not `ranked: []` (unranked). `GET /profiles/:id?conf=` is the whole `/players/:id` page in one request. Three of its shapes are easy to get wrong: `career.teams` carries full `TeamRecord`s (mapped with `client.ts`'s `mapTeamRecord`, not a second mapper) while opponents carry compact `TeamMetadata`; `opponent` is the **object** and `opponentCode` the string, on games, series and personal bests alike; and `career.laneMatchups` is **per conference and never merged**, so `(conf, profileId)` identifies a row. `accolades` is career-wide *even when `?conf=` scopes the statistics*. |
 | `info.ts` | League Info documents: public `GET /:conf/info`, draft-aware `GET /:conf/info/manage`, and complete-document `PUT /:conf/info`. Ordered quick links plus Markdown; writes require full admin access to that conf. |
 | `seasonView.ts` | `GET /:conf/season` — the season **as rendered**. See below. |
 | `season.ts` | `GET /:conf/phases` — the season's **structure**, site-admin only. See below. |
@@ -107,6 +112,25 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   `-1` means "no ban", and the component uses that id to override the broken normal-champion URL with
   Community Dragon's dedicated no-ban icon. Ban renderers must preserve every `-1` entry rather than
   filtering it out. Don't write a bare `<img>` for a champion.
+- `profile/` — everything `/players/:profileId` is made of. `profileUi.tsx` is its vocabulary:
+  `RailCard`, `ProfileSection`, `TeamLogo`/`TeamChip`, the `useConfLabel()` conf→league-name
+  resolver, and the number formatting the whole page has to agree on — `metricText`, `kdaText`
+  (**KDA's `Infinity` reads "Perfect", not `∞`** — the rest of the site keeps `fmtRatio`'s `∞`),
+  `avgKdaText`, and the `winRateTone`/`kdaTone` colour scales. `PlayerLink.tsx` is the canonical
+  player link used site-wide. The page builds two indexes from its single payload and passes them
+  down — `TeamIndex` over `career.teams` for the player's own team, and `matchId → ProfileGame` for
+  the personal-best cards and the series grouping. **Never fetch a team, a game or a season here**:
+  one request answers the page, and the joins are map lookups over what it returned.
+  Layout splits by shape of question, not importance: the rail is the lists that read fine at 320px
+  (accounts, roles, champion pool, lane matchups, teams) and the wide column is the numbers and the
+  game rows. `CareerTiles` deliberately omits games/record/win-rate/KDA — the header already shows
+  them. `MatchupCard` is the one place the page sums across the API's rows; its header explains why
+  that is safe.
+- `gameAssets.ts` + `useGameAssets()` — Community Dragon item and summoner-spell lookups, built the
+  same way as `championData.ts`/`useChampions()`. **The only place on the site items or spells
+  appear**, because the API has no columns for either: they exist solely in the raw Riot payload
+  behind `GET /m/:matchId`, which the profile's game rows fetch lazily on expand. Don't write a bare
+  `<img>` for an item or a spell any more than for a champion.
 - `Markdown.tsx` — the shared safe renderer for native article bodies and league Info pages. It uses
   `remark-gfm` for pipe tables, autolinks, task lists and strikethrough; raw HTML stays disabled. Do
   not introduce a second Markdown policy in a feature folder.

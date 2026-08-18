@@ -31,12 +31,11 @@ import {
   phaseDocument,
   phaseList,
   playerStats,
+  playerProfile,
   profileAccounts,
   records,
   schedule,
   scheduleFeed,
-  scout,
-  scoutIndex,
   searchUsers,
   season,
   standings,
@@ -181,14 +180,6 @@ export const queries = {
       staleTime: LEAGUE_STALE,
     }),
 
-  /** The player picker's source. One request per conf, shared by every report viewed within it. */
-  scoutIndex: (conf: string) =>
-    query({
-      queryKey: ["stats", "scout", conf] as const,
-      queryFn: ({ signal }: { signal: AbortSignal }) => scoutIndex(conf, { signal }),
-      staleTime: LEAGUE_STALE,
-    }),
-
   /**
    * One profile's linked Riot accounts, with live rank.
    *
@@ -206,11 +197,13 @@ export const queries = {
       staleTime: ACCOUNTS_STALE,
     }),
 
-  /** One player's report. Keyed per player, so flipping between two already-seen players is instant. */
-  scout: (conf: string, profileId: number) =>
+  /** Public cross-season profile document. The endpoint itself permits one minute of staleness. */
+  playerProfile: (profileId: number | null, conf: string | null) =>
     query({
-      queryKey: ["stats", "scout", conf, profileId] as const,
-      queryFn: ({ signal }: { signal: AbortSignal }) => scout(conf, profileId, { signal }),
+      queryKey: ["profiles", profileId, "page", conf ?? "all"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        profileId === null ? Promise.resolve(null) : playerProfile(profileId, conf, { signal }),
+      enabled: profileId !== null,
       staleTime: LEAGUE_STALE,
     }),
 
@@ -572,12 +565,10 @@ export const queryRoots = {
   standings: ["standings"] as const,
   stats: ["stats"] as const,
   /**
-   * Every profile's linked-accounts read.
+   * Every public profile document and linked-accounts read.
    *
-   * Nothing invalidates it today — linking is the one thing that changes what it serves, and that
-   * flow is paused (`RIOT_LINKING_ENABLED`). The root exists so the change that turns linking back
-   * on has an obvious thing to call: without it, a freshly linked account would sit unseen for the
-   * ten minutes `ACCOUNTS_STALE` allows.
+   * Presentation edits, Riot linking and targeted refresh all invalidate this root so the public
+   * page, Settings and every cached account card converge on the same identity.
    */
   profiles: ["profiles"] as const,
   /** The league list. Invalidated by the admin league editor, which is the only thing that writes it. */

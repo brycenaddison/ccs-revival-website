@@ -2,12 +2,17 @@
  * The Stats page.
  *
  * Replaces two overlapping surfaces: the old three-table `StatsSection` and the short-lived
- * `/analysis` page. One destination, five tabs, and a cumulative totals bar across the top.
+ * `/analysis` page. One destination, four tabs, and a cumulative totals bar across the top.
  *
  * The rule this page is built to: **one endpoint load per view, plus trivial reductions.** Nothing
- * here fans out across teams or re-aggregates a season in the browser. Records and Scouting held
- * placeholders for a long time under that rule — both genuinely need per-game rows, and faking them
- * would have meant fetching every team's matchlist — and they are now served by endpoints of their own.
+ * here fans out across teams or re-aggregates a season in the browser. Records held a placeholder for
+ * a long time under that rule — it genuinely needs per-game rows, and faking them would have meant
+ * fetching every team's matchlist — and it is now served by an endpoint of its own.
+ *
+ * There was a fifth tab, Scouting: one player's season, with a champion pool, a game log and lane
+ * matchups. `/players/:profileId` does all of that across every season a player has played, so the
+ * tab and `/stats/scout/:conf` went with it. Players are reached through `PlayerLink` from the
+ * leaderboard, rosters, box scores and match pages instead.
  *
  * Leaderboard, Teams and Champions each offer *Table* and *Bars* over one filtered pool: the table
  * answers "what are this row's numbers?", bars answer "who leads this, and by how much?". View mode is
@@ -24,11 +29,10 @@ import { COMPARE_DOCK_MAX } from "../components/stats/CompareDock";
 import { TeamPanel } from "../components/stats/TeamPanel";
 import { ChampionPanel } from "../components/stats/ChampionPanel";
 import { RecordsPanel } from "../components/stats/RecordsPanel";
-import { ScoutPanel } from "../components/stats/ScoutPanel";
 import { groupLabels } from "../lib/leagueAdapters";
 import { useLeague } from "../lib/leagueContext";
 
-const TAB_LIST = ["Leaderboard", "Teams", "Champions", "Records", "Scouting"] as const;
+const TAB_LIST = ["Leaderboard", "Teams", "Champions", "Records"] as const;
 type Tab = (typeof TAB_LIST)[number];
 
 export default function Stats() {
@@ -107,10 +111,8 @@ export default function Stats() {
         <TeamPanel conf={conf} isMobile={isMobile} />
       ) : tab === "Champions" ? (
         <ChampionPanel conf={conf} isMobile={isMobile} />
-      ) : tab === "Records" ? (
-        <RecordsPanel conf={conf} isMobile={isMobile} />
       ) : (
-        <ScoutPanel conf={conf} isMobile={isMobile} />
+        <RecordsPanel conf={conf} isMobile={isMobile} />
       )}
     </PageShell>
   );

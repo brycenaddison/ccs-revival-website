@@ -15,6 +15,7 @@ import { joinRoster, type JoinedRoster } from "../../lib/roster";
 import { ChampionIcon } from "../ChampionIcon";
 import { TeamLink } from "../league/TeamLink";
 import { MatchResultList } from "../match/MatchResultList";
+import { PlayerLink } from "../profile/PlayerLink";
 
 interface Props {
   conf: string;
@@ -142,7 +143,7 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
                 {entries.map(e => (
                   <tr key={e.key} className="border-b border-border last:border-b-0">
                     <td className="py-2.5 pr-3 font-heading font-bold text-text-bright">
-                      {e.name}
+                      <PlayerLink profileId={e.profileId} className="text-text-bright no-underline hover:text-accent">{e.name}</PlayerLink>
                       {!e.starter && (
                         <span className="ml-1.5 text-[9px] text-text-muted font-bold tracking-wide uppercase">Sub</span>
                       )}
@@ -169,7 +170,7 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
               <tbody>
                 {sortByRole(extras).map(p => (
                   <tr key={p.rowKey} className="border-b border-border last:border-b-0">
-                    <td className="py-2.5 pr-3 font-heading font-bold text-text-bright">{p.name}</td>
+                    <td className="py-2.5 pr-3 font-heading font-bold text-text-bright"><PlayerLink profileId={p.id} className="text-text-bright no-underline hover:text-accent">{p.name}</PlayerLink></td>
                     <td className="text-center py-2.5 px-2 text-[10px] text-text-muted">{roleLabel(p.role)}</td>
                     <StatCells p={p} />
                   </tr>

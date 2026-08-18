@@ -116,6 +116,7 @@ export function RecordsPanel({ conf, isMobile }: Props) {
 
             const rows: BarLeaderboardRow[] = shown.map((r, i) => ({
               key: `${board.id}-${i}`,
+              profileId: r.profileId,
               rank: (tally.get(r.rank) ?? 1) > 1 ? `T-${r.rank}` : String(r.rank),
               name: r.name,
               sub: [r.champ, `vs ${r.opponent}`, `W${r.seasonDay}`].filter(Boolean).join(" · "),

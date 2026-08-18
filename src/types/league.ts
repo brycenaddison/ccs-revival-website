@@ -72,6 +72,8 @@ export interface Standing {
 }
 
 export interface Player {
+  /** Durable public profile identity; unlike `id`, this is shared across role rows. */
+  profileId: number;
   /**
    * Stable row identity. Stats are tracked per role, so a player who played two roles has
    * two entries here — that is intended, and this key keeps them distinct.

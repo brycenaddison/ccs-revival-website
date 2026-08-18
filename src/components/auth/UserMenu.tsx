@@ -9,10 +9,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, FileText, Link2, LogOut, Settings, Shield, type LucideIcon } from "lucide-react";
+import { ChevronDown, FileText, Link2, LogOut, Settings, Shield, UserRound, type LucideIcon } from "lucide-react";
 import { useAdminAccess } from "../../lib/adminAccess";
 import { RIOT_LINKING_ENABLED, useAuth } from "../../lib/authContext";
 import { CONTENT_ROLE } from "../../lib/api";
+import { playerPath } from "../profile/PlayerLink";
 
 export type MenuEntry =
   | { kind: "divider" }
@@ -32,6 +33,7 @@ export type MenuEntry =
     };
 
 interface EntryOpts {
+  profileId: number | null;
   logout: () => Promise<void>;
   linkRiot: () => Promise<void>;
   isSiteAdmin: boolean;
@@ -61,8 +63,10 @@ export function accountMenuEntries({
   linkRiot,
   isSiteAdmin,
   canEditContent,
+  profileId,
 }: EntryOpts): MenuEntry[] {
   return [
+    ...(profileId ? [{ kind: "item" as const, label: "View profile", icon: UserRound, to: playerPath(profileId) }] : []),
     { kind: "item", label: "Settings", icon: Settings, to: "/settings" },
     ...(canEditContent
       ? [{ kind: "item" as const, label: "Content", icon: FileText, to: "/content" }]
@@ -93,7 +97,7 @@ const LABEL = "font-heading text-sm tracking-wider uppercase whitespace-nowrap";
 const ITEM = `flex w-full items-center gap-2 text-left bg-transparent border-none px-4 py-2.5 text-text-secondary ${LABEL}`;
 
 export function UserMenu({ name }: { name: string }) {
-  const { logout, linkRiot, hasRole } = useAuth();
+  const { logout, linkRiot, hasRole, profile } = useAuth();
   const { isSiteAdmin } = useAdminAccess();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -121,6 +125,7 @@ export function UserMenu({ name }: { name: string }) {
   }, [open]);
 
   const entries = accountMenuEntries({
+    profileId: profile?.id ?? null,
     logout,
     linkRiot,
     isSiteAdmin,

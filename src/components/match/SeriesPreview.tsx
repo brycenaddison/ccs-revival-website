@@ -28,6 +28,7 @@ import {
 } from "../../lib/api";
 import { queries } from "../../lib/queries";
 import { joinRoster, type RosterEntry } from "../../lib/roster";
+import { PlayerLink } from "../profile/PlayerLink";
 import { TeamBadge } from "../TeamBadge";
 import { TeamLink } from "../league/TeamLink";
 import { ChampionIcon } from "../ChampionIcon";
@@ -280,7 +281,7 @@ function StarterRow({ entry }: { entry: RosterEntry<PlayerStatsRanked> }) {
         className="truncate py-2 pl-4 pr-2 font-heading text-xs font-semibold text-text-bright"
         title={entry.name}
       >
-        {entry.name}
+        <PlayerLink profileId={entry.profileId} className="text-text-bright no-underline hover:text-accent">{entry.name}</PlayerLink>
       </td>
       <td className="py-2 px-2 font-heading text-[10px] tracking-wider text-text-muted">
         {roleLabel(entry.role)}

@@ -3,9 +3,9 @@
  *
  * One transport wrinkle worth knowing: `getOne` maps a 404 to `null`, because upstream's older data
  * routes signal "no rows" as a 200 with a `null` body and a 404 therefore meant the route didn't exist.
- * The newer stats routes use 404 for a genuinely absent resource — an unknown player on
- * `/stats/scout/:conf/:profileId` — so the two are indistinguishable here. That is acceptable only
- * because the scout index lists exactly the players who do have games, so the UI cannot reach the case.
+ * The newer stats routes use 404 for a genuinely absent resource, so the two are indistinguishable
+ * here. Every caller that can reach the ambiguity reads `null` as "nothing to show" rather than as an
+ * error, which is the right answer either way.
  */
 
 import { getList, getOne, isAbort, post, type RequestOpts } from "./http";
@@ -36,13 +36,6 @@ import type {
   RiotMatch,
   RoleKey,
   RosterSlot,
-  ScoutChamp,
-  ScoutGame,
-  ScoutIndexEntry,
-  ScoutMatchup,
-  ScoutOpponent,
-  ScoutReport,
-  ScoutTotals,
   SeasonRecord,
   StandingRow,
   StatTotals,
@@ -554,145 +547,6 @@ function mapRecords(conf: string, raw: Raw): RecordsResponse {
   };
 }
 
-// ------------------------------------------------------------------ scouting
-
-/** Roles as served, most-played first, dropping anything unrecognised. */
-function mapRoles(v: unknown): Role[] {
-  if (!Array.isArray(v)) return [];
-  return v.flatMap(r => {
-    const role = normalizeRole(r as string);
-    return role ? [role] : [];
-  });
-}
-
-const SCOUT_COUNTS = ["games", "wins", "losses", "kills", "deaths", "assists"] as const;
-const SCOUT_RATIOS = ["avgKills", "avgDeaths", "avgAssists", "avgDmg", "avgCs", "csm", "kp", "gd14"] as const;
-
-/**
- * `kda` goes through `ratio` rather than `numOrNull`, on this endpoint and everywhere below.
- *
- * The API serves a deathless aggregate as the string `"Infinity"` — its stated convention. `numOrNull`
- * would read that as `null`, i.e. "no data", and `num` would read it as `0`. Both are wrong, and `ratio`
- * is the only helper that parses it.
- */
-function mapScoutTotals(raw: unknown): ScoutTotals {
-  const t = asRaw(raw);
-  return {
-    kda: ratio(t.kda as Numeric),
-    ...pickCounts(t, SCOUT_COUNTS),
-    ...pickRatios(t, SCOUT_RATIOS),
-  };
-}
-
-function mapScoutChamp(raw: unknown): ScoutChamp {
-  const c = asRaw(raw);
-  return {
-    champ: str(c.champ),
-    // Note the casing: `champId` here, `champid` on every other champion shape in the API.
-    champId: num(c.champId as Numeric),
-    img: httpsUrl(c.img as string) ?? null,
-    games: num(c.games as Numeric),
-    wins: num(c.wins as Numeric),
-    kills: num(c.kills as Numeric),
-    deaths: num(c.deaths as Numeric),
-    assists: num(c.assists as Numeric),
-    kda: ratio(c.kda as Numeric),
-  };
-}
-
-/**
- * The lane opponent, or `null` when there wasn't a resolvable one.
- *
- * Deliberately not `mapMatchlistPlayer`, which shares most of these keys: `vs` carries no `cs`, `csm`,
- * `gd8`, `gd14` or `kp`, so that mapper would fabricate a zero CS and four nulls that look like data.
- */
-function mapScoutOpponent(raw: unknown): ScoutOpponent | null {
-  if (!raw || typeof raw !== "object") return null;
-  const v = asRaw(raw);
-  return {
-    profileId: numOrNull(v.profileId as Numeric),
-    name: strOrNull(v.name),
-    champ: strOrNull(v.champ),
-    champImg: httpsUrl(v.champImg as string) ?? null,
-    kills: num(v.kills as Numeric),
-    deaths: num(v.deaths as Numeric),
-    assists: num(v.assists as Numeric),
-    kda: ratio(v.kda as Numeric),
-    dmg: num(v.dmg as Numeric),
-  };
-}
-
-function mapScoutGame(raw: unknown): ScoutGame {
-  const g = asRaw(raw);
-  return {
-    matchId: str(g.matchId),
-    game: num(g.game as Numeric),
-    seasonDay: num(g.seasonDay as Numeric),
-    startTime: strOrNull(g.startTime),
-    durationS: num(g.durationS as Numeric),
-    team: str(g.team),
-    opponent: str(g.opponent),
-    win: g.win === true,
-    blueside: g.blueside === true,
-    role: normalizeRole(g.role as string),
-    champ: strOrNull(g.champ),
-    champId: numOrNull(g.champId as Numeric),
-    champImg: httpsUrl(g.champImg as string) ?? null,
-    kills: num(g.kills as Numeric),
-    deaths: num(g.deaths as Numeric),
-    assists: num(g.assists as Numeric),
-    kda: ratio(g.kda as Numeric),
-    dmg: num(g.dmg as Numeric),
-    cs: num(g.cs as Numeric),
-    csm: numOrNull(g.csm as Numeric),
-    gd8: numOrNull(g.gd8 as Numeric),
-    gd14: numOrNull(g.gd14 as Numeric),
-    kp: numOrNull(g.kp as Numeric),
-    visionScore: num(g.visionScore as Numeric),
-    teamKills: num(g.teamKills as Numeric),
-    vs: mapScoutOpponent(g.vs),
-  };
-}
-
-function mapScoutMatchup(raw: unknown): ScoutMatchup {
-  const m = asRaw(raw);
-  return {
-    profileId: num(m.profileId as Numeric),
-    name: strOrNull(m.name),
-    team: str(m.team),
-    games: num(m.games as Numeric),
-    wins: num(m.wins as Numeric),
-    losses: num(m.losses as Numeric),
-    games_detail: Array.isArray(m.games_detail) ? m.games_detail : [],
-  };
-}
-
-function mapScoutIndexEntry(raw: Raw): ScoutIndexEntry {
-  return {
-    profileId: num(raw.profileId as Numeric),
-    name: strOrNull(raw.name),
-    team: str(raw.team),
-    games: num(raw.games as Numeric),
-    roles: mapRoles(raw.roles),
-  };
-}
-
-function mapScoutReport(conf: string, raw: Raw): ScoutReport {
-  return {
-    profileId: num(raw.profileId as Numeric),
-    name: strOrNull(raw.name),
-    conf: strOrNull(raw.conf) ?? conf,
-    teams: Array.isArray(raw.teams) ? raw.teams.map(str) : [],
-    roles: mapRoles(raw.roles),
-    totals: mapScoutTotals(raw.totals),
-    champs: Array.isArray(raw.champs) ? raw.champs.map(mapScoutChamp) : [],
-    // Oldest first as served, because it drives a form reading. Reverse a copy in a view that wants
-    // newest first rather than sorting here.
-    timeline: Array.isArray(raw.timeline) ? raw.timeline.map(mapScoutGame) : [],
-    matchups: Array.isArray(raw.matchups) ? raw.matchups.map(mapScoutMatchup) : [],
-  };
-}
-
 // ----------------------------------------------------------------- endpoints
 
 export function tournaments(opts?: RequestOpts): Promise<Tournament[]> {
@@ -777,23 +631,6 @@ export function records(
   if (params?.limit !== undefined) q.set("limit", String(params.limit));
   return getOne<Raw>(`/stats/records/${encodeURIComponent(conf)}?${q.toString()}`, opts).then(raw =>
     raw === null ? null : mapRecords(conf, raw),
-  );
-}
-
-/** Every player in the conf, for a picker. Players with no profile id are omitted server-side. */
-export function scoutIndex(conf: string, opts?: RequestOpts): Promise<ScoutIndexEntry[]> {
-  return getList<Raw>(`/stats/scout/${encodeURIComponent(conf)}`, opts).then(rows => rows.map(mapScoutIndexEntry));
-}
-
-/**
- * One player's scouting report. `null` when they have no games in the conf.
- *
- * Upstream returns 404 for that case, which this transport cannot tell from a missing route — see the
- * file header. Reachable only by requesting a profile id the index didn't offer.
- */
-export function scout(conf: string, profileId: number, opts?: RequestOpts): Promise<ScoutReport | null> {
-  return getOne<Raw>(`/stats/scout/${encodeURIComponent(conf)}/${profileId}`, opts).then(raw =>
-    raw === null ? null : mapScoutReport(conf, raw),
   );
 }
 
