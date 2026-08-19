@@ -11,13 +11,16 @@
  * `name` and `handle` come from Discord at different times and drift apart, which is why both are
  * here: `name` is the site's own field, seeded once when the profile was created and never
  * rewritten, while `handle` is re-cached on every login. Someone who renamed on Discord years ago
- * sees the old name above the current handle, and the hints are what explain that.
+ * sees the old name above the current handle.
+ *
+ * There is no Discord row beneath the form. The header already shows the handle and the picture,
+ * and a read-only row repeating the handle two hundred pixels lower said nothing the top of the
+ * page hadn't already said.
  */
 
 import { User } from "lucide-react";
 import { useAuth } from "../../../lib/authContext";
 import { ProfilePresentationForm } from "../../profile/ProfilePresentationForm";
-import { ReadOnlyValue, SettingsRow } from "../SettingsSection";
 
 export function AccountSection() {
   const { profile } = useAuth();
@@ -66,19 +69,6 @@ export function AccountSection() {
         }}
         submitLabel="Save profile"
       />
-
-      <div className="my-6 border-t border-border" />
-
-      <SettingsRow
-        label="Discord"
-        hint={
-          profile.handle
-            ? "Your handle and picture are refreshed every time you sign in."
-            : "Not recorded yet — sign out and back in and we'll pick it up."
-        }
-      >
-        <ReadOnlyValue>{profile.handle ? `@${profile.handle}` : "—"}</ReadOnlyValue>
-      </SettingsRow>
     </>
   );
 }

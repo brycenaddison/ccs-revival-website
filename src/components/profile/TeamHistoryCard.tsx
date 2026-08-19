@@ -8,7 +8,7 @@
 
 import { fmtPct, type ProfileTeamBreakdown } from "../../lib/api";
 import { int } from "../../lib/statFormat";
-import { fmtDay } from "../../lib/utils";
+import { fmtMonth } from "../../lib/utils";
 import { TeamLink } from "../league/TeamLink";
 import { metricText, RailCard, TeamLogo, useConfLabel } from "./profileUi";
 
@@ -38,11 +38,22 @@ export function TeamHistoryCard({ teams }: { teams: readonly ProfileTeamBreakdow
                     <span className="block truncate text-[11px] text-text-secondary">
                       {confLabel(row.conf).name}
                     </span>
-                    <span className="mt-1 flex flex-wrap items-baseline gap-x-2.5 font-mono text-[10px] text-text-dim">
-                      <span>{int(row.games)}G</span>
-                      <span>{row.wins}–{row.losses}</span>
-                      <span>{metricText(winPercent, fmtPct)}</span>
-                      <span>{playedRange(row.firstPlayed, row.lastPlayed)}</span>
+                    {/* Every cell can shrink and the date truncates. Previously all three were
+                        `whitespace-nowrap` with the date `shrink-0`, so nothing could give and a
+                        long stint ("Mar 2025 – Aug 2025") simply ran off the side of the rail. */}
+                    <span className="mt-1 flex min-w-0 items-baseline gap-x-1.5 font-mono text-[10px] text-text-dim">
+                      <span className="shrink-0 whitespace-nowrap">
+                        {int(row.games)} {row.games === 1 ? "game" : "games"}
+                      </span>
+                      <span className="shrink-0" aria-hidden="true">·</span>
+                      <span className="shrink-0 whitespace-nowrap">
+                        {metricText(winPercent, fmtPct)} winrate
+                      </span>
+                      {/* Pushed to the far edge so the stints line up as a column down the card,
+                          which is the only way to compare them at a glance. */}
+                      <span className="ml-auto min-w-0 truncate">
+                        {playedRange(row.firstPlayed, row.lastPlayed)}
+                      </span>
                     </span>
                   </span>
                 </TeamLink>
@@ -55,10 +66,10 @@ export function TeamHistoryCard({ teams }: { teams: readonly ProfileTeamBreakdow
   );
 }
 
-/** A one-day stint is a date, not a range that repeats itself. */
+/** A stint inside one month is a month, not a range that repeats itself. */
 function playedRange(first: string | null, last: string | null): string {
-  const from = fmtDay(first);
-  const to = fmtDay(last);
+  const from = fmtMonth(first);
+  const to = fmtMonth(last);
   if (!from && !to) return "";
   if (!from || !to || from === to) return from || to;
   return `${from} – ${to}`;

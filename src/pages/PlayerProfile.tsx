@@ -96,9 +96,6 @@ function ProfileContent({
     [games],
   );
 
-  // Matching a Riot payload's participants back to this player, for the expandable build detail.
-  const puuids = useMemo(() => new Set(data.accounts.map(a => a.puuid)), [data.accounts]);
-
   const played = (career.totals.games ?? 0) > 0;
 
   return (
@@ -113,8 +110,28 @@ function ProfileContent({
         onConfChange={onConfChange}
       />
 
+      {/*
+        `min-w-0` on both columns, and it is load-bearing rather than defensive.
+
+        A grid item's `min-width` defaults to `auto`, which floors it at its own min-content width —
+        so the match history's deliberately-wide game grid pushed its column past the track, past the
+        viewport, and gave the whole document a horizontal scrollbar. That is worse than it sounds:
+        the nav is `sticky`, which pins it to the *viewport*, so scrolling right slid the page out
+        from under a header that stayed put.
+
+        `minmax(0,1fr)` on the track alone does not fix it — the floor is on the item, not the track,
+        and below `lg` there is no template at all. With the floor removed, the overflow stays where
+        it belongs: inside the one `overflow-x-auto` that owns it.
+
+        The rail gets a real floor rather than zero, because it has one thing that genuinely cannot
+        shrink: the OP.GG button's mark is a fixed-width mask, and beside the Refresh button that
+        row bottoms out around 216px inside the card's padding. Letting the column go below that
+        clipped the button instead of the page. 240px is under every phone width, so this floor
+        never actually scrolls a real device — it only stops the layout collapsing when a desktop
+        window is dragged absurdly narrow.
+      */}
       <div className="grid items-start gap-x-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <div>
+        <div className="min-w-[240px]">
           <AccountsCard data={data} />
           {played && (
             <>
@@ -126,7 +143,7 @@ function ProfileContent({
           )}
         </div>
 
-        <div className="mt-6 lg:mt-0">
+        <div className="mt-6 min-w-0 lg:mt-0">
           {!played ? (
             <div className="rounded-lg border border-border bg-bg2 px-5 py-12 text-center text-text-dim">
               No recorded games in{" "}
@@ -147,7 +164,7 @@ function ProfileContent({
               </ProfileSection>
 
               <ProfileSection title="MATCH HISTORY">
-                <MatchHistory matches={matches} games={games} teamIndex={teamIndex} puuids={puuids} />
+                <MatchHistory matches={matches} games={games} teamIndex={teamIndex} />
               </ProfileSection>
             </>
           )}

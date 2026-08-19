@@ -113,7 +113,12 @@ export function NavBar({ isMobile }: Props) {
           </button>
         </div>
         {open && (
-          <div className="absolute top-full left-0 right-0 bg-bg2 border-b-2 border-accent z-[100] shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+          // Capped and scrollable. The drawer is `absolute` inside a `sticky` nav, so it does not
+          // grow the page — anything past the fold was simply unreachable, and on a short phone in
+          // landscape that was most of the menu. The cap also clears the fixed bottom bar, which
+          // sits above this in the stacking order and would otherwise cover the last entries.
+          // `overscroll-contain` stops a flick at the end of the list scrolling the page behind it.
+          <div className="absolute top-full left-0 right-0 max-h-[calc(100dvh-3.5rem-var(--bottom-nav-h))] overflow-y-auto overscroll-contain bg-bg2 border-b-2 border-accent z-[100] shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
             {TABS.map(t => (
               <Link
                 key={t.path}

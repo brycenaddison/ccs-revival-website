@@ -37,6 +37,8 @@
  * opponent in two seasons is the served answer, not a duplicate to fold: upstream builds them from
  * the per-conf scout reports, and summing them here would invent a career matchup record the API
  * deliberately does not compute. `conf` is therefore part of a row's identity, not decoration.
+ * Rows group on opponent identity alone, without role — the same person met mid and then jungle is
+ * one row.
  *
  * **`accolades` is career-wide even when `?conf=` scopes everything else.** That is upstream's
  * decision, not an oversight here, and the UI has to say so — a trophy silently vanishing when a
@@ -85,6 +87,82 @@ export interface LinkedAccount {
   profileIconUrl: string | null;
   /** `[]` is unranked. `null` is "Riot would not tell us" — see the header. */
   ranked: AccountRank[] | null;
+}
+
+/**
+ * Riot's ladder, low to high. Their API gives no ordering of its own — `tier` is just a string —
+ * so any "which account is better" question has to be answered against a list like this one.
+ *
+ * `EMERALD` sits between platinum and diamond; it was inserted mid-2023 and shifted everything
+ * above it. Apex tiers (`MASTER` and up) have no meaningful division: Riot reports `I` for all of
+ * them and separates players by LP alone.
+ */
+const TIER_ORDER = [
+  "IRON",
+  "BRONZE",
+  "SILVER",
+  "GOLD",
+  "PLATINUM",
+  "EMERALD",
+  "DIAMOND",
+  "MASTER",
+  "GRANDMASTER",
+  "CHALLENGER",
+] as const;
+
+/** `IV` is the entry step of a tier and `I` the last one — Riot counts down, so this counts up. */
+const DIVISION_ORDER = ["IV", "III", "II", "I"] as const;
+
+/**
+ * A single comparable number for one ranked entry.
+ *
+ * Tier dominates division, which dominates LP, and the multipliers are far enough apart that apex
+ * LP (which runs into four digits) can never climb past the tier above it. An unrecognised tier
+ * scores `-1` rather than being guessed at: a new tier we don't know about should lose the
+ * comparison, not silently win it by sorting as index 0.
+ */
+export function rankScore(rank: AccountRank): number {
+  const tier = (TIER_ORDER as readonly string[]).indexOf(rank.tier.toUpperCase());
+  if (tier < 0) return -1;
+  const division = (DIVISION_ORDER as readonly string[]).indexOf(rank.division.toUpperCase());
+  return tier * 1_000_000 + Math.max(division, 0) * 100_000 + rank.leaguePoints;
+}
+
+/** The account's strongest queue, or null when it is unranked or Riot declined to say. */
+export function bestRank(account: LinkedAccount): AccountRank | null {
+  if (!account.ranked || account.ranked.length === 0) return null;
+  return account.ranked.reduce((best, rank) => (rankScore(rank) > rankScore(best) ? rank : best));
+}
+
+/**
+ * The account that represents the player — their highest rank across every linked account.
+ *
+ * Which one is "theirs" is not something the API models: a profile is a bag of PUUIDs with no
+ * primary flag, and the order they were linked in says nothing about which one they play. Highest
+ * rank is the closest available proxy, and it is also the one a reader would pick.
+ *
+ * Falls back to the first account with an icon (so the page still has an avatar for an unranked
+ * player) and then to the first account at all. `null` only when there are none.
+ */
+export function primaryAccount(accounts: readonly LinkedAccount[]): LinkedAccount | null {
+  if (accounts.length === 0) return null;
+  let best: LinkedAccount | null = null;
+  let bestScore = -1;
+  for (const account of accounts) {
+    const rank = bestRank(account);
+    const score = rank ? rankScore(rank) : -1;
+    if (score > bestScore) {
+      best = account;
+      bestScore = score;
+    }
+  }
+  return best ?? accounts.find(a => a.profileIconUrl) ?? accounts[0];
+}
+
+/** Wins over games for one queue. `null` when the queue has no decided games. */
+export function rankWinRate(rank: AccountRank): number | null {
+  const games = rank.wins + rank.losses;
+  return games > 0 ? rank.wins / games : null;
 }
 
 export const NICKNAME_MAX = 24;
@@ -187,6 +265,15 @@ export interface ProfileLaneMatchup {
   games: number;
   wins: number;
   losses: number;
+  /**
+   * Rounded average gold difference at 14 minutes against this opponent.
+   *
+   * **An average, and the only one on this row.** Its denominator is games *with a 14-minute
+   * snapshot*, which is not `games` and is not served — so two rows' values cannot be combined
+   * here without inventing the weights. `null` when no game against them has a snapshot, which is
+   * every pre-2022 season.
+   */
+  gd14: number | null;
 }
 
 /** One trophy on a profile. Career-wide; never filtered by the league selector. */
@@ -504,6 +591,7 @@ function mapLaneMatchups(value: unknown): ProfileLaneMatchup[] {
       games: int(r.games),
       wins: int(r.wins),
       losses: int(r.losses),
+      gd14: metric(r.gd14),
     }];
   });
 }

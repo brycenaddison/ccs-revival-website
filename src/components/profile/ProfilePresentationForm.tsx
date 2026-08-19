@@ -85,6 +85,7 @@ export function ProfilePresentationForm({ initial, submitLabel, onSaved }: Props
         id="profile-nickname"
         label="Nickname"
         hint="The name shown across CCS. It does not need to match Discord or a Riot ID."
+        requiredMessage="A nickname is required."
         value={values.nickname}
         maxLength={NICKNAME_MAX}
         error={fieldError === "nickname"}
@@ -106,6 +107,7 @@ export function ProfilePresentationForm({ initial, submitLabel, onSaved }: Props
         id="profile-pronouns"
         label="Pronouns"
         hint="For example: they/them, she/her, or he/him."
+        requiredMessage="Pronouns are required."
         value={values.pronouns}
         maxLength={PRONOUNS_MAX}
         error={fieldError === "pronouns"}
@@ -126,7 +128,8 @@ export function ProfilePresentationForm({ initial, submitLabel, onSaved }: Props
       <ProfileField
         id="profile-pronunciation"
         label="Name pronunciation"
-        hint="Write how a caster should say your nickname, such as GLAY-shul."
+        hint="Write how a caster should say your nickname (ex. GLAY-shul)."
+        requiredMessage="A name pronunciation is required."
         value={values.pronunciation}
         maxLength={PRONUNCIATION_MAX}
         error={fieldError === "pronunciation"}
@@ -158,6 +161,7 @@ function ProfileField({
   id,
   label,
   hint,
+  requiredMessage,
   value,
   maxLength,
   error,
@@ -166,6 +170,13 @@ function ProfileField({
   id: string;
   label: string;
   hint: string;
+  /**
+   * Written out per field rather than built from the label.
+   *
+   * `${label} is required` produced "Pronouns is required" — the labels are not all singular nouns,
+   * and there is no rule that turns a UI label into a grammatical subject.
+   */
+  requiredMessage: string;
   value: string;
   maxLength: number;
   error: boolean;
@@ -179,7 +190,7 @@ function ProfileField({
       </div>
       {children}
       <p id={`${id}-help`} className={`mt-1.5 text-xs ${error ? "text-ccs-red" : "text-text-dim"}`}>
-        {error ? `${label} is required.` : hint}
+        {error ? requiredMessage : hint}
       </p>
     </div>
   );

@@ -17,16 +17,13 @@
  * being true.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { ProfileGame, ProfileMatch } from "../../lib/api";
 import { fmtDay } from "../../lib/utils";
-import { ACTION_QUIET } from "../admin/adminUi";
-import { ProfileGameRow } from "./ProfileGameRow";
+import { GameRowHeader, ProfileGameRow } from "./ProfileGameRow";
+import { TeamLink } from "../league/TeamLink";
 import { TeamChip, TeamLogo, useConfLabel, type TeamIndex } from "./profileUi";
-
-/** Series shown before the reader asks for more. Roughly one season of play. */
-const PAGE = 10;
 
 interface Group {
   key: string;
@@ -38,56 +35,28 @@ interface Props {
   matches: readonly ProfileMatch[];
   games: readonly ProfileGame[];
   teamIndex: TeamIndex;
-  puuids: ReadonlySet<string>;
 }
 
-export function MatchHistory({ matches, games, teamIndex, puuids }: Props) {
-  const [shown, setShown] = useState(PAGE);
-  const [openGame, setOpenGame] = useState<string | null>(null);
-
+export function MatchHistory({ matches, games, teamIndex }: Props) {
   const groups = useMemo(() => buildGroups(matches, games), [matches, games]);
 
   if (groups.length === 0) {
     return <p className="rounded-lg border border-border bg-bg2 px-4 py-6 text-sm text-text-dim">No games played.</p>;
   }
 
+  // Everything, in one list. There was a "show more" here, which was pagination over data that had
+  // already arrived — the whole career comes down in the single profile request, so the button
+  // bought nothing and hid the rest of the page's own scroll position behind a click.
   return (
-    <>
-      <div className="flex flex-col gap-3">
-        {groups.slice(0, shown).map(group => (
-          <SeriesCard
-            key={group.key}
-            group={group}
-            teamIndex={teamIndex}
-            puuids={puuids}
-            openGame={openGame}
-            onToggleGame={id => setOpenGame(current => (current === id ? null : id))}
-          />
-        ))}
-      </div>
-
-      {shown < groups.length && (
-        <button type="button" onClick={() => setShown(n => n + PAGE)} className={`${ACTION_QUIET} mt-3`}>
-          Show more ({groups.length - shown} left)
-        </button>
-      )}
-    </>
+    <div className="flex flex-col gap-3">
+      {groups.map(group => (
+        <SeriesCard key={group.key} group={group} teamIndex={teamIndex} />
+      ))}
+    </div>
   );
 }
 
-function SeriesCard({
-  group,
-  teamIndex,
-  puuids,
-  openGame,
-  onToggleGame,
-}: {
-  group: Group;
-  teamIndex: TeamIndex;
-  puuids: ReadonlySet<string>;
-  openGame: string | null;
-  onToggleGame: (matchId: string) => void;
-}) {
+function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }) {
   const confLabel = useConfLabel();
   const { match, games } = group;
 
@@ -97,65 +66,88 @@ function SeriesCard({
   const won = match ? match.gameWins > match.gameLosses : games.some(g => g.win);
   const seriesId = match?.scheduleMatchId ?? null;
 
-  const header = (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      {match ? (
-        <>
-          <TeamChip
-            conf={match.conf}
-            code={match.team}
-            team={teamIndex(match.conf, match.team)}
-            stopPropagation
-            className="flex-1 basis-[140px]"
-          />
-          <span
-            className={`shrink-0 rounded px-2 py-0.5 font-display text-lg leading-none tracking-wider ${
-              won ? "bg-ccs-green/20 text-ccs-green" : "bg-ccs-red/20 text-ccs-red"
-            }`}
-          >
-            {match.gameWins}–{match.gameLosses}
-          </span>
-          <span className="flex flex-1 basis-[140px] items-center gap-2">
-            <TeamLogo team={match.opponent} code={match.opponentCode ?? "?"} size={22} />
-            <span className="truncate font-heading text-text-secondary">
-              {match.opponent?.name ?? match.opponentCode ?? "Unknown"}
-            </span>
-          </span>
-        </>
-      ) : (
-        <span className="flex-1 font-heading text-text-secondary">Other games</span>
-      )}
-
-      <span className="shrink-0 text-right text-[11px] text-text-dim">
-        <span className="block">{confLabel(conf).short}</span>
-        <span className="block">{fmtDay(startTime) || "—"}</span>
-      </span>
-    </div>
-  );
-
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-bg2">
-      {/* Only a series with a scheduled match has a page of its own; a legacy grouping doesn't, and
-          a link to nowhere is worse than no link — its games are still individually clickable. */}
-      {seriesId !== null ? (
-        <Link to={`/match/${seriesId}`} className="block px-3 py-2.5 no-underline hover:bg-bg3">
-          {header}
-        </Link>
-      ) : (
-        <div className="px-3 py-2.5">{header}</div>
-      )}
+      {/*
+        The whole header opens the series, but the two team names still open their own pages.
+        That needs an *overlay* link rather than a wrapping one: an anchor cannot contain anchors,
+        so the series link is an absolutely-positioned sibling covering the header, and the content
+        sits above it. The content is `pointer-events-none` so clicks fall through to the overlay,
+        and the team links opt back in with `pointer-events-auto` — which is also what makes them
+        take precedence, since they are physically on top of the overlay where they overlap.
 
-      <ul className="flex flex-col">
-        {games.map(game => (
-          <ProfileGameRow
-            key={game.matchId}
-            game={game}
-            puuids={puuids}
-            open={openGame === game.matchId}
-            onToggle={() => onToggleGame(game.matchId)}
+        The cost is that header text can't be selected. Acceptable for a row whose whole job is
+        navigation; the numbers a reader might want to copy are all in the rows below.
+
+        Only a series with a scheduled match has a page of its own. A legacy grouping gets no
+        overlay and no hover — a link to nowhere is worse than no link, and its games are still
+        individually clickable from the rows beneath.
+      */}
+      <div className={`relative px-3 py-2.5 transition-colors ${seriesId !== null ? "hover:bg-bg-input" : ""}`}>
+        {seriesId !== null && (
+          <Link
+            to={`/match/${seriesId}`}
+            aria-label="Open this series"
+            className="absolute inset-0 z-0"
           />
-        ))}
-      </ul>
+        )}
+
+        <div className="pointer-events-none relative z-10 flex flex-wrap items-center gap-x-3 gap-y-2">
+          {match ? (
+            <>
+              <span className="flex flex-1 basis-[140px] justify-start">
+                <TeamChip
+                  conf={match.conf}
+                  code={match.team}
+                  team={teamIndex(match.conf, match.team)}
+                  className="pointer-events-auto w-fit max-w-full rounded px-1 -mx-1 hover:bg-accent/20"
+                />
+              </span>
+
+              <span
+                className={`shrink-0 rounded px-2 py-0.5 font-display text-lg leading-none tracking-wider ${
+                  won ? "bg-ccs-green/20 text-ccs-green" : "bg-ccs-red/20 text-ccs-red"
+                }`}
+              >
+                {match.gameWins}–{match.gameLosses}
+              </span>
+
+              <span className="flex flex-1 basis-[140px] justify-start">
+                <TeamLink
+                  conf={match.conf}
+                  code={match.opponentCode}
+                  className="pointer-events-auto flex w-fit min-w-0 max-w-full items-center gap-2 rounded px-1 -mx-1 no-underline hover:bg-accent/20"
+                >
+                  <TeamLogo team={match.opponent} code={match.opponentCode ?? "?"} size={22} />
+                  <span className="truncate font-heading text-text-secondary hover:text-accent">
+                    {match.opponent?.name ?? match.opponentCode ?? "Unknown"}
+                  </span>
+                </TeamLink>
+              </span>
+            </>
+          ) : (
+            <span className="flex-1 font-heading text-text-secondary">Other games</span>
+          )}
+
+          <span className="shrink-0 text-right text-[11px] text-text-dim">
+            <span className="block">{confLabel(conf).short}</span>
+            <span className="block">{fmtDay(startTime) || "—"}</span>
+          </span>
+        </div>
+      </div>
+
+      {/* The games scroll sideways; the header above them does not. `GAME_GRID` has a minimum
+          width, so on a phone this is a scroller rather than nine columns crushed to nothing — and
+          the caption row has to live inside it or it would drift out of line with the rows the
+          moment either one moved. */}
+      <div className="overflow-x-auto">
+        <GameRowHeader />
+        <ul className="flex flex-col">
+          {games.map(game => (
+            <ProfileGameRow key={game.matchId} game={game} />
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }

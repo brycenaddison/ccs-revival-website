@@ -1,11 +1,11 @@
 /** Identity, trophies, the four numbers worth seeing first, and the league selector. */
 
 import type { LinkedAccount, ProfileAccolade, ProfileMetrics, ProfilePresentation } from "../../lib/api";
-import { fmtPct } from "../../lib/api";
+import { fmtPct, primaryAccount } from "../../lib/api";
 import { int } from "../../lib/statFormat";
 import { CONTROL_CLASS } from "../stats/FilterBar";
 import { AccoladeStrip } from "./AccoladeStrip";
-import { kdaText, metricText, useConfLabel } from "./profileUi";
+import { kdaText, metricText, useConfLabel, useSortedConfs } from "./profileUi";
 
 interface Props {
   profile: ProfilePresentation;
@@ -27,8 +27,10 @@ export function ProfileHeader({
   onConfChange,
 }: Props) {
   const confLabel = useConfLabel();
-  // The first account is the headline one — upstream orders accounts the same way it orders ranks.
-  const avatar = accounts.find(a => a.profileIconUrl)?.profileIconUrl ?? null;
+  const sortConfs = useSortedConfs();
+  // The player's highest-ranked account is the one that represents them — the same choice the
+  // accounts card makes for which card to render tall. See `primaryAccount`.
+  const avatar = primaryAccount(accounts)?.profileIconUrl ?? null;
   const games = totals.games ?? 0;
 
   return (
@@ -50,13 +52,13 @@ export function ProfileHeader({
           )}
 
           <div className="min-w-0">
-            <p className="font-heading text-xs uppercase tracking-wider text-accent">Player profile</p>
             <h1 className="mt-0.5 truncate font-display text-[34px] leading-none tracking-widest text-text-bright">
               {profile.nickname}
             </h1>
-            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
+            <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1 text-sm text-text-secondary">
               {profile.pronouns && <span>{profile.pronouns}</span>}
-              {profile.pronunciation && <span>Pronounced “{profile.pronunciation}”</span>}
+              {profile.pronouns && profile.pronunciation && <span>•</span>}
+              {profile.pronunciation && <span className="italic">{profile.pronunciation}</span>}
             </div>
             <AccoladeStrip accolades={accolades} />
           </div>
@@ -71,7 +73,7 @@ export function ProfileHeader({
               className={`${CONTROL_CLASS} mt-1.5`}
             >
               <option value="">All leagues</option>
-              {availableConferences.map(option => (
+              {sortConfs(availableConferences).map(option => (
                 <option key={option} value={option}>{confLabel(option).name}</option>
               ))}
             </select>

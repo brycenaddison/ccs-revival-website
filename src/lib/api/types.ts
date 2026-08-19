@@ -656,15 +656,6 @@ export interface RiotParticipant {
   visionWardsBoughtInGame?: number;
   turretKills?: number;
   champLevel?: number;
-  /**
-   * Summoner spell ids, resolved against Community Dragon by `lib/gameAssets.ts`.
-   *
-   * Riot names these after the *slots*, not the spells: `summoner1Id` is whatever sits in D. They
-   * are read only by the profile page's expandable build detail — no aggregate carries them,
-   * because the `performance` table has no spell or item columns at all.
-   */
-  summoner1Id?: number;
-  summoner2Id?: number;
   item0?: number;
   item1?: number;
   item2?: number;

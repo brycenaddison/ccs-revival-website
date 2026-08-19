@@ -15,7 +15,17 @@
  * this is a manifest fetch rather than a string template.
  *
  * Two static, heavily-cached CDN files, each memoized for the page lifetime and fetched only when
- * something actually asks — a reader who never expands a game row never pays for either.
+ * something actually asks.
+ *
+ * **Nothing imports this today, and that is deliberate — do not delete it as dead code.** It was
+ * written for an expandable build panel on the profile's game rows, which was cut on presentation
+ * grounds rather than data grounds: the rows read better as a single dense line. The lookups are
+ * kept because the hard part is here — the `iconPath` rewrite below is not something to work out
+ * twice — and item and spell artwork is wanted again wherever a build eventually gets shown.
+ *
+ * The one thing that went with the panel is `summoner1Id`/`summoner2Id` on `RiotParticipant`
+ * (`lib/api/types.ts`), since that type declares only the fields the UI actually reads. Re-add them
+ * when there is something to render them into.
  */
 
 const CDRAGON_BASE =

@@ -98,6 +98,14 @@ export interface Player {
 
 export interface Roster {
   id: string;
+  /**
+   * Durable public profile identity, the same key `Player.profileId` carries.
+   *
+   * `player_id` and `players.id` hold the same value as a *string*, because this shape is modelled
+   * on the old Supabase rows where ids were uuids. A roster name has to link to `/players/:id`, and
+   * parsing a number back out of a string at the render site is how that link ends up wrong.
+   */
+  profileId: number;
   player_id: string;
   team_id: string;
   split_id: string;

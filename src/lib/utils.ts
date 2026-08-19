@@ -69,6 +69,20 @@ export function fmtDay(iso: string | null | undefined): string {
 }
 
 /**
+ * Month and year: `Mar 2025`.
+ *
+ * For spans rather than events. A team stint runs for months, so the day it started is noise — and
+ * with `fmtDay`'s weekday in there, two of them made a range that was longer than the row it sat in.
+ */
+export function fmtMonth(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d.toLocaleDateString([], { month: "short", year: "numeric" });
+}
+
+/**
  * Just the clock: `7:00 PM`.
  *
  * For a row that already sits under a date heading, where `fmtRelativeDay`'s "Today" repeats what the

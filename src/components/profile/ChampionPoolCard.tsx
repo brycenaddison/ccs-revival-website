@@ -24,10 +24,17 @@ import { avgKdaText, kdaText, kdaTone, metricText, RailCard, winRateTone } from 
 const PREVIEW = 8;
 
 /**
- * Shared by the legend and every row, so the columns line up. The KDA track is wide enough for
- * "Perfect", which is the longest thing that can land in it.
+ * Two rows to the right of a full-height icon, three columns each.
+ *
+ * There are no column headings: at this size a legend cost a whole row of the card to caption six
+ * values that already carry their own units (`3.92 KDA`, `8.42 CS/M`, `24 games`).
+ *
+ * The flanking tracks are equal `1fr`s and the middle one is `auto`, which is what actually centres
+ * the middle column in the row. With the right-hand track sized to its content instead, the middle
+ * pair sat aligned with each other but pushed well right of centre — correct by the grid's rules
+ * and wrong to look at.
  */
-const GRID = "grid grid-cols-[34px_minmax(0,1fr)_50px_36px] items-baseline gap-x-1.5";
+const GRID = "grid grid-cols-[30px_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2";
 
 export function ChampionPoolCard({ champions }: { champions: readonly ProfileChampionBreakdown[] }) {
   const [showAll, setShowAll] = useState(false);
@@ -44,45 +51,42 @@ export function ChampionPoolCard({ champions }: { champions: readonly ProfileCha
 
   return (
     <RailCard title="CHAMPION POOL">
-      <div className={`${GRID} border-b border-border px-3 py-1.5 font-heading text-[8px] uppercase tracking-wider text-text-dim`}>
-        <span>Win%</span>
-        <span>Avg K/D/A</span>
-        <span className="text-right">KDA</span>
-        <span className="text-right">CS/m</span>
-      </div>
-
       <ul className="divide-y divide-border/60">
         {shown.map((champion, index) => (
-          <li key={champion.champId ?? `unknown-${index}`} className="px-3 py-2">
-            <div className="flex items-center gap-2">
-              <ChampionIcon
-                champion={champion.champId}
-                src={champion.img}
-                name={champion.champ}
-                size={22}
-                decorative
-                className="flex shrink-0"
-              />
-              <span className="min-w-0 flex-1 truncate font-heading text-xs text-text-bright">
-                {champion.champ ?? "Unknown"}
-              </span>
-              <span className="shrink-0 font-mono text-[10px] text-text-dim">
-                {champion.games}G {champion.wins}-{champion.losses}
-              </span>
-            </div>
+          <li key={champion.champId ?? `unknown-${index}`} className={`${GRID} px-3 py-2`}>
+            <ChampionIcon
+              champion={champion.champId}
+              src={champion.img}
+              name={champion.champ}
+              size={30}
+              decorative
+              className="row-span-2 flex shrink-0"
+            />
 
-            <div className={`${GRID} mt-1 font-mono text-[10px]`}>
-              <span className={winRateTone(champion.winPercent)}>
-                {metricText(champion.winPercent, pct0)}
-              </span>
-              <span className="truncate text-text-secondary">{avgKdaText(champion)}</span>
-              <span className={`truncate text-right ${kdaTone(champion.kda)}`}>
-                {kdaText(champion.kda)}
-              </span>
-              <span className="text-right text-text-secondary">
-                {metricText(champion.csMin, dec(1))}
-              </span>
-            </div>
+            <span className="truncate font-heading text-xs text-text-bright">
+              {champion.champ ?? "Unknown"}
+            </span>
+            <span className="justify-self-center whitespace-nowrap font-mono text-[11px]">
+              <span className={kdaTone(champion.kda, "text-text-secondary")}>{kdaText(champion.kda)}</span>
+              <span className="text-text-dim"> KDA</span>
+            </span>
+            <span
+              className={`justify-self-end font-mono text-[11px] ${winRateTone(champion.winPercent, "text-text-secondary")}`}
+            >
+              {metricText(champion.winPercent, pct0)}
+            </span>
+
+            {/* Second row: the supporting numbers, muted and unbolded so the row above stays the
+                one a reader scans. */}
+            <span className="truncate font-mono text-[10px] text-text-muted">
+              {metricText(champion.csMin, dec(2))} CS/M
+            </span>
+            <span className="justify-self-center whitespace-nowrap font-mono text-[10px] text-text-muted">
+              {avgKdaText(champion)}
+            </span>
+            <span className="justify-self-end whitespace-nowrap font-mono text-[10px] text-text-muted">
+              {champion.games} {champion.games === 1 ? "game" : "games"}
+            </span>
           </li>
         ))}
       </ul>

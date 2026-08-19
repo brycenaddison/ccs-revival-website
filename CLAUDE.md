@@ -116,7 +116,8 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   `RailCard`, `ProfileSection`, `TeamLogo`/`TeamChip`, the `useConfLabel()` conf→league-name
   resolver, and the number formatting the whole page has to agree on — `metricText`, `kdaText`
   (**KDA's `Infinity` reads "Perfect", not `∞`** — the rest of the site keeps `fmtRatio`'s `∞`),
-  `avgKdaText`, and the `winRateTone`/`kdaTone` colour scales. `PlayerLink.tsx` is the canonical
+  `avgKdaText`, and the `winRateTone`/`kdaTone` colour scales — the only two stats colour-coded
+  anywhere on the page, both bold at every tier. `PlayerLink.tsx` is the canonical
   player link used site-wide. The page builds two indexes from its single payload and passes them
   down — `TeamIndex` over `career.teams` for the player's own team, and `matchId → ProfileGame` for
   the personal-best cards and the series grouping. **Never fetch a team, a game or a season here**:
@@ -126,11 +127,15 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   game rows. `CareerTiles` deliberately omits games/record/win-rate/KDA — the header already shows
   them. `MatchupCard` is the one place the page sums across the API's rows; its header explains why
   that is safe.
+  Its game rows are one dense line each, with the captions carried once by `GameRowHeader` above the
+  list rather than repeated per row — the two-row version wasted its top row on whitespace and shrank
+  the numbers past legibility. `GAME_GRID` is shared by the header and the rows; change one, change
+  both.
 - `gameAssets.ts` + `useGameAssets()` — Community Dragon item and summoner-spell lookups, built the
-  same way as `championData.ts`/`useChampions()`. **The only place on the site items or spells
-  appear**, because the API has no columns for either: they exist solely in the raw Riot payload
-  behind `GET /m/:matchId`, which the profile's game rows fetch lazily on expand. Don't write a bare
-  `<img>` for an item or a spell any more than for a champion.
+  same way as `championData.ts`/`useChampions()`. **Deliberately unused right now**: nothing on the
+  site shows a build, because the API has no item or spell columns and the only source is the raw
+  Riot payload behind `GET /m/:matchId`. Kept for when one is shown again — don't delete them as
+  dead code, and don't write a bare `<img>` for an item or a spell any more than for a champion.
 - `Markdown.tsx` — the shared safe renderer for native article bodies and league Info pages. It uses
   `remark-gfm` for pipe tables, autolinks, task lists and strikethrough; raw HTML stays disabled. Do
   not introduce a second Markdown policy in a feature folder.

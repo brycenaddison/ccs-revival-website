@@ -30,21 +30,35 @@ Do not run `npm`, `node`, `npx` or `ts-node`. Brycen runs the toolchain. After e
   can represent nullable legacy pronouns/pronunciation.
 - `src/components/profile/PlayerLink.tsx`: the only way to render a player name when a `profileId`
   exists. It owns `/players/` paths and falls back to plain content when identity is absent.
-- `src/components/profile/RiotAccountCards.tsx`: shared Riot identity/rank cards for Settings and
-  public profiles.
 - `src/pages/PlayerProfile.tsx`: public cross-season profile — a rail (accounts, roles, champion
   pool, lane matchups, teams) beside a wide column (career tiles, personal bests, match history). It
   renders API-owned totals, bests, breakdowns, games and series in served order; `?conf=` scopes it.
   One request answers the page; the joins are map lookups over that payload, never extra fetches.
+  Both grid columns carry `min-w-0`: the game grid is deliberately wider than a phone, and without
+  it that width escapes to the document and horizontally scrolls the whole page out from under the
+  sticky nav. Wide content scrolls inside its own `overflow-x-auto`, never at page level.
   Career tiles omit games/record/win-rate/KDA because the identity header already carries them.
 - `src/components/profile/profileUi.tsx`: the profile's shared vocabulary — `RailCard`,
   `ProfileSection`, `TeamLogo`/`TeamChip`, `useConfLabel()` (conf slugs are never shown to readers),
   `metricText`, `kdaText` (KDA's `Infinity` reads "Perfect"), `avgKdaText`, and the
-  `winRateTone`/`kdaTone` colour scales. Every KDA on the page goes through `kdaText`.
+  `winRateTone`/`kdaTone` colour scales — the only colour-coded stats on the page. Every KDA goes
+  through `kdaText`. Win/loss row tints match `MatchResultList`'s `/20` and `hover:/30`.
+- `src/components/profile/MatchupCard.tsx`: lane opponents. Merges the API's per-conference rows by
+  opponent — counts sum exactly, but `gd14` is an average with an unserved denominator and is shown
+  only when one league contributed it.
 - `src/components/profile/MatchHistory.tsx`: series and games as one list, joined through
-  `matches[].gameIds`. Series order is the API's; games sort G1-first within a series.
-- `src/lib/gameAssets.ts` + `src/hooks/useGameAssets.ts`: Community Dragon item and summoner-spell
-  lookups, the only source of either on the site. Fetched lazily by an expanded game row.
+  `matches[].gameIds`. Series order is the API's; games sort G1-first within a series. The series
+  header is three separate targets (both teams, the score) rather than one wrapping link — team
+  chips are `w-fit` so their hitboxes hug the name.
+- `src/lib/gameAssets.ts` + `src/hooks/useGameAssets.ts`: Community Dragon item and spell lookups.
+  Deliberately unimported — the build panel they were written for was cut, and they are kept for the
+  next surface that shows a build. Not dead code.
+- `src/components/profile/RiotAccountCards.tsx`: shared Riot identity/rank cards. The highest-ranked
+  account (`primaryAccount`) renders tall with a single headline rank block; the rest render as one
+  compact line each. Riot's ladder has no ordering in its own API — `rankScore` in
+  `lib/api/profiles.ts` is where the tier list lives, and `tierLabel` drops the meaningless `I` Riot
+  sends for the apex tiers. **Peak rank is not available** — Riot serves only current standing and
+  nothing stores history; see §9.4 of the gap analysis.
 - `src/pages/Setup.tsx`: first-time public presentation setup.
 - `src/components/settings/profile/AccountSection.tsx`: later edits to the same public presentation
   document plus read-only Discord identity.

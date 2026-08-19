@@ -258,6 +258,9 @@ input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
   --color-ccs-orange: var(--orange);
   --color-ccs-purple: var(--purple);
 
+  /* OP.GG's brand blue. Fixed in both themes: it identifies their product, not ours. */
+  --color-opgg: #5383e8;
+
   --font-display: 'Bebas Neue', sans-serif;
   --font-heading: 'Oswald', sans-serif;
   --font-body: 'Source Sans 3', sans-serif;

@@ -5,21 +5,20 @@
  * belongs in the API. This file used to hold a per-game engine — records, scouting profiles,
  * head-to-head — assembled by fetching every team's matchlist and unioning them in the browser.
  * That was ~24 requests and the whole season's games to render a dozen five-row boards, and it is
- * now specced as `GET /stats/records/:conf` and `GET /stats/scout/:conf/:profileId` instead.
+ * now served by `GET /stats/records/:conf` and `GET /profiles/:profileId` instead.
  *
  * What remains is the comparison radar, which stays client-side on purpose: it ranks a player
  * against *whatever filter set the user has selected*, so it is a function of UI state, not of the
  * season. No endpoint can precompute it.
+ *
+ * A `shortName` used to live here too, stripping `#tagLine` off a displayed name. It went when the
+ * rows it was applied to stopped being Riot IDs: those names are nicknames now, and a nickname's
+ * tag — if it has something that looks like one — is part of the name the player chose. The one
+ * place a real `gameName#tagLine` is still rendered splits it locally, in `RiotAccountCards`.
  */
 
 import type { PlayerStats } from "./api";
 import { int } from "./statFormat";
-
-/** Strip the `#tagLine` for display, keeping the full string as the identity. */
-export function shortName(name: string): string {
-  const i = name.indexOf("#");
-  return i > 0 ? name.slice(0, i) : name;
-}
 
 /**
  * Axes for the comparison radar.

@@ -232,6 +232,7 @@ export function toRosters(
     return rosterEntries(rec).map((e): Roster => ({
       ...base,
       id: `${id}:${e.key}`,
+      profileId: e.profileId,
       player_id: String(e.profileId),
       role: e.role ?? undefined,
       is_starter: e.starter,

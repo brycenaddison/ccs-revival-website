@@ -18,7 +18,7 @@ export default function Setup() {
           <p className="mb-1 font-heading text-xs uppercase tracking-wider text-accent">One last step</p>
           <h1 className="font-display text-[28px] tracking-widest text-text-bright">SET UP YOUR PLAYER PROFILE</h1>
           <p className="mb-7 mt-2 max-w-[620px] text-sm text-text-secondary">
-            Tell players and casters how to refer to you. These details are public and can be changed later in Settings.
+            Tell players, production, and content how to refer to you. These details are public and can be changed later in Settings.
           </p>
           {profile && (
             <ProfilePresentationForm

@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useMemo, type ReactNode } from "react";
-import { fmtRatio, type TeamMetadata, type TeamRecord } from "../../lib/api";
+import { fmtRatio, recencyKey, type TeamMetadata, type TeamRecord } from "../../lib/api";
 import { useLeague } from "../../lib/leagueContext";
 import { TeamLink } from "../league/TeamLink";
 import { teamInitial } from "../../lib/utils";
@@ -81,6 +81,33 @@ export function useConfLabel(): (conf: string | null | undefined) => ConfLabel {
 }
 
 /**
+ * Conf slugs, newest league first.
+ *
+ * `filter.availableConferences` arrives sorted by conf id, which is a three-character database key
+ * — so `3sx` lands next to `3sn` and the selector reads in no order a person recognises. The
+ * league's own chronology is not in the slug at all; it is parsed out of the tournament name by
+ * `recencyKey`, which is the same ordering the season picker and `resolveActiveConfs` use.
+ *
+ * A slug with no matching tournament sorts last rather than first: `recencyKey` returns 0 for a
+ * name it cannot parse, and an unrecognised league at the top of the list looks like the newest one.
+ */
+export function useSortedConfs(): (confs: readonly string[]) => string[] {
+  const { tournaments } = useLeague();
+  const recency = useMemo(
+    () => new Map(tournaments.map(t => [t.conf, recencyKey(t)] as const)),
+    [tournaments],
+  );
+
+  return useCallback(
+    (confs: readonly string[]) =>
+      [...confs].sort(
+        (a, b) => (recency.get(b) ?? 0) - (recency.get(a) ?? 0) || a.localeCompare(b),
+      ),
+    [recency],
+  );
+}
+
+/**
  * A team's logo, or a coloured initial block when it has none.
  *
  * Takes the whole nullable team rather than a URL because the fallback needs the name and the colour
@@ -135,20 +162,17 @@ export function TeamChip({
   team,
   size = 22,
   className,
-  stopPropagation,
 }: {
   conf: string;
   code: string;
   team: TeamMetadata | null;
   size?: number;
   className?: string;
-  stopPropagation?: boolean;
 }) {
   return (
     <TeamLink
       conf={conf}
       code={code}
-      stopPropagation={stopPropagation}
       className={`flex min-w-0 items-center gap-2 no-underline ${className ?? ""}`}
     >
       <TeamLogo team={team} code={code} size={size} />
@@ -185,28 +209,40 @@ export function kdaText(value: number | null | undefined): string {
 }
 
 /**
- * Colour scales for the two numbers a reader scans a champion pool for.
+ * Colour scales for the only two numbers on this page with an agreed basis: KDA and win rate.
  *
- * Thresholds are league-play judgements, not statistics: 60% is a carrying win rate over a season
- * and 4.0 is a carrying KDA. They exist so a pool is skimmable at a glance in a 320px rail, where
- * there is no room for bars. Both return a token class, never a hex, so both themes work.
+ * **Both scales only ever go up.** There is no red tier and no orange one — a value below the first
+ * threshold is left neutral rather than marked as bad. Colour here highlights what stands out; it
+ * does not grade the player, and a losing champion in a small sample is not a finding.
+ *
+ * Nothing else on the page is colour-coded. Per-stat colours looked meaningful and weren't, so the
+ * career tiles and personal bests are deliberately monotone until there is a basis for them.
+ *
+ * **Both return `font-bold` at every tier**, neutral included. At the 10–11px these appear at, a
+ * mid-blue or gold on `bg2` is genuinely hard to read at normal weight; and bolding only the
+ * coloured tiers would make weight a second, redundant encoding of the same threshold — the column
+ * would jump around as values crossed 3.0. Bold everywhere means colour carries the meaning and
+ * weight just makes the two highlighted stats legible.
+ *
+ * `neutral` is a parameter because the baseline differs by context — a headline number sits on
+ * `text-bright`, a dense table cell on `text-secondary` — and the tone must replace that class
+ * rather than compete with it. Two conflicting Tailwind colour utilities on one element resolve by
+ * stylesheet order, not by which was written last.
  */
-export function winRateTone(value: number | null | undefined): string {
-  if (value === null || value === undefined) return "text-text-dim";
-  if (value >= 0.6) return "text-ccs-green";
-  if (value >= 0.5) return "text-text-bright";
-  if (value >= 0.4) return "text-ccs-orange";
-  return "text-ccs-red";
+export function winRateTone(value: number | null | undefined, neutral = "text-text-bright"): string {
+  if (value === null || value === undefined) return "font-bold text-text-dim";
+  if (value >= 0.7) return "font-bold text-ccs-gold";
+  if (value >= 0.6) return "font-bold text-ccs-blue";
+  return `font-bold ${neutral}`;
 }
 
-export function kdaTone(value: number | null | undefined): string {
-  if (value === null || value === undefined) return "text-text-dim";
-  // Deathless outranks every finite value, so it gets the colour nothing else can reach.
-  if (!Number.isFinite(value)) return "text-ccs-gold";
-  if (value >= 4) return "text-ccs-green";
-  if (value >= 2.5) return "text-ccs-blue";
-  if (value >= 1.5) return "text-text-bright";
-  return "text-ccs-red";
+export function kdaTone(value: number | null | undefined, neutral = "text-text-bright"): string {
+  if (value === null || value === undefined) return "font-bold text-text-dim";
+  // A deathless aggregate is unbounded, so it clears the top threshold by definition.
+  if (!Number.isFinite(value)) return "font-bold text-ccs-gold";
+  if (value >= 5) return "font-bold text-ccs-gold";
+  if (value >= 3) return "font-bold text-ccs-blue";
+  return `font-bold ${neutral}`;
 }
 
 /**

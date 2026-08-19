@@ -13,8 +13,9 @@
  */
 
 import { useState } from "react";
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import opggLogo from "../../assets/opgg.svg";
 import {
   errorMessage,
   refreshProfileAccounts,
@@ -52,33 +53,58 @@ export function AccountsCard({ data }: { data: PlayerProfile }) {
       <div className="p-3">
         <RiotAccountCards accounts={data.accounts} />
 
-        <div className="mt-3 flex flex-col items-start gap-2 border-t border-border pt-3">
-          {data.links.opggMultisearch && (
-            <a
-              href={data.links.opggMultisearch}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${ACTION_SM} no-underline`}
+        <div className="mt-3 border-t border-border pt-3">
+          <div className="flex items-stretch gap-2">
+            {data.links.opggMultisearch && (
+              <a
+                href={data.links.opggMultisearch}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open this player's accounts on OP.GG"
+                className="flex flex-1 items-center justify-center rounded-md border border-opgg bg-opgg px-3 py-2 no-underline"
+              >
+                {/* The asset draws with `currentColor`, which an <img> resolves to black — so it is
+                    used as a mask and the colour comes from `bg-white` behind it. */}
+                <span
+                  className="block h-4 w-[62px] bg-white"
+                  style={{
+                    maskImage: `url(${opggLogo})`,
+                    WebkitMaskImage: `url(${opggLogo})`,
+                    maskRepeat: "no-repeat",
+                    WebkitMaskRepeat: "no-repeat",
+                    maskPosition: "center",
+                    WebkitMaskPosition: "center",
+                    maskSize: "contain",
+                    WebkitMaskSize: "contain",
+                  }}
+                />
+              </a>
+            )}
+
+            <button
+              type="button"
+              onClick={() => mutation.mutate()}
+              disabled={mutation.isPending}
+              className={`${ACTION_SM} justify-center`}
             >
-              Open OP.GG <ExternalLink size={13} aria-hidden="true" />
-            </a>
-          )}
+              <RefreshCw size={13} aria-hidden="true" className={mutation.isPending ? "animate-spin" : ""} />
+              {/* Both labels occupy one grid cell, so the button is always as wide as the longer of
+                  them and does not resize — and neither does the OP.GG button beside it — when the
+                  state flips. The hidden copy is `aria-hidden` so the label isn't announced twice. */}
+              <span className="grid">
+                <span aria-hidden="true" className="invisible col-start-1 row-start-1">Refreshing…</span>
+                <span className="col-start-1 row-start-1">
+                  {mutation.isPending ? "Refreshing…" : "Refresh"}
+                </span>
+              </span>
+            </button>
+          </div>
+
           {!data.links.opggComplete && data.accounts.length > 0 && (
-            <p className="text-xs text-text-dim">OP.GG omits accounts whose Riot ID is unavailable.</p>
+            <p className="mt-2 text-xs text-text-dim">OP.GG omits accounts whose Riot ID is unavailable.</p>
           )}
-
-          <button
-            type="button"
-            onClick={() => mutation.mutate()}
-            disabled={mutation.isPending}
-            className={ACTION_SM}
-          >
-            <RefreshCw size={13} aria-hidden="true" className={mutation.isPending ? "animate-spin" : ""} />
-            {mutation.isPending ? "Refreshing…" : "Refresh Riot data"}
-          </button>
-
-          {summary && <p className="text-xs text-text-secondary">{summary}</p>}
-          {mutation.error && <ErrorLine message={errorMessage(mutation.error)} />}
+          {summary && <p className="mt-2 text-xs text-text-secondary">{summary}</p>}
+          {mutation.error && <div className="mt-2"><ErrorLine message={errorMessage(mutation.error)} /></div>}
         </div>
       </div>
     </RailCard>

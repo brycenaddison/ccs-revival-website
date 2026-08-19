@@ -44,6 +44,10 @@ export type {
 } from "./admin";
 export {
   profilesApi,
+  bestRank,
+  primaryAccount,
+  rankScore,
+  rankWinRate,
   playerProfile,
   profileAccounts,
   refreshProfileAccounts,

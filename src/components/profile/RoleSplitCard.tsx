@@ -17,9 +17,8 @@ export function RoleSplitCard({ roles }: { roles: readonly ProfileRoleBreakdown[
                 {roleLabel(row.role)}
               </span>
               <span className="flex items-baseline gap-3 font-mono text-[11px] text-text-secondary">
-                <span>{int(row.games)}G</span>
-                <span>{row.wins}–{row.losses}</span>
-                <span className={winRateTone(row.winPercent)}>{metricText(row.winPercent, fmtPct)}</span>
+                <span className="whitespace-nowrap">{int(row.games)} {row.games === 1 ? "game" : "games"}</span>
+                <span className={winRateTone(row.winPercent, "text-text-secondary")}>{metricText(row.winPercent, fmtPct)}</span>
                 <span>{kdaText(row.kda)} KDA</span>
               </span>
             </li>

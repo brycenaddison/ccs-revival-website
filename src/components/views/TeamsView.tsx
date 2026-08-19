@@ -1,6 +1,7 @@
 import { roleLabel } from "../../lib/api";
 import { teamInitial } from "../../lib/utils";
 import { TeamLink } from "../league/TeamLink";
+import { PlayerLink } from "../profile/PlayerLink";
 import type { Team, Standing, Roster } from "../../hooks/useLeagueData";
 
 interface Props {
@@ -53,7 +54,14 @@ export function TeamsView({ teams, standings, rosters, isMobile }: Props) {
                       {teamRoster.map((r, i) => (
                         <tr key={r.id} className={i < teamRoster.length - 1 ? "border-b border-border" : ""}>
                           <td className="py-2 font-heading text-[13px] text-text font-medium">
-                            {r.players?.display_name || "Unknown"}
+                            {/* Every reader-facing name backed by a `profileId` goes through
+                                `PlayerLink`; this roster was the last one on the site that didn't. */}
+                            <PlayerLink
+                              profileId={r.profileId}
+                              className="text-text no-underline hover:text-accent"
+                            >
+                              {r.players?.display_name || "Unknown"}
+                            </PlayerLink>
                             {r.is_captain && <span className="text-[9px] text-ccs-orange ml-1.5 font-bold tracking-wide">C</span>}
                           </td>
                           {/* Empty rather than a dash: the bench genuinely has no assigned role,

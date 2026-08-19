@@ -24,7 +24,10 @@ export function MobileBottomBar() {
     // The height this composes to is mirrored by `--bottom-nav-h` in index.css, which is what the
     // pages reserve room with and what the compare dock sits on top of. Change the padding, the icon
     // size or the label size here and that token has to move with it.
-    <div className="fixed bottom-0 left-0 right-0 bg-[rgba(10,10,10,0.95)] backdrop-blur-xl border-t border-border flex justify-around items-center z-[200]" style={{ padding: "6px 0 env(safe-area-inset-bottom, 8px)" }}>
+    // `bg-bg2/95` rather than a literal near-black: the hardcoded `rgba(10,10,10,0.95)` this
+    // replaces left the bar dark in light mode, which is the one place on the site the theme
+    // toggle did nothing. The alpha is what the blur behind it needs to be worth having.
+    <div className="fixed bottom-0 left-0 right-0 bg-bg2/95 backdrop-blur-xl border-t border-border flex justify-around items-center z-[200]" style={{ padding: "6px 0 env(safe-area-inset-bottom, 8px)" }}>
       {TABS.filter(t => t.inBottomBar).map(t => {
         const current = active === t.label;
         const Icon = t.icon;

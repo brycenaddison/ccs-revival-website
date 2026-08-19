@@ -28,7 +28,7 @@ import {
   type Role,
 } from "../../lib/api";
 import { queries } from "../../lib/queries";
-import { radarPoints, shortName } from "../../lib/statViews";
+import { radarPoints } from "../../lib/statViews";
 import { flattenGroups, PLAYER_STAT_GROUPS, sortByCell, type StatCell } from "../../lib/statGroups";
 import { int } from "../../lib/statFormat";
 import { COMPARE_COLORS, MIN_GAMES_OPTIONS } from "../../lib/statUi";
@@ -231,7 +231,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
   const series = useMemo<RadarSeries[]>(
     () => comparing.map((p, i) => ({
       key: p.rowKey,
-      label: shortName(p.name),
+      label: p.name,
       color: COMPARE_COLORS[i] ?? "#888",
       points: radarPoints(p, eligible.filter(x => x.role === p.role)),
     })),
@@ -297,7 +297,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
           rowMeta={p => ({
             key: p.rowKey,
             profileId: p.id,
-            name: shortName(p.name),
+            name: p.name,
             sub: isMobile ? p.team : `${p.team} · ${roleLabel(p.role)} · ${p.games}G`,
             logo: branding.get(p.team)?.logo,
             color: branding.get(p.team)?.hex,
@@ -327,7 +327,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
                   ? <img src={brand.logo} alt="" loading="lazy" decoding="async" className="w-7 h-7 rounded object-contain shrink-0" />
                   : <span className="w-7 h-7 rounded shrink-0" style={{ background: brand?.hex ?? "var(--bar-unset)" }} />}
                 <div className="min-w-0">
-                  <PlayerLink profileId={p.id} stopPropagation className="block truncate font-heading font-bold text-text-bright no-underline hover:text-accent">{shortName(p.name)}</PlayerLink>
+                  <PlayerLink profileId={p.id} stopPropagation className="block truncate font-heading font-bold text-text-bright no-underline hover:text-accent">{p.name}</PlayerLink>
                   <div className="text-[10px] text-text-secondary font-heading tracking-wide truncate">
                     {p.team} · {roleLabel(p.role)}
                   </div>

@@ -1,141 +1,128 @@
 /**
- * One game, from the player's side.
+ * One game, from the player's side — a single line.
  *
- * Built on `MatchResultList`'s density idiom rather than a table: it is a `@container` whose two
- * layout wrappers become `contents` at `@4xl`, promoting every cell into a single aligned row when
- * there is width for one and letting them stack into two rows when there isn't. A table would have
- * had to scroll sideways on a phone; this reflows instead.
+ * The first attempt split it in two: champion on top, a strip of captioned numbers below. Both rows
+ * were wrong. The top one was a champion icon and a name in a full-width space, so almost all of it
+ * was empty; the bottom one packed eight 10px values under 8px captions, which is smaller than
+ * anything else on the page and the hardest thing on it to read.
  *
- * Every number here is already on the payload. Nothing is derived — `kda`, `csMin`, `damageMin` and
- * `killParticipation` are all served, and recomputing any of them from the raw counts would produce
- * a number that disagrees with the career totals above.
+ * So the stats sit on the same line as the champion, in a fixed grid with one header row above the
+ * list carrying the captions once instead of on every row. That buys back the vertical space the
+ * captions were spending and lets the numbers grow to a readable size. The grid is shared with
+ * `MatchHistory`'s header — change one and change both.
+ *
+ * Every number here is served. Nothing is derived: `kda`, `csMin`, `damageMin` and
+ * `killParticipation` all come off the payload, and recomputing them from the raw counts would
+ * produce values that disagree with the career totals above.
  */
 
-import { ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { fmtSec, roleLabel, type ProfileGame } from "../../lib/api";
 import { dec, int, pct, signed } from "../../lib/statFormat";
 import { ChampionIcon } from "../ChampionIcon";
-import { GameBuildDetail } from "./GameBuildDetail";
 import { kdaText, kdaTone, metricText } from "./profileUi";
 
-interface Props {
-  game: ProfileGame;
-  puuids: ReadonlySet<string>;
-  open: boolean;
-  onToggle: () => void;
-}
+/**
+ * Shared by the header strip and every row so the columns line up.
+ *
+ * The champion column flexes; everything else is fixed, because a number that changes width by a
+ * character shouldn't move the column next to it. The KDA track is sized for a bold "Perfect",
+ * which is the longest value that can land in it — a deathless game is common enough that it is not
+ * an edge case to let overflow.
+ *
+ * **The champion track has a floor and the grid has a minimum width**, which is what makes the
+ * narrow case behave. Without them the row kept shrinking: a phone got a champion name truncated to
+ * three characters while nine numbers squeezed themselves illegibly thin. Now the row stops at a
+ * width where the name is still readable and `MatchHistory` scrolls it sideways instead.
+ *
+ * `MIN_W` is the sum of the tracks, the eight gaps and the horizontal padding. It has to move when
+ * any of those do — there is no way to express "as wide as my own tracks" while still letting the
+ * champion column grow on a desktop.
+ */
+const MIN_W = "min-w-[680px]";
 
-export function ProfileGameRow({ game, puuids, open, onToggle }: Props) {
+export const GAME_GRID =
+  `grid ${MIN_W} grid-cols-[minmax(160px,1fr)_66px_58px_74px_50px_44px_50px_44px_46px] items-center gap-x-2`;
+
+export function ProfileGameRow({ game }: { game: ProfileGame }) {
   const href = `/game/${encodeURIComponent(game.matchId)}`;
-  const tone = game.win ? "bg-ccs-green/10 hover:bg-ccs-green/20" : "bg-ccs-red/10 hover:bg-ccs-red/20";
+  // The exact tint `MatchResultList` gives a result row on a team page. A game row should not read
+  // as a different kind of thing depending on which page it is on.
+  const tone = game.win ? "bg-ccs-green/20 hover:bg-ccs-green/30" : "bg-ccs-red/20 hover:bg-ccs-red/30";
 
   return (
-    <li className={`@container border-t border-border/40 ${tone}`}>
-      <div className="px-3 py-2 @4xl:grid @4xl:grid-cols-[46px_minmax(120px,1fr)_58px_86px_72px_58px_56px_60px_56px_60px_34px] @4xl:items-center @4xl:gap-x-3">
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 @4xl:contents">
-          <Link
-            to={href}
-            aria-label={`Open game ${game.game ?? ""}, ${game.win ? "win" : "loss"}`}
-            className="flex shrink-0 items-center gap-1.5 no-underline @4xl:col-start-1 @4xl:row-start-1"
+    // `MIN_W` here as well as on the grid inside. The `<li>` carries the tint and the divider, and
+    // without its own floor it stayed as wide as the scroll *viewport* while the row inside it ran
+    // on to 680px — so the colour and the border stopped partway across and the rest of the scrolled
+    // row sat on bare background.
+    <li className={`${MIN_W} border-t border-border/40 ${tone}`}>
+      <Link
+        to={href}
+        aria-label={`Open game ${game.game ?? ""}, ${game.win ? "win" : "loss"}`}
+        className={`${GAME_GRID} px-3 py-2 no-underline`}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-sm font-heading text-xs font-bold ${
+              game.win ? "bg-ccs-green/20 text-ccs-green" : "bg-ccs-red/20 text-ccs-red"
+            }`}
           >
-            <span
-              className={`flex h-5 w-5 items-center justify-center rounded-sm font-heading text-xs font-bold ${
-                game.win ? "bg-ccs-green/20 text-ccs-green" : "bg-ccs-red/20 text-ccs-red"
-              }`}
-            >
-              {game.win ? "W" : "L"}
+            {game.win ? "W" : "L"}
+          </span>
+          <ChampionIcon
+            champion={game.champId}
+            src={game.champImg}
+            name={game.champ}
+            size={24}
+            decorative
+            className="flex shrink-0"
+          />
+          <span className="min-w-0">
+            <span className="block truncate font-heading text-xs text-text-bright">
+              {game.champ ?? "Unknown"}
             </span>
-            {game.game !== null && <span className="font-mono text-[10px] text-text-dim">G{game.game}</span>}
-          </Link>
-
-          <Link
-            to={href}
-            className="flex min-w-0 items-center gap-2 no-underline @4xl:col-start-2 @4xl:row-start-1"
-          >
-            <ChampionIcon champion={game.champId} src={game.champImg} name={game.champ} size={26} decorative />
-            <span className="min-w-0">
-              <span className="block truncate font-heading text-xs text-text-bright">
-                {game.champ ?? "Unknown"}
-              </span>
-              {game.role && (
-                <span className="block font-heading text-[9px] uppercase tracking-wider text-text-secondary">
-                  {roleLabel(game.role)}
-                </span>
-              )}
-            </span>
-          </Link>
-
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={open}
-            aria-label={open ? "Hide build" : "Show build"}
-            className="shrink-0 p-1 text-text-dim hover:text-text-bright @4xl:col-start-11 @4xl:row-start-1 @4xl:justify-self-center"
-          >
-            <ChevronDown size={14} className={open ? "rotate-180" : ""} aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="mt-1.5 grid grid-cols-4 gap-x-2 gap-y-1 sm:grid-cols-8 @4xl:contents">
-          <Cell label="K/D/A" className="@4xl:col-start-3">
-            {game.kills}/{game.deaths}/{game.assists}
-          </Cell>
-          <Cell label="KDA" className="@4xl:col-start-4" tone={kdaTone(game.kda)}>
-            {kdaText(game.kda)}
-          </Cell>
-          <Cell label="CS" className="@4xl:col-start-5">
-            {int(game.cs)}
-            <span className="text-text-dim"> · {metricText(game.csMin, dec(1))}</span>
-          </Cell>
-          <Cell label="DPM" className="@4xl:col-start-6">{metricText(game.damageMin, int)}</Cell>
-          <Cell label="KP" className="@4xl:col-start-7">{metricText(game.killParticipation, pct)}</Cell>
-          <Cell label="GD@14" className="@4xl:col-start-8">{metricText(game.goldDiffAt14, signed)}</Cell>
-          <Cell label="VS/m" className="@4xl:col-start-9">{metricText(game.visionScoreMin, dec(2))}</Cell>
-          <Cell label="Time" className="@4xl:col-start-10">
-            {fmtSec(game.durationS)}
-            {game.blueside !== null && (
-              <span className={game.blueside ? "text-ccs-blue" : "text-ccs-red"}>
-                {" "}
-                {game.blueside ? "BLUE" : "RED"}
+            {game.role && (
+              <span className="block truncate font-heading text-[9px] uppercase tracking-wider text-text-secondary">
+                {roleLabel(game.role)}
               </span>
             )}
-          </Cell>
-        </div>
-      </div>
+          </span>
+        </span>
 
-      {open && (
-        <div className="border-t border-border/40 bg-bg/40 px-3 py-3">
-          <GameBuildDetail matchId={game.matchId} puuids={puuids} champId={game.champId} win={game.win} />
-        </div>
-      )}
+        <Value>{game.kills}/{game.deaths}/{game.assists}</Value>
+        <Value tone={kdaTone(game.kda, "text-text-secondary")}>{kdaText(game.kda)}</Value>
+        {/* Total with the per-minute rate in parentheses: the count is what a reader recognises, the
+            rate is what compares across games of different lengths. Both, or neither is much use. */}
+        <Value>{int(game.cs)} ({metricText(game.csMin, dec(1))})</Value>
+        <Value>{metricText(game.damageMin, int)}</Value>
+        <Value>{metricText(game.killParticipation, pct)}</Value>
+        <Value>{metricText(game.goldDiffAt14, signed)}</Value>
+        <Value>{int(game.visionScore)}</Value>
+        <Value>{fmtSec(game.durationS)}</Value>
+      </Link>
     </li>
   );
 }
 
-/**
- * A metric with its caption above it.
- *
- * The caption is what makes the stacked layout readable — eight bare numbers in a row on a phone
- * are unidentifiable — and it stays in the wide layout too, because the row has no table header to
- * carry it.
- */
-function Cell({
-  label,
-  className,
-  /** Colour for the value only — the caption stays dim so the row keeps one visual rhythm. */
-  tone = "text-text-secondary",
-  children,
-}: {
-  label: string;
-  className?: string;
-  tone?: string;
-  children: React.ReactNode;
-}) {
+/** The captions for `GAME_GRID`, rendered once above a series' games. */
+export function GameRowHeader() {
   return (
-    <span className={`min-w-0 @4xl:row-start-1 @4xl:text-center ${className ?? ""}`}>
-      <span className="block font-heading text-[8px] uppercase tracking-wider text-text-dim">{label}</span>
-      <span className={`block truncate font-mono text-[11px] ${tone}`}>{children}</span>
-    </span>
+    <div
+      className={`${GAME_GRID} border-t border-border/40 bg-bg3/40 px-3 py-1 font-heading text-[9px] uppercase tracking-wider text-text-dim`}
+    >
+      <span>Champion</span>
+      <span className="text-center">K/D/A</span>
+      <span className="text-center">KDA</span>
+      <span className="text-center">CS</span>
+      <span className="text-center">DPM</span>
+      <span className="text-center">KP</span>
+      <span className="text-center">GD@14</span>
+      <span className="text-center">Vision</span>
+      <span className="text-center">Time</span>
+    </div>
   );
+}
+
+function Value({ tone = "text-text-secondary", children }: { tone?: string; children: React.ReactNode }) {
+  return <span className={`truncate text-center font-mono text-[11px] ${tone}`}>{children}</span>;
 }

@@ -21,7 +21,6 @@ import { kdaText, TeamLogo, useConfLabel, type TeamIndex } from "./profileUi";
 interface Best {
   key: string;
   label: string;
-  color: string;
   /** The headline number. Takes the joined game line, because one of these isn't a ratio at all. */
   text: (value: number, line: ProfileGame | null) => string;
 }
@@ -39,13 +38,12 @@ const BESTS: readonly Best[] = [
   {
     key: "kda",
     label: "Best KDA",
-    color: "var(--gold)",
     text: (value, line) => (line ? `${line.kills}/${line.deaths}/${line.assists}` : kdaText(value)),
   },
-  { key: "damageMin", label: "Damage / min", color: "var(--orange)", text: value => int(value) },
-  { key: "csDiffAt14", label: "CS diff @14", color: "var(--blue)", text: value => signed(value) },
-  { key: "csMin", label: "CS / min", color: "var(--green)", text: value => dec(2)(value) },
-  { key: "visionScoreMin", label: "Vision / min", color: "var(--purple)", text: value => dec(2)(value) },
+  { key: "damageMin", label: "Damage / min", text: value => int(value) },
+  { key: "csDiffAt14", label: "CS diff @14", text: value => signed(value) },
+  { key: "csMin", label: "CS / min", text: value => dec(2)(value) },
+  { key: "visionScoreMin", label: "Vision / min", text: value => dec(2)(value) },
 ];
 
 interface Props {
@@ -82,7 +80,7 @@ function BestCard({
   teamIndex: TeamIndex;
 }) {
   const confLabel = useConfLabel();
-  const { label, color } = spec;
+  const { label } = spec;
 
   if (!best) {
     return (
@@ -106,7 +104,7 @@ function BestCard({
       className="block rounded-lg border border-border bg-bg2 p-3.5 no-underline hover:border-accent"
     >
       <div className="font-heading text-[9px] uppercase tracking-wider text-text-dim">{label}</div>
-      <div className="mt-1 font-display text-[26px] leading-none" style={{ color }}>
+      <div className="mt-1 font-display text-[26px] leading-none text-text-bright">
         {spec.text(best.value, line)}
       </div>
 
