@@ -63,21 +63,7 @@ export function AccountsCard({ data }: { data: PlayerProfile }) {
                 aria-label="Open this player's accounts on OP.GG"
                 className="flex flex-1 items-center justify-center rounded-md border border-opgg bg-opgg px-3 py-2 no-underline"
               >
-                {/* The asset draws with `currentColor`, which an <img> resolves to black — so it is
-                    used as a mask and the colour comes from `bg-white` behind it. */}
-                <span
-                  className="block h-4 w-[62px] bg-white"
-                  style={{
-                    maskImage: `url(${opggLogo})`,
-                    WebkitMaskImage: `url(${opggLogo})`,
-                    maskRepeat: "no-repeat",
-                    WebkitMaskRepeat: "no-repeat",
-                    maskPosition: "center",
-                    WebkitMaskPosition: "center",
-                    maskSize: "contain",
-                    WebkitMaskSize: "contain",
-                  }}
-                />
+                <img src={opggLogo} alt="OP.GG" width={66} height={16} className="h-4 w-auto" />
               </a>
             )}
 
