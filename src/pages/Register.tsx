@@ -13,7 +13,7 @@ import { useSeasonLink } from "../lib/leagueContext";
  * button shows only while signed out — a visitor is who it's aimed at — so this page is reachable by
  * link for everyone else.
  */
-const DISCORD_INVITE = "https://discord.gg/ccs";
+const DISCORD_INVITE = "https://discord.gg/ccslol";
 
 export default function Register() {
   const seasonLink = useSeasonLink();
@@ -33,11 +33,10 @@ export default function Register() {
         <div className="bg-bg2 border border-border rounded-lg p-8 text-center">
           <div className="text-4xl mb-4">🛠️</div>
           <h2 className="font-display text-[20px] text-text-bright tracking-widest mb-3">
-            SIGN-UPS ARE HANDLED ON DISCORD
+            SIGN-UPS OPEN AUGUST 31st
           </h2>
           <p className="text-[14px] text-text-secondary font-body leading-relaxed mb-6 max-w-md mx-auto">
-            Team registration has moved to the CCS Discord while the site migrates to the new league API.
-            Drop into the server and a captain will get you set up.
+            Team registration will open on August 31st. For now, join our Discord.
           </p>
           <a
             href={DISCORD_INVITE}
