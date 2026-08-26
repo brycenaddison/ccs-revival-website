@@ -57,6 +57,34 @@ export interface AdminLeague {
   name: string;
 }
 
+/**
+ * Which proofs of Riot-account ownership this deployment can actually serve.
+ *
+ * Both flags are configuration, not permission: `profileIcon` needs the server Riot key and its kill
+ * switch, `rso` needs all three RSO client settings, and a route whose settings are missing 404s or
+ * 503s. So this is what a client renders its controls from — a "Link Riot Account" button on a
+ * deployment without RSO is a button that cannot work, and the failure only appears after the user
+ * commits to a popup.
+ *
+ * Served for anonymous callers too, which is why it sits beside `authenticated` rather than on
+ * `profile`.
+ */
+export interface AccountVerificationMethods {
+  /** Change your profile icon to a given one and let the server read it back. */
+  profileIcon: boolean;
+  /** Riot Sign On, in a popup. */
+  rso: boolean;
+}
+
+/**
+ * What to assume when `/auth/me` doesn't mention verification at all.
+ *
+ * Off, not on. A deployment that omits the field predates the capability and has none of the routes
+ * behind it, so offering the controls would be offering a 404. This is also what an anonymous
+ * identity carries before the first read lands.
+ */
+const NO_VERIFICATION: AccountVerificationMethods = { profileIcon: false, rso: false };
+
 /** Shape of `GET /auth/me`, which answers 200 for anonymous callers rather than 401. */
 export interface Identity {
   authenticated: boolean;
@@ -69,6 +97,7 @@ export interface Identity {
    * `lib/adminAccess.ts`, which is where the two are reconciled.
    */
   leagues: AdminLeague[];
+  accountVerification: AccountVerificationMethods;
 }
 
 /**
@@ -91,7 +120,13 @@ export const SITE_ADMIN_ROLE = "admin";
  */
 export const CONTENT_ROLE = "content";
 
-export const ANONYMOUS: Identity = { authenticated: false, profile: null, roles: [], leagues: [] };
+export const ANONYMOUS: Identity = {
+  authenticated: false,
+  profile: null,
+  roles: [],
+  leagues: [],
+  accountVerification: NO_VERIFICATION,
+};
 
 /**
  * Where the login control points.
@@ -199,7 +234,15 @@ export async function me(opts?: RequestOpts): Promise<Identity> {
     profile: normalizeProfile(data.profile),
     roles: Array.isArray(data.roles) ? data.roles : [],
     leagues: normalizeLeagues(data.leagues),
+    accountVerification: normalizeVerification(data.accountVerification),
   };
+}
+
+/** Each flag is true only if it was served as `true` — see `NO_VERIFICATION`. */
+function normalizeVerification(value: unknown): AccountVerificationMethods {
+  if (typeof value !== "object" || value === null) return NO_VERIFICATION;
+  const raw = value as Record<string, unknown>;
+  return { profileIcon: raw.profileIcon === true, rso: raw.rso === true };
 }
 
 /**

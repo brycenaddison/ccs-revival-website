@@ -92,14 +92,16 @@ const HOME_STALE = 5 * MINUTE;
 const LIVE_STALE = 30_000;
 
 /**
- * How long a profile's Riot accounts stay fresh — `/profiles/:id/accounts`' own `max-age=600`.
+ * How long a profile's Riot accounts stay fresh — `/profiles/:id/accounts`' own `max-age=60`.
  *
- * Matched to the server for the same reason `FEED_STALE` and `HOME_STALE` are, plus one this
- * endpoint alone has: it is the only public route that calls Riot per request, and its ten-minute
- * server cache is what stands between public traffic and the API key match ingest shares. A client
- * refetching sooner spends nothing but its own bandwidth on a copy the browser cache already holds.
+ * Matched to the server for the same reason `FEED_STALE` and `HOME_STALE` are. This one used to be
+ * ten minutes, matching the endpoint's *old* header, and upstream shortened it deliberately when
+ * self-reported claims arrived: Riot detail is still cached server-side for ten minutes, but a claim
+ * a player just added or removed has to appear now. The Riot key is protected by that server cache
+ * rather than by this number, so shortening it costs a conditional request, not a Riot call — and
+ * `profileAccounts` sends `revalidate` so the request actually reaches the server.
  */
-const ACCOUNTS_STALE = 10 * MINUTE;
+const ACCOUNTS_STALE = MINUTE;
 
 /**
  * Identity helper. Keeps the literal type of `queryKey` without depending on the library's own
@@ -181,12 +183,13 @@ export const queries = {
     }),
 
   /**
-   * One profile's linked Riot accounts, with live rank.
+   * One profile's Riot accounts — verified with live rank, plus its self-reported claims.
    *
    * The only public read in here that reaches Riot at request time, which is why it gets its own
-   * clock: `ACCOUNTS_STALE` matches the endpoint's `max-age=600` and the server-side cache behind
-   * it. Refetching sooner would just re-read a browser cache entry we cannot bust, and the TTL is
-   * what keeps public traffic off the shared Riot key that match ingest depends on.
+   * clock: `ACCOUNTS_STALE` matches the endpoint's `max-age=60`, and the ten-minute server-side
+   * cache behind it is what keeps public traffic off the shared Riot key that match ingest depends
+   * on. This is also the read the Connections editor writes against, so its mutations invalidate
+   * `queryRoots.profiles` and the fetch revalidates rather than trusting the browser's copy.
    */
   profileAccounts: (profileId: number | null) =>
     query({

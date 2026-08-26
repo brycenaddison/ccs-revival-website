@@ -21,6 +21,7 @@ import {
   auth,
   errorMessage,
   isAbort,
+  type AccountVerificationMethods,
   type AdminLeague,
   type Identity,
   type RiotLinkMessage,
@@ -39,6 +40,18 @@ interface AuthContextValue {
    * (`lib/adminAccess.ts`) rather than reading this directly.
    */
   leagues: AdminLeague[];
+  /**
+   * The ownership proofs this deployment can serve. Read this before rendering a control that starts
+   * one — a method whose configuration is missing answers 404 or 503, and the user finds out after
+   * committing.
+   */
+  verification: AccountVerificationMethods;
+  /**
+   * Whether the RSO popup is worth offering: the deployment supports it **and** the local switch
+   * below is on. The icon workflow has its own flag, `verification.profileIcon`, and the two are
+   * independent — either can be the only one available.
+   */
+  canLinkRiot: boolean;
   isAuthenticated: boolean;
   /** True while the first `/auth/me` is in flight. Guards must wait rather than assume signed out. */
   loading: boolean;
@@ -63,9 +76,13 @@ interface AuthContextValue {
 const AuthCtx = createContext<AuthContextValue | null>(null);
 
 /**
- * Riot account linking is off for now. Flip this back to `true` to restore it — the flow itself is
- * intact and unchanged; this only withdraws the two ways to start it (the account menu entry and the
- * button in Settings › Connections) and makes `linkRiot` a no-op so no other path can open the popup.
+ * Riot Sign On is off for now. Flip this back to `true` to restore it — the flow itself is intact and
+ * unchanged; this only withdraws the two ways to start it (the account menu entry and the button in
+ * Settings › Connections) and makes `linkRiot` a no-op so no other path can open the popup.
+ *
+ * It is deliberately **not** the switch for account linking as a whole. Settings › Connections now
+ * adds accounts by name and proves them by profile icon, which is a different API surface with its
+ * own server-side flag (`verification.profileIcon`) and is unaffected by this constant.
  *
  * Already-linked accounts still list in Settings › Connections: hiding what a profile is carrying
  * would be a different, larger change than pausing new links.
@@ -133,8 +150,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.assign(auth.loginUrl());
   }, []);
 
+  const canLinkRiot = RIOT_LINKING_ENABLED && identity.accountVerification.rso;
+
   const linkRiot = useCallback(async () => {
-    if (!RIOT_LINKING_ENABLED) return;
+    if (!canLinkRiot) return;
 
     const popup = window.open(auth.riotLinkUrl(), "ccs-riot-link", "width=520,height=720");
     if (!popup) {
@@ -174,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setNotice({ text: FAILURE_TEXT[result.status] ?? "Couldn't link that Riot account.", tone: "error" });
-  }, [read]);
+  }, [read, canLinkRiot]);
 
   const clear = useCallback(async (end: () => Promise<void>) => {
     // Swallow the failure deliberately: the cookie may already be gone, and leaving the UI
@@ -198,6 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile: identity.profile,
       roles: identity.roles,
       leagues: identity.leagues,
+      verification: identity.accountVerification,
+      canLinkRiot,
       isAuthenticated: identity.authenticated,
       loading,
       error,
@@ -208,7 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logoutEverywhere,
       refresh,
     }),
-    [identity, loading, error, hasRole, login, linkRiot, logout, logoutEverywhere, refresh],
+    [identity, canLinkRiot, loading, error, hasRole, login, linkRiot, logout, logoutEverywhere, refresh],
   );
 
   return (

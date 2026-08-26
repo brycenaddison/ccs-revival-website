@@ -25,7 +25,7 @@ interface Props {
 }
 
 export function AuthControl({ variant = "nav", onNavigate }: Props) {
-  const { isAuthenticated, profile, loading, login, linkRiot, logout, hasRole } = useAuth();
+  const { isAuthenticated, profile, loading, login, linkRiot, canLinkRiot, logout, hasRole } = useAuth();
   const { isSiteAdmin } = useAdminAccess();
   const canEditContent = isSiteAdmin || hasRole(CONTENT_ROLE);
 
@@ -90,7 +90,14 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
         <div className="px-5 py-3 border-t border-border">
           <span className={`${LABEL} text-text-bright truncate`}>{name}</span>
         </div>
-        {accountMenuEntries({ profileId: profile?.id ?? null, logout, linkRiot, isSiteAdmin, canEditContent }).map((entry, i) => {
+        {accountMenuEntries({
+          profileId: profile?.id ?? null,
+          logout,
+          linkRiot,
+          canLinkRiot,
+          isSiteAdmin,
+          canEditContent,
+        }).map((entry, i) => {
           if (entry.kind === "divider") {
             return <div key={`divider-${i}`} role="separator" className="border-t border-border" />;
           }

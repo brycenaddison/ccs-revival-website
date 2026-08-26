@@ -37,7 +37,7 @@ you find it wrong, fix it in the same change.
 | File | What it is |
 | --- | --- |
 | `src/main.tsx` | Router, `QueryClient` (60s default staleTime, no retry on 4xx), provider nesting: `QueryClientProvider` → `BrowserRouter` → `AuthProvider` → `LeagueProvider`. Every route is declared here; there is no lazy loading. |
-| `src/lib/authContext.tsx` | `AuthProvider`, `useAuth()`. Session identity, roles, `hasRole`, `logout`, `refresh`. |
+| `src/lib/authContext.tsx` | `AuthProvider`, `useAuth()`. Session identity, roles, `hasRole`, `logout`, `refresh`, plus `verification` (which ownership proofs the deployment serves) and `canLinkRiot` (RSO, gated by the local `RIOT_LINKING_ENABLED` switch *and* the server). |
 | `src/lib/leagueContext.tsx` | `LeagueProvider`, `useLeague()`, `useSeasonLink()`. Owns the `?conf=` param (`CONF_PARAM`, `CURRENT`) and the tournament list. |
 | `src/lib/tabs.ts` | `TABS` — the nav registry. Tabs without `standalone` all render `Home`; `tabForPathname` resolves the active one. |
 | `src/assets/` | Build-bundled artwork. `ccs-logo.png` is the shared desktop/mobile brand mark rendered by `NavBar`. |
@@ -63,13 +63,13 @@ Import from the barrel: `import { … } from "../lib/api"` (`index.ts` re-export
 | `normalize.ts` | Boundary coercion: `num`, `numOrNull`, `ratio`, `fmtPct`, `fmtRatio`, `fmtSec`, `hexFromInt`, `lighten`, `httpsUrl`, `sortValue`, plus the role vocabulary (`ROLE_ORDER`, `normalizeRole`, `roleLabel`, `sortByRole`). |
 | `client.ts` | Public reads: tournaments, teams, standings, stats, records, match data. |
 | `feed.ts` | The public fixture feed + one series in full (`scheduleFeed`, `matchResult`). |
-| `profiles.ts` | The player-profile surface. `GET /profiles/:id/accounts` is the only public read that hits Riot at request time, so entries degrade one at a time and `ranked: null` (Riot declined) is not `ranked: []` (unranked). `GET /profiles/:id?conf=` is the whole `/players/:id` page in one request. Three of its shapes are easy to get wrong: `career.teams` carries full `TeamRecord`s (mapped with `client.ts`'s `mapTeamRecord`, not a second mapper) while opponents carry compact `TeamMetadata`; `opponent` is the **object** and `opponentCode` the string, on games, series and personal bests alike; and `career.laneMatchups` is **per conference and never merged**, so `(conf, profileId)` identifies a row. `accolades` is career-wide *even when `?conf=` scopes the statistics*. |
+| `profiles.ts` | The player-profile surface. `GET /profiles/:id/accounts` is the only public read that hits Riot at request time, so entries degrade one at a time and `ranked: null` (Riot declined) is not `ranked: []` (unranked). `GET /profiles/:id?conf=` is the whole `/players/:id` page in one request. Three of its shapes are easy to get wrong: `career.teams` carries full `TeamRecord`s (mapped with `client.ts`'s `mapTeamRecord`, not a second mapper) while opponents carry compact `TeamMetadata`; `opponent` is the **object** and `opponentCode` the string, on games, series and personal bests alike; and `career.laneMatchups` is **per conference and never merged**, so `(conf, profileId)` identifies a row. `accolades` is career-wide *even when `?conf=` scopes the statistics*. It also owns the player-owned account writes: `unverifiedAccounts` are **claims, not identity** (display and the OP.GG link only — the same account may be claimed by several profiles until one proves it), and `checkIconVerification` returns upstream's `410`/`429`/`404` refusals **as values** rather than throwing, because those bodies carry a status and no readable message. |
 | `info.ts` | League Info documents: public `GET /:conf/info`, draft-aware `GET /:conf/info/manage`, and complete-document `PUT /:conf/info`. Ordered quick links plus Markdown; writes require full admin access to that conf. |
 | `seasonView.ts` | `GET /:conf/season` — the season **as rendered**. See below. |
 | `season.ts` | `GET /:conf/phases` — the season's **structure**, site-admin only. See below. |
 | `schedule.ts` | League-admin schedule surface: matches, forfeits, tournament codes, game linking. |
 | `admin.ts` | Site-admin surface: `/admin/users`, `/admin/leagues`. The clearest small example of the write idiom — read it before adding a new mutating module. |
-| `auth.ts` | `/auth/me`, login/logout, `SITE_ADMIN_ROLE`, `Identity`, `SessionProfile`, `AdminLeague`. |
+| `auth.ts` | `/auth/me`, login/logout, `SITE_ADMIN_ROLE`, `Identity`, `SessionProfile`, `AdminLeague`, `AccountVerificationMethods`. The last is configuration, not permission: a method whose settings are missing answers 404 or 503, so a control that starts one is rendered from these flags and absence reads as off. |
 | `league.ts` | Conf helpers: `sortByRecency`, `recencyKey`, `resolveActiveConfs`, `forEachConf`. |
 | `types.ts` | Shared payload types. |
 
@@ -100,6 +100,13 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   settings areas.
 - `settings/SettingsSection.tsx` — `SectionFrame`, `SettingsRow`, `ReadOnlyValue`,
   `ComingSoon({ needs })`. The vocabulary a settings/admin section is written in.
+- `settings/profile/UnverifiedAccounts.tsx` + `IconVerification.tsx` — claiming a Riot account by
+  name and proving it by profile icon. The panel holds every one of upstream's three limits (a
+  fifteen-minute challenge, a ten-second check cooldown, thirty checks) as **wall-clock instants**
+  rather than counters, because a decremented counter stops when the tab is backgrounded — which is
+  exactly when the player is in League changing the icon. `exhausted` is the one dead end that must
+  not offer "start again": the challenge is spent but unexpired, and starting returns *that same*
+  challenge. Neither file keeps its own copy of the list; writes invalidate `queryRoots.profiles`.
 - `admin/adminUi.tsx` — button class strings (`ACTION`, `ACTION_PRIMARY`, `ACTION_DANGER`,
   the `_SM` variants, `ACTION_QUIET`), `ErrorLine`, `Pill`.
 - `stats/FilterBar.tsx` — exports `LABEL_CLASS` and `CONTROL_CLASS`, the repo's de-facto form
@@ -256,6 +263,14 @@ header comment on each file says so at more length; read it before adding a call
 - Mutations are `useMutation` + `qc.invalidateQueries({ queryKey: queryRoots.x })` in
   `onSuccess`. `await` the invalidation when the next step reads the list you just changed.
   `LeaguesSection.tsx:141` is the reference.
+- **Never fire a mutation from a mount effect.** `MutationObserver.onUnsubscribe` detaches the
+  observer from its running mutation when the last listener goes away, and nothing re-attaches
+  it — `#currentMutation` is only bound inside `mutate()`. StrictMode unsubscribes between its
+  two effect passes, so a mutation launched by a mounting component's effect completes into a
+  cache nobody is listening to: the request succeeds and the component sits on `isPending`
+  forever. Fire from a user event, in a component that outlives the call, and pass the result
+  down — `settings/profile/UnverifiedAccounts.tsx` starts the verification challenge on behalf
+  of the panel that displays it for exactly this reason. A mount-time *read* is `useQuery`.
 - Never call `fetch` from a component.
 
 ### UI

@@ -13,7 +13,14 @@ export {
 } from "./info";
 export type { InfoLink, LeagueInfo, LeagueInfoInput } from "./info";
 export { auth, ANONYMOUS, isRiotLinkMessage, riotLinkUrl, CONTENT_ROLE, SITE_ADMIN_ROLE } from "./auth";
-export type { AdminLeague, Identity, RiotLinkMessage, RiotLinkStatus, SessionProfile } from "./auth";
+export type {
+  AccountVerificationMethods,
+  AdminLeague,
+  Identity,
+  RiotLinkMessage,
+  RiotLinkStatus,
+  SessionProfile,
+} from "./auth";
 export {
   adminApi,
   adminUser,
@@ -52,18 +59,31 @@ export {
   profileAccounts,
   refreshProfileAccounts,
   updateMyProfile,
+  addUnverifiedAccount,
+  removeUnverifiedAccount,
+  startIconVerification,
+  checkIconVerification,
   ACCOUNT_REFRESH_STATUSES,
+  LINK_STATUSES,
+  MAX_UNVERIFIED_ACCOUNTS,
   NICKNAME_MAX,
   PRONOUNS_MAX,
   PRONUNCIATION_MAX,
   RANKED_QUEUES,
+  RIOT_GAME_NAME_MAX,
+  RIOT_TAG_LINE_MAX,
 } from "./profiles";
 export type {
   AccountRank,
   AccountRefreshStatus,
+  AddAccountResult,
+  IconChallenge,
+  IconCheckResult,
+  LinkStatus,
   LinkedAccount,
   PlayerProfile,
   ProfileAccountRefresh,
+  ProfileAccounts,
   ProfileAccolade,
   ProfileBestGame,
   ProfileChampionBreakdown,
@@ -78,7 +98,9 @@ export type {
   ProfileRoleBreakdown,
   ProfileTeamBreakdown,
   RankedQueue,
+  RiotAccountInput,
   TeamMetadata,
+  UnverifiedAccount,
 } from "./profiles";
 export { credentialedRequest, issuesOf, SaveRejected } from "./credentialed";
 export type { ValidationIssue } from "./credentialed";

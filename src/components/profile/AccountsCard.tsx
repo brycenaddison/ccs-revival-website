@@ -6,10 +6,14 @@
  *
  * Two behaviours are deliberate and easy to lose. The refreshed accounts are written straight into
  * both caches with `setQueryData`, and the follow-up invalidation uses `refetchType: "none"` — a
- * refetch here would re-read the browser's own copy of a `max-age=600` response and overwrite the
- * fresh data we were just handed. And a failed refresh leaves the existing cards on screen: the
- * server keeps last-known-good data per account, so blanking the panel would be showing *less* than
- * the API knows.
+ * refetch here would re-read the browser's own copy of a cacheable response and overwrite the fresh
+ * data we were just handed. And a failed refresh leaves the existing cards on screen: the server
+ * keeps last-known-good data per account, so blanking the panel would be showing *less* than the API
+ * knows.
+ *
+ * The refresh response carries the profile's unverified claims back unchanged — there is nothing on
+ * a claim to refresh — so they are written through with the rest rather than dropped, which would
+ * empty the list below the cards on every press.
  */
 
 import { useState } from "react";
@@ -24,7 +28,7 @@ import {
 } from "../../lib/api";
 import { queries, queryRoots } from "../../lib/queries";
 import { ACTION_SM, ErrorLine } from "../admin/adminUi";
-import { RiotAccountCards } from "./RiotAccountCards";
+import { RiotAccountCards, UnverifiedAccountRow } from "./RiotAccountCards";
 import { RailCard } from "./profileUi";
 
 export function AccountsCard({ data }: { data: PlayerProfile }) {
@@ -38,10 +42,23 @@ export function AccountsCard({ data }: { data: PlayerProfile }) {
         setSummary("This player profile is no longer available.");
         return;
       }
-      qc.setQueryData(queries.profileAccounts(data.profile.id).queryKey, result.accounts);
+      qc.setQueryData(queries.profileAccounts(data.profile.id).queryKey, {
+        profileId: result.profileId,
+        accounts: result.accounts,
+        unverifiedAccounts: result.unverifiedAccounts,
+        links: result.links,
+      });
       qc.setQueryData<PlayerProfile>(
         queries.playerProfile(data.profile.id, data.filter.conf).queryKey,
-        current => (current ? { ...current, accounts: result.accounts, links: result.links } : current),
+        current =>
+          current
+            ? {
+                ...current,
+                accounts: result.accounts,
+                unverifiedAccounts: result.unverifiedAccounts,
+                links: result.links,
+              }
+            : current,
       );
       void qc.invalidateQueries({ queryKey: queryRoots.profiles, refetchType: "none" });
       setSummary(refreshSummary(result));
@@ -52,6 +69,17 @@ export function AccountsCard({ data }: { data: PlayerProfile }) {
     <RailCard title="RIOT ACCOUNTS">
       <div className="p-3">
         <RiotAccountCards accounts={data.accounts} />
+
+        {/* Below the verified list rather than mixed into it, and shown even though nothing on this
+            page counts them: they are in the OP.GG link, so a reader who spots a sixth summoner
+            there needs somewhere to see where it came from. */}
+        {data.unverifiedAccounts.length > 0 && (
+          <div className="mt-2 flex flex-col gap-2">
+            {data.unverifiedAccounts.map(account => (
+              <UnverifiedAccountRow key={account.claimId} account={account} />
+            ))}
+          </div>
+        )}
 
         <div className="mt-3 border-t border-border pt-3">
           <div className="flex items-stretch gap-2">

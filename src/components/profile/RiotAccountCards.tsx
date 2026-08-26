@@ -14,10 +14,17 @@
  * `ranked: null` and `ranked: []` stay distinct all the way down here — "Riot didn't answer" and
  * "unranked" are different sentences, and collapsing them puts Unranked on a Challenger player.
  *
+ * A third shape, `UnverifiedAccountRow`, is a **claim** rather than an account: a name a player
+ * typed, resolved by Riot and nothing more. It has no icon, level or rank because upstream never
+ * asks for any — so it is a deliberately plainer row, and it says "unverified" on its face. Making
+ * it look like the compact card with empty fields would read as an account whose data failed to
+ * load, which is a different problem with a different fix.
+ *
  * Everything is `truncate`, never wrapped: a Riot ID has no length limit worth trusting and a
  * wrapped one drags the card's height around unpredictably.
  */
 
+import type { ReactNode } from "react";
 import { Flame } from "lucide-react";
 import { pct0 } from "../../lib/statFormat";
 import {
@@ -26,6 +33,7 @@ import {
   rankWinRate,
   type AccountRank,
   type LinkedAccount,
+  type UnverifiedAccount,
 } from "../../lib/api";
 import { metricText, winRateTone } from "./profileUi";
 
@@ -209,6 +217,49 @@ function CompactCard({ account }: { account: LinkedAccount }) {
     </div>
   );
 }
+
+/**
+ * One self-reported claim: the Riot ID, a label saying it is unproven, and whatever the owner is
+ * allowed to do about it.
+ *
+ * `actions` is what makes this shared rather than two components. The public page passes nothing and
+ * gets a read-only row; Settings passes Verify and Remove. The row itself has no idea whether it is
+ * being shown to the account's owner — that judgement belongs to the caller that has the session.
+ */
+export function UnverifiedAccountRow({
+  account,
+  actions,
+}: {
+  account: UnverifiedAccount;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border border-dashed border-border2 bg-bg3 px-2 py-1.5">
+      <span className="min-w-0 flex-1">
+        <RiotId riotId={account.riotId} compact />
+      </span>
+      <span className="shrink-0 rounded-full border border-border px-2 py-0.5 font-heading text-[9px] uppercase tracking-wider text-text-dim">
+        Unverified
+      </span>
+      {actions}
+    </div>
+  );
+}
+
+/**
+ * A summoner profile icon's URL, from its numeric id.
+ *
+ * The same rule `championData.ts` follows for champion squares, and for the same reason: the id is
+ * the durable thing the database holds, and one local builder means every profile icon on the site
+ * resolves through one path instead of trusting a string per payload. Upstream builds the identical
+ * URL (`utils/communityDragon.ts`), so this is a second spelling of one agreement, not a guess —
+ * which is what makes it usable as a fallback when a payload's own URL field is missing.
+ *
+ * `latest` rather than a pinned patch: pinning is how the old ddragon code ended up resolving every
+ * champion released in two years to `undefined`.
+ */
+export const profileIconUrl = (iconId: number): string =>
+  `https://cdn.communitydragon.org/latest/profile-icon/${iconId}`;
 
 function AccountIcon({ url, size }: { url: string | null; size: number }) {
   if (!url) {

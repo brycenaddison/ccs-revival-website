@@ -43,11 +43,28 @@
  * **`accolades` is career-wide even when `?conf=` scopes everything else.** That is upstream's
  * decision, not an oversight here, and the UI has to say so — a trophy silently vanishing when a
  * reader picks a league would look like a bug.
+ *
+ * **`accounts` and `unverifiedAccounts` are two different kinds of thing, and the difference is the
+ * whole point of the second list.** A verified account is in `profiles.puuids`: it carries match
+ * attribution, roster eligibility and statistics, and it arrives with Riot detail — level, icon,
+ * rank. A claim is a player saying "this is also me", and upstream lets it do exactly two things:
+ * appear on the page and join the OP.GG multisearch. The same account may be claimed by several
+ * profiles until one of them proves control, so nothing may read a claim as identity. That is why
+ * they are separate fields here rather than one list with a flag — a flag is a thing a caller
+ * forgets to check.
+ *
+ * **A verification check reports failure as data, not as a rejection.** Upstream answers `410` for
+ * an expired challenge and `429` for the ten-second cooldown, with a JSON body naming the status —
+ * and those bodies carry no `error` key, so `credentialedRequest` would surface `{"status":
+ * "expired"}` as the sentence to show. `checkIconVerification` therefore catches those and returns
+ * them, so the panel branches on a status the same way whether the answer was 200 or not. Only a
+ * genuine fault — a disabled deployment, a Riot outage, a lost session — still rejects, and those
+ * do carry a readable message.
  */
 
 import { mapTeamRecord } from "./client";
 import { credentialedRequest } from "./credentialed";
-import { getOne, post, type RequestOpts } from "./http";
+import { ApiError, getOne, post, type RequestOpts } from "./http";
 import { hexFromInt, httpsUrl, normalizeRole, numOrNull, type Numeric, type Role } from "./normalize";
 import type { TeamRecord } from "./types";
 
@@ -168,6 +185,106 @@ export function rankWinRate(rank: AccountRank): number | null {
 export const NICKNAME_MAX = 24;
 export const PRONOUNS_MAX = 32;
 export const PRONUNCIATION_MAX = 160;
+
+/**
+ * A self-reported claim on a Riot account: display data, and nothing else.
+ *
+ * Not a `LinkedAccount` with fields missing — upstream never asks Riot for a claim's level, icon or
+ * rank, because an unproven claim is not somebody's identity and spending the shared key on one
+ * would be paying to decorate an assertion. `riotId` is Riot's own canonical spelling of what was
+ * submitted, resolved through Account-v1 before the row was written, and nullable for the same
+ * routine reason it is on a verified account: a banned or deleted account stops resolving.
+ */
+export interface UnverifiedAccount {
+  claimId: number;
+  puuid: string;
+  riotId: string | null;
+  /** ISO string, like every other date crossing this layer. */
+  addedAt: string | null;
+}
+
+/** `GET /profiles/:id/accounts` in full: the verified list, the claims, and the OP.GG link. */
+export interface ProfileAccounts {
+  profileId: number;
+  accounts: LinkedAccount[];
+  unverifiedAccounts: UnverifiedAccount[];
+  links: ProfileLinks;
+}
+
+/**
+ * Upstream's own limits, mirrored so a field can cap its own input.
+ *
+ * A Riot game name is 16 characters and a tag 5; upstream rejects longer, and an input that lets
+ * someone type 30 characters only to be told no is a worse way to learn that.
+ */
+export const RIOT_GAME_NAME_MAX = 16;
+export const RIOT_TAG_LINE_MAX = 5;
+
+/** `MAX_UNVERIFIED_ACCOUNTS` upstream: the eleventh claim is a `409`, so the form stops at ten. */
+export const MAX_UNVERIFIED_ACCOUNTS = 10;
+
+export interface RiotAccountInput {
+  gameName: string;
+  tagLine: string;
+}
+
+/**
+ * What adding a claim did.
+ *
+ * `existing` is a claim that was already there — upstream answers `200` rather than a conflict,
+ * because submitting the same account twice is not an error a player needs telling off for.
+ * `already_verified` means the account is on the profile *properly*, which is the one outcome that
+ * should send the player back to the verified list rather than the claims list.
+ */
+export type AddAccountResult =
+  | { status: "created" | "existing"; account: UnverifiedAccount }
+  | { status: "already_verified"; puuid: string; riotId: string | null };
+
+/**
+ * A live profile-icon challenge.
+ *
+ * `reused` is upstream telling us it handed back an unexpired challenge rather than minting one, so
+ * the panel can keep quiet instead of announcing a "new" icon that is the same icon. `expiresAt` is
+ * the authority on the deadline and `secondsRemaining` is only its value at the moment of the
+ * response — a countdown has to be derived from the former, or a panel left open for a minute shows
+ * a clock that never moved.
+ *
+ * **`targetIconId` is the required field and `targetIconUrl` is the convenience.** The id is what the
+ * challenge is *about* — it is what the server compares the live icon against — and the URL is
+ * derivable from it by the same rule the site already uses for champion squares
+ * (`profileIconUrl` in `RiotAccountCards.tsx`). So a missing or unusable URL is not worth failing the
+ * whole challenge over: the panel can still show the right icon.
+ */
+export interface IconChallenge {
+  claimId: number;
+  targetIconId: number;
+  targetIconUrl: string | null;
+  expiresAt: string | null;
+  secondsRemaining: number;
+  reused: boolean;
+}
+
+/** Where a verified puuid ended up. `merged` absorbed another profile and is not reversible. */
+export const LINK_STATUSES = ["linked", "already_linked", "merged"] as const;
+export type LinkStatus = (typeof LINK_STATUSES)[number];
+
+/**
+ * Every answer a check can give, successes and refusals alike. See the header for why the refusals
+ * are values rather than thrown errors.
+ *
+ * - `pending` — the live icon is not the target one yet. The normal case, and not a failure.
+ * - `cooldown` — checked too soon; `retryAfterSeconds` is how long to wait.
+ * - `expired` — the fifteen minutes ran out. Start again.
+ * - `exhausted` — thirty checks used on one challenge. Start again.
+ * - `missing` — no challenge for this claim; the panel has to start one before checking.
+ * - `not_found` — the claim is gone, most likely removed in another tab.
+ * - `no_profile` — the session outlived the profile it belonged to.
+ */
+export type IconCheckResult =
+  | { status: "verified"; puuid: string; riotId: string | null; linkStatus: LinkStatus }
+  | { status: "pending"; expiresAt: string | null; retryAfterSeconds: number }
+  | { status: "cooldown"; retryAfterSeconds: number }
+  | { status: "expired" | "exhausted" | "missing" | "not_found" | "no_profile" };
 
 export interface ProfilePresentation {
   id: number;
@@ -362,6 +479,9 @@ export interface PlayerProfile {
   profile: ProfilePresentation;
   filter: { conf: string | null; availableConferences: string[] };
   accounts: LinkedAccount[];
+  /** Display-only claims. Never identity — see the header. */
+  unverifiedAccounts: UnverifiedAccount[];
+  /** Built from the verified accounts **and** the claims, which is why it can be ahead of `accounts`. */
   links: ProfileLinks;
   /** Career-wide regardless of `?conf=`. See the header. */
   accolades: ProfileAccolade[];
@@ -394,6 +514,8 @@ export type AccountRefreshStatus = (typeof ACCOUNT_REFRESH_STATUSES)[number];
 export interface ProfileAccountRefresh {
   profileId: number;
   accounts: LinkedAccount[];
+  /** Carried through unchanged: a claim has nothing to refresh, and dropping it would empty the list. */
+  unverifiedAccounts: UnverifiedAccount[];
   refresh: { puuid: string; status: AccountRefreshStatus }[];
   links: ProfileLinks;
 }
@@ -436,6 +558,26 @@ function mapAccount(value: unknown): LinkedAccount[] {
     },
   ];
 }
+
+/**
+ * One claim.
+ *
+ * `claimId` is what every write addresses, so an entry without one is unusable and dropped rather
+ * than rendered as a row whose buttons cannot work. `status` is not read: upstream sends the literal
+ * `"unverified"` on every entry of a field called `unverifiedAccounts`, and storing it would invite
+ * a caller to branch on a constant.
+ */
+function mapUnverifiedAccount(value: unknown): UnverifiedAccount[] {
+  const r = asRaw(value);
+  const claimId = intOrNull(r.claimId);
+  const puuid = strOrNull(r.puuid);
+  if (claimId === null || !puuid) return [];
+
+  return [{ claimId, puuid, riotId: strOrNull(r.riotId), addedAt: strOrNull(r.addedAt) }];
+}
+
+const mapUnverifiedAccounts = (v: unknown): UnverifiedAccount[] =>
+  Array.isArray(v) ? v.flatMap(mapUnverifiedAccount) : [];
 
 const bool = (v: unknown): boolean => v === true;
 const strings = (v: unknown): string[] =>
@@ -704,6 +846,7 @@ function mapPlayerProfile(value: unknown): PlayerProfile | null {
     profile: presentation,
     filter: { conf: strOrNull(filter.conf), availableConferences: strings(filter.availableConferences) },
     accounts: Array.isArray(r.accounts) ? r.accounts.flatMap(mapAccount) : [],
+    unverifiedAccounts: mapUnverifiedAccounts(r.unverifiedAccounts),
     links: mapLinks(r.links),
     accolades: mapAccolades(r.accolades),
     career: {
@@ -720,20 +863,32 @@ function mapPlayerProfile(value: unknown): PlayerProfile | null {
 }
 
 /**
- * Every Riot account linked to one profile.
+ * Every Riot account on one profile — proven and claimed.
  *
- * `null` and `[]` are different answers here too, one level up: `[]` is a profile that has linked
- * nothing, while `null` is the endpoint declining to say — a 404 for a profile that doesn't exist,
- * or a deployment that hasn't mounted the route. `getOne` resolves both to null, and a caller that
- * treated that as "no accounts" would tell a player their accounts had vanished.
+ * `null` and an empty payload are different answers here too, one level up: empty lists are a
+ * profile that has linked nothing, while `null` is the endpoint declining to say — a 404 for a
+ * profile that doesn't exist, or a deployment that hasn't mounted the route. `getOne` resolves both
+ * to null, and a caller that treated that as "no accounts" would tell a player their accounts had
+ * vanished.
+ *
+ * `revalidate` because this is the read a player's own edits land in and upstream serves it
+ * `max-age=60` — a refetch inside that window is answered from the browser's cache without the
+ * server being asked, so adding an account would appear to have done nothing for up to a minute.
+ * The conditional request costs a `304` when nothing changed. Same reasoning as `home()`.
  */
 export async function profileAccounts(
   profileId: number,
   opts?: RequestOpts,
-): Promise<LinkedAccount[] | null> {
-  const data = await getOne<Raw>(`/profiles/${profileId}/accounts`, opts);
+): Promise<ProfileAccounts | null> {
+  const data = await getOne<Raw>(`/profiles/${profileId}/accounts`, { ...opts, revalidate: true });
   if (!data) return null;
-  return Array.isArray(data.accounts) ? data.accounts.flatMap(mapAccount) : [];
+
+  return {
+    profileId: int(data.profileId, profileId),
+    accounts: Array.isArray(data.accounts) ? data.accounts.flatMap(mapAccount) : [],
+    unverifiedAccounts: mapUnverifiedAccounts(data.unverifiedAccounts),
+    links: mapLinks(data.links),
+  };
 }
 
 /** Public cross-season player page. Rows are kept in the exact order the API serves. */
@@ -755,6 +910,147 @@ export async function updateMyProfile(input: ProfilePresentationInput): Promise<
   return presentation;
 }
 
+/**
+ * Claim a Riot account by name and tag.
+ *
+ * Upstream resolves the Riot ID through Account-v1 before writing anything, so the claim that comes
+ * back carries Riot's canonical spelling — `account.riotId`, not what was typed. Rendering the
+ * submitted text instead would show `alt account#na1` next to a real one and look like a bug the
+ * first time someone typed their own name in lower case.
+ */
+export async function addUnverifiedAccount(input: RiotAccountInput): Promise<AddAccountResult> {
+  const data = asRaw(await credentialedRequest("/profiles/me/accounts", { method: "POST", body: input }));
+  const status = strOrNull(data.status);
+
+  if (status === "already_verified") {
+    const puuid = strOrNull(data.puuid);
+    if (!puuid) throw new Error("The response to adding that account was incomplete.");
+    return { status, puuid, riotId: strOrNull(data.riotId) };
+  }
+
+  if (status === "created" || status === "existing") {
+    const [account] = mapUnverifiedAccount(data.account);
+    if (!account) throw new Error("The response to adding that account was incomplete.");
+    return { status, account };
+  }
+
+  // A status this client doesn't know is not something to guess at: the account may or may not have
+  // been written, and the only honest move is to fail and let the list refetch say what happened.
+  throw new Error("The response to adding that account was not understood.");
+}
+
+/** Drop one claim. Upstream answers `204`, and `404` for a claim that is not the caller's. */
+export async function removeUnverifiedAccount(claimId: number): Promise<void> {
+  await credentialedRequest(`/profiles/me/accounts/${claimId}`, { method: "DELETE" });
+}
+
+/**
+ * `sendStatus(404)`, made readable.
+ *
+ * The two verification routes answer a bare `404` for a claim that isn't there, whose body is the
+ * word "Not Found" — one of the few upstream messages that is a status line rather than a sentence
+ * written to be read, so it is the one place here that doesn't surface the API's own words.
+ */
+function claimGone(e: unknown): Error {
+  if (e instanceof ApiError && e.status === 404) {
+    return new Error("That account is no longer on your profile. Reload the page and add it again.");
+  }
+  return e instanceof Error ? e : new Error(String(e));
+}
+
+/**
+ * Start — or resume — the profile-icon challenge for one claim.
+ *
+ * Calling this repeatedly is safe and is how the panel recovers: an unexpired challenge comes back
+ * as-is with `reused: true` rather than a fresh icon, so a reload mid-flow doesn't move the target
+ * and waste the icon change the player already made.
+ *
+ * The empty body is not decoration. These routes require `application/json`, and the content type is
+ * only sent when `credentialedRequest` is given a body — see its header for why that header is the
+ * CSRF defence rather than a formality.
+ */
+export async function startIconVerification(claimId: number): Promise<IconChallenge> {
+  let data: Raw;
+  try {
+    data = asRaw(
+      await credentialedRequest(`/profiles/me/accounts/${claimId}/verification`, {
+        method: "POST",
+        body: {},
+      }),
+    );
+  } catch (e) {
+    throw claimGone(e);
+  }
+
+  const targetIconId = intOrNull(data.targetIconId);
+  if (targetIconId === null) {
+    // Without the id there is no challenge: nothing to show, and nothing the check could match.
+    throw new Error("The verification challenge response was incomplete.");
+  }
+
+  return {
+    claimId: int(data.claimId, claimId),
+    targetIconId,
+    targetIconUrl: strOrNull(data.targetIconUrl),
+    expiresAt: strOrNull(data.expiresAt),
+    secondsRemaining: int(data.secondsRemaining),
+    reused: bool(data.reused),
+  };
+}
+
+const isLinkStatus = (v: unknown): v is LinkStatus =>
+  typeof v === "string" && (LINK_STATUSES as readonly string[]).includes(v);
+
+/** The statuses upstream reports on a non-2xx, which this module returns instead of throwing. */
+const REPORTED_CHECK_STATUSES = ["expired", "exhausted", "missing", "not_found", "no_profile"] as const;
+
+function mapCheck(value: unknown): IconCheckResult | null {
+  const r = asRaw(value);
+  const status = strOrNull(r.status);
+
+  if (status === "verified") {
+    const puuid = strOrNull(r.puuid);
+    if (!puuid || !isLinkStatus(r.linkStatus)) return null;
+    return { status, puuid, riotId: strOrNull(r.riotId), linkStatus: r.linkStatus };
+  }
+  if (status === "pending") {
+    return { status, expiresAt: strOrNull(r.expiresAt), retryAfterSeconds: int(r.retryAfterSeconds) };
+  }
+  if (status === "cooldown") {
+    return { status, retryAfterSeconds: int(r.retryAfterSeconds) };
+  }
+  if ((REPORTED_CHECK_STATUSES as readonly string[]).includes(status ?? "")) {
+    return { status: status as (typeof REPORTED_CHECK_STATUSES)[number] };
+  }
+  return null;
+}
+
+/**
+ * Read the account's live icon and, on a match, promote the claim to a verified account.
+ *
+ * A refusal upstream can describe — expired, exhausted, on cooldown, gone — arrives as a status code
+ * with a JSON body and is returned as a value; see the module header. Anything else rejects: a `503`
+ * from a deployment with icon verification switched off, a `502` from Riot, a lost session. Those
+ * carry a sentence worth showing, and pretending they were a check result would tell the player to
+ * keep waiting for something that is never going to answer.
+ */
+export async function checkIconVerification(claimId: number): Promise<IconCheckResult> {
+  const path = `/profiles/me/accounts/${claimId}/verification/check`;
+  try {
+    const result = mapCheck(await credentialedRequest(path, { method: "POST", body: {} }));
+    if (!result) throw new Error("The verification check response was not understood.");
+    return result;
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const reported = mapCheck(e.body);
+      if (reported) return reported;
+      // A bare 404 here is the claim itself, not a challenge status.
+      throw claimGone(e);
+    }
+    throw e;
+  }
+}
+
 const isRefreshStatus = (v: unknown): v is AccountRefreshStatus =>
   typeof v === "string" && (ACCOUNT_REFRESH_STATUSES as readonly string[]).includes(v);
 
@@ -766,6 +1062,7 @@ export async function refreshProfileAccounts(profileId: number): Promise<Profile
   return {
     profileId: int(r.profileId, profileId),
     accounts: Array.isArray(r.accounts) ? r.accounts.flatMap(mapAccount) : [],
+    unverifiedAccounts: mapUnverifiedAccounts(r.unverifiedAccounts),
     refresh: Array.isArray(r.refresh)
       ? r.refresh.flatMap(entry => {
           const item = asRaw(entry);
@@ -778,4 +1075,13 @@ export async function refreshProfileAccounts(profileId: number): Promise<Profile
 }
 
 /** Namespaced for parity with the other modules' aggregates. */
-export const profilesApi = { profileAccounts, playerProfile, updateMyProfile, refreshProfileAccounts };
+export const profilesApi = {
+  profileAccounts,
+  playerProfile,
+  updateMyProfile,
+  refreshProfileAccounts,
+  addUnverifiedAccount,
+  removeUnverifiedAccount,
+  startIconVerification,
+  checkIconVerification,
+};

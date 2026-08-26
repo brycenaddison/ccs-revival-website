@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, FileText, Link2, LogOut, Settings, Shield, UserRound, type LucideIcon } from "lucide-react";
 import { useAdminAccess } from "../../lib/adminAccess";
-import { RIOT_LINKING_ENABLED, useAuth } from "../../lib/authContext";
+import { useAuth } from "../../lib/authContext";
 import { CONTENT_ROLE } from "../../lib/api";
 import { playerPath } from "../profile/PlayerLink";
 
@@ -36,6 +36,8 @@ interface EntryOpts {
   profileId: number | null;
   logout: () => Promise<void>;
   linkRiot: () => Promise<void>;
+  /** `useAuth().canLinkRiot` — the local switch and the deployment's RSO configuration, resolved. */
+  canLinkRiot: boolean;
   isSiteAdmin: boolean;
   /**
    * Whether to offer the writers' portal. Already OR'd with site admin by the caller, matching the
@@ -55,12 +57,14 @@ interface EntryOpts {
  * Riot linking opens a popup and reports its outcome through the auth provider's notice, so
  * nothing here has to wait on the promise — the menu is closed by then either way. It stays even
  * though Settings › Connections now exists: that page is where you *see* what's linked, not the
- * only way to start linking. While `RIOT_LINKING_ENABLED` is off the entry is dropped rather than
- * shown greyed out: a dead row in a four-item menu is noise, with nothing here to explain it.
+ * only way to start linking. When RSO is unavailable the entry is dropped rather than shown greyed
+ * out: a dead row in a four-item menu is noise, with nothing here to explain it. Adding an account
+ * by name lives only in Settings, because it is a form rather than one click.
  */
 export function accountMenuEntries({
   logout,
   linkRiot,
+  canLinkRiot,
   isSiteAdmin,
   canEditContent,
   profileId,
@@ -74,7 +78,7 @@ export function accountMenuEntries({
     ...(isSiteAdmin
       ? [{ kind: "item" as const, label: "Site Admin", icon: Shield, to: "/admin" }]
       : []),
-    ...(RIOT_LINKING_ENABLED
+    ...(canLinkRiot
       ? [
           { kind: "divider" as const },
           {
@@ -97,7 +101,7 @@ const LABEL = "font-heading text-sm tracking-wider uppercase whitespace-nowrap";
 const ITEM = `flex w-full items-center gap-2 text-left bg-transparent border-none px-4 py-2.5 text-text-secondary ${LABEL}`;
 
 export function UserMenu({ name }: { name: string }) {
-  const { logout, linkRiot, hasRole, profile } = useAuth();
+  const { logout, linkRiot, canLinkRiot, hasRole, profile } = useAuth();
   const { isSiteAdmin } = useAdminAccess();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -128,6 +132,7 @@ export function UserMenu({ name }: { name: string }) {
     profileId: profile?.id ?? null,
     logout,
     linkRiot,
+    canLinkRiot,
     isSiteAdmin,
     canEditContent: isSiteAdmin || hasRole(CONTENT_ROLE),
   });
