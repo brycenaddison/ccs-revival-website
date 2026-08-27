@@ -28,7 +28,7 @@ import { sectionForSlug, type SettingsArea, type SettingsSection } from "../lib/
 // Named to match the parked tabs in `src/_disabled/admin/`, so reviving one is a swap rather than a
 // redesign.
 //
-// League metadata — name, week layout, whether the season is running — is deliberately not here. It
+// League metadata — name, short name, whether the season is running — is deliberately not here. It
 // is site-admin work and Site Admin → Leagues is where it happens; a tab that could only ever say
 // "coming soon" was a section an admin opened once and learned nothing from.
 const SECTIONS: readonly SettingsSection[] = [

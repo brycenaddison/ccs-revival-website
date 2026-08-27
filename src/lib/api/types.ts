@@ -11,18 +11,16 @@ import type { Role } from "./normalize";
 
 export type { Role } from "./normalize";
 
-/** One entry of a tournament's per-week series format. */
-export interface TournamentLayout {
-  startingWeek: number;
-  bestOf: number;
-}
-
+/**
+ * Display metadata is all a league is. The `layout` column that described the season's per-week
+ * best-of structure has been dropped upstream — the schedule resolves a series' length now — so
+ * there is nothing here for it to normalize.
+ */
 export interface Tournament {
   conf: string;
   name: string;
   /** e.g. "Spring '23". Null for older rows. */
   shortname: string | null;
-  layout: TournamentLayout[];
   /**
    * Whether this season is running now. Served by the API and writable by a site admin through
    * `PATCH /admin/leagues/:conf`.

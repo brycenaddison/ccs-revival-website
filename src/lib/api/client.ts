@@ -75,15 +75,10 @@ function pickCounts<K extends string>(raw: Raw, keys: readonly K[]): Record<K, n
  */
 export function mapTournament(input: unknown): Tournament {
   const raw = asRaw(input);
-  const layout = Array.isArray(raw.layout) ? raw.layout : [];
   return {
     conf: str(raw.conf),
     name: str(raw.name),
     shortname: strOrNull(raw.shortname),
-    layout: layout.map(l => {
-      const e = asRaw(l);
-      return { startingWeek: num(e.startingWeek as Numeric, 0), bestOf: num(e.bestOf as Numeric, 1) };
-    }),
     ...(typeof raw.active === "boolean" ? { active: raw.active } : {}),
   };
 }

@@ -6,10 +6,9 @@
  * invalidates that query on save, which means the season picker in the nav updates from the same
  * write rather than needing a reload.
  *
- * The form is deliberately the *only* editor for the three fields the endpoint accepts. `layout` is
- * shown read-only because the API will not take it — it is a `jsonb[]` of the season's best-of
- * structure, owned by the season config — and a disabled input would read as "not right now" rather
- * than "not here".
+ * The three fields the endpoint accepts are the whole of a league's metadata, so this form is the
+ * whole editor. There used to be a read-only "Week layout" row here; the column it displayed has been
+ * dropped upstream and a series' length comes from the schedule, so there is nothing left to show.
  */
 
 import { useMemo, useState } from "react";
@@ -30,7 +29,6 @@ import {
   updateLeague,
   type LeagueEdit,
   type Tournament,
-  type TournamentLayout,
 } from "../../lib/api";
 
 /** Picker value for "not an existing league". Never collides — a real conf is 1–3 characters. */
@@ -85,15 +83,6 @@ export function LeaguesSection() {
       <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
-}
-
-/** "Wk 1+ Bo1 · Wk 5+ Bo3", or a note that the season config hasn't set one. */
-function layoutSummary(layout: TournamentLayout[]): string {
-  if (layout.length === 0) return "Not set";
-  return [...layout]
-    .sort((a, b) => a.startingWeek - b.startingWeek)
-    .map(l => `Wk ${l.startingWeek}+ Bo${l.bestOf}`)
-    .join("  ·  ");
 }
 
 interface FormProps {
@@ -235,15 +224,6 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
           This season is running now
         </label>
       </SettingsRow>
-
-      {league !== null && (
-        <SettingsRow
-          label="Week layout"
-          hint="Read-only here. It's the per-week best-of structure the post-match summary reads, and it belongs to the season config rather than this editor — a new league starts with none."
-        >
-          <ReadOnlyValue>{layoutSummary(league.layout)}</ReadOnlyValue>
-        </SettingsRow>
-      )}
 
       <button type="submit" disabled={!canSave || save.isPending} className={ACTION_PRIMARY}>
         {isNew ? <Plus size={15} aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}

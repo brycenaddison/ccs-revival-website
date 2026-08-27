@@ -257,12 +257,7 @@ export function revokeLeague(
   ).then(raw => mapGrants(asRaw(raw).leagues));
 }
 
-/**
- * Creates a league. Rejects with a `409` `ApiError` when the conf is taken.
- *
- * A new league starts with an empty `layout` — the per-week best-of structure belongs to the
- * season config rather than a metadata editor, and this endpoint does not accept it.
- */
+/** Creates a league. Rejects with a `409` `ApiError` when the conf is taken. */
 export function createLeague(input: LeagueCreate, opts?: RequestOpts): Promise<Tournament> {
   return adminRequest("/admin/leagues", { method: "POST", body: input }, opts).then(mapTournament);
 }
