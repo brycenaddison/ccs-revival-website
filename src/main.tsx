@@ -1,32 +1,44 @@
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ApiError } from './lib/api'
 import Home from './pages/Home'
-import Scores from './pages/Scores'
-import Schedule from './pages/Schedule'
-import MatchDetail from './pages/MatchDetail'
-import GameDetail from './pages/GameDetail'
-import TeamPage from './pages/TeamPage'
-import Stats from './pages/Stats'
-import Register from './pages/Register'
-import Login from './pages/Login'
-import Settings from './pages/Settings'
-import SiteAdmin from './pages/SiteAdmin'
-import LeagueAdmin from './pages/LeagueAdmin'
-import ContentPortal from './pages/ContentPortal'
-import News from './pages/News'
-import Article from './pages/Article'
-import Info from './pages/Info'
-import Setup from './pages/Setup'
-import PlayerProfile from './pages/PlayerProfile'
-import NotFound from './pages/NotFound'
 import { LeagueProvider } from './lib/leagueContext'
 import { AuthProvider } from './lib/authContext'
 import { SetupGate } from './components/auth/SetupGate'
+import { PageShell } from './components/layout/PageShell'
 import { TABS } from './lib/tabs'
 import './index.css'
+
+// The public home is the initial route, so it stays eager. Every other page is fetched only when its
+// route is visited; this keeps settings and admin editors out of the first public page download.
+const Scores = lazy(() => import('./pages/Scores'))
+const Schedule = lazy(() => import('./pages/Schedule'))
+const MatchDetail = lazy(() => import('./pages/MatchDetail'))
+const GameDetail = lazy(() => import('./pages/GameDetail'))
+const TeamPage = lazy(() => import('./pages/TeamPage'))
+const Stats = lazy(() => import('./pages/Stats'))
+const Register = lazy(() => import('./pages/Register'))
+const Login = lazy(() => import('./pages/Login'))
+const Settings = lazy(() => import('./pages/Settings'))
+const SiteAdmin = lazy(() => import('./pages/SiteAdmin'))
+const LeagueAdmin = lazy(() => import('./pages/LeagueAdmin'))
+const ContentPortal = lazy(() => import('./pages/ContentPortal'))
+const News = lazy(() => import('./pages/News'))
+const Article = lazy(() => import('./pages/Article'))
+const Info = lazy(() => import('./pages/Info'))
+const Setup = lazy(() => import('./pages/Setup'))
+const PlayerProfile = lazy(() => import('./pages/PlayerProfile'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+
+function RouteLoading() {
+  return (
+    <PageShell>
+      <div className="py-16 text-center text-text-subtle">Loading…</div>
+    </PageShell>
+  )
+}
 
 /**
  * One cache for the whole app. Per-query staleness lives in `lib/queries.ts`; this sets the floor.
@@ -57,7 +69,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <AuthProvider>
           <LeagueProvider>
             <SetupGate>
-              <Routes>
+              <Suspense fallback={<RouteLoading />}>
+                <Routes>
               {/* Every tab is its own URL. The sections of `Home` all mount the same element, which
                   React reconciles in place — switching between them is not a remount, so the league
                   data loads once rather than on every click. Tabs marked `standalone` are their own
@@ -102,7 +115,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   URL was a blank page. Position is cosmetic — React Router ranks routes by specificity,
                   not source order, and `*` scores last by construction. */}
               <Route path="*" element={<NotFound />} />
-              </Routes>
+                </Routes>
+              </Suspense>
             </SetupGate>
           </LeagueProvider>
         </AuthProvider>

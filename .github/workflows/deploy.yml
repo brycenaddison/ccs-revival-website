@@ -25,14 +25,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
-      # `npm run build` is `tsc --noEmit && vite build`, so this is the typecheck too.
+      # `pnpm run build` is `tsc --noEmit && vite build`, so this is the typecheck too.
       # Both VITE_ vars are baked into the public bundle, so they are repo *variables*,
       # not secrets. Either may be unset: the API base falls back to the hardcoded
       # default in src/lib/api/http.ts, and an empty conf pin falls through to the
@@ -41,7 +43,7 @@ jobs:
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_ACTIVE_CONFS: ${{ vars.VITE_ACTIVE_CONFS }}
-        run: npm run build
+        run: pnpm run build
 
       - name: Set up SSH
         env:

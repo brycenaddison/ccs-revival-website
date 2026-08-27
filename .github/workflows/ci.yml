@@ -1,6 +1,6 @@
 name: CI
 
-# Everything that is not a publish. `npm run build` is `tsc --noEmit && vite build`,
+# Everything that is not a publish. `pnpm run build` is `tsc --noEmit && vite build`,
 # and the typecheck is the part that actually catches things — the phase payload is a
 # discriminated union, so an unnarrowed field is a compile error here rather than an
 # undefined in the browser.
@@ -19,15 +19,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - name: Typecheck and build
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_ACTIVE_CONFS: ${{ vars.VITE_ACTIVE_CONFS }}
-        run: npm run build
+        run: pnpm run build
