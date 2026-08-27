@@ -8,6 +8,17 @@
  * because a disabled button with no reason beside it is what makes a player reload the page and
  * abandon a challenge they were halfway through.
  *
+ * **Riot's copy of a profile lags the client by around two minutes, and the instructions say so.**
+ * Saving the icon in League does not make it visible to the API — that read is served from a cache
+ * that catches up a couple of minutes later, so the first checks after a save are *expected* to come
+ * back `pending`. Left unsaid, that reads as the flow being broken, and the player answers it the way
+ * anyone would: by checking again. The ten-second cooldown means twelve of the thirty checks fit
+ * inside the two minutes where Riot cannot say yes, which is how a challenge reaches `exhausted`
+ * before it was ever going to succeed. So the wait is a numbered step ahead of the Check step, the
+ * `pending` note names the two minutes rather than saying "a moment", and the `exhausted` note
+ * explains that asking faster doesn't help. The number is Riot's behaviour, not a served value —
+ * if upstream ever publishes one, that is the thing to render here.
+ *
  * **Every limit is held as a wall-clock instant, never as a counter we decrement.** `expiresAt` and
  * `retryAfterSeconds` become `Date.now()`-based targets the moment they arrive, and one interval
  * re-renders against them. A decremented counter drifts, and worse, it stops when the tab is
@@ -128,7 +139,9 @@ export function IconVerification({
       }
       if (result.status === "pending") {
         setReadyAt(Date.now() + result.retryAfterSeconds * 1000);
-        setNote("That account's icon hasn't changed yet. Riot can take a moment to report it.");
+        setNote(
+          "Riot is still showing the old icon. Its copy of your profile catches up about two minutes after you save, so if you've only just changed it, wait a little longer before checking again.",
+        );
         return;
       }
       if (result.status === "cooldown") {
@@ -159,7 +172,7 @@ export function IconVerification({
             Verify {claim.riotId ?? "this account"}
           </p>
           <p className="mt-0.5 text-xs text-text-secondary">
-            Set this account's profile icon to the one below, then check.
+            Verify your account by setting this account's profile icon to the one below.
           </p>
         </div>
         <button type="button" onClick={onClose} className={ACTION_SM} aria-label="Close verification">
@@ -195,7 +208,7 @@ export function IconVerification({
         <ol className="min-w-[240px] flex-1 list-decimal pl-5 text-sm text-text-secondary">
           <li>Open the League client, signed in as this account.</li>
           <li>Edit your icon, pick the icon shown here, and save.</li>
-          <li>Come back and press Check.</li>
+          <li>Wait a couple minutes, then press Check. Still showing the old icon? Give it another minute and check again.</li>
           {/* Worth saying: the icon is proof at one moment, not a badge the profile has to keep
               wearing. Without this, the flow reads as a permanent cost and people don't finish it. */}
           <li>Once your account is verified, feel free to change your icon back.</li>
@@ -262,7 +275,7 @@ export function IconVerification({
 const DEAD_NOTE: Record<DeadStatus, string> = {
   expired: "That challenge expired. Start again to get a fresh icon.",
   exhausted:
-    "Thirty checks used on this challenge. It won't accept any more until it expires — wait for the clock, then start again.",
+    "Thirty checks used on this challenge. It won't accept any more until it expires — wait for the clock, then start again. Riot's copy of your profile only catches up a couple of minutes after you save the icon, so checking more often never makes it arrive sooner.",
   missing: "There's no challenge running for this account. Start one to get an icon.",
   not_found: "That account is no longer on your profile. Reload the page and add it again.",
   no_profile: "Your profile is no longer available. Sign in again.",

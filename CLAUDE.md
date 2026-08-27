@@ -128,7 +128,11 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   name and proving it by profile icon. The panel holds every one of upstream's three limits (a
   fifteen-minute challenge, a ten-second check cooldown, thirty checks) as **wall-clock instants**
   rather than counters, because a decremented counter stops when the tab is backgrounded — which is
-  exactly when the player is in League changing the icon. `exhausted` is the one dead end that must
+  exactly when the player is in League changing the icon. **Riot's copy of a profile lags the client
+  by about two minutes**, so a `pending` right after the save is the expected answer, not a failure:
+  the instructions make the wait a numbered step before Check, and both the `pending` and `exhausted`
+  notes name it. At a ten-second cooldown, twelve of the thirty checks fit inside that window, which
+  is how a challenge reached `exhausted` before it could ever have succeeded. `exhausted` is the one dead end that must
   not offer "start again": the challenge is spent but unexpired, and starting returns *that same*
   challenge. Neither file keeps its own copy of the list; writes invalidate `queryRoots.profiles`.
 - `admin/adminUi.tsx` — button class strings (`ACTION`, `ACTION_PRIMARY`, `ACTION_DANGER`,

@@ -69,6 +69,11 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
 - `src/components/settings/profile/AccountSection.tsx`: later edits to the same public presentation
   document plus read-only Discord identity.
 - `src/components/settings/profile/ConnectionsSection.tsx`: signed-in linked Riot accounts.
+- `src/components/settings/profile/UnverifiedAccounts.tsx` + `IconVerification.tsx`: claim a Riot
+  account, then prove it by profile icon. Upstream's three limits (fifteen-minute challenge,
+  ten-second cooldown, thirty checks) are held as wall-clock instants, never counters. Riot's copy of
+  a profile lags the client by about two minutes, so a `pending` straight after the save is expected —
+  the copy tells the player to wait before the first Check, and must keep saying so.
 
 ## Core conventions
 
