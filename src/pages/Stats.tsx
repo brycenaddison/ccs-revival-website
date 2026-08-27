@@ -22,7 +22,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useWindowSize } from "../hooks/useWindowSize";
 import { PageShell } from "../components/layout/PageShell";
-import { ScoreboardTicker } from "../components/home/ScoreboardTicker";
 import { TotalsBar } from "../components/stats/TotalsBar";
 import { PlayerLeaderboard } from "../components/stats/PlayerLeaderboard";
 import { COMPARE_DOCK_MAX } from "../components/stats/CompareDock";
@@ -62,10 +61,7 @@ export default function Stats() {
   return (
     // The dock is pinned over the content, so the page has to reserve room for it or the last table row
     // becomes unreachable.
-    <PageShell
-      ticker={<ScoreboardTicker />}
-      extraBottom={compareCount > 0 ? COMPARE_DOCK_MAX : undefined}
-    >
+    <PageShell extraBottom={compareCount > 0 ? COMPARE_DOCK_MAX : undefined}>
       <h2 className="font-display text-[22px] text-text-bright tracking-widest mb-4">STATS</h2>
 
       {selectedConfs.length > 1 && (

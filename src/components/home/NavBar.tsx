@@ -50,7 +50,7 @@ const SEASONLESS_PREFIXES = ["/settings", "/setup", "/players/", "/admin", "/lea
  * pathname rather than `tabForPathname` — `/league/...` is not a tab.
  *
  * The nav also carries the season selector (left, beside the mark) and — via `AuthControl` — the Join
- * CCS button. Both used to live in a strip above the nav in `PageShell`. That strip had to disappear
+ * CCS button. Both used to live in a strip above the nav, in the shell (now `SiteLayout`). It had to disappear
  * on the settings and admin pages, and chrome that changes height between pages reads as the layout
  * breaking, so it was folded in here: the nav is now one fixed shape on every page, and only the
  * selector inside it comes and goes.
@@ -87,7 +87,7 @@ export function NavBar({ isMobile }: Props) {
   if (isMobile) {
     return (
       // `sticky` rather than `relative`, so the nav pins to the top once anything above it (the
-      // scoreboard ticker, on Home) has scrolled away. It is still a positioned ancestor, which is
+      // scoreboard ticker, on the public data tabs) has scrolled away. It is still a positioned ancestor, which is
       // what the drawer's `absolute top-full` needs.
       <nav className="bg-bg2 border-b-2 border-accent sticky top-0 z-[150]">
         <div className="flex items-center justify-between gap-2 px-4">

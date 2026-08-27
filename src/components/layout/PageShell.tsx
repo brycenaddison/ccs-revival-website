@@ -1,86 +1,71 @@
 /**
- * The chrome every page wears: nav, content column, footer, mobile tab bar.
+ * How a page declares the shape of its content column.
  *
- * Home and Stats each hand-rolled all of it, which is how they ended up disagreeing — and the mobile
- * bottom-padding reservation had to be fixed in two places when the bottom bar's height moved. Anything
- * that belongs on "a page" now has exactly one definition.
+ * This used to render the chrome itself — nav, content column, footer, mobile tab bar, and the
+ * scoreboard ticker above the nav. All of that now lives in `SiteLayout`, the route element every
+ * route is declared under (see `main.tsx`); `PageShell` is the page-side half of that split. A page
+ * still wraps its content in it, but the wrapper draws nothing: it publishes the two values the
+ * layout can't know — the column width, and the padding a page that pins something over its own
+ * content needs — and renders its children where the layout put the `<Outlet/>`.
  *
- * There used to be a season bar above the nav carrying the season selector and JOIN CCS. Both moved
- * *into* `NavBar` — the selector into the left cluster, JOIN CCS alongside Log in — because the bar had
- * to be hidden on the settings and admin pages, where a season selector controls nothing, and chrome
- * that changes height between pages reads as the layout breaking. The nav is now the same shape
- * everywhere; only the selector inside it comes and goes.
+ * The split exists because the chrome has to *survive* navigation. The ticker scrolls itself to the
+ * live series with an imperative `scrollLeft` and polls `GET /schedule` every thirty seconds; while
+ * each page mounted its own copy, moving from `/scores` to `/schedule` unmounted it and the strip
+ * snapped back to the far left of the fortnight — a fresh strip on every click, which is exactly
+ * what a persistent one is supposed to avoid. Rendered by a layout route it is one instance for the
+ * whole group of pages that show it. Lazy routes made this worse, not better: the page-level
+ * `<Suspense>` replaced the entire site with a loading line while the next chunk downloaded, so the
+ * nav went away too. That boundary now sits inside the layout, around the content column only.
  *
- * It reads `useWindowSize()` itself rather than taking it as a prop, so a page adds the chrome by
- * wrapping its content and nothing else. Pages that also need `isMobile` for their own layout call the
- * hook again; it's a resize listener, not a fetch.
+ * The reason this *wasn't* a layout route before is that two of its values are per-page and one of
+ * them is per-render: Home is wider than Stats, and Stats' bottom padding depends on how many
+ * players its leaderboard has selected for comparison. A context the page writes and the layout
+ * reads answers both. The write is a `useLayoutEffect`, so React commits the corrected width before
+ * the browser paints and the column never flashes at the previous page's size.
  *
- * Not wired as a react-router layout route with an `<Outlet/>`, which would remove the wrapper from the
- * pages entirely. Two things want per-page values that a route element can't receive: the content width
- * (Home is wider than Stats) and `extraBottom`, which on Stats depends on how many players the leaderboard
- * has selected for comparison — state that lives inside the page. Passing those as props to a component
- * the page renders is the lesser of the two awkwardnesses.
+ * Anything genuinely shared between pages still belongs here rather than in a page: the mobile
+ * bottom-padding reservation was fixed twice, in two hand-rolled copies of this shell, which is the
+ * mistake the file exists to prevent.
  */
 
-import { useWindowSize } from "../../hooks/useWindowSize";
-import { NavBar } from "../home/NavBar";
-import { MobileBottomBar } from "../home/MobileBottomBar";
+import { createContext, useContext, useLayoutEffect } from "react";
 
-interface Props {
+export interface PageColumn {
   /**
-   * Content column width. A number is pixels; a CSS length is passed through, so `"100%"` is how a page
-   * asks for the full viewport minus this shell's own padding — which the bracket editor needs, because
-   * a season laid out in day columns has no natural width to cap at.
+   * Content column width. A number is pixels; a CSS length is passed through, so `"100%"` is how a
+   * page asks for the full viewport minus the shell's own padding — which the bracket editor needs,
+   * because a season laid out in day columns has no natural width to cap at.
    */
-  maxWidth?: number | string;
-  /** Rendered above the nav — the scoreboard ticker, on Home. Scrolls away; the nav then pins. */
-  ticker?: React.ReactNode;
+  maxWidth: number | string;
   /**
    * Extra bottom padding, as a CSS length, for a page that pins something over its own content.
    * Added on top of the room already reserved for the mobile tab bar.
    */
   extraBottom?: string;
+}
+
+/** What the layout renders for a page that asks for nothing: a comfortable capped column. */
+export const DEFAULT_COLUMN: PageColumn = { maxWidth: 1280 };
+
+/**
+ * Written by `PageShell`, read by `SiteLayout`. The default is a no-op so a `PageShell` rendered
+ * outside a layout route still renders its children — it just gets no chrome, which is a routing
+ * mistake to fix in `main.tsx` rather than a crash.
+ */
+export const PageColumnContext = createContext<(column: PageColumn) => void>(() => {});
+
+interface Props extends Partial<PageColumn> {
   children: React.ReactNode;
 }
 
-export function PageShell({ maxWidth = 1280, ticker, extraBottom, children }: Props) {
-  const isMobile = useWindowSize() < 768;
+export function PageShell({ maxWidth = DEFAULT_COLUMN.maxWidth, extraBottom, children }: Props) {
+  const setColumn = useContext(PageColumnContext);
 
-  const navReserve = isMobile ? "var(--bottom-nav-h)" : "0px";
+  // `useLayoutEffect`, not `useEffect`: this runs after the page's first render but before the
+  // paint, so a narrower page never appears for a frame at the width of the one it replaced.
+  useLayoutEffect(() => {
+    setColumn({ maxWidth, extraBottom });
+  }, [setColumn, maxWidth, extraBottom]);
 
-  // A column with the content set to grow, so the footer sits on the bottom of the *viewport* when a
-  // page is shorter than one — a 404, a login redirect, an empty season — and directly under the
-  // content when it is longer. `min-h-screen` alone only guaranteed the second: anything short left the
-  // footer floating mid-screen with a band of background under it, which reads as content failing to
-  // load rather than as the end of the page.
-  //
-  // The footer keeps its `mt-10`. Margins count towards a flex line's free space, so the grow resolves
-  // around it rather than overflowing by 40px and minting a scrollbar on a page that fits.
-  return (
-    <div
-      className="bg-bg flex min-h-screen w-full flex-col text-text font-body"
-      style={{ paddingBottom: extraBottom ? `calc(${extraBottom} + ${navReserve})` : navReserve }}
-    >
-      {ticker}
-      <NavBar isMobile={isMobile} />
-
-      {/* `flex-1` lives on this wrapper rather than the content column, which has to keep `mx-auto` and
-          a max width to stay centred and capped. */}
-      <main className="flex-1">
-        <div className="mx-auto" style={{ maxWidth, padding: isMobile ? 12 : "24px 32px" }}>
-          {children}
-        </div>
-      </main>
-
-      <footer
-        className="border-t border-bg3 text-center mt-10"
-        style={{ padding: isMobile ? "20px 12px" : "24px 20px" }}
-      >
-        <span className="font-display text-lg text-text-subtle tracking-widest">CCS</span>
-        <div className="text-[10px] text-text-subtle mt-2">Amateur Esports · Community Driven · Website built by gl4cial and dribb</div>
-      </footer>
-
-      {isMobile && <MobileBottomBar />}
-    </div>
-  );
+  return <>{children}</>;
 }

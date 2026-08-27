@@ -40,9 +40,11 @@ npm-debug.log*
 .DS_Store
 Desktop.ini
 
-# Package lock (keep package-lock.json but ignore others)
+# Package lock: pnpm is the package manager, so pnpm-lock.yaml is committed — CI installs with
+# `--frozen-lockfile` and fails without it. A lock from any other manager is a mistake, not a choice.
+package-lock.json
 yarn.lock
-pnpm-lock.yaml
+
 # Claude artifacts
 .claude/
 */.claude/

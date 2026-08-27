@@ -7,7 +7,7 @@ import { useLeagueData } from "../hooks/useLeagueData";
 import { usePlayers } from "../hooks/usePlayers";
 import { useSeason } from "../hooks/useSeason";
 import { PageShell } from "../components/layout/PageShell";
-import { ScoreboardTicker, TICKER_WINDOW } from "../components/home/ScoreboardTicker";
+import { TICKER_WINDOW } from "../components/home/ScoreboardTicker";
 import { HeroArticle } from "../components/home/HeroArticle";
 import { NewsFeed } from "../components/home/NewsFeed";
 import { AnnouncementCard } from "../components/home/AnnouncementCard";
@@ -93,7 +93,7 @@ export default function Home() {
   const split = splits[0];
 
   return (
-    <PageShell maxWidth={1440} ticker={<ScoreboardTicker />}>
+    <PageShell maxWidth={1440}>
       {loading ? (
         <div className="py-16 text-center text-text-subtle">Loading...</div>
       ) : error ? (

@@ -1,16 +1,22 @@
 # Working in this repo
 
-The CCS website: Vite + React 18 + TypeScript, TanStack Query v5, React Router v6 and Tailwind v4
+The CCS website: Vite + React 19 + TypeScript, TanStack Query v5, React Router v6 and Tailwind v4
 (CSS-first theme in `src/index.css`). The API is the read-only sibling repo `../tournament-bot`; its
 `docs/API.md` is the contract. Do not derive data the API already answers.
 
-Do not run `npm`, `node`, `npx` or `ts-node`. Brycen runs the toolchain. After edits, ask him to run
-`! npm run build` and paste the output. There is no test framework.
+Do not run `pnpm`, `npm`, `node`, `npx` or `ts-node`. Humans run the toolchain — pnpm is the package
+manager. After edits, you can ask the human to run `pnpm build` and paste the output. There is no test framework.
 
 ## Fast map
 
 - `src/main.tsx`: providers and every route. Public player profiles are `/players/:profileId`; first-time
-  identity setup is `/setup`.
+  identity setup is `/setup`. Routes are declared under three layout routes — `SiteLayout ticker`,
+  `SiteLayout`, and `BareLayout` for the full-bleed pages (`/match`, `/game`, `/teams`, `/register`,
+  `/login`) that draw no nav or footer. Every page but `Home` is a `lazy()` chunk.
+- `src/components/layout/SiteLayout.tsx` + `PageShell.tsx`: the chrome, split in two. The layout owns
+  the ticker, nav, footer, mobile bar and the lazy `<Suspense>` boundary, and stays mounted across
+  navigations within its group; `PageShell` is the page-side wrapper that publishes the content column
+  width and any extra bottom padding to it. A page never mounts `ScoreboardTicker` itself.
 - `src/lib/api/`: defensive API boundary, exported through `index.ts`. Anonymous reads use `http.ts`;
   credentialed writes use `credentialed.ts`.
 - `src/lib/api/profiles.ts`: profile presentation limits/write, full career profile read, Riot account

@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react'
+import React, { lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -7,12 +7,14 @@ import Home from './pages/Home'
 import { LeagueProvider } from './lib/leagueContext'
 import { AuthProvider } from './lib/authContext'
 import { SetupGate } from './components/auth/SetupGate'
-import { PageShell } from './components/layout/PageShell'
+import { BareLayout, SiteLayout } from './components/layout/SiteLayout'
 import { TABS } from './lib/tabs'
 import './index.css'
 
 // The public home is the initial route, so it stays eager. Every other page is fetched only when its
 // route is visited; this keeps settings and admin editors out of the first public page download.
+// The `<Suspense>` these resolve against is inside `SiteLayout`, wrapping the content column — so a
+// chunk still downloading blanks the column and not the nav and ticker above it.
 const Scores = lazy(() => import('./pages/Scores'))
 const Schedule = lazy(() => import('./pages/Schedule'))
 const MatchDetail = lazy(() => import('./pages/MatchDetail'))
@@ -31,14 +33,6 @@ const Info = lazy(() => import('./pages/Info'))
 const Setup = lazy(() => import('./pages/Setup'))
 const PlayerProfile = lazy(() => import('./pages/PlayerProfile'))
 const NotFound = lazy(() => import('./pages/NotFound'))
-
-function RouteLoading() {
-  return (
-    <PageShell>
-      <div className="py-16 text-center text-text-subtle">Loading…</div>
-    </PageShell>
-  )
-}
 
 /**
  * One cache for the whole app. Per-query staleness lives in `lib/queries.ts`; this sets the floor.
@@ -69,54 +63,70 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <AuthProvider>
           <LeagueProvider>
             <SetupGate>
-              <Suspense fallback={<RouteLoading />}>
-                <Routes>
-              {/* Every tab is its own URL. The sections of `Home` all mount the same element, which
-                  React reconciles in place — switching between them is not a remount, so the league
-                  data loads once rather than on every click. Tabs marked `standalone` are their own
-                  page and declare their route below. */}
-              {TABS.filter(t => !t.standalone).map(t => (
-                <Route key={t.path} path={t.path} element={<Home />} />
-              ))}
-              <Route path="/scores" element={<Scores />} />
-              <Route path="/schedule" element={<Schedule />} />
-              <Route path="/stats" element={<Stats />} />
-              <Route path="/teams/:conf/:code" element={<TeamPage />} />
-              {/* `:id` is a `schedule_match` id. The old form took a synthesised series key
-                  (`4:w1:ANE_vs_XSV`) because there was no endpoint that answered "this fixture" —
-                  `GET /tournaments/schedule/:id/result` is that endpoint. */}
-              <Route path="/match/:id" element={<MatchDetail />} />
-              <Route path="/game/:matchId" element={<GameDetail />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/setup" element={<Setup />} />
-              <Route path="/players/:profileId" element={<PlayerProfile />} />
-              {/* News is a tab (see `lib/tabs.ts`) but standalone, because it reads `/articles`
-                  alone and none of the league data `Home` loads. `/news/:slug` renders a native
-                  article; a link article's cards go straight to their source, so this route only
-                  sees one when a URL was shared. */}
-              <Route path="/news" element={<News />} />
-              <Route path="/news/:slug" element={<Article />} />
-              <Route path="/info" element={<Info />} />
-              {/* Each settings area is two routes rather than one optional `:section?` segment.
-                  The no-slug form is a real state — it's the mobile section list, and on desktop it
-                  redirects to the first section — so spelling both out keeps that explicit. */}
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/settings/:section" element={<Settings />} />
-              <Route path="/admin" element={<SiteAdmin />} />
-              <Route path="/admin/:section" element={<SiteAdmin />} />
-              <Route path="/league/:conf/admin" element={<LeagueAdmin />} />
-              <Route path="/league/:conf/admin/:section" element={<LeagueAdmin />} />
-              <Route path="/content" element={<ContentPortal />} />
-              <Route path="/content/:section" element={<ContentPortal />} />
-              {/* The catch-all, and it has to exist because of the nginx SPA fallback: every unmatched
-                  URL is served `index.html` so a refresh on `/schedule` works, so a typo arrives here
-                  rather than at the server's own 404. Without it `Routes` rendered nothing and a bad
-                  URL was a blank page. Position is cosmetic — React Router ranks routes by specificity,
-                  not source order, and `*` scores last by construction. */}
-              <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
+              <Routes>
+                {/* Three layout routes, and the split is which chrome the group wears: the public
+                    data tabs carry the scoreboard ticker, the rest of the shell-wearing pages don't,
+                    and the full-bleed pages wear none. Grouping them this way is what makes the
+                    chrome persistent — one `SiteLayout` instance stays mounted across every page
+                    inside its group, so the ticker keeps polling and keeps the position it scrolled
+                    itself to instead of being remounted on every click. Each page still declares its
+                    own content width through `PageShell`. */}
+                <Route element={<SiteLayout ticker />}>
+                  {/* Every tab is its own URL. The sections of `Home` all mount the same element, which
+                      React reconciles in place — switching between them is not a remount, so the league
+                      data loads once rather than on every click. Tabs marked `standalone` are their own
+                      page and declare their route below. */}
+                  {TABS.filter(t => !t.standalone).map(t => (
+                    <Route key={t.path} path={t.path} element={<Home />} />
+                  ))}
+                  <Route path="/scores" element={<Scores />} />
+                  <Route path="/schedule" element={<Schedule />} />
+                  <Route path="/stats" element={<Stats />} />
+                  <Route path="/info" element={<Info />} />
+                  {/* News is a tab (see `lib/tabs.ts`) but standalone, because it reads `/articles`
+                      alone and none of the league data `Home` loads. */}
+                  <Route path="/news" element={<News />} />
+                </Route>
+
+                <Route element={<SiteLayout />}>
+                  <Route path="/setup" element={<Setup />} />
+                  <Route path="/players/:profileId" element={<PlayerProfile />} />
+                  {/* `/news/:slug` renders a native article; a link article's cards go straight to
+                      their source, so this route only sees one when a URL was shared. */}
+                  <Route path="/news/:slug" element={<Article />} />
+                  {/* Each settings area is two routes rather than one optional `:section?` segment.
+                      The no-slug form is a real state — it's the mobile section list, and on desktop it
+                      redirects to the first section — so spelling both out keeps that explicit. */}
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/settings/:section" element={<Settings />} />
+                  <Route path="/admin" element={<SiteAdmin />} />
+                  <Route path="/admin/:section" element={<SiteAdmin />} />
+                  <Route path="/league/:conf/admin" element={<LeagueAdmin />} />
+                  <Route path="/league/:conf/admin/:section" element={<LeagueAdmin />} />
+                  <Route path="/content" element={<ContentPortal />} />
+                  <Route path="/content/:section" element={<ContentPortal />} />
+                  {/* The catch-all, and it has to exist because of the nginx SPA fallback: every unmatched
+                      URL is served `index.html` so a refresh on `/schedule` works, so a typo arrives here
+                      rather than at the server's own 404. Without it `Routes` rendered nothing and a bad
+                      URL was a blank page. Position is cosmetic — React Router ranks routes by specificity,
+                      not source order, and `*` scores last by construction. */}
+                  <Route path="*" element={<NotFound />} />
+                </Route>
+
+                {/* No chrome: each of these draws its own full-bleed page with a back button where
+                    the nav would be. `BareLayout` is here only to give their lazy chunks a
+                    `<Suspense>` boundary — see its header. */}
+                <Route element={<BareLayout />}>
+                  <Route path="/teams/:conf/:code" element={<TeamPage />} />
+                  {/* `:id` is a `schedule_match` id. The old form took a synthesised series key
+                      (`4:w1:ANE_vs_XSV`) because there was no endpoint that answered "this fixture" —
+                      `GET /tournaments/schedule/:id/result` is that endpoint. */}
+                  <Route path="/match/:id" element={<MatchDetail />} />
+                  <Route path="/game/:matchId" element={<GameDetail />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/login" element={<Login />} />
+                </Route>
+              </Routes>
             </SetupGate>
           </LeagueProvider>
         </AuthProvider>

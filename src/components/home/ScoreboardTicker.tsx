@@ -1,9 +1,14 @@
 /**
  * The strip across the top of the site: what just finished, what is on now, what is next.
  *
- * Takes no props and owns its own query. Three pages mount it, and threading a window and a
- * `matches` array through each of them is how the three came to disagree the first time round —
- * the previous version rendered `LeagueData.matches`, which nothing has ever filled.
+ * Takes no props and owns its own query. Several pages used to mount their own copy, and threading a
+ * window and a `matches` array through each of them is how they came to disagree the first time round
+ * — the previous version rendered `LeagueData.matches`, which nothing has ever filled.
+ *
+ * There is now exactly one instance: `SiteLayout` mounts it for the whole group of routes that show
+ * it, so it is not remounted when a reader moves between them. That matters more than it sounds —
+ * `nowIndex` below scrolls the strip to the live series imperatively, and a remount threw that away
+ * and reopened the fortnight at its left edge on every navigation.
  *
  * The window is exported because Home needs the *same* query: a live series means the standings are
  * moving too, and Home refreshes the league on a timer while one is on. Reading it through the same

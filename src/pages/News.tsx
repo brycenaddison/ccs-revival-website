@@ -12,7 +12,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageShell } from "../components/layout/PageShell";
-import { ScoreboardTicker } from "../components/home/ScoreboardTicker";
 import { ArticleCardTile } from "../components/news/ArticleCardTile";
 import { useWindowSize } from "../hooks/useWindowSize";
 import { useLeague } from "../lib/leagueContext";
@@ -42,7 +41,7 @@ export default function News() {
   const hasMore = articles.length >= limit;
 
   return (
-    <PageShell maxWidth={1100} ticker={<ScoreboardTicker />}>
+    <PageShell maxWidth={1100}>
       <div className="mb-6">
         <h1 className="font-display text-[22px] text-text-bright tracking-widest">NEWS</h1>
         <p className="text-text-secondary text-sm">

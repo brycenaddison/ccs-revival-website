@@ -1,9 +1,10 @@
 # Working in this repo
 
-The CCS website. Vite + React 18 + TypeScript, TanStack Query v5, react-router-dom v6,
+The CCS website. Vite + React 19 + TypeScript, TanStack Query v5, react-router-dom v6,
 Tailwind v4 (CSS-first — the theme lives in `@theme` in `src/index.css`, there is no
 `tailwind.config`). `lucide-react` for icons, and **no component library**: everything on
-screen is written here.
+screen is written here. **pnpm** is the package manager — `pnpm-lock.yaml` is the committed
+lockfile and CI installs with `--frozen-lockfile`.
 
 The API is a separate repo, `tournament-bot` (sibling directory, `../tournament-bot`), whose
 `docs/API.md` is the contract. Nothing here should re-derive something that file says the
@@ -36,7 +37,7 @@ you find it wrong, fix it in the same change.
 
 | File | What it is |
 | --- | --- |
-| `src/main.tsx` | Router, `QueryClient` (60s default staleTime, no retry on 4xx), provider nesting: `QueryClientProvider` → `BrowserRouter` → `AuthProvider` → `LeagueProvider`. Every route is declared here; there is no lazy loading. |
+| `src/main.tsx` | Router, `QueryClient` (60s default staleTime, no retry on 4xx), provider nesting: `QueryClientProvider` → `BrowserRouter` → `AuthProvider` → `LeagueProvider`. Every route is declared here, under one of three layout routes — `SiteLayout ticker`, `SiteLayout`, and `BareLayout` for the full-bleed pages that wear no chrome. `Home` is eager (it's the initial route); every other page is a `lazy()` chunk, and the `<Suspense>` they resolve against lives inside `SiteLayout` around the content column, not above `<Routes>`. |
 | `src/lib/authContext.tsx` | `AuthProvider`, `useAuth()`. Session identity, roles, `hasRole`, `logout`, `refresh`, plus `verification` (which ownership proofs the deployment serves) and `canLinkRiot` (RSO, gated by the local `RIOT_LINKING_ENABLED` switch *and* the server). |
 | `src/lib/leagueContext.tsx` | `LeagueProvider`, `useLeague()`, `useSeasonLink()`. Owns the `?conf=` param (`CONF_PARAM`, `CURRENT`) and the tournament list. |
 | `src/lib/tabs.ts` | `TABS` — the nav registry. Tabs without `standalone` all render `Home`; `tabForPathname` resolves the active one. |
@@ -48,6 +49,19 @@ Routes: `/` + the non-standalone `TABS` paths → `Home`; `/scores`, `/schedule`
 `/setup`, `/settings/:section?`, `/admin/:section?`, `/league/:conf/admin/:section?`, `*` →
 `NotFound`. The whole tree sits inside `SetupGate`, which holds a signed-in user with an incomplete
 profile on `/setup`.
+
+Three route groups, and the group is what decides a page's chrome:
+
+- **`SiteLayout ticker`** — the non-standalone `TABS` paths, `/scores`, `/schedule`, `/stats`,
+  `/info`, `/news`. Adding a public data tab means adding it here; a page never mounts
+  `ScoreboardTicker` itself.
+- **`SiteLayout`** — the same chrome without the strip: `/setup`, `/players/:profileId`,
+  `/news/:slug`, `/settings`, `/admin`, `/league/:conf/admin`, `/content`, and `*`.
+- **`BareLayout`** — `/match/:id`, `/game/:matchId`, `/teams/:conf/:code`, `/register`, `/login`.
+  These render no nav and no footer at all — each draws its own header with a back button
+  (`useBackNavigation`) — so they must **not** be moved under `SiteLayout`, which would give them a
+  second header and a content column they don't want. `BareLayout` exists to give their lazy chunks
+  a `<Suspense>` boundary and nothing else.
 
 The browser says `players` where the API says `profiles`: the public concept is a player, while
 `profile` stays the server's durable identity model.
@@ -91,9 +105,19 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
 
 ### Components — `src/components/`
 
-- `layout/PageShell.tsx` — `<PageShell maxWidth={1280} ticker extraBottom>`. The page chrome
-  every page mounts. Created because Home and Stats hand-rolled it and drifted; don't
-  hand-roll it again.
+- `layout/SiteLayout.tsx` — the chrome (ticker, nav, content column, footer, mobile tab bar) as a
+  react-router **layout route**, mounted once per route group rather than once per page. `ticker` is
+  a boolean prop set in `main.tsx`, because which routes show the strip is a property of the group.
+  Persisting it is the point: the ticker polls `GET /schedule` and scrolls itself to the live series,
+  and a per-page copy was remounted and re-anchored on every click. It also owns the lazy-route
+  `<Suspense>` boundary, so a downloading page chunk blanks the column and not the nav above it.
+  Exports `BareLayout` alongside it — the same boundary with no chrome, for the full-bleed pages.
+- `layout/PageShell.tsx` — `<PageShell maxWidth={1280} extraBottom>`. Still the wrapper every page
+  renders, but it draws nothing: it publishes the column width and extra bottom padding up to
+  `SiteLayout` through `PageColumnContext` (a `useLayoutEffect`, so the column never paints at the
+  previous page's width). Those two values are why the chrome wasn't a layout route before — Home is
+  wider than Stats, and Stats' padding depends on its compare-dock selection. A page still adds the
+  chrome by being routed under a `SiteLayout`; don't hand-roll either half.
 - `auth/RequireAuth.tsx` — `<RequireAuth roles={[…]} allow={boolean|null}>`. `allow: null`
   means "still resolving" and holds the checking state. Also exports `NoticePanel`.
 - `settings/SettingsShell.tsx` — the sidebar + mobile drill-down shell shared by all three
@@ -181,8 +205,8 @@ relevant page — the sidebar, links, mobile drill-down and active state all fol
 
 League Admin → Info Page is `src/components/league/info/InfoSection.tsx`. There is exactly one
 document per conf, so it uses a complete-document `PUT`; link order is editor-owned and must never
-be sorted in the client. The reader is the standalone `/info` tab in `src/pages/Info.tsx`, mounts the
-shared scoreboard ticker like the other public data tabs, and renders every conf when the `current`
+be sorted in the client. The reader is the standalone `/info` tab in `src/pages/Info.tsx`, sits in the
+ticker route group like the other public data tabs, and renders every conf when the `current`
 selection resolves to concurrent leagues.
 
 ### Deliverables
@@ -302,9 +326,14 @@ should say so; a line that restates the code should not exist.
 
 ## Running it
 
-`npm run build` is `tsc --noEmit && vite build`, and the typecheck is doing real work — the
+`pnpm build` is `tsc --noEmit && vite build`, and the typecheck is doing real work — the
 phase payload is a discriminated union on `kind`, so an unnarrowed `phase.groups` is a compile
 error rather than a runtime `undefined`. There is no test framework.
 
-**Brycen runs the toolchain.** Don't run `npm`/`node`/`npx` yourself — make the edits, then
-tell him the exact command to run (e.g. `! npm run build`) and wait for the output.
+pnpm is the package manager: `pnpm install` (CI uses `--frozen-lockfile`), `pnpm-lock.yaml` is
+committed, and `package.json`'s `packageManager` field is what pins the version for both Corepack
+and `pnpm/action-setup` in the workflows. `pnpm-workspace.yaml` carries pnpm settings only — there
+is no workspace; this is a single package.
+
+**Brycen runs the toolchain.** Don't run `pnpm`/`npm`/`node`/`npx` yourself — make the edits, then
+tell him the exact command to run (e.g. `! pnpm build`) and wait for the output.

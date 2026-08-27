@@ -8,14 +8,13 @@
 
 import { useWindowSize } from "../hooks/useWindowSize";
 import { PageShell } from "../components/layout/PageShell";
-import { ScoreboardTicker } from "../components/home/ScoreboardTicker";
 import { ScoresView } from "../components/views/ScoresView";
 
 export default function Scores() {
   const isMobile = useWindowSize() < 768;
 
   return (
-    <PageShell maxWidth={1440} ticker={<ScoreboardTicker />}>
+    <PageShell maxWidth={1440}>
       <ScoresView isMobile={isMobile} />
     </PageShell>
   );

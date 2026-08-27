@@ -10,8 +10,9 @@
  * was written before the bundle loaded. Hence the `noindex` below — it is the only signal available for
  * saying "don't keep this URL", and a crawler that renders the page will see it.
  *
- * No ticker, deliberately. The strip polls `GET /schedule` every thirty seconds and this page has no
- * news to carry; `PageShell`'s nav and the signposts below are the way out of here.
+ * No ticker, deliberately — which is why this route is declared under the plain `SiteLayout` rather
+ * than the one the public data tabs share. The strip polls `GET /schedule` every thirty seconds and
+ * this page has no news to carry; the nav and the signposts below are the way out of here.
  */
 
 import { useEffect } from "react";

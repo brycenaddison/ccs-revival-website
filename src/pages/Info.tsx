@@ -10,7 +10,6 @@ import { useQueries } from "@tanstack/react-query";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Markdown } from "../components/Markdown";
-import { ScoreboardTicker } from "../components/home/ScoreboardTicker";
 import { PageShell } from "../components/layout/PageShell";
 import { errorMessage, type InfoLink, type LeagueInfo } from "../lib/api";
 import { useLeague } from "../lib/leagueContext";
@@ -70,7 +69,7 @@ export default function Info() {
   const leagueNames = new Map(tournaments.map(t => [t.conf, t.name]));
 
   return (
-    <PageShell maxWidth={900} ticker={<ScoreboardTicker />}>
+    <PageShell maxWidth={900}>
       <div className="mb-7">
         <h1 className="font-display text-[22px] text-text-bright tracking-widest">INFO</h1>
         <p className="text-text-secondary text-sm">
