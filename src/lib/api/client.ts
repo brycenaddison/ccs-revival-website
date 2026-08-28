@@ -69,9 +69,13 @@ function pickCounts<K extends string>(raw: Raw, keys: readonly K[]): Record<K, n
 // ---------------------------------------------------------------- tournaments
 
 /**
- * Exported for `./admin`: `POST` and `PATCH /admin/leagues` answer with the same row shape
- * `GET /tournaments` serves, and an editor that normalized its own save differently from the list
- * it just updated would show the two disagreeing.
+ * Exported for `./admin` and `./teamApplications`: `GET /admin/leagues`, the league writes and the
+ * intake toggle all answer with the same row shape `GET /tournaments` serves, and an editor that
+ * normalized its own save differently from the list it just updated would show the two disagreeing.
+ *
+ * The three flags are each omitted rather than defaulted when the wire doesn't carry them. Reading
+ * an absent `listed` as `false` would report every existing season as hidden, which is the same trap
+ * `active` already documents.
  */
 export function mapTournament(input: unknown): Tournament {
   const raw = asRaw(input);
@@ -80,6 +84,11 @@ export function mapTournament(input: unknown): Tournament {
     name: str(raw.name),
     shortname: strOrNull(raw.shortname),
     ...(typeof raw.active === "boolean" ? { active: raw.active } : {}),
+    ...(typeof raw.listed === "boolean" ? { listed: raw.listed } : {}),
+    ...(typeof raw.applicationsOpen === "boolean"
+      ? { applicationsOpen: raw.applicationsOpen }
+      : {}),
+    ...("teamsPublishedAt" in raw ? { teamsPublishedAt: strOrNull(raw.teamsPublishedAt) } : {}),
   };
 }
 
@@ -143,6 +152,19 @@ export function mapTeamRecord(raw: Raw): TeamRecord {
     logo: httpsUrl(raw.logo as string),
     color,
     colorHex: hexFromInt(color),
+    // Absent keys stay absent rather than becoming `null`: a deployment without these columns has
+    // no secondary color and no recorded ownership, which is not the same answer as "nobody owns
+    // this team". `owner` and each contact are the same slot shape as the playing positions, so
+    // they reuse `mapRosterSlot` and link through to a player page identically.
+    ...("colorSecondary" in raw ? { colorSecondary: numOrNull(raw.colorSecondary as Numeric) } : {}),
+    ...("owner" in raw ? { owner: mapRosterSlot(raw.owner) } : {}),
+    ...(Array.isArray(raw.contacts)
+      ? {
+          contacts: raw.contacts
+            .map(mapRosterSlot)
+            .filter((slot): slot is RosterSlot => slot !== null),
+        }
+      : {}),
     record: mapSeasonRecord(raw.record),
     ...mapRoster(raw),
   };
@@ -402,7 +424,7 @@ function sortMatchlist(entries: MatchlistEntry[]): MatchlistEntry[] {
  *
  * That row supplies three things the aggregated endpoint doesn't: the roster, the series record,
  * and identity fields for a team that hasn't played — upstream spreads a null `teamstats` row, so
- * such a team arrives with no `code`, `name`, colour or logo at all.
+ * such a team arrives with no `code`, `name`, color or logo at all.
  */
 function buildTeamDetail(conf: string, code: string, raw: Raw, record: TeamRecord | undefined): TeamDetail {
   const hasStats = typeof raw.code === "string";

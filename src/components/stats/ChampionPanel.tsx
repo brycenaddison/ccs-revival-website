@@ -78,7 +78,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
   const champs = data ?? [];
 
   const group = CHAMPION_STAT_GROUPS.find(g => g.id === groupId) ?? CHAMPION_STAT_GROUPS[0];
-  const catalogue = useMemo(() => flattenGroups([group]), [group]);
+  const catalog = useMemo(() => flattenGroups([group]), [group]);
 
   /**
    * Rows passing the champion-name and minimum-picks filters. Feeds the table and the bars only — the
@@ -274,13 +274,13 @@ export function ChampionPanel({ conf, isMobile }: Props) {
         <StatBars
           subject="CHAMPIONS"
           rows={filtered}
-          catalogue={catalogue}
+          catalog={catalog}
           statKey={barStat}
           onStatKey={(k, suggested) => { setBarStat(k); setBarDir(suggested); }}
           direction={barDir}
           onDirection={setBarDir}
           isMobile={isMobile}
-          // Champions have no colour of their own, so the value places them on the ramp. Teams and
+          // Champions have no color of their own, so the value places them on the ramp. Teams and
           // players use their branding instead.
           colorBy="value"
           rowMeta={c => ({

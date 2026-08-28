@@ -51,7 +51,7 @@ export default function Home() {
   const tiers = useMemo(() => tierArticles(homeData?.articles ?? []), [homeData?.articles]);
   const hasNews = tiers.hero !== null || tiers.features.length > 0 || tiers.news.length > 0;
 
-  // One merged feed upstream, two surfaces here: videos are large cards in the wide centre column,
+  // One merged feed upstream, two surfaces here: videos are large cards in the wide center column,
   // everything else stays a compact rail in the 280px left one. Split rather than duplicated, so a
   // source that isn't YouTube still has somewhere to land if the X bridge is ever configured.
   const { videos, posts } = useMemo(() => {

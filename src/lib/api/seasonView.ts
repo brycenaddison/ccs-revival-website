@@ -48,7 +48,7 @@ export interface SeasonTeam {
 /**
  * One outcome a group phase can hand a team.
  *
- * `level` is 1–10 and is **only** a colour index — nothing upstream reads it. `lib/scenarioTones.ts`
+ * `level` is 1–10 and is **only** a color index — nothing upstream reads it. `lib/scenarioTones.ts`
  * owns the palette it names.
  */
 export interface SeasonScenario {
@@ -298,7 +298,7 @@ const BEST_OFS: readonly unknown[] = [1, 3, 5];
 const bestOf = (v: unknown): BestOf => (BEST_OFS.includes(v) ? (v as BestOf) : 3);
 
 const STATUSES: readonly unknown[] = ["played", "scheduled", "pending"];
-/** Anything unrecognised falls to `pending`, which is the state that claims least. */
+/** Anything unrecognized falls to `pending`, which is the state that claims least. */
 const status = (v: unknown): SeasonMatchStatus =>
   STATUSES.includes(v) ? (v as SeasonMatchStatus) : "pending";
 
@@ -323,7 +323,7 @@ function mapScenario(raw: unknown): SeasonScenario | null {
   const s = asRaw(raw);
   return {
     // Clamped to the palette's range on the way out as well as upstream: a scenario written by some
-    // other client is worth a colour rather than a broken badge. See `toneForLevel`.
+    // other client is worth a color rather than a broken badge. See `toneForLevel`.
     level: Math.min(10, Math.max(1, int(s.level, 1))),
     title: str(s.title),
     subtitle: str(s.subtitle),

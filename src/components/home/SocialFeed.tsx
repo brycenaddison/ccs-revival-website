@@ -21,7 +21,7 @@ interface Props {
 
 /**
  * `source` is a free string, not a union — the X bridge is a swappable config URL upstream, so a
- * third source is a config change and not a deploy. An unrecognised one gets the generic glyph
+ * third source is a config change and not a deploy. An unrecognized one gets the generic glyph
  * rather than being dropped.
  */
 function SourceIcon({ source }: { source: string }) {

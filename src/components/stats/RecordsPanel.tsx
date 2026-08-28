@@ -55,7 +55,7 @@ export function RecordsPanel({ conf, isMobile }: Props) {
 
   const { data, isPending, error } = useQuery(queries.records(conf, limit));
   // Team boards carry no champion art — `champImg` is null on them and `name` holds the team code — so
-  // without this lookup they rendered a bare colour block where the crest should be.
+  // without this lookup they rendered a bare color block where the crest should be.
   const teamsQuery = useQuery(queries.teamsForConf(conf));
 
   const logoOf = useMemo(
@@ -110,7 +110,7 @@ export function RecordsPanel({ conf, isMobile }: Props) {
             const shown = board.rows.slice(0, limit);
 
             // Ramped by *rank*, not by value. Rank 1 is the record whichever direction the board sorts —
-            // "Fastest Win" ranks the lowest duration first — so a value-normalised ramp would paint the
+            // "Fastest Win" ranks the lowest duration first — so a value-normalized ramp would paint the
             // record red on any ascending board.
             const last = Math.max(1, shown.length - 1);
 

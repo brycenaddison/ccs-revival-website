@@ -12,7 +12,7 @@
   --dark-red: #3f0008;
   --toast-success-bg: #065F46; --toast-error-bg: #3f0008;
   --overlay: rgba(1,1,1,0.9);
-  /* Bar fill for a team with no colour set. Light against the dark page. */
+  /* Bar fill for a team with no color set. Light against the dark page. */
   --bar-unset: #9ca3af;
   /*
    * Height of MobileBottomBar, so the pages reserving room for it and the compare dock sitting on
@@ -36,7 +36,7 @@
   --dark-red: #3f0008;
   --toast-success-bg: #d1fae5; --toast-error-bg: #fee2e2;
   --overlay: rgba(0,0,0,0.5);
-  /* Bar fill for a team with no colour set. Dark against the light page. */
+  /* Bar fill for a team with no color set. Dark against the light page. */
   --bar-unset: #4b5563;
   /* See the dark theme for the derivation. */
   --bottom-nav-h: calc(55.5px + env(safe-area-inset-bottom, 8px));
@@ -50,7 +50,7 @@
  * `lib/scenarioTones.ts`, which is where the names and the mixing live.
  *
  * Only the hue is per level. The fill behind a pill and the line around it are mixed from it with the
- * two strengths below, so adding a theme means picking ten colours and nothing else — and a pill, a
+ * two strengths below, so adding a theme means picking ten colors and nothing else — and a pill, a
  * swatch and a standings row cannot drift apart, because there is one source for all three. Light mode
  * takes a slightly stronger fill and a softer edge: the same tint that reads as a wash on black
  * disappears on white, while a 55% border there is heavier than anything else on the page.
@@ -95,8 +95,8 @@
 /*
  * The season selector's dropdown list.
  *
- * A native <select> popup takes its colours from the control, and the compact one in the nav is
- * transparent — so the browser picked its own, landing on a white list with grey-on-white text in
+ * A native <select> popup takes its colors from the control, and the compact one in the nav is
+ * transparent — so the browser picked its own, landing on a white list with gray-on-white text in
  * dark mode. Pinning the options to the theme's own surface keeps the list light-on-dark in dark
  * mode and dark-on-light in light mode; `color-scheme` does the same for the parts of the popup
  * that aren't ours to paint (its frame, scrollbar and hover highlight).
@@ -144,10 +144,10 @@ input[type="time"],
 input[type="datetime-local"] { line-height: 1.25rem }
 
 /*
- * The calendar button, replaced rather than recoloured.
+ * The calendar button, replaced rather than recolored.
  *
  * `color-scheme` alone leaves it as whichever of two fixed glyphs the browser picked — dark-on-dark
- * before that, washed-out grey after. Inverting it with a filter would fight the flip `color-scheme`
+ * before that, washed-out gray after. Inverting it with a filter would fight the flip `color-scheme`
  * has already done, and the two disagree between browsers and themes. So the native glyph is dropped
  * and Lucide's `calendar` is masked in instead, painted from `--text-secondary` — which means it
  * tracks the theme from one rule and matches the icons beside it in the same form.
@@ -190,7 +190,7 @@ input[type="datetime-local"]:focus::-webkit-calendar-picker-indicator {
 /*
  * The segments inside the control — `06/10/2026, 01:00`.
  *
- * Chromium gives these their own colour rather than inheriting, which lands a shade too dark on
+ * Chromium gives these their own color rather than inheriting, which lands a shade too dark on
  * `--bg2`. `inherit` hands them back to the `text-text` the control already carries, so a date field
  * reads at the same weight as the text inputs beside it.
  *

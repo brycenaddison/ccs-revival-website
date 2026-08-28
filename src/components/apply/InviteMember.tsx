@@ -1,0 +1,394 @@
+/**
+ * Inviting somebody to a proposed team: find them in the CCS Discord, pick their roles, send.
+ *
+ * Search is against the one configured guild and capped at ten results upstream — it is a REST
+ * lookup per settled query, not a member list this page holds, which is why it is debounced and
+ * refuses anything under two characters rather than fetching on the first letter.
+ *
+ * **Identity is the Discord user id, never the label.** The server re-fetches the selected member
+ * from the guild before writing, so editing a response value cannot invite an arbitrary Discord
+ * user, and the profile is created or reused by snowflake — an invitee does not need to have signed
+ * in to the website before.
+ *
+ * Sending the same person again is how a resend is expressed: upstream upserts on
+ * `(application, profile)`, replaces the whole role set and returns the invitation to `pending`.
+ * There is deliberately no separate resend route.
+ *
+ * The panel handles both halves of that. A **new** invitee is found by guild search and sent by
+ * `discordUserId`; somebody **already on the roster** is re-sent by `profileId`, which is what makes
+ * changing a position possible without remove-and-reinvite. See `InvitationInput` for why the route
+ * takes one or the other rather than either.
+ */
+
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Copy, Search, UserPlus, X } from "lucide-react";
+import { ACTION, ACTION_PRIMARY, ACTION_QUIET, ACTION_SM, ErrorLine } from "../admin/adminUi";
+import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
+import { ROLE_LABEL, STARTER_ROLES } from "./applyUi";
+import { useDebounced } from "../../hooks/useDebounced";
+import { DISCORD_INVITE } from "../../lib/siteLinks";
+import { queryRoots } from "../../lib/queries";
+import {
+  errorMessage,
+  inviteMember,
+  refusalOf,
+  searchGuildMembers,
+  SUB_ORDINAL_MAX,
+  type ApplicationMember,
+  type GuildMemberCandidate,
+  type MemberRoleAssignment,
+  type TeamMemberRole,
+} from "../../lib/api";
+
+interface Props {
+  conf: string;
+  applicationId: number;
+  /** Everyone already on the application, so a search result can say who is already invited. */
+  members: readonly ApplicationMember[];
+  /**
+   * When set, this edits an existing member's roles instead of inviting a new person: the search box
+   * is hidden and the upsert is aimed by `profileId`.
+   */
+  editing?: ApplicationMember;
+  onDone: (message: string) => void;
+  onCancel: () => void;
+}
+
+export function InviteMember({ conf, applicationId, members, editing, onDone, onCancel }: Props) {
+  const qc = useQueryClient();
+
+  const [term, setTerm] = useState("");
+  const [picked, setPicked] = useState<GuildMemberCandidate | null>(null);
+  const [roles, setRoles] = useState<TeamMemberRole[]>(
+    editing ? editing.roles.map(r => r.role) : [],
+  );
+  const [subOrdinal, setSubOrdinal] = useState(
+    editing?.roles.find(r => r.role === "sub")?.ordinal ?? 0,
+  );
+
+  const query = useDebounced(term, 300).trim();
+
+  const { data: results, isFetching, error: searchError } = useQuery({
+    queryKey: ["applications", "memberSearch", conf, applicationId, query] as const,
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      searchGuildMembers(conf, applicationId, query, { signal }),
+    // Two characters is upstream's own floor — a shorter query is a `400`, not an empty result.
+    // Editing an existing member never searches: the target is already known.
+    enabled: editing === undefined && query.length >= 2,
+    staleTime: 30_000,
+  });
+
+  const send = useMutation({
+    mutationFn: () => {
+      const assignments: MemberRoleAssignment[] = roles.map(role => ({
+        role,
+        // Only substitutes take a nonzero ordinal; upstream `400`s on any other role carrying one.
+        ordinal: role === "sub" ? subOrdinal : 0,
+      }));
+      // One or the other, never both — see `InvitationInput`.
+      return inviteMember(
+        conf,
+        applicationId,
+        editing
+          ? { profileId: editing.profileId, roles: assignments }
+          : { discordUserId: picked?.userId ?? "", roles: assignments },
+      );
+    },
+    onSuccess: async (member: ApplicationMember) => {
+      await qc.invalidateQueries({ queryKey: queryRoots.applications });
+      // A failed DM is not a failed invitation — the website inbox is the authority — so this is
+      // reported as a caveat on a success rather than as an error.
+      onDone(
+        member.dmStatus === "failed"
+          ? `Invited ${member.name ?? "them"}, but the Discord DM didn't send. They'll still see it on the site.`
+          : `Invited ${member.name ?? "them"}.`,
+      );
+    },
+  });
+
+  const refusal = send.isError ? refusalOf(send.error) : null;
+  const canSend = roles.length > 0 && (editing !== undefined || picked !== null);
+
+  return (
+    <div className="rounded-lg border border-border bg-bg3 p-4">
+      <p className="font-heading text-sm uppercase tracking-wider text-text-bright">
+        {editing ? `Change ${editing.name ?? "their"} roles` : "Invite a player"}
+      </p>
+
+      {editing ? (
+        <p className="mt-2 text-xs text-ccs-orange">
+          Changing somebody's roles asks them again — their invitation goes back to pending until they
+          accept the new ones.
+        </p>
+      ) : (
+        <label className={`${LABEL_CLASS} mt-3`} htmlFor={`search-${applicationId}`}>
+          Find them in the CCS Discord
+        </label>
+      )}
+
+      {editing ? null : picked ? (
+        <div className="flex items-center gap-2.5 rounded-md border border-accent/50 bg-bg2 px-3 py-2">
+          <CandidateFace candidate={picked} />
+          <span className="min-w-0 flex-1 truncate text-sm text-text-bright">
+            {picked.displayName}
+            <span className="ml-2 text-xs text-text-dim">@{picked.username}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setPicked(null)}
+            title="Pick somebody else"
+            className={ACTION_SM}
+          >
+            <X size={13} aria-hidden="true" />
+            Change
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="relative">
+            <Search
+              size={14}
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-dim"
+            />
+            <input
+              id={`search-${applicationId}`}
+              value={term}
+              onChange={e => setTerm(e.target.value)}
+              placeholder="Discord name or username"
+              autoComplete="off"
+              className={`${CONTROL_CLASS} pl-8`}
+            />
+          </div>
+
+          {term.trim().length > 0 && query.length < 2 && (
+            <p className="mt-1.5 text-xs text-text-dim">Keep typing — two characters minimum.</p>
+          )}
+          {isFetching && <p className="mt-1.5 text-xs text-text-dim">Searching Discord…</p>}
+          {/* A `503` here means the bot is offline, which is the one failure that doesn't implicate
+              the rest of the site — say so rather than showing a bare error. */}
+          {searchError && (
+            <ErrorLine
+              message={`Couldn't search Discord: ${errorMessage(searchError)}. The bot may be offline; the rest of this form still works.`}
+            />
+          )}
+          {results && results.length > 0 && (
+            <ul className="mt-2 max-h-56 overflow-y-auto rounded-md border border-border">
+              {results.map(candidate => {
+                // Matched on the Discord **username**, not the guild display name: the display name
+                // is per-server and editable, while `handle` on a member is the cached username. A
+                // member who has never signed in has no handle, so this can miss — which costs
+                // nothing worse than a re-send, since a repeat invitation is an upsert.
+                const already = members.some(
+                  m => m.handle !== null && m.handle === candidate.username,
+                );
+                return (
+                  <li key={candidate.userId}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPicked(candidate);
+                        setTerm("");
+                      }}
+                      className="flex w-full items-center gap-2.5 border-none bg-transparent px-3 py-2 text-left text-sm text-text hover:bg-bg-input"
+                    >
+                      <CandidateFace candidate={candidate} />
+                      <span className="min-w-0 flex-1 truncate">
+                        {candidate.displayName}
+                        <span className="ml-2 text-xs text-text-dim">@{candidate.username}</span>
+                      </span>
+                      {already && (
+                        <span className="shrink-0 text-[10px] uppercase tracking-wider text-text-dim">
+                          already invited
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {/* The most common reason a search comes back empty, and the one the captain can act on:
+              this searches the CCS Discord and nothing else, so somebody who has never joined it
+              cannot be found — or invited — until they do. Handing over the invite link is the whole
+              fix, so it is offered here rather than described. */}
+          {results && results.length === 0 && query.length >= 2 && !isFetching && (
+            <div className="mt-1.5 rounded-md border border-border bg-bg2 px-3 py-2">
+              <p className="text-xs text-text-secondary">
+                Nobody in the CCS Discord matches that. They have to join the server before you can
+                invite them — send them the link, then search again once they're in.
+              </p>
+              {DISCORD_INVITE && (
+                <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                  <a
+                    href={DISCORD_INVITE}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-accent no-underline hover:text-text-bright"
+                  >
+                    {DISCORD_INVITE}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void navigator.clipboard?.writeText(DISCORD_INVITE)}
+                    className={ACTION_QUIET}
+                  >
+                    <Copy size={11} aria-hidden="true" />
+                    Copy
+                  </button>
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      <RolePicker
+        roles={roles}
+        onToggle={role =>
+          setRoles(current =>
+            current.includes(role) ? current.filter(r => r !== role) : [...current, role],
+          )
+        }
+        subOrdinal={subOrdinal}
+        onSubOrdinal={setSubOrdinal}
+      />
+
+      <div className="mt-4 flex gap-2">
+        <button
+          type="button"
+          disabled={!canSend || send.isPending}
+          onClick={() => send.mutate()}
+          className={ACTION_PRIMARY}
+        >
+          <UserPlus size={15} aria-hidden="true" />
+          {send.isPending ? "Sending…" : editing ? "Save roles and re-ask" : "Send invitation"}
+        </button>
+        <button type="button" onClick={onCancel} className={ACTION}>
+          Cancel
+        </button>
+      </div>
+
+      {(picked !== null || editing !== undefined) && roles.length === 0 && (
+        <p className="mt-2 text-xs text-text-dim">Pick at least one role for them.</p>
+      )}
+
+      <ErrorLine
+        message={refusal ? refusal.message : send.isError ? errorMessage(send.error) : null}
+      />
+    </div>
+  );
+}
+
+/**
+ * A search result's face — an initial, not an image.
+ *
+ * The guild search returns a raw avatar **hash**, unlike a member on an application whose avatar
+ * upstream has already resolved to a url. Building one from a hash needs the user id plus the
+ * animated-`.gif` rule, which is server-side policy in `utils/discordAvatar.ts`; duplicating it here
+ * to save one initial is not worth getting that case wrong.
+ */
+function CandidateFace({ candidate }: { candidate: GuildMemberCandidate }) {
+  return (
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg3 font-heading text-[11px] uppercase text-text-secondary">
+      {candidate.displayName.slice(0, 1)}
+    </span>
+  );
+}
+
+interface RolePickerProps {
+  roles: readonly TeamMemberRole[];
+  onToggle: (role: TeamMemberRole) => void;
+  subOrdinal: number;
+  onSubOrdinal: (ordinal: number) => void;
+}
+
+/**
+ * The roles being asked for, in two groups, because the two groups behave differently.
+ *
+ * One person may hold an administrative role *and* a playing role — the owner is often the mid
+ * laner — but only ever **one** playing role. That is enforced here as a single-choice control
+ * rather than left for the server to refuse after the invitation was already sent.
+ */
+function RolePicker({ roles, onToggle, subOrdinal, onSubOrdinal }: RolePickerProps) {
+  const playing = roles.find(
+    role => role === "sub" || (STARTER_ROLES as readonly string[]).includes(role),
+  );
+
+  const chip = (selected: boolean) =>
+    `rounded-md border px-3 py-1.5 bg-transparent cursor-pointer font-heading text-xs uppercase tracking-wider ${
+      selected ? "border-accent text-text-bright" : "border-border text-text-secondary"
+    }`;
+
+  return (
+    <div className="mt-4">
+      <span className={LABEL_CLASS}>Position</span>
+      <div className="flex flex-wrap gap-1.5">
+        {[...STARTER_ROLES, "sub" as const].map(role => (
+          <button
+            key={role}
+            type="button"
+            aria-pressed={playing === role}
+            onClick={() => {
+              if (playing === role) {
+                onToggle(role);
+                return;
+              }
+              // Picking a position replaces the previous one rather than adding to it.
+              if (playing) onToggle(playing);
+              onToggle(role);
+            }}
+            className={chip(playing === role)}
+          >
+            {ROLE_LABEL[role]}
+          </button>
+        ))}
+      </div>
+
+      {playing === "sub" && (
+        <div className="mt-2 max-w-xs">
+          <label className={LABEL_CLASS} htmlFor="sub-slot">
+            Substitute slot
+          </label>
+          <select
+            id="sub-slot"
+            value={subOrdinal}
+            onChange={e => onSubOrdinal(Number(e.target.value))}
+            className={CONTROL_CLASS}
+          >
+            {Array.from({ length: SUB_ORDINAL_MAX + 1 }, (_, i) => (
+              <option key={i} value={i}>
+                Substitute {i + 1}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-xs text-text-dim">
+            Five substitutes at most, and two can't share a slot.
+          </p>
+        </div>
+      )}
+
+      <span className={`${LABEL_CLASS} mt-4`}>Also</span>
+      <div className="flex flex-wrap gap-1.5">
+        {(["owner", "contact"] as const).map(role => (
+          <button
+            key={role}
+            type="button"
+            aria-pressed={roles.includes(role)}
+            onClick={() => onToggle(role)}
+            className={chip(roles.includes(role))}
+          >
+            {ROLE_LABEL[role]}
+          </button>
+        ))}
+      </div>
+      {roles.includes("owner") && (
+        <p className="mt-1.5 text-xs text-ccs-orange">
+          Handing over ownership: when they accept, they take control of this application and you stay
+          on as a contact.
+        </p>
+      )}
+    </div>
+  );
+}

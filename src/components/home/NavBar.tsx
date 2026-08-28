@@ -166,9 +166,9 @@ export function NavBar({ isMobile }: Props) {
   }
 
   return (
-    // Three equal-outer-track grid: the `auto` middle is centred against the nav itself, not
+    // Three equal-outer-track grid: the `auto` middle is centerd against the nav itself, not
     // against whatever space the logo and auth cluster leave over. As width tightens the wider
-    // side floors at its min-content size and the menu drifts off-centre; tighter still, the
+    // side floors at its min-content size and the menu drifts off-center; tighter still, the
     // middle's `min-w-0` lets it scroll internally. The scroller lives on the middle cell rather
     // than the <nav> on purpose — `overflow-x` on the nav computes `overflow-y: auto` too, which
     // would clip the account dropdown.

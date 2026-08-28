@@ -1,7 +1,7 @@
 /**
  * Transport layer for the CCS API.
  *
- * Three behaviours of the upstream Express app drive the design here:
+ * Three behaviors of the upstream Express app drive the design here:
  *
  *  1. "Not found" is signalled as HTTP 200 with a JSON `null` body, never a 404.
  *     A 404 therefore means the *route* doesn't exist — which is how endpoints that

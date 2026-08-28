@@ -23,7 +23,7 @@
  * `career.teams` carries the full `TeamRecord` that `GET /teams` serves — roster and standings
  * included — because it is a short list the page renders in detail. Opponents, which repeat on
  * every game and every series, carry only `TeamMetadata`: identity and branding, no roster, no
- * record. Both are mapped so a logo and colour resolve the same way here as anywhere else on the
+ * record. Both are mapped so a logo and color resolve the same way here as anywhere else on the
  * site; the compact one is not a `TeamRecord` with holes in it, and typing it as one would invite a
  * caller to read a `record` that was never sent.
  *
@@ -64,7 +64,7 @@
 
 import { mapTeamRecord } from "./client";
 import { credentialedRequest } from "./credentialed";
-import { ApiError, getOne, post, type RequestOpts } from "./http";
+import { ApiError, getList, getOne, post, type RequestOpts } from "./http";
 import { hexFromInt, httpsUrl, normalizeRole, numOrNull, type Numeric, type Role } from "./normalize";
 import type { TeamRecord } from "./types";
 
@@ -134,7 +134,7 @@ const DIVISION_ORDER = ["IV", "III", "II", "I"] as const;
  * A single comparable number for one ranked entry.
  *
  * Tier dominates division, which dominates LP, and the multipliers are far enough apart that apex
- * LP (which runs into four digits) can never climb past the tier above it. An unrecognised tier
+ * LP (which runs into four digits) can never climb past the tier above it. An unrecognized tier
  * scores `-1` rather than being guessed at: a new tier we don't know about should lose the
  * comparison, not silently win it by sorting as index 0.
  */
@@ -306,7 +306,7 @@ export type ProfileMetrics = Record<string, number | null>;
  * A team's identity, without its roster or record.
  *
  * Upstream's compact reference for teams that repeat across a payload. Structurally a subset of
- * `TeamRecord`, so anything that only needs a name, a logo and a colour takes this and accepts
+ * `TeamRecord`, so anything that only needs a name, a logo and a color takes this and accepts
  * either — but it is its own type, because a `record` this never carried must not look absent.
  */
 export interface TeamMetadata {
@@ -315,16 +315,73 @@ export interface TeamMetadata {
   name: string;
   conf: string | null;
   logo?: string;
-  /** Raw integer colour; `null` or `0` both mean unset. */
+  /** Raw integer color; `null` or `0` both mean unset. */
   color: number | null;
   /** `color` rendered as CSS hex, falling back when unset. */
   colorHex: string;
+}
+
+/**
+ * One game's place in the season structure.
+ *
+ * `matchDay` is 1-based **within the phase** — season day 14 is playoffs day 2 — and is paired with
+ * `matchDays` so a card can say "day 2 of 4" without a second read.
+ *
+ * `round` and `roundName` are bracket-only, and the distinction between them matters:
+ *
+ *  - `round` is depth in the bracket graph, and is **not** a match day. A best-of-five round can span
+ *    two match days, and a bye feeds a later node from an earlier round.
+ *  - `roundName` is the node's own label, verbatim — whatever an operator typed, `null` if nothing.
+ *    Deliberately not derived from `round`, because naming rounds by depth is wrong for a third-place
+ *    match and for every loser's bracket. So when it exists it is the *better* label, and when it
+ *    doesn't there is nothing trustworthy to put in its place.
+ *
+ * Both are `null` for a group phase and for a bracket game with no fixture to identify its node.
+ */
+export interface PhaseRef {
+  id: number;
+  name: string;
+  kind: "group" | "bracket";
+  /** 1-based position in the season. */
+  ordinal: number;
+  /** How long the phase is, so a client can say "day 2 of 4". */
+  matchDays: number;
+  /** 1-based day within the phase. */
+  matchDay: number;
+  round: number | null;
+  roundName: string | null;
 }
 
 export interface ProfileBestGame {
   matchId: string;
   scheduleMatchId: number | null;
   conf: string;
+  /**
+   * Season-wide ordinal for the day this was played — day 1 through day 16 of the season.
+   *
+   * **A join key first and a label second**, and the repo's rule is to prefer the date; see the
+   * "Season day is internal" section of `CLAUDE.md`. It is mapped here because a series card wants
+   * to say which week of the season a match belongs to, which a date alone cannot answer for a
+   * reader who thinks in weeks — the same reason the records boards already render `W{seasonDay}`.
+   * Never put it beside a bracket round number, where "Round 4" and "Week 14" contradict each other.
+   *
+   * For where in the *structure* a game sits — "playoffs day 2" — read `phase` instead. The two are
+   * both served because neither recovers the other.
+   */
+  seasonDay: number;
+  /**
+   * Where this game sits in the season's structure, or `null` for a day no published phase covers.
+   *
+   * **`null` is explicit and load-bearing.** Legacy conferences predate `schedule_match` and the
+   * phase list entirely, and an unpublished phase still occupies its season days for the arithmetic
+   * while its games read `null` rather than leaking it. Reading absent as "day 1 of the first phase"
+   * would invent a placement.
+   *
+   * Never derive this. Phases are keyed by length rather than start day, so a client would need one
+   * `GET /:conf/season` per conference a career spans plus a copy of arithmetic that goes stale the
+   * moment structure is edited.
+   */
+  phase: PhaseRef | null;
   game: number | null;
   startTime: string | null;
   champId: number | null;
@@ -400,7 +457,7 @@ export interface ProfileAccolade {
   /**
    * `team` or `individual` upstream, but kept as an opaque string: it only picks an icon, and the
    * accolade's `name` is the content. An unfamiliar kind gets the generic trophy rather than being
-   * dropped, which is the one place this module doesn't drop an unrecognised enum member.
+   * dropped, which is the one place this module doesn't drop an unrecognized enum member.
    */
   kind: string;
   name: string;
@@ -459,6 +516,8 @@ export interface ProfileMatch {
   seriesId: string;
   scheduleMatchId: number | null;
   conf: string;
+  /** Every game in a series shares one — see `ProfileBestGame.seasonDay`. */
+  seasonDay: number;
   team: string;
   opponentCode: string | null;
   opponent: TeamMetadata | null;
@@ -613,6 +672,31 @@ function mapPresentation(value: unknown): ProfilePresentation | null {
   };
 }
 
+/**
+ * A phase reference, or `null`.
+ *
+ * `null` for a real absence *and* for a deployment that doesn't serve the field yet — the two are the
+ * same to every consumer, because both mean "this game cannot be placed in a structure". An
+ * unrecognized `kind` reads as `group`, the kind that carries no round, so a skewed value degrades to
+ * the less specific label rather than promising a bracket position that isn't there.
+ */
+function mapPhaseRef(value: unknown): PhaseRef | null {
+  if (!value || typeof value !== "object") return null;
+  const p = asRaw(value);
+  const id = intOrNull(p.id);
+  if (id === null) return null;
+  return {
+    id,
+    name: str(p.name),
+    kind: p.kind === "bracket" ? "bracket" : "group",
+    ordinal: int(p.ordinal, 1),
+    matchDays: int(p.matchDays, 1),
+    matchDay: int(p.matchDay, 1),
+    round: intOrNull(p.round),
+    roundName: strOrNull(p.roundName),
+  };
+}
+
 function mapBestGame(value: unknown): ProfileBestGame | null {
   const r = asRaw(value);
   const matchId = strOrNull(r.matchId);
@@ -622,6 +706,8 @@ function mapBestGame(value: unknown): ProfileBestGame | null {
     matchId,
     scheduleMatchId: intOrNull(r.scheduleMatchId),
     conf,
+    seasonDay: int(r.seasonDay),
+    phase: mapPhaseRef(r.phase),
     game: intOrNull(r.game),
     startTime: strOrNull(r.startTime),
     champId: intOrNull(r.champId),
@@ -824,6 +910,8 @@ function mapMatches(value: unknown): ProfileMatch[] {
       seriesId,
       scheduleMatchId: intOrNull(r.scheduleMatchId),
       conf,
+      seasonDay: int(r.seasonDay),
+      phase: mapPhaseRef(r.phase),
       team,
       opponentCode: strOrNull(r.opponentCode),
       opponent: mapTeamMetadata(r.opponent),
@@ -967,7 +1055,7 @@ function claimGone(e: unknown): Error {
  *
  * The empty body is not decoration. These routes require `application/json`, and the content type is
  * only sent when `credentialedRequest` is given a body — see its header for why that header is the
- * CSRF defence rather than a formality.
+ * CSRF defense rather than a formality.
  */
 export async function startIconVerification(claimId: number): Promise<IconChallenge> {
   let data: Raw;
@@ -1074,10 +1162,75 @@ export async function refreshProfileAccounts(profileId: number): Promise<Profile
   };
 }
 
+// ------------------------------------------------------------------- search
+
+/**
+ * One hit from the profile autocomplete.
+ *
+ * `profileId` rather than the wire's `id`, matching every other person reference in this client —
+ * `RosterSlot`, `ProfileRef`, `ApplicationMember`. `avatar` is a finished Discord CDN url; `handle`
+ * is the cached Discord username and is often null, because it has only been recorded at login since
+ * the column existed.
+ */
+export interface ProfileSearchResult {
+  profileId: number;
+  name: string | null;
+  handle: string | null;
+  avatar: string | null;
+}
+
+/** Upstream's own floor. A shorter query is a `400`, not an empty result — so callers must gate. */
+export const PROFILE_SEARCH_MIN = 2;
+
+/** Upstream's cap, which it also uses as the default. */
+export const PROFILE_SEARCH_MAX = 25;
+
+/**
+ * Public profile autocomplete.
+ *
+ * Matches display names and cached Discord handles case-insensitively; an all-digit query also
+ * matches that exact profile id, which is what makes it a superset of pasting an id in by hand.
+ *
+ * `conf` narrows to profiles a **published** team in that conference references — starters, subs,
+ * owner or contacts. That is a genuinely different question from "everyone", not a nicety: with the
+ * filter on, nobody unrostered can be found at all, so a caster or a former player needs it off. An
+ * unknown but well-formed conf answers `[]` rather than falling back to unfiltered.
+ *
+ * Anonymous, via `./http` — it returns the same reference already visible on every public profile
+ * page, so there is nothing here for a guard to protect.
+ */
+export function searchProfiles(
+  q: string,
+  conf?: string | null,
+  limit?: number,
+  opts?: RequestOpts,
+): Promise<ProfileSearchResult[]> {
+  const params = new URLSearchParams({ q });
+  if (conf) params.set("conf", conf);
+  if (limit !== undefined) params.set("limit", String(limit));
+
+  return getList<Raw>(`/profiles/search?${params.toString()}`, opts).then(rows =>
+    rows.flatMap(raw => {
+      const r = asRaw(raw);
+      const profileId = intOrNull(r.id ?? r.profileId);
+      if (profileId === null) return [];
+      return [
+        {
+          profileId,
+          name: strOrNull(r.name),
+          handle: strOrNull(r.handle),
+          avatar: strOrNull(r.avatar),
+        },
+      ];
+    }),
+  );
+}
+
 /** Namespaced for parity with the other modules' aggregates. */
 export const profilesApi = {
   profileAccounts,
   playerProfile,
+  searchProfiles,
   updateMyProfile,
   refreshProfileAccounts,
   addUnverifiedAccount,

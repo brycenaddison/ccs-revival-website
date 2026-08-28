@@ -4,7 +4,7 @@
  * A table answers "what are this row's numbers?"; bars answer "who leads this, and by how much?" —
  * a question a column of monospace figures makes the reader do arithmetic for.
  *
- * The caller passes the *active stat group's* cells rather than the whole catalogue, so the picker
+ * The caller passes the *active stat group's* cells rather than the whole catalog, so the picker
  * lists five to ten stats instead of forty and the group pills mean the same thing in both views.
  *
  * Stat and direction are owned by the caller, not held here: they are selections, and switching to the
@@ -32,7 +32,7 @@ const TOP_N = 10;
  * Which end of a stat to open on.
  *
  * `lowerIsBetter` has been declared on the deaths, ban-turn and objectives-given cells since the
- * catalogue was written and read by nothing. Opening "Deaths / Game" on the top ten is showing the
+ * catalog was written and read by nothing. Opening "Deaths / Game" on the top ten is showing the
  * reader the worst players and calling it a leaderboard, so it decides the default here.
  */
 export function defaultDirection<T>(cell: FlatStatCell<T> | undefined): BarDirection {
@@ -44,7 +44,7 @@ interface Props<T> {
   subject: string;
   rows: readonly T[];
   /** The active group's numeric cells. */
-  catalogue: readonly FlatStatCell<T>[];
+  catalog: readonly FlatStatCell<T>[];
   statKey: string;
   /** Receives the suggested direction for the new stat alongside it; the caller decides whether to take it. */
   onStatKey: (key: string, suggested: BarDirection) => void;
@@ -52,11 +52,11 @@ interface Props<T> {
   onDirection: (d: BarDirection) => void;
   rowMeta: (row: T) => Omit<BarLeaderboardRow, "value" | "display">;
   /**
-   * Where a bar's colour comes from.
+   * Where a bar's color comes from.
    *
-   * `"brand"` uses the colour the row supplies — teams and players have one, and brand recognition
+   * `"brand"` uses the color the row supplies — teams and players have one, and brand recognition
    * beats any palette we could invent. `"value"` places the row on the ramp instead, for champions,
-   * which have no identity colour at all and would otherwise all be one flat hue.
+   * which have no identity color at all and would otherwise all be one flat hue.
    */
   colorBy?: "brand" | "value";
   isMobile: boolean;
@@ -71,7 +71,7 @@ interface Props<T> {
 export function StatBars<T>({
   subject,
   rows,
-  catalogue,
+  catalog,
   statKey,
   onStatKey,
   direction,
@@ -85,8 +85,8 @@ export function StatBars<T>({
   selectColors,
   onSelect,
 }: Props<T>) {
-  const cell = catalogue.find(c => c.key === statKey) ?? catalogue[0];
-  const groups = useMemo(() => [...new Set(catalogue.map(c => c.group))], [catalogue]);
+  const cell = catalog.find(c => c.key === statKey) ?? catalog[0];
+  const groups = useMemo(() => [...new Set(catalog.map(c => c.group))], [catalog]);
 
   const ranked = useMemo<BarLeaderboardRow[]>(() => {
     const read = cell?.value;
@@ -151,13 +151,13 @@ export function StatBars<T>({
         <Field label="Stat">
           <select
             value={statKey}
-            onChange={e => onStatKey(e.target.value, defaultDirection(catalogue.find(c => c.key === e.target.value)))}
+            onChange={e => onStatKey(e.target.value, defaultDirection(catalog.find(c => c.key === e.target.value)))}
             className={CONTROL_CLASS}
           >
             {groups.length > 1
               ? groups.map(g => (
                   <optgroup key={g} label={g}>
-                    {catalogue
+                    {catalog
                       .filter(c => c.group === g)
                       .map(c => (
                         <option key={c.key} value={c.key}>
@@ -166,7 +166,7 @@ export function StatBars<T>({
                       ))}
                   </optgroup>
                 ))
-              : catalogue.map(c => (
+              : catalog.map(c => (
                   <option key={c.key} value={c.key}>
                     {c.label}
                   </option>

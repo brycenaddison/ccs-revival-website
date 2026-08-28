@@ -12,11 +12,18 @@
 
 import { keepPreviousData } from "@tanstack/react-query";
 import {
+  adminLeagues,
   adminUser,
   announcements,
+  applicationQueue,
   article,
   articles,
   championStats,
+  globalDefinitions,
+  leagueAccolades,
+  myApplications,
+  myInvitations,
+  openApplicationSeasons,
   home,
   homeLive,
   leagueInfo,
@@ -36,6 +43,7 @@ import {
   records,
   schedule,
   scheduleFeed,
+  searchProfiles,
   searchUsers,
   season,
   standings,
@@ -49,6 +57,7 @@ import {
   type FeedPage,
   type FeedQuery,
   type ManageQuery,
+  PROFILE_SEARCH_MIN,
   type Role,
 } from "./api";
 
@@ -533,6 +542,115 @@ export const queries = {
       staleTime: 0,
     }),
 
+  /**
+   * Every league, hidden upcoming conferences included — the site-admin league list.
+   *
+   * Keyed **under** `["tournaments"]` deliberately, so `queryRoots.tournaments` already refreshes it:
+   * a league write moves this list and the public season picker together, and a separate root is one
+   * the editor would forget. `staleTime: 0` because this backs a form and reads the flags an admin
+   * has just changed elsewhere.
+   */
+  adminLeagues: () =>
+    query({
+      queryKey: ["tournaments", "admin"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => adminLeagues({ signal }),
+      staleTime: 0,
+    }),
+
+  /**
+   * One conference's whole application queue, oldest submission first.
+   *
+   * `staleTime: 0`: this is a shared worklist, and the row a reviewer is about to approve is exactly
+   * the one another reviewer may have just decided. Focus refetch stays **on**, unlike the draft
+   * editors below — nothing here is a long-lived form, and coming back to the tab should show the
+   * current queue.
+   */
+  applicationQueue: (conf: string) =>
+    query({
+      queryKey: ["applications", "queue", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => applicationQueue(conf, { signal }),
+      enabled: conf !== "",
+      staleTime: 0,
+    }),
+
+  /** The caller's own applications in one conference. */
+  myApplications: (conf: string) =>
+    query({
+      queryKey: ["applications", "mine", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => myApplications(conf, { signal }),
+      enabled: conf !== "",
+      staleTime: 0,
+    }),
+
+  /**
+   * Hidden conferences accepting applications. Not the season selector — see `teamApplications.ts`.
+   *
+   * `LEAGUE_STALE` rather than the `0` its neighbours use, because this one is read from the **nav**:
+   * `AuthControl` shows the Apply Now button off it on every page, for every signed-in visitor. The
+   * value moves a handful of times per season and the two writes that move it — the intake toggle and
+   * publication — both invalidate `queryRoots.applications`, so correctness comes from invalidation
+   * rather than from a short clock. Requires a session; the route is `401` for anonymous callers,
+   * which is why every caller gates on `isAuthenticated`.
+   */
+  openApplicationSeasons: () =>
+    query({
+      queryKey: ["applications", "open"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => openApplicationSeasons({ signal }),
+      staleTime: LEAGUE_STALE,
+    }),
+
+  /**
+   * The caller's invitation inbox.
+   *
+   * Its own root rather than a child of `applications`: an invitee is not an applicant, and the two
+   * are invalidated by different writes — responding to an invitation changes this list without
+   * changing any queue the responder can read.
+   */
+  myInvitations: () =>
+    query({
+      queryKey: ["invitations"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => myInvitations({ signal }),
+      staleTime: 0,
+    }),
+
+  /**
+   * Profile autocomplete, for picking accolade recipients by name.
+   *
+   * `q` and `conf` are both in the key, so backspacing to a term already typed is free and toggling
+   * the conference filter doesn't discard the unfiltered results. Disabled below upstream's
+   * two-character floor rather than sent — a shorter query is a `400` there, not an empty list.
+   *
+   * A real staleTime despite backing a form: this is a *lookup*, not a document being edited, and a
+   * profile's display name does not move while somebody is choosing from a list of them.
+   */
+  profileSearch: (q: string, conf: string | null) =>
+    query({
+      queryKey: ["profiles", "search", q, conf ?? "all"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => searchProfiles(q, conf, undefined, { signal }),
+      enabled: q.length >= PROFILE_SEARCH_MIN,
+      staleTime: MINUTE,
+      placeholderData: keepPreviousData,
+    }),
+
+  /** One conference's issuable definitions and issued accolades — one request for the whole editor. */
+  leagueAccolades: (conf: string) =>
+    query({
+      queryKey: ["accolades", "league", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => leagueAccolades(conf, { signal }),
+      enabled: conf !== "",
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+    }),
+
+  /** Every global definition, inactive included. Site admin, and it backs a form. */
+  globalAccoladeDefinitions: () =>
+    query({
+      queryKey: ["accolades", "global"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => globalDefinitions({ signal }),
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+    }),
+
   /** Likely games for one scheduled match, best first. */
   gameCandidates: (matchId: number | null) =>
     query({
@@ -574,8 +692,33 @@ export const queryRoots = {
    * page, Settings and every cached account card converge on the same identity.
    */
   profiles: ["profiles"] as const,
-  /** The league list. Invalidated by the admin league editor, which is the only thing that writes it. */
+  /**
+   * The league list — the public listed-only one **and** the site admin's unfiltered copy.
+   *
+   * One root for both, because a write moves both: creating a league adds a row the admin editor
+   * needs immediately, and publishing a season's teams lists it, which is what puts it in the public
+   * season picker. Anything that can change `listed`, `applicationsOpen` or `active` must invalidate
+   * this — the intake toggle and the publication command both do.
+   */
   tournaments: ["tournaments"] as const,
+  /**
+   * Every application read: the staff queue, the applicant's own list, and the open-season list.
+   *
+   * Publication also invalidates `tournaments`, `teams` and `standings`, because that one call lists
+   * the conference and inserts its team rows — the applications root alone would leave the season
+   * picker and the standings page showing the state from before the season existed.
+   */
+  applications: ["applications"] as const,
+  /** The invitation inbox. Separate from `applications` — an invitee is not an applicant. */
+  invitations: ["invitations"] as const,
+  /**
+   * Accolade definitions and issued accolades, league and global alike.
+   *
+   * **Every accolade write must invalidate `profiles` as well.** The public profile page is where an
+   * accolade is actually seen, `GET /profiles/:id` carries its own career-wide copy of the list, and
+   * nothing else on the site would tell it that one was just issued or revoked.
+   */
+  accolades: ["accolades"] as const,
   /** Both the directory search and every cached single user. */
   adminUsers: ["admin", "users"] as const,
   /**
@@ -599,7 +742,7 @@ export const queryRoots = {
 };
 
 /**
- * A cheap identity for a set of query results, for memoising a derivation over them.
+ * A cheap identity for a set of query results, for memoizing a derivation over them.
  *
  * `useQueries` returns a new array every render and a dependency list can't vary in length — but
  * each `data` is referentially stable while its query is unchanged, so status plus last-updated is

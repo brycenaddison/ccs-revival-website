@@ -55,6 +55,39 @@ export interface SessionProfile {
 export interface AdminLeague {
   conf: string;
   name: string;
+  /**
+   * Every scope the caller may actually **use** in this conf — not just the grant's own row.
+   *
+   * `admin` implies `schedule`, `roster` and `stats`, so a single row does not answer "may this person
+   * review a roster"; a client reading only the row would have to reimplement that implication. Where
+   * two grants name one conf, both carry the same union, so a page reads it off whichever it holds.
+   *
+   * **Presentation only.** It exists so a page can hide a control the viewer cannot use instead of
+   * offering it and letting the API answer `403`. The server still guards every route.
+   *
+   * `[]` on a deployment older than the field — which is why callers go through `hasScope` rather
+   * than testing membership directly. An empty list means "cannot tell", not "no access", and reading
+   * it as the latter would hide every control from everybody mid-rollout.
+   */
+  scopes: LeagueScopeName[];
+}
+
+/** The league scope vocabulary. Duplicated from `admin.ts` so this module needs no import from it. */
+export const LEAGUE_SCOPE_NAMES = ["admin", "schedule", "roster", "stats"] as const;
+
+export type LeagueScopeName = (typeof LEAGUE_SCOPE_NAMES)[number];
+
+/**
+ * Whether a grant permits `scope`, tolerating a deployment that doesn't report scopes.
+ *
+ * **Absence answers `true`.** An older server sends no `scopes`, and a client that read that as "no
+ * permission" would hide the schedule editor from every league admin on the day before the field
+ * shipped. Being wrong in this direction costs a `403` the page already shows verbatim; being wrong in
+ * the other direction makes the site look broken.
+ */
+export function hasScope(league: AdminLeague | undefined, scope: LeagueScopeName): boolean {
+  if (!league) return false;
+  return league.scopes.length === 0 || league.scopes.includes(scope);
 }
 
 /**
@@ -285,9 +318,22 @@ function normalizeLeagues(value: unknown): AdminLeague[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry: unknown) => {
     if (typeof entry !== "object" || entry === null) return [];
-    const { conf, name } = entry as { conf?: unknown; name?: unknown };
+    const { conf, name, scopes } = entry as { conf?: unknown; name?: unknown; scopes?: unknown };
     if (typeof conf !== "string" || conf === "") return [];
-    return [{ conf, name: typeof name === "string" && name !== "" ? name : conf }];
+    return [
+      {
+        conf,
+        name: typeof name === "string" && name !== "" ? name : conf,
+        // Unrecognized members are dropped rather than repaired, the same rule `admin.ts` applies to
+        // a grant's own scope: a value this build doesn't know is a deploy skew, and an unlabeled
+        // permission is worse than a missing one.
+        scopes: Array.isArray(scopes)
+          ? scopes.filter((s): s is LeagueScopeName =>
+              (LEAGUE_SCOPE_NAMES as readonly unknown[]).includes(s),
+            )
+          : [],
+      },
+    ];
   });
 }
 

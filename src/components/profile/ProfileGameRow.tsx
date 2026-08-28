@@ -53,7 +53,7 @@ export function ProfileGameRow({ game }: { game: ProfileGame }) {
   return (
     // `MIN_W` here as well as on the grid inside. The `<li>` carries the tint and the divider, and
     // without its own floor it stayed as wide as the scroll *viewport* while the row inside it ran
-    // on to 680px — so the colour and the border stopped partway across and the rest of the scrolled
+    // on to 680px — so the color and the border stopped partway across and the rest of the scrolled
     // row sat on bare background.
     <li className={`${MIN_W} border-t border-border/40 ${tone}`}>
       <Link
@@ -91,7 +91,7 @@ export function ProfileGameRow({ game }: { game: ProfileGame }) {
 
         <Value>{game.kills}/{game.deaths}/{game.assists}</Value>
         <Value tone={kdaTone(game.kda, "text-text-secondary")}>{kdaText(game.kda)}</Value>
-        {/* Total with the per-minute rate in parentheses: the count is what a reader recognises, the
+        {/* Total with the per-minute rate in parentheses: the count is what a reader recognizes, the
             rate is what compares across games of different lengths. Both, or neither is much use. */}
         <Value>{int(game.cs)} ({metricText(game.csMin, dec(1))})</Value>
         <Value>{metricText(game.damageMin, int)}</Value>

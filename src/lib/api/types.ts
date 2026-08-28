@@ -2,7 +2,7 @@
  * Normalized shapes returned by `src/lib/api/client.ts`.
  *
  * These are *not* the wire shapes. Every `numeric` column the API sends as a string is a
- * `number` here, `null` collections are `[]`, and colours/URLs are pre-derived. Counts use
+ * `number` here, `null` collections are `[]`, and colors/URLs are pre-derived. Counts use
  * `number`; derived statistics use `number | null`, because several are genuinely NULL
  * upstream (divide-by-zero in the views, and ban-only champions from a FULL JOIN).
  */
@@ -29,6 +29,23 @@ export interface Tournament {
    * `false` would report every season as finished. `resolveActiveConfs` treats it that way too.
    */
   active?: boolean;
+  /**
+   * Whether this conference appears in ordinary site selectors.
+   *
+   * The three flags here are **independent and not interchangeable**: `listed` is navigation,
+   * `applicationsOpen` is intake, `active` is the default schedule feed. A season being prepared is
+   * unlisted, closed and inactive; publication sets `listed` and `active` together with the team
+   * rows in one transaction, and the database refuses open intake on a listed conference.
+   *
+   * Optional for the same reason `active` is: a deployment older than the column omits it, and
+   * reading absent as `false` would hide every existing season from the site. Only the admin read
+   * (`GET /admin/leagues`) can return `false` here — the public list is already filtered on it.
+   */
+  listed?: boolean;
+  /** Whether signed-in members may submit team applications. Never true while `listed` is. */
+  applicationsOpen?: boolean;
+  /** When the season's teams were published, as an audit marker. Null before publication. */
+  teamsPublishedAt?: string | null;
 }
 
 /** The five starting-slot keys, as the API names them. Shared by rosters and matchlists. */
@@ -137,10 +154,26 @@ export interface TeamRecord extends TeamRoster {
   name: string;
   conf: string | null;
   logo?: string;
-  /** Raw integer colour; `null` or `0` both mean unset. */
+  /** Raw integer color; `null` or `0` both mean unset. */
   color: number | null;
   /** `color` rendered as CSS hex, falling back when unset. */
   colorHex: string;
+  /**
+   * Secondary branding color, as a raw integer. Optional rather than nullable: absent means the
+   * deployment predates the column, and no team has one until it is set through an application.
+   */
+  colorSecondary?: number | null;
+  /**
+   * The team's owner, as a roster-shaped slot — the same `{profileId, name}` projection the playing
+   * slots use, so it links through to a player page the same way.
+   *
+   * Optional and nullable, and the two differ: absent is an older deployment, while `null` is a
+   * legacy team whose ownership was never backfilled. Every team created through the application
+   * path has one.
+   */
+  owner?: RosterSlot | null;
+  /** Team contacts, same slot shape. `[]` for a legacy team with none recorded. */
+  contacts?: RosterSlot[];
   /**
    * The `record` field of the response — the team's standings, not to be confused with this
    * interface's name.
@@ -526,7 +559,7 @@ export interface RecordBoard {
    */
   rows: RecordRow[];
   // The wire also carries a `note` naming the minimum game length applied to rate boards. It isn't
-  // modelled here: this client asks for no minimum, so there is never a caveat to report.
+  // modeled here: this client asks for no minimum, so there is never a caveat to report.
 }
 
 export interface RecordsResponse {

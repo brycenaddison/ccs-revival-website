@@ -21,7 +21,7 @@ export function GroupPhaseView({ phase, conf, isMobile }: Props) {
   const legend = useMemo(
     () =>
       Object.values(phase.scenarios).sort(
-        // By level, then title. Two scenarios may legally share a level — the level is a colour, not
+        // By level, then title. Two scenarios may legally share a level — the level is a color, not
         // a key — and without the second term their order would be whatever key order the JSON
         // happened to arrive in, which is nobody's decision.
         (a, b) => a.level - b.level || a.title.localeCompare(b.title),

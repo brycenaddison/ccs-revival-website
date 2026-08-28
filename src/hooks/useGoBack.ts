@@ -3,7 +3,7 @@
  *
  * `navigate(-1)` alone is wrong on a page that can be arrived at cold — a pasted link, a new tab from
  * a `target="_blank"` box-score link, a bookmark. There is no previous entry in that session's history,
- * so the browser either does nothing or leaves the site entirely, which is not what a button labelled
+ * so the browser either does nothing or leaves the site entirely, which is not what a button labeled
  * "back" should do.
  *
  * React Router marks the first entry of a session with `key === "default"`, which is the one reliable

@@ -4,7 +4,7 @@
  * The mutation lives here rather than on the page because everything it touches is on this card:
  * the account list it rewrites, the OP.GG link it may complete, and the status summary it reports.
  *
- * Two behaviours are deliberate and easy to lose. The refreshed accounts are written straight into
+ * Two behaviors are deliberate and easy to lose. The refreshed accounts are written straight into
  * both caches with `setQueryData`, and the follow-up invalidation uses `refetchType: "none"` — a
  * refetch here would re-read the browser's own copy of a cacheable response and overwrite the fresh
  * data we were just handed. And a failed refresh leaves the existing cards on screen: the server

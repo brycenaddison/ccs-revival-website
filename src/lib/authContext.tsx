@@ -96,7 +96,7 @@ export const RIOT_LINKING_ENABLED: boolean = false;
  * reads as a cancellation rather than a fault.
  */
 const FAILURE_TEXT: Partial<Record<RiotLinkStatus, string>> = {
-  denied: "Riot linking cancelled.",
+  denied: "Riot linking canceled.",
   invalid_state: "That link request expired or didn't match your session. Try again.",
   no_profile: "Your session is no longer valid — sign in again.",
   bad_gateway: "Riot didn't respond. Try again in a moment.",

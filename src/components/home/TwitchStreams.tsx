@@ -13,7 +13,7 @@
  * is no stream.
  *
  * The payload carries a `thumbnailUrl`, but this keeps the iframe player: the panel sits in the
- * centre column of a page a reader leaves open, and a still image of a live match is worse than the
+ * center column of a page a reader leaves open, and a still image of a live match is worse than the
  * match. `login` is what the player URL needs, and `parent` is required by Twitch for any embed.
  */
 

@@ -230,7 +230,7 @@ function AnnouncementForm({ announcement, onSaved, onCancel }: FormProps) {
         if (canSave && dirty && !save.isPending) save.mutate();
       }}
     >
-      <SettingsRow label="Message" hint="Shown as a card at the top of the home page's centre column.">
+      <SettingsRow label="Message" hint="Shown as a card at the top of the home page's center column.">
         <textarea
           className={CONTROL_CLASS}
           rows={3}

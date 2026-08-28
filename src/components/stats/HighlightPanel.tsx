@@ -50,9 +50,9 @@ export function HighlightPanel({
 }
 
 interface ChipProps {
-  /** Champion art or a team logo. Falls back to a colour block when absent. */
+  /** Champion art or a team logo. Falls back to a color block when absent. */
   img?: string;
-  /** Fallback block colour when there is no image. */
+  /** Fallback block color when there is no image. */
   color?: string;
   name: string;
   /** The one number this chip is about, pre-formatted. */
@@ -61,7 +61,7 @@ interface ChipProps {
   unit: string;
   /** A CSS var for the number. */
   valueColor?: string;
-  /** Greys the artwork. Used for bans, where the champion is notable for *not* being played. */
+  /** Grays the artwork. Used for bans, where the champion is notable for *not* being played. */
   dim?: boolean;
 }
 

@@ -3,7 +3,7 @@
  *
  * What lives here is what more than one section needs and no single section owns: the rail card
  * frame, the conf→league-name resolver, the team logo, and the number formatting the page has to
- * agree on — `kdaText`'s "Perfect", and the two colour scales that make a 320px rail skimmable.
+ * agree on — `kdaText`'s "Perfect", and the two color scales that make a 320px rail skimmable.
  *
  * The formatters are the reason this file exists rather than a folder of self-contained components.
  * The same KDA appears in the header, the champion pool, the role split and every game row; if any
@@ -84,12 +84,12 @@ export function useConfLabel(): (conf: string | null | undefined) => ConfLabel {
  * Conf slugs, newest league first.
  *
  * `filter.availableConferences` arrives sorted by conf id, which is a three-character database key
- * — so `3sx` lands next to `3sn` and the selector reads in no order a person recognises. The
+ * — so `3sx` lands next to `3sn` and the selector reads in no order a person recognizes. The
  * league's own chronology is not in the slug at all; it is parsed out of the tournament name by
  * `recencyKey`, which is the same ordering the season picker and `resolveActiveConfs` use.
  *
  * A slug with no matching tournament sorts last rather than first: `recencyKey` returns 0 for a
- * name it cannot parse, and an unrecognised league at the top of the list looks like the newest one.
+ * name it cannot parse, and an unrecognized league at the top of the list looks like the newest one.
  */
 export function useSortedConfs(): (confs: readonly string[]) => string[] {
   const { tournaments } = useLeague();
@@ -108,9 +108,9 @@ export function useSortedConfs(): (confs: readonly string[]) => string[] {
 }
 
 /**
- * A team's logo, or a coloured initial block when it has none.
+ * A team's logo, or a colored initial block when it has none.
  *
- * Takes the whole nullable team rather than a URL because the fallback needs the name and the colour
+ * Takes the whole nullable team rather than a URL because the fallback needs the name and the color
  * too. Typed as `TeamMetadata`, which the fuller `TeamRecord` satisfies — so the player's own team
  * and an opponent both go through here and cannot end up drawn differently.
  */
@@ -144,8 +144,8 @@ export function TeamLogo({
       style={{
         width: size,
         height: size,
-        // `colorHex` already falls back when the team's colour is unset, and an absent team has no
-        // colour at all — the neutral bar token is the same one `StatTile` uses for that case.
+        // `colorHex` already falls back when the team's color is unset, and an absent team has no
+        // color at all — the neutral bar token is the same one `StatTile` uses for that case.
         background: team?.colorHex ?? "var(--bar-unset)",
         fontSize: Math.max(8, size * 0.42),
       }}
@@ -209,24 +209,24 @@ export function kdaText(value: number | null | undefined): string {
 }
 
 /**
- * Colour scales for the only two numbers on this page with an agreed basis: KDA and win rate.
+ * Color scales for the only two numbers on this page with an agreed basis: KDA and win rate.
  *
  * **Both scales only ever go up.** There is no red tier and no orange one — a value below the first
- * threshold is left neutral rather than marked as bad. Colour here highlights what stands out; it
+ * threshold is left neutral rather than marked as bad. Color here highlights what stands out; it
  * does not grade the player, and a losing champion in a small sample is not a finding.
  *
- * Nothing else on the page is colour-coded. Per-stat colours looked meaningful and weren't, so the
+ * Nothing else on the page is color-coded. Per-stat colors looked meaningful and weren't, so the
  * career tiles and personal bests are deliberately monotone until there is a basis for them.
  *
  * **Both return `font-bold` at every tier**, neutral included. At the 10–11px these appear at, a
  * mid-blue or gold on `bg2` is genuinely hard to read at normal weight; and bolding only the
- * coloured tiers would make weight a second, redundant encoding of the same threshold — the column
- * would jump around as values crossed 3.0. Bold everywhere means colour carries the meaning and
+ * colored tiers would make weight a second, redundant encoding of the same threshold — the column
+ * would jump around as values crossed 3.0. Bold everywhere means color carries the meaning and
  * weight just makes the two highlighted stats legible.
  *
  * `neutral` is a parameter because the baseline differs by context — a headline number sits on
  * `text-bright`, a dense table cell on `text-secondary` — and the tone must replace that class
- * rather than compete with it. Two conflicting Tailwind colour utilities on one element resolve by
+ * rather than compete with it. Two conflicting Tailwind color utilities on one element resolve by
  * stylesheet order, not by which was written last.
  */
 export function winRateTone(value: number | null | undefined, neutral = "text-text-bright"): string {

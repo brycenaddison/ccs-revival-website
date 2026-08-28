@@ -11,7 +11,7 @@ import { ROLE_ORDER, type Role } from "./api";
 /** Gold, silver, bronze — the top three of any ranked list. */
 export const MEDAL_COLORS = ["#FFD700", "#C0C0C0", "#CD7F32"];
 
-/** Distinct colours for the compare slots, so a radar shape maps to a card without a legend lookup. */
+/** Distinct colors for the compare slots, so a radar shape maps to a card without a legend lookup. */
 export const COMPARE_COLORS = ["#d20708", "#d7a52a", "#4c9aff"];
 
 /**
@@ -38,10 +38,10 @@ export const ROLE_FILTERS: readonly (Role | "ALL")[] = ["ALL", ...ROLE_ORDER];
 /**
  * Bar fill ramp, worst to best.
  *
- * The old site's bars looked colourful because `public/stats.html` carried a hardcoded per-team
+ * The old site's bars looked colorful because `public/stats.html` carried a hardcoded per-team
  * palette; since bars sort by value, each consecutive bar was a different team. That palette was
- * replaced by a colour column on the team record, and the colour left with it — every team in the
- * current season returns `color: null`, which `hexFromInt` maps to `#3a3a3a`. So the colour comes from
+ * replaced by a color column on the team record, and the color left with it — every team in the
+ * current season returns `color: null`, which `hexFromInt` maps to `#3a3a3a`. So the color comes from
  * the value now instead of from identity, and team logos carry the identity.
  *
  * Hex literals rather than the `--red`/`--gold`/`--green` vars because the bar gradient appends a hex
@@ -59,7 +59,7 @@ const channels = (hex: string): [number, number, number] => {
  * Interpolate the ramp at `t`, clamped to 0..1.
  *
  * Callers pass a *goodness*, not a magnitude: the value's position between the lowest and highest on
- * screen, inverted for a `lowerIsBetter` stat. Normalising across the range rather than dividing by the
+ * screen, inverted for a `lowerIsBetter` stat. Normalizing across the range rather than dividing by the
  * maximum is what makes signed stats work — by magnitude alone a −400 gold diff scores the same as
  * +400 and would come out green.
  */

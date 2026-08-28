@@ -23,7 +23,7 @@ interface Props {
   isMobile: boolean;
   /**
    * Show which league the fixture belongs to. On by default: the feed is cross-conference, so an
-   * unlabelled row in a mixed list is ambiguous. Off for a list already scoped to one league.
+   * unlabeled row in a mixed list is ambiguous. Off for a list already scoped to one league.
    */
   showLeague?: boolean;
 }
@@ -88,7 +88,7 @@ export function FeedMatchRow({ match, isMobile, showLeague = true }: Props) {
           </span>
         ) : (
           <span className="font-heading text-[10px] tracking-wide text-text-muted">
-            {/* A finished fixture is labelled by its outcome, not by a kickoff nobody is waiting for. */}
+            {/* A finished fixture is labeled by its outcome, not by a kickoff nobody is waiting for. */}
             {status === "completed" ? "FINAL" : fmtClock(match.scheduledAt)}
           </span>
         )}

@@ -126,7 +126,7 @@ export function GameSummary({
  *
  * The counterpart to `GameSummary`, and shared by both surfaces that meet a `result-only` game — the
  * preview of a staged code and the summary of a confirmed one — because the whole point of the status
- * is that an admin recognises it, which a differently-shaped notice in each place would undo. Each
+ * is that an admin recognizes it, which a differently-shaped notice in each place would undo. Each
  * caller brings its own `note`, since what to do about one differs: confirm it, or re-check it.
  *
  * A card rather than a line of prose for the same reason: it sits in a list of `GameSummary` cards,

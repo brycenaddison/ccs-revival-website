@@ -12,7 +12,7 @@
  * pixel-for-pixel what a viewer will see.
  *
  * **A derived slot gets no picker at all**, rather than a disabled one. It already reads "Winner of
- * Match 7", which says more than a greyed-out box could, and it is filled by propagation the moment
+ * Match 7", which says more than a grayed-out box could, and it is filled by propagation the moment
  * the source is decided — see the Resync button below.
  *
  * Two things this screen cannot do, both downstream of one decision:
@@ -23,7 +23,7 @@
  *     invariant that an admin sees the season everyone else sees, which is worth more than this.
  *  2. The season document names teams by `code`, and a PATCH wants an id, so the conf's team list is
  *     the join. A slot holding a team that is not in `/teams/:conf` shows as unset rather than
- *     mislabelled — it cannot happen through this screen, only through a team moving conference.
+ *     mislabeled — it cannot happen through this screen, only through a team moving conference.
  */
 
 import { useMemo, useState } from "react";

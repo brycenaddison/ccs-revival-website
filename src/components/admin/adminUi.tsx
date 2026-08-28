@@ -32,7 +32,7 @@ export const ACTION_SM_DANGER = `${ACTION_DANGER} px-3 py-1.5 text-xs`;
  * not — they open a form or re-run a lookup. Same weight as the label they sit with, so the row is a
  * heading with affordances rather than a toolbar.
  *
- * Split in two because the colour is the part a caller overrides — a copy button goes green for a
+ * Split in two because the color is the part a caller overrides — a copy button goes green for a
  * moment when it lands. Appending `text-ccs-green` to a class string that already carries
  * `text-text-dim` is a coin flip: both are the same property at the same specificity, so the winner
  * is whichever Tailwind emitted last, not whichever came last in the attribute.

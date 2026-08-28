@@ -26,7 +26,7 @@ export interface StatCell<T> {
   /**
    * Terse label for a table header. Falls back to `label`.
    *
-   * The player catalogue's labels are written for the bar view's `<select>`, where there is no column
+   * The player catalog's labels are written for the bar view's `<select>`, where there is no column
    * header to give them context — "Share of Team Deaths" is exactly right there and far too wide as a
    * column heading.
    */
@@ -34,7 +34,7 @@ export interface StatCell<T> {
   value?: (row: T) => number | null;
   format?: (v: number) => string;
   text?: (row: T) => string | null;
-  /** Marks a rate where a higher number is worse, so a card can colour it accordingly. */
+  /** Marks a rate where a higher number is worse, so a card can color it accordingly. */
   lowerIsBetter?: boolean;
 }
 
@@ -77,7 +77,7 @@ export interface FlatStatCell<T> extends StatCell<T> {
  * Every numeric cell across a family of groups, flattened for a single-stat picker.
  *
  * Text-only cells are dropped: `avgTime` arrives as `"31:20"` and there is no number behind it to
- * scale a bar with. Keeping the group label lets the picker render `<optgroup>`s, so one catalogue
+ * scale a bar with. Keeping the group label lets the picker render `<optgroup>`s, so one catalog
  * serves both the grouped table and the flat bar select instead of the two drifting apart.
  */
 export function flattenGroups<T>(groups: readonly StatGroup<T>[]): readonly FlatStatCell<T>[] {
@@ -183,7 +183,7 @@ export const CHAMPION_STAT_GROUPS: readonly StatGroup<ChampionStats>[] = [
       { key: "banRate", label: "Ban Rate", value: cc("banRate"), format: pct },
       { key: "presence", label: "Presence", value: cc("presence"), format: pct },
       // How early it leaves the board. A low turn is a higher-priority ban, so lower is "better"
-      // in the sense of respected — the card colours it as such.
+      // in the sense of respected — the card colors it as such.
       { key: "avgBanTurn", label: "Avg Ban Turn", value: cc("avgBanTurn"), format: dec(1), lowerIsBetter: true },
     ],
   },
@@ -258,7 +258,7 @@ export const CHAMPION_STAT_GROUPS: readonly StatGroup<ChampionStats>[] = [
 // ----------------------------------------------------------------------- players
 
 /**
- * The player catalogue, previously a flat `StatDef[]` local to `PlayerLeaderboard`.
+ * The player catalog, previously a flat `StatDef[]` local to `PlayerLeaderboard`.
  *
  * It lived there because the leaderboard only ever needed one stat at a time, so a flat list with a
  * group *string* was enough. Player cards need the same grouping the team and champion cards have, and
@@ -266,7 +266,7 @@ export const CHAMPION_STAT_GROUPS: readonly StatGroup<ChampionStats>[] = [
  * becomes the third `StatGroup` family rather than a second, parallel way of describing a stat.
  *
  * Labels are the leaderboard's originals ("Kills / Game", not the tables' terser "Kills/G"): this
- * catalogue feeds a `<select>` where the reader has no column header for context.
+ * catalog feeds a `<select>` where the reader has no column header for context.
  */
 export const PLAYER_STAT_GROUPS: readonly StatGroup<PlayerStats>[] = [
   {

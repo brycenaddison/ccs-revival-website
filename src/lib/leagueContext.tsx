@@ -57,13 +57,22 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const requested = searchParams.get(CONF_PARAM);
   const known = useMemo(() => new Set(tournaments.map(t => t.conf)), [tournaments]);
 
-  // Ignore an unknown ?conf= rather than rendering an error page for a stale link.
-  //
-  // A link naming the *only* conf that is running means the same thing as `CURRENT`, so it
-  // canonicalizes to it: the picker offers that season under `CURRENT` alone, and leaving the raw
-  // value would point the control at an option that isn't there. With several divisions running,
-  // `?conf=` names one of them and is kept — that is a narrower selection than "the whole current
-  // season", not a synonym for it.
+  /**
+   * Ignore an unknown `?conf=` rather than rendering an error page for a stale link.
+   *
+   * **Only a listed season can be selected here**, and that is deliberate. An unlisted conf was
+   * briefly allowed through so a link could open an unpublished league's Info page, which meant this
+   * param — the one that steers every view on the site — could name a season with no teams, no
+   * schedule and no name to put in the selector. The applicant form reads the league's rulebook link
+   * out of the Info document directly instead, so nothing needs that any more; see
+   * `components/apply/ApplicationForm.tsx`.
+   *
+   * A link naming the *only* conf that is running means the same thing as `CURRENT`, so it
+   * canonicalizes to it: the picker offers that season under `CURRENT` alone, and leaving the raw
+   * value would point the control at an option that isn't there. With several divisions running,
+   * `?conf=` names one of them and is kept — that is a narrower selection than "the whole current
+   * season", not a synonym for it.
+   */
   const resolved = requested && known.has(requested) ? requested : CURRENT;
   const selection =
     activeConfs.length === 1 && activeConfs[0] === resolved ? CURRENT : resolved;
@@ -96,7 +105,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       setSelection,
       selectedConfs,
       // A conf that is running is current whether it was reached through `CURRENT` or named
-      // directly. Keying this on the sentinel alone labelled a live division "PAST SEASON" the
+      // directly. Keying this on the sentinel alone labeled a live division "PAST SEASON" the
       // moment someone selected it by name.
       isCurrent: selection === CURRENT || activeConfs.includes(selection),
       loading,

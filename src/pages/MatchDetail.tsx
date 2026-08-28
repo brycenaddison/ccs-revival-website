@@ -3,9 +3,9 @@
  *
  * **One request for the page.** `GET /tournaments/schedule/:id/result` answers the fixture, both teams
  * with their season records, and a game-by-game box score. The version this replaces had neither the
- * endpoint nor the id: it took a synthesised series key, pulled one team's entire matchlist, filtered it
+ * endpoint nor the id: it took a synthesized series key, pulled one team's entire matchlist, filtered it
  * by season day and opponent, and could therefore only ever show five of the ten players — with a
- * paragraph at the bottom apologising for it.
+ * paragraph at the bottom apologizing for it.
  *
  * The other thing the fixture id buys is correctness on a double-header. The `series` view groups on
  * `(conf, season_day, teamA, teamB)` and cannot separate two best-ofs between one pair on one day; this
@@ -367,7 +367,7 @@ function Results({ match }: { match: SeriesDetail }) {
    * The games identify a side by team code; the full name and the conference are on the fixture. Resolved
    * here and handed down, so a card names a team the way the header does rather than reaching for the
    * lookup itself — and so a code belonging to neither side (which `inferred` linkage can produce) stays
-   * a code instead of being mislabelled.
+   * a code instead of being mislabeled.
    */
   const nameOf: TeamNamer = code => {
     const team = code === match.teamA?.code ? match.teamA : code === match.teamB?.code ? match.teamB : null;

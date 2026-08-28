@@ -4,7 +4,7 @@
  * This used to list raw puuids, because resolving one to a Riot ID needed an endpoint the API
  * didn't have. `GET /profiles/:id/accounts` is that endpoint, so the puuid is gone from the screen
  * entirely — it is the join key the two systems agree on and there is nothing a player can do with
- * it. What replaces it is what they'd recognise: the icon, the Riot ID, the level and the rank.
+ * it. What replaces it is what they'd recognize: the icon, the Riot ID, the level and the rank.
  *
  * **The page is now in two halves, and the split is the point.** Above are verified accounts: they
  * are in `profiles.puuids`, so they carry match attribution, roster eligibility and statistics.

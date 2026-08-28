@@ -1,8 +1,8 @@
 /**
- * The banner, rendered as a post at the top of the home page's centre column.
+ * The banner, rendered as a post at the top of the home page's center column.
  *
  * A card rather than a full-width strip across every page: these are league notices — signups
- * opening, a playoff date — and they read as content, not as a system alert bar. The centre column
+ * opening, a playoff date — and they read as content, not as a system alert bar. The center column
  * is where a reader's eye lands, and it already had a slot.
  *
  * **`null` falls back to the welcome block**, which is the markup that occupied this slot before

@@ -12,9 +12,9 @@ const LABEL = "font-heading text-[9px] tracking-wide uppercase";
  * The bottom bar carries a subset of the nav — see `inBottomBar` — plus the merch link, which is
  * external and so stays an ordinary anchor. Like the nav, the current entry comes from the URL.
  *
- * Icons are lucide components drawn in `currentColor`, so the active state is a colour change on
+ * Icons are lucide components drawn in `currentColor`, so the active state is a color change on
  * both icon and label. The emoji this replaced could only be dimmed with a grayscale filter, which
- * left the accent colour unavailable and the glyphs at the mercy of each platform's emoji font.
+ * left the accent color unavailable and the glyphs at the mercy of each platform's emoji font.
  */
 export function MobileBottomBar() {
   const active = tabForPathname(useLocation().pathname);

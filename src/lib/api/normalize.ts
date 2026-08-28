@@ -70,8 +70,8 @@ export function fmtSec(sec: Numeric): string {
 /**
  * Convert the integer `color` column to a CSS hex string.
  *
- * `null` and `0` both appear in live data and both mean "no colour set" — a real
- * black team colour is not distinguishable from unset, so treat 0 as unset rather
+ * `null` and `0` both appear in live data and both mean "no color set" — a real
+ * black team color is not distinguishable from unset, so treat 0 as unset rather
  * than rendering a black-on-black badge.
  */
 export function hexFromInt(color: number | null | undefined, fallback = "#3a3a3a"): string {
@@ -79,7 +79,7 @@ export function hexFromInt(color: number | null | undefined, fallback = "#3a3a3a
   return "#" + Math.trunc(color).toString(16).padStart(6, "0");
 }
 
-/** Lighten a #rrggbb colour toward white, for deriving a gradient's second stop. */
+/** Lighten a #rrggbb color toward white, for deriving a gradient's second stop. */
 export function lighten(hex: string, amount = 0.35): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex);
   if (!m) return hex;
@@ -152,7 +152,7 @@ const ROLE_LABELS: Record<Role, string> = {
 /**
  * How a role should be shown.
  *
- * Passes anything it doesn't recognise straight through, so a filter's pseudo-value (`"ALL"`) or an
+ * Passes anything it doesn't recognize straight through, so a filter's pseudo-value (`"ALL"`) or an
  * unnormalized string from upstream renders as itself rather than as the missing-value fallback.
  */
 export function roleLabel(role: string | null | undefined, fallback = "—"): string {

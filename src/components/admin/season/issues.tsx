@@ -54,7 +54,7 @@ export function fieldError(issues: readonly ValidationIssue[], path: string): st
  */
 export function IssueList({
   issues,
-  /** Renders a path as something a person recognises. Falls back to the raw pointer. */
+  /** Renders a path as something a person recognizes. Falls back to the raw pointer. */
   label,
 }: {
   issues: readonly ValidationIssue[];

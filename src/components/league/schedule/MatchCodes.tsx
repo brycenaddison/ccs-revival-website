@@ -29,7 +29,7 @@
  *
  * Discarding a check deletes the pending row rather than leaving it behind. That is a plain
  * `schedule`-scope delete — abandoning your own staged code destroys nothing else. The exception is a
- * code Riot doesn't recognise: upstream never attaches one, so there is nothing to delete and
+ * code Riot doesn't recognize: upstream never attaches one, so there is nothing to delete and
  * discarding it is purely local.
  *
  * Codes are shown in full because that is the point of them — anyone holding one can join the lobby, so
@@ -758,7 +758,7 @@ function CopyAction({
   };
 
   const Shown = done ? Check : Icon;
-  const colour = done ? "text-ccs-green" : "text-text-dim hover:text-text-bright";
+  const color = done ? "text-ccs-green" : "text-text-dim hover:text-text-bright";
 
   return (
     <button
@@ -768,8 +768,8 @@ function CopyAction({
       aria-label={label === undefined ? title : undefined}
       className={
         label === undefined
-          ? `inline-flex items-center shrink-0 cursor-pointer transition-colors ${colour}`
-          : `${ACTION_QUIET_BASE} transition-colors ${colour}`
+          ? `inline-flex items-center shrink-0 cursor-pointer transition-colors ${color}`
+          : `${ACTION_QUIET_BASE} transition-colors ${color}`
       }
     >
       <Shown size={label === undefined ? 13 : 12} aria-hidden="true" />

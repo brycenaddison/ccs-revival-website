@@ -79,7 +79,7 @@ export function SiteLayout({ ticker = false }: Props) {
       <NavBar isMobile={isMobile} />
 
       {/* `flex-1` lives on this wrapper rather than the content column, which has to keep `mx-auto` and
-          a max width to stay centred and capped. */}
+          a max width to stay centerd and capped. */}
       <main className="flex-1">
         <div className="mx-auto" style={{ maxWidth, padding: isMobile ? 12 : "24px 32px" }}>
           <PageColumnContext.Provider value={publishColumn}>

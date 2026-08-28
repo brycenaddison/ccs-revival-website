@@ -1,7 +1,7 @@
 /**
  * The newest YouTube uploads, at a size worth watching.
  *
- * Lives in the home page's centre column, which is the `1fr` track of `[280px_1fr_280px]` — around
+ * Lives in the home page's center column, which is the `1fr` track of `[280px_1fr_280px]` — around
  * 830px at the page's 1440px cap. That is the reason this exists as its own component rather than
  * as a wider variant of `SocialFeed`: the rail's job is to list *many* things compactly in 280px,
  * and this one's is to show a *few* things large. Same data, opposite priorities, so one component

@@ -27,7 +27,7 @@ you find it wrong, fix it in the same change.
   `grep -n "^export"` on it tells you what it offers.
 - Every module in `src/lib/` opens with a header comment explaining *why* it is shaped the way
   it is. When a decision looks arbitrary, that comment is the answer — read it before changing
-  the behaviour.
+  the behavior.
 
 ---
 
@@ -46,9 +46,14 @@ you find it wrong, fix it in the same change.
 
 Routes: `/` + the non-standalone `TABS` paths → `Home`; `/scores`, `/schedule`, `/stats`, `/info`,
 `/teams/:conf/:code`, `/match/:id`, `/game/:matchId`, `/players/:profileId`, `/register`, `/login`,
-`/setup`, `/settings/:section?`, `/admin/:section?`, `/league/:conf/admin/:section?`, `*` →
+`/setup`, `/team-invitations`, `/settings/:section?`, `/admin/:section?`,
+`/league/:conf/admin/:section?`, `*` →
 `NotFound`. The whole tree sits inside `SetupGate`, which holds a signed-in user with an incomplete
 profile on `/setup`.
+
+`/team-invitations` is spelled that way because the **bot's invitation DM links to it literally** —
+`tournament-bot/src/utils/teamInvitationDiscord.ts` builds `FRONTEND_URL + "/team-invitations"`.
+Renaming it sends every invitation notification to the catch-all.
 
 Three route groups, and the group is what decides a page's chrome:
 
@@ -56,8 +61,11 @@ Three route groups, and the group is what decides a page's chrome:
   `/info`, `/news`. Adding a public data tab means adding it here; a page never mounts
   `ScoreboardTicker` itself.
 - **`SiteLayout`** — the same chrome without the strip: `/setup`, `/players/:profileId`,
-  `/news/:slug`, `/settings`, `/admin`, `/league/:conf/admin`, `/content`, and `*`.
-- **`BareLayout`** — `/match/:id`, `/game/:matchId`, `/teams/:conf/:code`, `/register`, `/login`.
+  `/news/:slug`, `/register`, `/team-invitations`, `/settings`, `/admin`, `/league/:conf/admin`,
+  `/content`, and `*`. `/register` moved here from `BareLayout` when it stopped being a signpost and
+  became the application form: it is reached from a nav button now, and a page you arrive at from the
+  nav should not delete the nav.
+- **`BareLayout`** — `/match/:id`, `/game/:matchId`, `/teams/:conf/:code`, `/login`.
   These render no nav and no footer at all — each draws its own header with a back button
   (`useBackNavigation`) — so they must **not** be moved under `SiteLayout`, which would give them a
   second header and a content column they don't want. `BareLayout` exists to give their lazy chunks
@@ -73,16 +81,19 @@ Import from the barrel: `import { … } from "../lib/api"` (`index.ts` re-export
 | File | Purpose |
 | --- | --- |
 | `http.ts` | **Anonymous** transport. `getList`, `getOne`, `post`, `ApiError`, `errorMessage`, `isAbort`, `API_BASE`. Never sends credentials — the public routes use a wildcard CORS origin, which a browser rejects on a credentialed request. |
-| `credentialed.ts` | **Signed-in** transport. `credentialedRequest(path, {method, body})`, `SaveRejected`, `issuesOf`, `ValidationIssue`. Sends `credentials: "include"`; the JSON content type is the CSRF defence, not decoration. A `422` becomes `SaveRejected` carrying field-pointer issues. |
+| `credentialed.ts` | **Signed-in** transport. `credentialedRequest(path, {method, body})`, `SaveRejected`, `issuesOf`, `ValidationIssue`. Sends `credentials: "include"`; the JSON content type is the CSRF defense, not decoration. A `422` becomes `SaveRejected` carrying field-pointer issues. |
 | `normalize.ts` | Boundary coercion: `num`, `numOrNull`, `ratio`, `fmtPct`, `fmtRatio`, `fmtSec`, `hexFromInt`, `lighten`, `httpsUrl`, `sortValue`, plus the role vocabulary (`ROLE_ORDER`, `normalizeRole`, `roleLabel`, `sortByRole`). |
 | `client.ts` | Public reads: tournaments, teams, standings, stats, records, match data. |
 | `feed.ts` | The public fixture feed + one series in full (`scheduleFeed`, `matchResult`). |
-| `profiles.ts` | The player-profile surface. `GET /profiles/:id/accounts` is the only public read that hits Riot at request time, so entries degrade one at a time and `ranked: null` (Riot declined) is not `ranked: []` (unranked). `GET /profiles/:id?conf=` is the whole `/players/:id` page in one request. Three of its shapes are easy to get wrong: `career.teams` carries full `TeamRecord`s (mapped with `client.ts`'s `mapTeamRecord`, not a second mapper) while opponents carry compact `TeamMetadata`; `opponent` is the **object** and `opponentCode` the string, on games, series and personal bests alike; and `career.laneMatchups` is **per conference and never merged**, so `(conf, profileId)` identifies a row. `accolades` is career-wide *even when `?conf=` scopes the statistics*. It also owns the player-owned account writes: `unverifiedAccounts` are **claims, not identity** (display and the OP.GG link only — the same account may be claimed by several profiles until one proves it), and `checkIconVerification` returns upstream's `410`/`429`/`404` refusals **as values** rather than throwing, because those bodies carry a status and no readable message. |
-| `info.ts` | League Info documents: public `GET /:conf/info`, draft-aware `GET /:conf/info/manage`, and complete-document `PUT /:conf/info`. Ordered quick links plus Markdown; writes require full admin access to that conf. |
+| `profiles.ts` | The player-profile surface. `GET /profiles/:id/accounts` is the only public read that hits Riot at request time, so entries degrade one at a time and `ranked: null` (Riot declined) is not `ranked: []` (unranked). `GET /profiles/:id?conf=` is the whole `/players/:id` page in one request. Three of its shapes are easy to get wrong: `career.teams` carries full `TeamRecord`s (mapped with `client.ts`'s `mapTeamRecord`, not a second mapper) while opponents carry compact `TeamMetadata`; `opponent` is the **object** and `opponentCode` the string, on games, series and personal bests alike; and `career.laneMatchups` is **per conference and never merged**, so `(conf, profileId)` identifies a row. `accolades` is career-wide *even when `?conf=` scopes the statistics*. It also owns the player-owned account writes: `unverifiedAccounts` are **claims, not identity** (display and the OP.GG link only — the same account may be claimed by several profiles until one proves it), and `checkIconVerification` returns upstream's `410`/`429`/`404` refusals **as values** rather than throwing, because those bodies carry a status and no readable message. It also owns `searchProfiles` — the **public** `GET /profiles/search`, whose optional `conf` narrows to profiles a published team in that conference references, and therefore *excludes* anyone unrostered rather than ranking them lower. |
+| `uploads.ts` | `POST /uploads/images`. **The one write with its own `fetch`**, and it has to be: the route takes the raw file bytes as the body and reads the image type off `Content-Type`, which is exactly what `credentialed.ts` cannot do. Exports `uploadImage`, `UploadRejected` (every refusal already worded for a person — 5 MB, wrong type, 20/hour quota, storage unconfigured), and the type/size mirrors the picker filters against. |
+| `info.ts` | League Info documents: public `GET /:conf/info`, draft-aware `GET /:conf/info/manage`, and complete-document `PUT /:conf/info`. Ordered quick links plus Markdown; writes require full admin access to that conf. **`rulebookUrl` is a required first-class field, not a quick link** — the team application form reads it directly, so it cannot be identified by matching a label an editor can rename. Upstream matches keys exactly, so `LeagueInfoInput` has to stay in lockstep with the server's `BODY_KEYS`. |
 | `seasonView.ts` | `GET /:conf/season` — the season **as rendered**. See below. |
 | `season.ts` | `GET /:conf/phases` — the season's **structure**, site-admin only. See below. |
 | `schedule.ts` | League-admin schedule surface: matches, forfeits, tournament codes, game linking. |
-| `admin.ts` | Site-admin surface: `/admin/users`, `/admin/leagues`. The clearest small example of the write idiom — read it before adding a new mutating module. |
+| `admin.ts` | Site-admin surface: `/admin/users`, `/admin/leagues`. The clearest small example of the write idiom — read it before adding a new mutating module. `GET /admin/leagues` is the **unfiltered** league list; `LeagueEdit.listed` is typed as the literal `false`, because upstream refuses `true` there. |
+| `teamApplications.ts` | The upcoming-season workflow: intake, applicant drafts, Discord invitations, roster review, and the publication command. Exports `refusalOf`, which lifts `issues` off a `409` — every refusal on this surface answers one shape, `{status, error, issues?}`, so `error` rides in `ApiError.detail` and there is nothing left to translate. `InvitationInput` takes **exactly one** of `discordUserId` (a new invitee, guild membership rechecked) or `profileId` (somebody already on the roster — the only way to change their position). `confName` is served flat because an application only exists while its conference is hidden. |
+| `accolades.ts` | Reusable accolade definitions (site-wide or conf-owned) and the occurrences issued under them. Both write documents are exact-key, so there is no partial patch. A **team** award sends no profile list — the server expands that team's current roster. |
 | `auth.ts` | `/auth/me`, login/logout, `SITE_ADMIN_ROLE`, `Identity`, `SessionProfile`, `AdminLeague`, `AccountVerificationMethods`. The last is configuration, not permission: a method whose settings are missing answers 404 or 503, so a control that starts one is rendered from these flags and absence reads as off. |
 | `league.ts` | Conf helpers: `sortByRecency`, `recencyKey`, `resolveActiveConfs`, `forEachConf`. |
 | `types.ts` | Shared payload types. |
@@ -151,7 +162,7 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   `RailCard`, `ProfileSection`, `TeamLogo`/`TeamChip`, the `useConfLabel()` conf→league-name
   resolver, and the number formatting the whole page has to agree on — `metricText`, `kdaText`
   (**KDA's `Infinity` reads "Perfect", not `∞`** — the rest of the site keeps `fmtRatio`'s `∞`),
-  `avgKdaText`, and the `winRateTone`/`kdaTone` colour scales — the only two stats colour-coded
+  `avgKdaText`, and the `winRateTone`/`kdaTone` color scales — the only two stats color-coded
   anywhere on the page, both bold at every tier. `PlayerLink.tsx` is the canonical
   player link used site-wide. The page builds two indexes from its single payload and passes them
   down — `TeamIndex` over `career.teams` for the player's own team, and `matchId → ProfileGame` for
@@ -162,6 +173,12 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   game rows. `CareerTiles` deliberately omits games/record/win-rate/KDA — the header already shows
   them. `MatchupCard` is the one place the page sums across the API's rows; its header explains why
   that is safe.
+  `ProfileHeader` is two rows, not two columns: identity and the league selector above, then the
+  trophies and the four headline numbers sharing a row beneath — `AccoladeStrip` takes `flex-1` from
+  the left, the numbers `ml-auto` to the right, and the row is `items-end` so the pills and the
+  captions share a baseline. Both were previously boxed into 220px columns that made four of
+  anything wrap. `AccoladeStrip` takes its positioning as a `className` and renders nothing when
+  empty, which is why the numbers use `ml-auto` rather than the row using `justify-between`.
   Its game rows are one dense line each, with the captions carried once by `GameRowHeader` above the
   list rather than repeated per row — the two-row version wasted its top row on whitespace and shrank
   the numbers past legibility. `GAME_GRID` is shared by the header and the rows; change one, change
@@ -207,11 +224,65 @@ relevant page — the sidebar, links, mobile drill-down and active state all fol
 `src/lib/adminAccess.ts` — `useAdminAccess()` composes role + resource: `isSiteAdmin`,
 `leagues`, `canAdminLeague(conf)`, `ready`.
 
+League Admin → **Team Applications** is `src/components/league/applications/ApplicationsSection.tsx`:
+intake, the review queue and publication on one screen, because they are one job in three stages.
+Two scopes live there and the page gate is the wider of them — review is `roster`, intake and publish
+are conference `admin` — and `/auth/me` carries no per-grant scope, so a `roster`-only grantee sees
+those two controls and gets a verbatim `403`. Same compromise as the Schedule section's `schedule`
+scope. It derives intake state from `/tournaments/applications/open` and listing from the public
+tournament list rather than from `/admin/leagues`, which is site-admin only and would `403` for the
+league admin this page is for.
+
+Accolades are two sections over one shared document: Site Admin → Accolades
+(`src/components/admin/accolades/GlobalAccoladesSection.tsx`) owns the site-wide definitions, and
+League Admin → Accolades (`src/components/league/accolades/AccoladesSection.tsx`) shows those
+read-only alongside the conference's own and does the issuing. `admin/accolades/accoladeUi.tsx` holds
+the one `DefinitionForm` both use. **Every accolade write invalidates `queryRoots.profiles` as well
+as `queryRoots.accolades`** — the public profile page carries its own copy of the list and nothing
+else would refresh it.
+
+### The applicant side — `src/components/apply/`
+
+Two pages, and they are two halves of one workflow: `/register` (`pages/Register.tsx`) is where a
+captain builds a team, and `/team-invitations` (`pages/TeamInvitations.tsx`) is where the people they
+invited answer. Neither works without the other, so change them together.
+
+- `applyUi.tsx` is the vocabulary: `ROLE_LABEL`, `STARTER_ROLES`, `roleSummary`,
+  `ApplicationStatusPill` / `InvitationStatusPill`, `MemberAvatar`, `memberLabel`. **The wording is
+  the player's, not the API's** — `sup` is "Support", `submitted` is "Waiting on staff", and
+  `rejected` is "Changes needed" because upstream lets a rejected application be edited and
+  resubmitted. Also `useApplicationConfName`, which exists because `profileUi`'s `useConfLabel`
+  resolves against the listed-only tournament list and therefore cannot name the hidden conference
+  somebody is applying to.
+- `ApplicationForm.tsx` is one form for create **and** replace, because upstream takes one strict
+  seven-key document for both and `PUT` is a whole-document replacement — anything the form omits is
+  erased, which is why `applicationMetadata` is passed straight back through.
+- `ApplicationCard.tsx` owns the roster panel, the readiness checklist and submit/withdraw. Its
+  checklist duplicates the server's `publicationIssues` **deliberately**: it is form guidance over
+  members already loaded, it decides nothing, and the `409` from Submit stays the authority. Without
+  it, Submit fails with a list of surprises.
+- `InviteMember.tsx` is guild search plus a role picker. Position is single-choice, matching the
+  server's one-playing-role rule. There is no roles-only edit: the invitation route identifies people
+  by Discord snowflake and a member row carries none, so changing a position means remove-and-reinvite
+  — see §10.8 of `API-GAP-ANALYSIS.md`.
+
+The APPLY NOW button lives in `auth/AuthControl.tsx`, in the same slot the signed-out JOIN CCS
+button occupies. It is gated on `isAuthenticated` because `GET /tournaments/applications/open` is
+`401` for anonymous callers — which also means the nav cannot offer it to a signed-out visitor at
+all (§10.10). The account menu's "Team invitations" row is unconditional, because an invitation can
+arrive long after intake closes and the Discord DM is best-effort.
+
 League Admin → Info Page is `src/components/league/info/InfoSection.tsx`. There is exactly one
 document per conf, so it uses a complete-document `PUT`; link order is editor-owned and must never
 be sorted in the client. The reader is the standalone `/info` tab in `src/pages/Info.tsx`, sits in the
 ticker route group like the other public data tabs, and renders every conf when the `current`
 selection resolves to concurrent leagues.
+
+`rulebookUrl` is its own **required** field rather than an entry in `links`, because the team
+application form reads it directly and a quick link is identified by a label an editor can rename.
+That means the reader has to place it explicitly, and it **prepends it as the first quick link** —
+otherwise the one document a reader most wants would appear nowhere on the page. Prepending is not
+sorting: `links` keeps the order it was given, and the rulebook goes in front of it.
 
 ### Deliverables
 
@@ -227,15 +298,56 @@ serves it on most reads, because it is what `series` groups on and what a tourna
 minted against. It is a **join key, not a label**.
 
 Do not put it on a reader-facing surface. It is not a date, it is not a week number a viewer
-would recognise, and it collides with the numbering that *is* meaningful in context: a
+would recognize, and it collides with the numbering that *is* meaningful in context: a
 bracket's rounds are numbered within their phase, so "Round 4" and "Day 14" on the same
 heading read as a contradiction. Show the date instead — `fmtDay` and `fmtKickoff` in
 `src/lib/utils.ts` — or show nothing.
 
-Two exceptions already on the site, both deliberate: the admin screens name it outright
-(`season day 14`), because an admin is working in the same coordinates the API is; and the
-stats tables carry a `W14` / `Week` column, where it is a sortable value rather than a
-caption.
+Two exceptions, both deliberate: the admin screens name it outright (`season day 14`), because an
+admin is working in the same coordinates the API is; and the stats tables and records boards carry a
+`W14` / `Week` column, where it is a sortable value rather than a caption.
+
+**Use `phase`, not `seasonDay`, to say where a game sits.** `PhaseRef` is served on every profile
+game, series and personal best, and carries the phase name, its 1-based `matchDay` *within* the phase,
+`matchDays`, and for brackets a `round` plus the node's verbatim `roundName`. So a profile's series
+card reads "Playoffs · Semifinals" or "Groups · Day 2 of 4" — `placementLabel` in `MatchHistory.tsx`
+— and falls back to `Week {seasonDay}` only where `phase` is `null`, which is a legacy conference
+predating the phase list.
+
+Two things never to derive: a **phase** from a season day (phases are keyed by length rather than
+start day, so it would take one season read per conference a career spans plus arithmetic that goes
+stale the moment structure is edited), and a **round name** from `round` (naming rounds by depth is
+wrong for a third-place match and for every loser's bracket).
+
+## `listed`, `applicationsOpen` and `active` are three different questions
+
+A conference carries all three and conflating any two of them breaks something:
+
+| Field | Question it answers |
+| --- | --- |
+| `listed` | Does this appear in ordinary site selectors? |
+| `applicationsOpen` | May signed-in members submit a team for it? |
+| `active` | Does it take part in the default cross-league schedule feed? |
+
+A season being prepared is unlisted, closed and inactive. **Publication is one server transaction**:
+it inserts every approved team and sets `listed`, `active` and `teamsPublishedAt` together, so there
+is no state in which half a field of teams exists. Approval on its own writes no team rows. The
+database also refuses open intake on a listed conference, which is what keeps recruiting a
+pre-publication operation.
+
+Two consequences for this repo:
+
+- **Public `GET /tournaments` is listed-only.** `LeagueProvider` reads it, so a hidden conference is
+  absent from every public selector by construction — never infer listing from teams, schedules,
+  dates or `active`.
+- **Every admin surface reads `GET /admin/leagues` instead**, because that is the only read that can
+  see a hidden draft. `admin/LeaguesSection.tsx` and the site-admin branch of `lib/adminAccess.ts`
+  both do. Public navigation must not; a site admin who created a hidden league would otherwise find
+  it missing from their own editor.
+
+`listed: true` is refused by `PATCH /admin/leagues/:conf` on purpose — publication is the only path
+to public. `false` is available there as an emergency hide, which is why `LeagueEdit.listed` is
+typed as the literal `false`.
 
 ## Two season reads, and they are not interchangeable
 
@@ -251,6 +363,21 @@ header comment on each file says so at more length; read it before adding a call
 
 ## Conventions
 
+### Language — US English, everywhere
+
+**American spelling throughout**: UI copy, comments, identifiers, docs, this file. `color` not
+`colour`, `center` not `centre`, `organization`, `behavior`, `normalize`, `catalog`, `license`,
+`gray`, `defense`, `canceled`, `labeled`, and `-ize`/`-ization` over `-ise`/`-isation`.
+
+It applies to comments and local identifiers as much as to anything a visitor reads. That is not
+pedantry: the API already speaks US English in every field name it serves (`color`, `colorSecondary`,
+`normalizeRole`), so a file whose prose says "colour" while its code says `color` reads as though the
+two disagree about the same value. One convention means no one has to decide.
+
+The obvious exception: **never "correct" a string that crosses a boundary.** A wire field name, a
+query key, a CSS keyword, an external URL and a third-party API's vocabulary are all values, not
+prose. If in doubt, ask whether changing it would change what the code *does*.
+
 ### Data
 
 - **Dates stay ISO strings** through the whole API layer (`strOrNull`). `new Date()` happens
@@ -265,7 +392,7 @@ header comment on each file says so at more length; read it before adding a call
 ### The API layer
 
 - One module per API area, exported through `src/lib/api/index.ts`. Every module opens with a
-  header comment explaining the upstream behaviour it is compensating for.
+  header comment explaining the upstream behavior it is compensating for.
 - Public reads go through `http.ts`; anything signed-in or mutating goes through
   `credentialedRequest`.
 - **Every response is mapped defensively.** The local idiom, copied per module:
@@ -277,7 +404,7 @@ header comment on each file says so at more length; read it before adding a call
     typeof v === "number" && Number.isFinite(v) ? v : fallback;
   ```
   A field the deployed API doesn't serve yet must read as absent, never `undefined` leaking
-  into a component. Unrecognised enum members are **dropped, not repaired**.
+  into a component. Unrecognized enum members are **dropped, not repaired**.
 - Mirror upstream's constraints as constants next to the type (`CONF_PATTERN`, `NAME_MAX`,
   `PHASE_NAME_MAX`) so a field can cap its own input.
 - Absence is not failure: `getList` resolves a missing route or null body to `[]`, `getOne` to
@@ -306,7 +433,7 @@ header comment on each file says so at more length; read it before adding a call
 - Reach for `PageShell`, `SectionFrame`/`SettingsRow`, `LABEL_CLASS`/`CONTROL_CLASS` and the
   `ACTION*` strings before writing new markup. New shared primitives go in the nearest
   existing `*Ui.tsx`-style module, not inline.
-- Tailwind utilities only, against the `@theme` tokens — no raw hex, no inline colour styles.
+- Tailwind utilities only, against the `@theme` tokens — no raw hex, no inline color styles.
   Available: `bg`/`bg2`/`bg3`/`bg-input`, `border`/`border2`/`border3`,
   `text`/`text-bright`/`text-secondary`/`text-muted`/`text-dim`/`text-subtle`,
   `accent`/`accent-light`, `ccs-green`/`ccs-red`/`ccs-gold`/`ccs-blue`/`ccs-orange`/`ccs-purple`.
@@ -316,7 +443,17 @@ header comment on each file says so at more length; read it before adding a call
   uppercase literal text. Nav/label surfaces are `font-heading text-sm tracking-wider uppercase`.
 - Mobile breakpoint is `useWindowSize() < 768`, checked in JS rather than a `md:` variant where
   the two layouts genuinely differ.
-- Errors from the API are shown **verbatim** (`ErrorLine`) — they are written to be read.
+- **Images go through `components/ImageUpload.tsx`.** `ImageUpload` owns one URL (a team logo, an
+  article header); `ImageUploadButton` produces a URL and hands it back for a caller that is inserting
+  into something else. Never write a second file picker: the 5 MB limit, the accepted types and the
+  `429`/`503` copy all live in `lib/api/uploads.ts` and would drift immediately. **The stored value is
+  always a URL** — uploading produces one, it is not a different kind of value — which is what keeps
+  every form working on a deployment with no storage configured, where the route answers `503` and the
+  paste field is the whole feature.
+- A Markdown body field is `content/MarkdownEditor.tsx`, not a bare `<textarea>`: it carries the image
+  inserter, which writes the tag at the cursor rather than appending.
+- Errors from the API are shown **verbatim** (`ErrorLine`) — they are written to be read, `409`s on the application surface included. There is no longer any place in the API layer that rewrites a server message.
+- A per-conf control the viewer may not be able to use is hidden with `hasScope(league, scope)` rather than offered and left to `403`. **An empty scope list means "cannot tell", not "no access"** — an older server sends none, and reading it as refusal hides every control from everybody mid-rollout.
 - Placeholders use `ComingSoon({ needs })` and must name the endpoint that unblocks them.
 - Real navigation uses `<Link>` and `aria-current`, not `role="tablist"`.
 

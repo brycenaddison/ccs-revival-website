@@ -1,7 +1,7 @@
 /**
  * Where an article card goes when it is clicked.
  *
- * Three surfaces need identical behaviour — the home rail, the `/news` index and the related list
+ * Three surfaces need identical behavior — the home rail, the `/news` index and the related list
  * on a reader page — and the branch is not obvious enough to re-derive in each: a **link** article
  * lives in Google Docs and opens off-site, while a **native** one is a route on this site. Getting
  * it wrong is silent, because both render a perfectly good card.

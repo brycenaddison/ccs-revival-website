@@ -20,6 +20,8 @@ export const INFO_TITLE_MAX = 200;
 export const INFO_LINK_MAX = 24;
 export const INFO_LINK_LABEL_MAX = 80;
 export const INFO_LINK_URL_MAX = 1024;
+/** Same width as a quick link's URL — it is the same kind of value. */
+export const INFO_RULEBOOK_URL_MAX = 1024;
 
 export interface InfoLink {
   label: string;
@@ -33,17 +35,39 @@ export interface LeagueInfo {
   body: string | null;
   /** Displayed in this order; the client never sorts editor-owned content. */
   links: InfoLink[];
+  /**
+   * Where this league's rulebook lives. **Required by the editor**, and not one of the quick links.
+   *
+   * A first-class field rather than a well-known entry in `links` because something reads it
+   * programmatically: the team application form links its "I have read the rules" confirmation
+   * straight at it, so what a captain agrees to is the document the league actually published. Buried
+   * in an ordered list it would be identified by matching a label, which is a string an editor can
+   * rename.
+   *
+   * Optional on the type only because a document written before the column existed has none. The
+   * editor refuses to save without it, so absence is a migration artifact rather than a state a
+   * league can choose.
+   */
+  rulebookUrl?: string | null;
   isPublished: boolean;
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-/** A complete replacement. One league has at most one document, so there is no create/update split. */
+/**
+ * A complete replacement. One league has at most one document, so there is no create/update split.
+ *
+ * **Upstream matches keys exactly** — an unknown key *and* a missing one are both a `400` — so this
+ * has to stay in lockstep with `BODY_KEYS` in the server's `infoValidation.ts`. `rulebookUrl` is
+ * non-optional here on purpose: the editor cannot save a document without one, and making it
+ * optional would let a call site omit a key the server requires.
+ */
 export interface LeagueInfoInput {
   title: string;
   body: string | null;
   links: InfoLink[];
+  rulebookUrl: string;
   isPublished: boolean;
 }
 
@@ -71,6 +95,10 @@ function mapLeagueInfo(raw: unknown): LeagueInfo {
     title: str(info.title),
     body: strOrNull(info.body),
     links,
+    // Absent stays absent rather than becoming `null`: a deployment without the column has no
+    // rulebook to report, which the application form has to tell apart from a league that has one and
+    // left it blank — the latter is impossible once the editor requires it.
+    ...("rulebookUrl" in info ? { rulebookUrl: strOrNull(info.rulebookUrl) } : {}),
     isPublished: info.isPublished === true,
     publishedAt: strOrNull(info.publishedAt),
     createdAt: str(info.createdAt),

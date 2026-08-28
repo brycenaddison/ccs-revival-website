@@ -98,7 +98,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
   const players = statsQuery.data ?? [];
 
   const group = PLAYER_STAT_GROUPS.find(g => g.id === groupId) ?? PLAYER_STAT_GROUPS[0];
-  const catalogue = useMemo(() => flattenGroups([group]), [group]);
+  const catalog = useMemo(() => flattenGroups([group]), [group]);
 
   // Selections that name a conf's teams or players stop meaning anything in another conf.
   useEffect(() => {
@@ -114,8 +114,8 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
   /**
    * Branding per team code.
    *
-   * `hex` is only set when the team actually has a colour: `hexFromInt` substitutes a dark grey for the
-   * roughly half of teams with none, and a bar painted that grey is invisible. Leaving it undefined lets
+   * `hex` is only set when the team actually has a color: `hexFromInt` substitutes a dark gray for the
+   * roughly half of teams with none, and a bar painted that gray is invisible. Leaving it undefined lets
    * the bar fall back to a neutral that works in both themes.
    */
   const branding = useMemo(
@@ -129,7 +129,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
     [teamsQuery.data],
   );
 
-  /** Codes that actually appear in the stat rows, labelled with the full team name. */
+  /** Codes that actually appear in the stat rows, labeled with the full team name. */
   const teamOptions = useMemo(
     () =>
       [...new Set(players.map(p => p.team))]
@@ -284,7 +284,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
         <StatBars
           subject="PLAYERS"
           rows={eligible}
-          catalogue={catalogue}
+          catalog={catalog}
           statKey={barStat}
           onStatKey={(k, suggested) => { setBarStat(k); setBarDir(suggested); }}
           direction={barDir}

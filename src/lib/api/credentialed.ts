@@ -11,7 +11,7 @@
  *    credentialed request.
  *  - `POST`, `PUT` and `PATCH` answer `415` without `Content-Type:
  *    application/json`. That is load-bearing rather than decoration — the header
- *    forces a CORS preflight, and the preflight is the CSRF defence these routes
+ *    forces a CORS preflight, and the preflight is the CSRF defense these routes
  *    rely on under `COOKIE_SAMESITE=none`. `DELETE` is exempt upstream because it
  *    carries no body, so no content type is sent for one.
  *  - Failures arrive in three shapes, not one: the auth and role guards answer a

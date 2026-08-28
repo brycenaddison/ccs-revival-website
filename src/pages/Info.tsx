@@ -41,6 +41,23 @@ function QuickLink({ link }: { link: InfoLink }) {
 }
 
 function InfoDocument({ info, leagueName }: { info: LeagueInfo; leagueName: string }) {
+  /**
+   * The rulebook first, then the editor's own quick links in their own order.
+   *
+   * It is a separate field rather than an entry in `links` — the team application form reads it
+   * directly, so it cannot be identified by matching a label somebody can rename. That also meant it
+   * had nowhere to appear on this page, which is the one place a reader goes looking for it.
+   *
+   * Prepending is **not** sorting: `links` keeps the order the editor gave it, and this adds one in
+   * front. The rulebook is the document every other link is subordinate to, and it is the only one
+   * the editor is required to provide, so first is where it belongs rather than wherever it would
+   * land if it were an ordinary entry.
+   */
+  const links: InfoLink[] = [
+    ...(info.rulebookUrl ? [{ label: "Rulebook", url: info.rulebookUrl }] : []),
+    ...info.links,
+  ];
+
   return (
     <article>
       <p className="font-heading text-xs tracking-wider uppercase text-accent mb-1">{leagueName}</p>
@@ -48,9 +65,9 @@ function InfoDocument({ info, leagueName }: { info: LeagueInfo; leagueName: stri
         {info.title}
       </h2>
 
-      {info.links.length > 0 && (
+      {links.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-          {info.links.map((link, index) => (
+          {links.map((link, index) => (
             <QuickLink key={`${link.label}:${link.url}:${index}`} link={link} />
           ))}
         </div>

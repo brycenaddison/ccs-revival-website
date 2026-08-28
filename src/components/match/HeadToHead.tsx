@@ -16,7 +16,7 @@ export interface ComparisonRow {
   label: string;
   a: string;
   b: string;
-  /** Which value to emphasise. `null` for a tie, an incomparable pair, or a row with no direction. */
+  /** Which value to emphasize. `null` for a tie, an incomparable pair, or a row with no direction. */
   better: "a" | "b" | null;
 }
 
@@ -28,7 +28,7 @@ type Direction = "high" | "low";
  *
  * `null` is "no data" and never loses a comparison: a team with no games yet would otherwise appear to
  * be beaten on every metric, when in fact nothing has been measured. Two nulls, or a genuine tie, are
- * emphasised on neither side.
+ * emphasized on neither side.
  */
 export function compare(
   label: string,

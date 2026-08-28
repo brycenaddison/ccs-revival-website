@@ -1,12 +1,12 @@
 /**
  * Animated ranked bar chart — the Bars view on every stats tab.
  *
- * Presentational only: callers sort, slice, format *and* colour. That is what lets one component serve
- * champions, teams and players, which arrive as three unrelated shapes — and colour has to come from
+ * Presentational only: callers sort, slice, format *and* color. That is what lets one component serve
+ * champions, teams and players, which arrive as three unrelated shapes — and color has to come from
  * the caller because only it knows whether a high value is good (see `rampColor` in `lib/statUi.ts`).
  *
  * It was dead code until this refactor. The Leaderboard had grown its own inline copy that gained three
- * things this one lacked — zero-centred scaling for signed stats, Infinity handling, and the compare
+ * things this one lacked — zero-centerd scaling for signed stats, Infinity handling, and the compare
  * selection dots — while losing the grow-from-zero animation. Both sets are folded in here and the
  * inline copy is gone.
  */
@@ -33,7 +33,7 @@ export interface BarLeaderboardRow {
   /** Pre-formatted value shown at the end of the bar. */
   display: string;
   /**
-   * Bar colour. Supplied by the caller because only it knows whether a high value is good — see
+   * Bar color. Supplied by the caller because only it knows whether a high value is good — see
    * `rampColor` in `lib/statUi.ts`. Also used for the block that stands in for a missing logo.
    */
   color?: string;
@@ -54,7 +54,7 @@ interface Props {
    * unsliced "all" view the first row is just the first row, not a medal.
    */
   medals?: boolean;
-  /** Rows the caller has selected, in slot order. Enables the trailing colour dot. */
+  /** Rows the caller has selected, in slot order. Enables the trailing color dot. */
   selectedKeys?: readonly string[];
   selectColors?: readonly string[];
   onSelect?: (key: string) => void;
@@ -73,7 +73,7 @@ export function BarLeaderboard({
   selectColors,
   onSelect,
 }: Props) {
-  // Scaled on absolute value so a signed stat is zero-centred: a −400 gold diff has to draw as a
+  // Scaled on absolute value so a signed stat is zero-centerd: a −400 gold diff has to draw as a
   // short bar, not the longest one on the board. Non-finite values (a deathless KDA) are pinned to
   // the maximum, since they sort to the top but cannot be scaled.
   const max = rows.reduce((m, r) => (Number.isFinite(r.value) ? Math.max(m, Math.abs(r.value)) : m), 0);
@@ -96,7 +96,7 @@ export function BarLeaderboard({
             const isTop3 = medals && i < 3;
             const magnitude = Number.isFinite(row.value) ? Math.abs(row.value) : max;
             const width = max > 0 ? (magnitude / max) * 100 : 0;
-            // No colour means the team has none set upstream, which is common. A theme-aware neutral
+            // No color means the team has none set upstream, which is common. A theme-aware neutral
             // reads on both backgrounds; a hex fallback would be invisible on one of them.
             const brand = row.color;
             const fill = brand ? `linear-gradient(90deg, ${brand}, ${brand}88)` : "var(--bar-unset)";

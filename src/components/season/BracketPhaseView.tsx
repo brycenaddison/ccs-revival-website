@@ -2,7 +2,7 @@
  * A bracket phase, drawn as a bracket.
  *
  * Two renderers, and the split is by axis rather than by size. On a wide screen the layout is the
- * *graph*: a column per match day, each card placed at the vertical centre of the matches feeding
+ * *graph*: a column per match day, each card placed at the vertical center of the matches feeding
  * it, and a line along every advancement. On a narrow one it is a *list*: one section per match day,
  * full-width cards, no lines — because a graph you can see 1.2 columns of at a time is unreadable,
  * and connectors between stacked full-width cards are worse than none.

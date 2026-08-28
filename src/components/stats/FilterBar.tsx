@@ -5,7 +5,7 @@
  * every other control copied them by hand, which is how three near-identical selects ended up with
  * three slightly different paddings. Exporting them makes the copy unnecessary.
  *
- * Layout is a labelled grid rather than a toolbar because a bare row of selects gives the reader no
+ * Layout is a labeled grid rather than a toolbar because a bare row of selects gives the reader no
  * way to tell "Min Games" from "Team" until they open one.
  */
 

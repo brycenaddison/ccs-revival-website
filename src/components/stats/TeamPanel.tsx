@@ -83,7 +83,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
   const [barDir, setBarDir] = useState<BarDirection>("highest");
 
   const group = TEAM_STAT_GROUPS.find(g => g.id === groupId) ?? TEAM_STAT_GROUPS[0];
-  const catalogue = useMemo(() => flattenGroups([group]), [group]);
+  const catalog = useMemo(() => flattenGroups([group]), [group]);
 
   // Four fixed `useQuery` calls rather than one `useQueries`: the set never varies, so there is no
   // dynamic-length problem to solve, and each result keeps its own precise type.
@@ -274,7 +274,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
         <StatBars
           subject="TEAMS"
           rows={ordered}
-          catalogue={catalogue}
+          catalog={catalog}
           statKey={barStat}
           onStatKey={(k, suggested) => { setBarStat(k); setBarDir(suggested); }}
           direction={barDir}
@@ -285,8 +285,8 @@ export function TeamPanel({ conf, isMobile }: Props) {
             name: t.name,
             sub: `${t.wins}-${t.losses} · ${fmtPct(t.winrate)}`,
             logo: t.logo,
-            // Only when the team really has one: `colorHex` substitutes a dark grey for the many teams
-            // with no colour set, and a bar in that grey is invisible on the dark page.
+            // Only when the team really has one: `colorHex` substitutes a dark gray for the many teams
+            // with no color set, and a bar in that gray is invisible on the dark page.
             color: t.color ? t.colorHex : undefined,
           })}
         />
@@ -321,7 +321,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
                 ? <img src={t.logo} alt="" loading="lazy" decoding="async" className="w-7 h-7 rounded object-contain shrink-0" />
                 : <span className="w-7 h-7 rounded shrink-0 flex items-center justify-center text-white font-bold text-xs" style={{ background: t.color ? t.colorHex : "var(--bar-unset)" }}>{t.code.charAt(0)}</span>}
               <div className="min-w-0">
-                {/* Not the team's own colour: it is unset for many teams and resolves to a dark grey
+                {/* Not the team's own color: it is unset for many teams and resolves to a dark gray
                     that is unreadable on this background. The logo carries the identity. */}
                 <div className="font-display text-[15px] tracking-wide truncate text-text-bright group-hover:text-accent">
                   {t.name}

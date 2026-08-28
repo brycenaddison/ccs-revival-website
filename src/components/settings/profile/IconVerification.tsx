@@ -16,7 +16,7 @@
  * inside the two minutes where Riot cannot say yes, which is how a challenge reaches `exhausted`
  * before it was ever going to succeed. So the wait is a numbered step ahead of the Check step, the
  * `pending` note names the two minutes rather than saying "a moment", and the `exhausted` note
- * explains that asking faster doesn't help. The number is Riot's behaviour, not a served value —
+ * explains that asking faster doesn't help. The number is Riot's behavior, not a served value —
  * if upstream ever publishes one, that is the thing to render here.
  *
  * **Every limit is held as a wall-clock instant, never as a counter we decrement.** `expiresAt` and

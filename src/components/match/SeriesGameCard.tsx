@@ -8,7 +8,7 @@
  *
  * A `<table>` per side rather than flex rows, because the columns have to *line up*: player names vary
  * in width, and a flex row sizes each cell to its own content, so five rows of numbers came out ragged
- * and unlabelled. Now every column has a heading and a fixed share of the width.
+ * and unlabeled. Now every column has a heading and a fixed share of the width.
  *
  * Not `GameSummary` itself. That takes a `RiotMatch` — the raw match-v5 payload, which is what a
  * tournament-code preview has in hand and all it has — and this takes the server's own box score, which
@@ -44,7 +44,7 @@ export function SeriesGameCard({ game, codeA, codeB, nameOf }: Props) {
   /*
    * `blueside: null` means the `blue`/`red` keys are upstream's guess — a legacy row never recorded
    * which side it was, and rather than drop the box score the fixture's `teamA` took `blue`. So the
-   * side captions and the side colours come off, and the columns are labelled by team instead. The
+   * side captions and the side colors come off, and the columns are labeled by team instead. The
    * scorelines are still right; only "which end of the map" is unknown.
    */
   const sidesKnown = game.blue?.blueside !== null && game.red?.blueside !== null;
@@ -93,7 +93,7 @@ export function SeriesGameCard({ game, codeA, codeB, nameOf }: Props) {
 
           {!sidesKnown && (
             <p className="border-t border-border px-4 py-2 text-[10px] text-text-dim">
-              This game never recorded which side each team was on, so the two columns are labelled by
+              This game never recorded which side each team was on, so the two columns are labeled by
               team rather than by side.
             </p>
           )}
@@ -166,7 +166,7 @@ const COLUMNS = [
   { key: "vs", label: "VS", title: "Vision score", width: "w-[36px]" },
 ] as const;
 
-/** One side: who they were, what they took, and five labelled lines. */
+/** One side: who they were, what they took, and five labeled lines. */
 function SideTable({
   side,
   label,
@@ -178,7 +178,7 @@ function SideTable({
   side: SeriesSide | null;
   /** `BLUE`/`RED`, or null where the side is a guess and shouldn't be captioned as one. */
   label: string | null;
-  /** The side colour, or undefined for the same reason. */
+  /** The side color, or undefined for the same reason. */
   accent?: string;
   /** Which of the fixture's two teams this column stands for when nothing was recorded for it. */
   fallbackCode: string;

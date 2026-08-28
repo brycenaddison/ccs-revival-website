@@ -39,7 +39,7 @@ export function ArticlesSection() {
   const { data, isPending, error } = useQuery(queries.manageArticles({ status }));
   const articles = data ?? [];
 
-  // Resolved from the freshly-fetched list rather than held in state, so the form re-initialises
+  // Resolved from the freshly-fetched list rather than held in state, so the form re-initializes
   // from what the server last said after a save rather than from a copy taken when it was opened.
   const editing: ArticleRecord | null =
     selected === null || selected === "new"
@@ -137,7 +137,7 @@ export function ArticlesSection() {
             {selected === "new" ? "NEW ARTICLE" : "EDIT ARTICLE"}
           </h3>
           <ArticleEditor
-            // Remounts the form when the selection changes, so every field re-initialises from the
+            // Remounts the form when the selection changes, so every field re-initializes from the
             // newly selected row. Without it the state above would persist across a switch and show
             // one article's title over another's body.
             key={selected === "new" ? "new" : editing?.slug}

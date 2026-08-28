@@ -64,8 +64,8 @@ function SideRow({
       data-slot={slot}
       className={`flex items-center gap-2 px-2.5 py-2 ${lost ? "opacity-55" : ""}`}
       style={{
-        // The winner's own colour, not green: a bracket loss is not a bad result to paint red, and
-        // the team colour is what ties this row to the connector leaving the card.
+        // The winner's own color, not green: a bracket loss is not a bad result to paint red, and
+        // the team color is what ties this row to the connector leaving the card.
         borderLeft: `3px solid ${won && side.team ? side.team.colorHex : "transparent"}`,
       }}
     >

@@ -31,6 +31,7 @@ const News = lazy(() => import('./pages/News'))
 const Article = lazy(() => import('./pages/Article'))
 const Info = lazy(() => import('./pages/Info'))
 const Setup = lazy(() => import('./pages/Setup'))
+const TeamInvitations = lazy(() => import('./pages/TeamInvitations'))
 const PlayerProfile = lazy(() => import('./pages/PlayerProfile'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
@@ -94,6 +95,14 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   {/* `/news/:slug` renders a native article; a link article's cards go straight to
                       their source, so this route only sees one when a URL was shared. */}
                   <Route path="/news/:slug" element={<Article />} />
+                  {/* The two applicant pages. `/register` moved out of `BareLayout` when it became a
+                      real form: it is reached from a nav button now, and a page you arrive at from
+                      the nav should not delete the nav. Its old hand-rolled header went with it.
+                      `/team-invitations`' path is fixed by the bot rather than chosen here — its
+                      invitation DM links there, so this route is what stops every one of those
+                      notifications landing on the catch-all below. */}
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/team-invitations" element={<TeamInvitations />} />
                   {/* Each settings area is two routes rather than one optional `:section?` segment.
                       The no-slug form is a real state — it's the mobile section list, and on desktop it
                       redirects to the first section — so spelling both out keeps that explicit. */}
@@ -118,12 +127,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     `<Suspense>` boundary — see its header. */}
                 <Route element={<BareLayout />}>
                   <Route path="/teams/:conf/:code" element={<TeamPage />} />
-                  {/* `:id` is a `schedule_match` id. The old form took a synthesised series key
+                  {/* `:id` is a `schedule_match` id. The old form took a synthesized series key
                       (`4:w1:ANE_vs_XSV`) because there was no endpoint that answered "this fixture" —
                       `GET /tournaments/schedule/:id/result` is that endpoint. */}
                   <Route path="/match/:id" element={<MatchDetail />} />
                   <Route path="/game/:matchId" element={<GameDetail />} />
-                  <Route path="/register" element={<Register />} />
                   <Route path="/login" element={<Login />} />
                 </Route>
               </Routes>

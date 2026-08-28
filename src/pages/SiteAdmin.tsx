@@ -1,9 +1,10 @@
 /**
  * Site administration — `/admin/:section?`.
  *
- * Two sections are live against the `/admin` portal — the user directory and the league metadata
- * editor. The rest are placeholders, and each names the endpoint that unblocks it; see
- * `API-GAP-ANALYSIS.md` for the full remaining surface.
+ * Every section here is live against the `/admin` portal. Team applications used to be a placeholder
+ * in this list and is now League Admin → Team Applications instead: an application belongs to one
+ * conference, review needs that conference's `roster` grant rather than a site role, and a second
+ * copy under `/admin` could only ever duplicate it.
  *
  * `SITE_ADMIN_ROLE` implies league admin everywhere — see `lib/adminAccess.ts`. The gate below is
  * the same answer the API gives: every route under `/admin` is site-admin only, never a league
@@ -11,11 +12,11 @@
  */
 
 import { useParams } from "react-router-dom";
-import { CalendarRange, Inbox, Megaphone, ShieldCheck, Trophy } from "lucide-react";
+import { Award, CalendarRange, Megaphone, ShieldCheck, Trophy } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
-import { ComingSoon } from "../components/settings/SettingsSection";
+import { GlobalAccoladesSection } from "../components/admin/accolades/GlobalAccoladesSection";
 import { AnnouncementsSection } from "../components/admin/AnnouncementsSection";
 import { LeaguesSection } from "../components/admin/LeaguesSection";
 import { RolesSection } from "../components/admin/RolesSection";
@@ -57,11 +58,14 @@ const AREA: SettingsArea = {
       Component: SeasonStructureSection,
     },
     {
-      slug: "applications",
-      label: "Team Applications",
-      icon: Inbox,
-      description: "Review and approve teams applying to join.",
-      Component: () => <ComingSoon needs="GET/PATCH /applications and transactional approval" />,
+      slug: "accolades",
+      label: "Accolades",
+      icon: Award,
+      // Definitions only, matching the API: `/admin/accolades/definitions` is the sole surface that
+      // can change a site-wide definition, while issuing one is a per-conference job and lives in
+      // League Admin → Accolades. There is no site-wide issuance endpoint to build against.
+      description: "Site-wide awards every league can hand out. Issuing them is a league job.",
+      Component: GlobalAccoladesSection,
     },
     {
       slug: "announcements",

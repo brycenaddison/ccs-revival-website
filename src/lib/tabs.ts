@@ -27,7 +27,7 @@ export interface SiteTab {
   path: string;
   /**
    * Bottom-bar icon. A component rather than a glyph: an emoji renders in the platform's own font,
-   * so it can't take the active colour and looks different on every OS.
+   * so it can't take the active color and looks different on every OS.
    */
   icon: LucideIcon;
   /** The bottom bar is narrower and carries a subset — Schedule lives in the nav only. */

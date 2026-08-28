@@ -11,11 +11,11 @@ export function useChampions(): ChampionLookup | null {
   const [lookup, setLookup] = useState<ChampionLookup | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     loadChampions()
-      .then(l => { if (!cancelled) setLookup(l); })
+      .then(l => { if (!canceled) setLookup(l); })
       .catch(() => { /* icons stay off */ });
-    return () => { cancelled = true; };
+    return () => { canceled = true; };
   }, []);
 
   return lookup;

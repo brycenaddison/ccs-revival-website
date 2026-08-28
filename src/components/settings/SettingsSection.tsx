@@ -34,7 +34,7 @@ export function SectionFrame({ section, children }: { section: Section; children
   );
 }
 
-/** One labelled setting. `hint` explains a constraint — why a value is read-only, most often. */
+/** One labeled setting. `hint` explains a constraint — why a value is read-only, most often. */
 export function SettingsRow({
   label,
   hint,
@@ -56,7 +56,7 @@ export function SettingsRow({
 /**
  * A value the API exposes but offers no way to change.
  *
- * Deliberately not a disabled `<input>`: a greyed-out text box reads as "editable, but not right
+ * Deliberately not a disabled `<input>`: a grayed-out text box reads as "editable, but not right
  * now" and invites the user to look for the thing that unlocks it. This reads as information.
  */
 export function ReadOnlyValue({ children, mono }: { children: ReactNode; mono?: boolean }) {

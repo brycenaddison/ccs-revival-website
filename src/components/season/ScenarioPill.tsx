@@ -1,9 +1,9 @@
 /**
- * A group scenario as a badge — "Advances · Playoffs" in the colour its `level` names.
+ * A group scenario as a badge — "Advances · Playoffs" in the color its `level` names.
  *
  * Shared between the site-admin scenario editor and the public standings table on purpose: what an
  * admin approves in the editor should be pixel-for-pixel what a viewer gets, and the two drifting is
- * how a league ends up choosing a colour that reads differently on the page it was chosen for.
+ * how a league ends up choosing a color that reads differently on the page it was chosen for.
  *
  * The tone comes from `lib/scenarioTones.ts`, which mixes one CSS variable per level, so a pill
  * shifts with light and dark mode without this component knowing either exists.
@@ -45,7 +45,7 @@ export function ScenarioPill({ scenario, provisional }: Props) {
           : undefined
       }
     >
-      {/* The dot has no text, so it has no baseline worth aligning — centre it against the line. */}
+      {/* The dot has no text, so it has no baseline worth aligning — center it against the line. */}
       <span className="h-2 w-2 shrink-0 self-center rounded-full" style={{ background: tone.fg }} />
       <span className="font-heading text-[11px] font-semibold uppercase tracking-wider">
         {scenario.title || "Untitled"}

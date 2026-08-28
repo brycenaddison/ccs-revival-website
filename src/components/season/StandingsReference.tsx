@@ -52,7 +52,7 @@ export function StandingsReference({
   compact?: boolean;
 }) {
   // Not `adminUi`'s `ErrorLine`: this component sits under `season/` and is shared with a public-side
-  // module tree, so it does not import from `admin/`. Same colour, no dependency.
+  // module tree, so it does not import from `admin/`. Same color, no dependency.
   if (error) {
     return (
       <p role="alert" className="text-sm text-ccs-red">

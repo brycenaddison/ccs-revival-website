@@ -7,7 +7,7 @@ interface Props {
   selection: string;
   onChange: (value: string) => void;
   activeConfs: readonly string[];
-  /** Inline styling for the nav bar, rather than a labelled form control. */
+  /** Inline styling for the nav bar, rather than a labeled form control. */
   compact?: boolean;
   label?: string;
 }

@@ -19,7 +19,7 @@
 
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import type { ProfileGame, ProfileMatch } from "../../lib/api";
+import type { PhaseRef, ProfileGame, ProfileMatch } from "../../lib/api";
 import { fmtDay } from "../../lib/utils";
 import { GameRowHeader, ProfileGameRow } from "./ProfileGameRow";
 import { TeamLink } from "../league/TeamLink";
@@ -60,9 +60,15 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
   const confLabel = useConfLabel();
   const { match, games } = group;
 
-  // An ungrouped game still needs a conf and a date to head its card; take them from the game.
+  // An ungrouped game still needs a conf, a placement and a date to head its card; take them from
+  // the game. Every game in a series shares one season day and one phase, so either source answers
+  // the same.
   const conf = match?.conf ?? games[0]?.conf ?? "";
   const startTime = match?.startTime ?? games[0]?.startTime ?? null;
+  const placement = placementLabel(
+    match?.phase ?? games[0]?.phase ?? null,
+    match?.seasonDay ?? games[0]?.seasonDay ?? 0,
+  );
   const won = match ? match.gameWins > match.gameLosses : games.some(g => g.win);
   const seriesId = match?.scheduleMatchId ?? null;
 
@@ -129,8 +135,13 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
             <span className="flex-1 font-heading text-text-secondary">Other games</span>
           )}
 
+          {/* League, then where in the season, then the date. */}
           <span className="shrink-0 text-right text-[11px] text-text-dim">
-            <span className="block">{confLabel(conf).short}</span>
+            {/* The full league name, not `short`. `shortname` is deliberately shared between the
+                divisions running concurrently, so it cannot tell two of them apart — and this card is
+                as wide as the series header, which has room for the real thing. */}
+            <span className="block">{confLabel(conf).name}</span>
+            {placement && <span className="block text-text-secondary">{placement}</span>}
             <span className="block">{fmtDay(startTime) || "—"}</span>
           </span>
         </div>
@@ -150,6 +161,28 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
       </div>
     </section>
   );
+}
+
+/**
+ * Where in the season a series sat, in one line.
+ *
+ * Prefers the **phase**, which is what a player actually says — "semifinals", "week 3 of groups" —
+ * over `seasonDay`, which is a season-wide ordinal and a join key first. `CLAUDE.md` keeps season day
+ * off reader-facing surfaces for exactly that reason; it survives here only as the fallback for a
+ * legacy conference that predates the phase list, where the alternative is saying nothing at all.
+ *
+ * Within a bracket, `roundName` wins when an operator typed one. It is the node's own label, and
+ * naming a round from its depth is wrong for a third-place match and for every loser's bracket — so
+ * an unlabeled bracket node gets the phase name and its day rather than an invented "Round 3".
+ *
+ * `matchDay` is deliberately *not* called a week: the API counts match days, and while CCS happens to
+ * play one a week, a phase that ever doubled up would make the label a lie.
+ */
+function placementLabel(phase: PhaseRef | null, seasonDay: number): string | null {
+  if (phase === null) return seasonDay > 0 ? `Week ${seasonDay}` : null;
+  if (phase.roundName) return `${phase.name} · ${phase.roundName}`;
+  if (phase.matchDays > 1) return `${phase.name} · Day ${phase.matchDay} of ${phase.matchDays}`;
+  return phase.name;
 }
 
 /** G1 before G2. An unnumbered game sorts last, then by kickoff, so the order is always total. */

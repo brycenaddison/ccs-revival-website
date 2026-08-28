@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, FileText, Link2, LogOut, Settings, Shield, UserRound, type LucideIcon } from "lucide-react";
+import { ChevronDown, FileText, Inbox, Link2, LogOut, Settings, Shield, UserRound, type LucideIcon } from "lucide-react";
 import { useAdminAccess } from "../../lib/adminAccess";
 import { useAuth } from "../../lib/authContext";
 import { CONTENT_ROLE } from "../../lib/api";
@@ -57,7 +57,7 @@ interface EntryOpts {
  * Riot linking opens a popup and reports its outcome through the auth provider's notice, so
  * nothing here has to wait on the promise — the menu is closed by then either way. It stays even
  * though Settings › Connections now exists: that page is where you *see* what's linked, not the
- * only way to start linking. When RSO is unavailable the entry is dropped rather than shown greyed
+ * only way to start linking. When RSO is unavailable the entry is dropped rather than shown grayed
  * out: a dead row in a four-item menu is noise, with nothing here to explain it. Adding an account
  * by name lives only in Settings, because it is a form rather than one click.
  */
@@ -71,6 +71,10 @@ export function accountMenuEntries({
 }: EntryOpts): MenuEntry[] {
   return [
     ...(profileId ? [{ kind: "item" as const, label: "View profile", icon: UserRound, to: playerPath(profileId) }] : []),
+    // Unconditional, unlike the Apply Now button beside this menu. An invitation can arrive long
+    // after intake closes — staff review takes days — and this is the only page that can answer it,
+    // since the Discord DM is best-effort and may never have been delivered.
+    { kind: "item", label: "Team invitations", icon: Inbox, to: "/team-invitations" },
     { kind: "item", label: "Settings", icon: Settings, to: "/settings" },
     ...(canEditContent
       ? [{ kind: "item" as const, label: "Content", icon: FileText, to: "/content" }]

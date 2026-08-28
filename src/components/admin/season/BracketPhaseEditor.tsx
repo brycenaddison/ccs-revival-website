@@ -788,11 +788,11 @@ function SlotEditor({
   const other = side === "top" ? node.bottom : node.top;
   const derived = slot.src !== null;
   const value = slot.src ? `${slot.src.node}:${slot.src.output}` : "";
-  // A stored seed is always valid — the normaliser drops what isn't — so this can only fire mid-typing.
+  // A stored seed is always valid — the normalizer drops what isn't — so this can only fire mid-typing.
   const badSeed = slot.seed !== null && !isSlotSeed(slot.seed);
 
   return (
-    // One slot is a labelled block of two rows, not one row of three fields. In a fixed-width column
+    // One slot is a labeled block of two rows, not one row of three fields. In a fixed-width column
     // there is no honest way to fit a seed box, a source picker and a team picker side by side — the
     // previous 2/5/5 split left the seed about 30px wide.
     <div className="mb-2.5">

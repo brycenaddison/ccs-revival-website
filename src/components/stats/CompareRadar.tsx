@@ -2,7 +2,7 @@
  * Percentile radar for up to three players.
  *
  * SVG rather than the old dashboard's `<canvas>`: the grid and labels then inherit the theme's
- * colours through CSS variables, so the chart follows the light/dark toggle instead of needing a
+ * colors through CSS variables, so the chart follows the light/dark toggle instead of needing a
  * repaint hook, and the axis labels stay real text.
  */
 

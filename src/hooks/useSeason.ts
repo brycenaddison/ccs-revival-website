@@ -30,7 +30,7 @@ export function useSeason(conf: string | null): SeasonState {
   const q = useQuery({ ...queries.seasonView(conf ?? ""), enabled: conf !== null && conf !== "" });
 
   // Destructured so the memo depends on the four values rather than on `q`, which is a new object
-  // every render — memoising on that would rebuild the result each time and push a new prop into
+  // every render — memoizing on that would rebuild the result each time and push a new prop into
   // every consumer. `refetch` is stable across renders in react-query v5.
   const { data, isLoading, error, refetch } = q;
 

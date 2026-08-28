@@ -3,7 +3,7 @@
  *
  * Shared because three call sites report the same `IngestedGame[]` — confirming a code, re-checking
  * one match, and re-checking a whole day — and three copies of "1 new game recorded" would drift
- * apart on the pluralisation if nothing else.
+ * apart on the pluralization if nothing else.
  */
 
 import type { CodeSweep, IngestedGame } from "../../../lib/api";

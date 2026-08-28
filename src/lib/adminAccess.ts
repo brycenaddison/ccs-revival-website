@@ -9,12 +9,23 @@
  * `LeagueProvider`, which is mounted *inside* `AuthProvider` (see `main.tsx`), so the auth context
  * cannot reach it. Composing the two here keeps the provider order intact and puts the derivation
  * in the one place that needs it.
+ *
+ * **A site admin's list comes from `GET /admin/leagues`, not from `LeagueProvider`.** The public
+ * `/tournaments` is a listed-only projection now, so a hidden upcoming conference is absent from it
+ * — and a site admin who created one would find it missing from their own league picker, which is
+ * the one surface that has to be able to manage it. A granted (non-site-admin) league admin needs
+ * no equivalent: `/auth/me` enumerates their confs by name whether or not the conf is listed.
+ *
+ * That read is fetched only for a site admin (`enabled`), and the public list stands in while it
+ * resolves so the picker is never empty for a moment.
  */
 
 import { useCallback, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { SITE_ADMIN_ROLE, sortByRecency, type AdminLeague, type Tournament } from "./api";
 import { useAuth } from "./authContext";
 import { useLeague } from "./leagueContext";
+import { queries } from "./queries";
 
 export interface AdminAccess {
   /** Leagues this profile can administer, newest first. Empty when it administers none. */
@@ -48,16 +59,22 @@ export function useAdminAccess(): AdminAccess {
 
   const isSiteAdmin = isAuthenticated && hasRole(SITE_ADMIN_ROLE);
 
+  // Hidden drafts live only here. Not fetched at all for anyone else — the route is site-admin only
+  // and would answer 401/403.
+  const { data: allLeagues } = useQuery({ ...queries.adminLeagues(), enabled: isSiteAdmin });
+
   const leagues = useMemo<AdminLeague[]>(() => {
     if (!isAuthenticated) return [];
 
-    // `tournaments` is already sorted newest-first by `LeagueProvider`, so a site admin's list
-    // needs no ordering of its own.
-    if (isSiteAdmin) return tournaments.map(t => ({ conf: t.conf, name: labelFor(t) }));
+    if (isSiteAdmin) {
+      // Both lists arrive newest-first already — `adminLeagues` sorts, and `LeagueProvider` sorts
+      // the public list it stands in for — so this needs no ordering of its own.
+      return (allLeagues ?? tournaments).map(t => ({ conf: t.conf, name: labelFor(t) }));
+    }
 
     // A granted conf the site knows about gets the site's own label and takes part in recency
     // ordering. One it doesn't know keeps the name `/auth/me` supplied and sorts last — an
-    // unrecognised conf has no season to rank by, and dropping it would hide real access.
+    // unrecognized conf has no season to rank by, and dropping it would hide real access.
     const byConf = new Map(tournaments.map(t => [t.conf, t]));
     const known: Tournament[] = [];
     const unknown: AdminLeague[] = [];
@@ -71,7 +88,7 @@ export function useAdminAccess(): AdminAccess {
       ...sortByRecency(known).map(t => ({ conf: t.conf, name: labelFor(t) })),
       ...unknown,
     ];
-  }, [isAuthenticated, isSiteAdmin, tournaments, granted]);
+  }, [isAuthenticated, isSiteAdmin, allLeagues, tournaments, granted]);
 
   const canAdminLeague = useCallback(
     (conf: string) => isSiteAdmin || leagues.some(l => l.conf === conf),

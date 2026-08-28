@@ -1,25 +1,33 @@
 /**
- * Creating a league and editing its metadata — `POST /admin/leagues` and `PATCH /admin/leagues/:conf`.
+ * Creating a league and editing its metadata — `GET`/`POST /admin/leagues` and
+ * `PATCH /admin/leagues/:conf`.
  *
- * There is no `GET` under `/admin/leagues`: the public `GET /tournaments` already serves the full
- * list, and `LeagueProvider` has it cached for the whole session. So this reads from context and
- * invalidates that query on save, which means the season picker in the nav updates from the same
+ * **This reads `/admin/leagues`, not the public `/tournaments`.** It used to read the latter out of
+ * `LeagueProvider`, which was correct while that list was unfiltered. It is now a listed-only
+ * projection, so a hidden upcoming conference is absent from it — and this is the editor that has to
+ * be able to select the hidden league the admin just created. Saves still invalidate
+ * `queryRoots.tournaments`, which covers both keys, so the nav's season picker updates from the same
  * write rather than needing a reload.
  *
- * The three fields the endpoint accepts are the whole of a league's metadata, so this form is the
- * whole editor. There used to be a read-only "Week layout" row here; the column it displayed has been
- * dropped upstream and a series' length comes from the schedule, so there is nothing left to show.
+ * A league has three independent flags and this page only owns one and a half of them:
+ *
+ *  - `active` — whether the season is running now. Editable here, as it always was.
+ *  - `applicationsOpen` — intake. Shown, but the control is League Admin → Team Applications, since
+ *    running an application window is league work.
+ *  - `listed` — public visibility. Shown, and **only ever settable to `false`** here: a season
+ *    becomes public through the atomic team publication, and upstream refuses `listed: true` on this
+ *    route precisely so nobody can bypass it. `false` remains available as an emergency hide.
  */
 
 import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Plus } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, EyeOff, Plus } from "lucide-react";
 import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
 import { ReadOnlyValue, SettingsRow } from "../settings/SettingsSection";
 import { Toast } from "../Toast";
-import { ACTION_PRIMARY, ErrorLine } from "./adminUi";
-import { useLeague } from "../../lib/leagueContext";
-import { queryRoots } from "../../lib/queries";
+import { ACTION_PRIMARY, ErrorLine, Pill } from "./adminUi";
+import { queries, queryRoots } from "../../lib/queries";
+import { fmtDay } from "../../lib/utils";
 import {
   CONF_PATTERN,
   createLeague,
@@ -34,8 +42,27 @@ import {
 /** Picker value for "not an existing league". Never collides — a real conf is 1–3 characters. */
 const NEW = "";
 
+/**
+ * A one-line summary of where a league is in its lifecycle, for the picker.
+ *
+ * Worth spelling out rather than leaving to three checkboxes: "hidden" and "live" are the two states
+ * an admin is actually looking for, and a hidden league with intake open is the state this whole
+ * workflow exists to support. Absent flags contribute nothing — an older deployment omits them, and
+ * inventing "hidden" from a missing `listed` would relabel every existing season.
+ */
+function stateNote(t: Tournament): string {
+  const notes: string[] = [];
+  if (t.listed === false) notes.push("hidden");
+  if (t.applicationsOpen === true) notes.push("intake open");
+  if (t.active === true) notes.push("live");
+  if (t.teamsPublishedAt) notes.push(`published ${fmtDay(t.teamsPublishedAt)}`);
+  return notes.length === 0 ? "" : ` · ${notes.join(" · ")}`;
+}
+
 export function LeaguesSection() {
-  const { tournaments, loading, error } = useLeague();
+  const { data, isPending: loading, error: failure } = useQuery(queries.adminLeagues());
+  const tournaments = data ?? [];
+  const error = failure ? errorMessage(failure) : null;
   const [selected, setSelected] = useState<string>(NEW);
   // Owned here rather than in the form: creating a league re-keys the form, which would destroy
   // the confirmation of the very save that caused it.
@@ -64,7 +91,8 @@ export function LeaguesSection() {
           <option value={NEW}>+ New league</option>
           {tournaments.map(t => (
             <option key={t.conf} value={t.conf}>
-              {t.name} ({t.conf}){t.active ? " · live" : ""}
+              {t.name} ({t.conf})
+              {stateNote(t)}
             </option>
           ))}
         </select>
@@ -102,9 +130,13 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
   const [name, setName] = useState(league?.name ?? "");
   const [shortname, setShortname] = useState(league?.shortname ?? "");
   const [active, setActive] = useState(league?.active === true);
+  // Not a mirror of `listed` like the others: it is a one-way request to hide, so it starts unticked
+  // even on a listed league and there is nothing for it to do on one that is already hidden.
+  const [hide, setHide] = useState(false);
 
   const trimmedName = name.trim();
   const trimmedShort = shortname.trim();
+  const listed = league?.listed !== false;
 
   /**
    * Only what actually moved. `PATCH` treats an absent key as "leave it alone", so sending the
@@ -118,8 +150,11 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
     // An emptied box clears the column; upstream only reads `null` as "clear", never "".
     if (trimmedShort !== (league.shortname ?? "")) out.shortname = trimmedShort === "" ? null : trimmedShort;
     if (active !== (league.active === true)) out.active = active;
+    // Only ever `false`. The type says so too — upstream rejects `listed: true` here, because a
+    // season becomes public through the publication transaction and nowhere else.
+    if (hide && listed) out.listed = false;
     return out;
-  }, [league, trimmedName, trimmedShort, active]);
+  }, [league, trimmedName, trimmedShort, active, hide, listed]);
 
   const confTaken = isNew && existing.some(t => t.conf === conf);
   const confValid = CONF_PATTERN.test(conf);
@@ -212,7 +247,11 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
 
       <SettingsRow
         label="Status"
-        hint="Marks this season as the one running now, which is what the site shows by default. Deactivating doesn't end anything: the conf stays a valid id and its league admins keep their access — revoking those is a separate job on the roles page."
+        hint={
+          isNew
+            ? "A new league is created hidden and closed to applications: it won't appear anywhere on the site until its teams are published. Marking it as running now only decides which season the site defaults to once it is public — grant its league admins on the roles page, then run intake from League Admin."
+            : "Marks this season as the one running now, which is what the site shows by default. Deactivating doesn't end anything: the conf stays a valid id and its league admins keep their access — revoking those is a separate job on the roles page."
+        }
       >
         <label className="flex items-center gap-2.5 cursor-pointer text-sm text-text">
           <input
@@ -224,6 +263,54 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
           This season is running now
         </label>
       </SettingsRow>
+
+      {league !== null && (
+        <>
+          <SettingsRow
+            label="Public visibility"
+            hint="A season becomes public only when its teams are published, which happens in one transaction with the team rows — there is no switch for it here, and the API refuses one. Hiding is available as an emergency measure; it doesn't delete anything or change whether the season is marked as running."
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <Pill muted={!listed}>{listed ? "Listed" : "Hidden"}</Pill>
+              {league.teamsPublishedAt && (
+                <span className="text-text-dim text-xs">
+                  Teams published {fmtDay(league.teamsPublishedAt)}
+                </span>
+              )}
+              {league.listed === undefined && (
+                <span className="text-text-dim text-xs">
+                  This deployment doesn't report visibility yet.
+                </span>
+              )}
+            </div>
+            {listed && (
+              <label className="mt-2.5 flex items-center gap-2.5 cursor-pointer text-sm text-text">
+                <input
+                  type="checkbox"
+                  checked={hide}
+                  onChange={e => setHide(e.target.checked)}
+                  className="accent-ccs-red w-4 h-4 cursor-pointer"
+                />
+                <EyeOff size={14} aria-hidden="true" className="text-ccs-red" />
+                Hide this season from the whole site
+              </label>
+            )}
+          </SettingsRow>
+
+          <SettingsRow
+            label="Applications"
+            hint="Whether signed-in members can submit teams for this season. Running an application window is league work — open and close it in League Admin → Team Applications for this conf."
+          >
+            <ReadOnlyValue>
+              {league.applicationsOpen === undefined
+                ? "Not reported by this deployment"
+                : league.applicationsOpen
+                  ? "Open — members can submit teams"
+                  : "Closed"}
+            </ReadOnlyValue>
+          </SettingsRow>
+        </>
+      )}
 
       <button type="submit" disabled={!canSave || save.isPending} className={ACTION_PRIMARY}>
         {isNew ? <Plus size={15} aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}

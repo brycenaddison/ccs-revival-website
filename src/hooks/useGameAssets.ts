@@ -23,14 +23,14 @@ export function useGameAssets(): GameAssets {
   const [spells, setSpells] = useState<GameAssetLookup | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     loadItems()
-      .then(l => { if (!cancelled) setItems(l); })
+      .then(l => { if (!canceled) setItems(l); })
       .catch(() => { /* artwork stays off */ });
     loadSummonerSpells()
-      .then(l => { if (!cancelled) setSpells(l); })
+      .then(l => { if (!canceled) setSpells(l); })
       .catch(() => { /* artwork stays off */ });
-    return () => { cancelled = true; };
+    return () => { canceled = true; };
   }, []);
 
   return { items, spells };

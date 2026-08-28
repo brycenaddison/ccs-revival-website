@@ -58,8 +58,8 @@ function BanCountChip({ ban }: { ban: BanCount }) {
  * The header's summary line.
  *
  * `record` is series — what the standings rank on — while `teamstats` wins/losses are individual
- * games, so both are labelled rather than left as a bare "4W-1L". A 2-1 series win is one series
- * win and three games; showing the game record unlabelled overstates it by roughly 2.5×.
+ * games, so both are labeled rather than left as a bare "4W-1L". A 2-1 series win is one series
+ * win and three games; showing the game record unlabeled overstates it by roughly 2.5×.
  */
 function headline(team: TeamDetail): string {
   const parts = [team.code];

@@ -54,7 +54,7 @@ export const GROUP_NAME_MAX = 32;
 export const NODE_LABEL_MAX = 48;
 export const STREAM_URL_MAX = 256;
 export const SCENARIO_KEY_MAX = 32;
-/** `level` is 1–10 and exists only so the client can colour a row. */
+/** `level` is 1–10 and exists only so the client can color a row. */
 export const SCENARIO_LEVELS = 10;
 
 /** A slot seed is 1–8 letters or digits. Upstream refuses anything else, `""` included. */
@@ -70,7 +70,7 @@ export function isBestOf(value: unknown): value is BestOf {
  *
  * Letters and digits only, 1–8 of them. **`""` is not a seed** — `null` already means "none", and two
  * spellings of nothing is how an editor ends up rendering an empty box that is not empty. A field
- * should normalise its empty string to `null` rather than ask this about it.
+ * should normalize its empty string to `null` rather than ask this about it.
  */
 export function isSlotSeed(value: unknown): value is string {
   return typeof value === "string" && SEED_PATTERN.test(value);
@@ -132,7 +132,7 @@ export interface PhaseListSaved {
 
 export interface Scenario {
   /**
-   * 1–10. Client-side colouring only; nothing upstream reads it.
+   * 1–10. Client-side coloring only; nothing upstream reads it.
    *
    * Which means it is not a quantity but an index into `lib/scenarioTones.ts` — the ten hard-coded
    * schemes, best to worst. Store what that palette offers and nothing else.
@@ -370,7 +370,7 @@ const strOrNull = (v: unknown): string | null => (typeof v === "string" && v !==
 const bool = (v: unknown): boolean => v === true;
 
 /**
- * An unrecognised value falls back rather than being dropped.
+ * An unrecognized value falls back rather than being dropped.
  *
  * These vocabularies are coupled to CHECK constraints upstream, so a value this build doesn't know
  * is a deploy skew. A phase rendered as the wrong kind is visibly wrong and recoverable; a phase
@@ -790,7 +790,7 @@ export function bracketRounds(nodes: readonly NodeSave[]): BracketRounds {
 
     // A node caught in a cycle has no honest depth, and the one computed above counted a partial walk.
     // Column 0 puts it where its lack of resolved inputs says it belongs, and `cyclic` explains it.
-    // Memoising happens after the marking, so a node can never be cached at a depth and cyclic later:
+    // Memoizing happens after the marking, so a node can never be cached at a depth and cyclic later:
     // a cycle through it would have been found while it was still on the path.
     const answer = cyclic.has(node.id) ? 0 : depth;
     depths.set(node.id, answer);

@@ -64,11 +64,11 @@ function toTeamBase(
 }
 
 /**
- * The props `TeamBadge` wants, from anything carrying a name, a logo and a resolved colour.
+ * The props `TeamBadge` wants, from anything carrying a name, a logo and a resolved color.
  *
  * The season document has no team ids and needs none — `TeamLink` takes conf and code directly — so
  * building a whole synthetic `Team` just to draw a badge would be inventing an identity nobody asked
- * for. This mirrors the colour handling in `toTeamBase` exactly, unset branch included, so a badge
+ * for. This mirrors the color handling in `toTeamBase` exactly, unset branch included, so a badge
  * looks the same whichever read it came from.
  */
 export function toBadge(team: {
@@ -167,7 +167,7 @@ export function toStandingsFromTeams(
 
 /*
  * There were three series helpers here — `seriesKey`, `parseSeriesKey` and `bestOfForWeek` — which
- * synthesised `conf:wN:A_vs_B` as a URL segment and unpacked it again, because a match page had to
+ * synthesized `conf:wN:A_vs_B` as a URL segment and unpacked it again, because a match page had to
  * rebuild a best-of from a team's matchlist and guess its length from the tournament's per-week layout.
  * `/match/:scheduleMatchId` reads the fixture instead (`GET /tournaments/schedule/:id/result`), which
  * carries the resolved `bestOf` and the games that actually belong to it.
@@ -260,7 +260,7 @@ export function toSplits(tournaments: readonly Tournament[]): Split[] {
   }));
 }
 
-/** Fallback colour for a team with no colour set, so badges aren't black-on-black. */
+/** Fallback color for a team with no color set, so badges aren't black-on-black. */
 export const DEFAULT_TEAM_HEX = hexFromInt(null);
 
 /**

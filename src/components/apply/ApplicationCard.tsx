@@ -1,0 +1,468 @@
+/**
+ * One of the caller's own team applications, in whatever state it is in.
+ *
+ * Editable only while it is a `draft` or `rejected` — the two states upstream's `getOwnedDraft`
+ * accepts. A rejected application is deliberately not a dead end: saving it clears the previous
+ * decision and returns it to `draft`, which is why the card labels that state "Changes needed" and
+ * keeps the form open.
+ *
+ * The readiness checklist below duplicates the server's `publicationIssues`. That is a deliberate
+ * exception to not re-deriving server logic, and a narrow one: it is form guidance computed from the
+ * members this card already has, it decides nothing, and the `409` from Submit remains the only
+ * authority. The alternative is a Submit button that fails with a list of surprises.
+ */
+
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Check, Pencil, Send, Trash2, UserPlus, X } from "lucide-react";
+import {
+  ACTION,
+  ACTION_DANGER,
+  ACTION_PRIMARY,
+  ACTION_SM,
+  ACTION_SM_DANGER,
+  ErrorLine,
+} from "../admin/adminUi";
+import { LABEL_CLASS } from "../stats/FilterBar";
+import { PlayerLink } from "../profile/PlayerLink";
+import { ApplicationForm } from "./ApplicationForm";
+import { InviteMember } from "./InviteMember";
+import {
+  ApplicationDetailsBlock,
+  ApplicationStatusPill,
+  InvitationStatusPill,
+  MemberAvatar,
+  memberLabel,
+  roleSummary,
+  STARTER_ROLES,
+  ROLE_LABEL,
+} from "./applyUi";
+import { queryRoots } from "../../lib/queries";
+import { fmtKickoff } from "../../lib/utils";
+import {
+  errorMessage,
+  hexFromInt,
+  readApplicationDetails,
+  refusalOf,
+  revokeInvitation,
+  submitApplication,
+  withdrawApplication,
+  type ApplicationDetails,
+  type ApplicationMember,
+  type TeamApplication,
+} from "../../lib/api";
+
+/** Whether the applicant may still change this application. Mirrors upstream's `getOwnedDraft`. */
+const EDITABLE = new Set(["draft", "rejected"]);
+
+interface Props {
+  application: TeamApplication;
+  /** The signed-in profile, so the card knows whether it is the owner's copy or a member's. */
+  myProfileId: number | null;
+  onSaved: (message: string) => void;
+}
+
+export function ApplicationCard({ application, myProfileId, onSaved }: Props) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  // One panel, two jobs: `true` invites somebody new, a member edits that member's roles. Owned here
+  // rather than in `RosterList` so opening a row's editor closes the invite form and vice versa —
+  // two open at once would be two forms racing the same upsert.
+  const [inviting, setInviting] = useState<true | ApplicationMember | null>(null);
+
+  const conf = application.conf;
+  const owned = myProfileId !== null && application.submittedByProfileId === myProfileId;
+  const editable = owned && EDITABLE.has(application.status);
+  const members = application.members ?? [];
+
+  const submit = useMutation({
+    mutationFn: () => submitApplication(conf, application.id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: queryRoots.applications });
+      onSaved(`${application.teamName} is with the league staff now.`);
+    },
+  });
+
+  const withdraw = useMutation({
+    mutationFn: () => withdrawApplication(conf, application.id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: queryRoots.applications });
+      onSaved(`Withdrew ${application.teamName}.`);
+    },
+  });
+
+  const details = readApplicationDetails(application.applicationMetadata);
+  const blockers = readinessBlockers(members, details);
+  const submitRefusal = submit.isError ? refusalOf(submit.error) : null;
+
+  return (
+    <section className="rounded-lg border border-border bg-bg2 p-5">
+      <header className="flex flex-wrap items-start gap-3">
+        {application.logo ? (
+          <img
+            src={application.logo}
+            alt=""
+            className="h-12 w-12 shrink-0 rounded object-contain bg-bg3"
+          />
+        ) : (
+          <div className="h-12 w-12 shrink-0 rounded border border-border bg-bg3" />
+        )}
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-[22px] leading-none tracking-widest text-text-bright">
+            {application.teamName.toUpperCase()}
+          </h2>
+          <p className="mt-1 font-mono text-xs text-text-secondary">{application.teamCode}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Swatches primary={application.color} secondary={application.colorSecondary} />
+          <ApplicationStatusPill status={application.status} />
+        </div>
+      </header>
+
+      <StatusNote application={application} owned={owned} />
+
+      {/* Hidden while the form is open, since the form is showing the same answers as inputs. */}
+      {!editing && <ApplicationDetailsBlock details={details} />}
+
+      {editable && (
+        <div className="mt-5">
+          {editing ? (
+            <ApplicationForm
+              conf={conf}
+              application={application}
+              onDone={message => {
+                setEditing(false);
+                onSaved(message);
+              }}
+              onCancel={() => setEditing(false)}
+            />
+          ) : (
+            <button type="button" onClick={() => setEditing(true)} className={ACTION}>
+              <Pencil size={15} aria-hidden="true" />
+              Edit team details
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-heading text-sm uppercase tracking-wider text-text-bright">Roster</h3>
+          {editable && inviting === null && (
+            <button type="button" onClick={() => setInviting(true)} className={ACTION}>
+              <UserPlus size={15} aria-hidden="true" />
+              Invite a player
+            </button>
+          )}
+        </div>
+
+        {application.members === undefined ? (
+          <p className="mt-2 text-sm text-text-dim">
+            This deployment isn't serving the roster yet.
+          </p>
+        ) : (
+          <RosterList
+            conf={conf}
+            applicationId={application.id}
+            members={members}
+            editable={editable}
+            myProfileId={myProfileId}
+            onEdit={setInviting}
+            onSaved={onSaved}
+          />
+        )}
+
+        {inviting !== null && (
+          <div className="mt-3">
+            <InviteMember
+              // Keyed on the target so switching from one member's editor to another's resets the
+              // role picker to that member rather than carrying the previous selection across.
+              key={inviting === true ? "new" : inviting.id}
+              conf={conf}
+              applicationId={application.id}
+              members={members}
+              editing={inviting === true ? undefined : inviting}
+              onDone={message => {
+                setInviting(null);
+                onSaved(message);
+              }}
+              onCancel={() => setInviting(null)}
+            />
+          </div>
+        )}
+      </div>
+
+      {editable && (
+        <div className="mt-6 border-t border-border pt-4">
+          {blockers.length > 0 && (
+            <div className="mb-3">
+              <span className={LABEL_CLASS}>Before you can submit</span>
+              <ul className="flex flex-col gap-1">
+                {blockers.map(blocker => (
+                  <li key={blocker} className="flex items-start gap-2 text-sm text-text-secondary">
+                    <X size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-ccs-orange" />
+                    {blocker}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {blockers.length === 0 && (
+            <p className="mb-3 flex items-center gap-2 text-sm text-ccs-green">
+              <Check size={15} aria-hidden="true" />
+              Your roster is complete.
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={submit.isPending || blockers.length > 0}
+              onClick={() => submit.mutate()}
+              className={ACTION_PRIMARY}
+            >
+              <Send size={15} aria-hidden="true" />
+              {submit.isPending ? "Submitting…" : "Submit for review"}
+            </button>
+            <button
+              type="button"
+              disabled={withdraw.isPending}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Withdraw ${application.teamName}? This can't be undone — you'd have to start a new application.`,
+                  )
+                ) {
+                  withdraw.mutate();
+                }
+              }}
+              className={ACTION_DANGER}
+            >
+              <Trash2 size={15} aria-hidden="true" />
+              Withdraw
+            </button>
+          </div>
+
+          {submitRefusal && (
+            <div role="alert" className="mt-3">
+              <p className="text-sm text-ccs-red">{submitRefusal.message}</p>
+              {submitRefusal.issues.length > 0 && (
+                <ul className="mt-1.5 list-disc pl-5 text-xs text-ccs-red">
+                  {submitRefusal.issues.map(issue => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {submit.isError && !submitRefusal && <ErrorLine message={errorMessage(submit.error)} />}
+          <ErrorLine message={withdraw.isError ? errorMessage(withdraw.error) : null} />
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** What this state means for the person reading it, and what to do about it. */
+function StatusNote({ application, owned }: { application: TeamApplication; owned: boolean }) {
+  const note = (() => {
+    if (!owned) {
+      return `${application.submittedBy?.name ?? "Someone else"} runs this application. You're on the roster.`;
+    }
+    switch (application.status) {
+      case "draft":
+        return "Nobody has seen this yet. Fill in the roster, then submit it for review.";
+      case "submitted":
+        return "League staff are reviewing it. You can't change it while they have it.";
+      case "approved":
+        return "Approved. Your team goes live when the league publishes the season — nothing more to do.";
+      case "rejected":
+        return "Staff sent it back. Fix what they asked for and submit it again; saving any change reopens it as a draft.";
+      case "withdrawn":
+        return "You withdrew this one. Start a new application if you want back in.";
+      case "published":
+        return "Your team is in the league.";
+    }
+  })();
+
+  return (
+    <div className="mt-3">
+      <p className="text-sm text-text-secondary">{note}</p>
+      {application.decisionMessage && (
+        <div className="mt-2 rounded-md border border-border bg-bg3 p-3">
+          <span className={LABEL_CLASS}>From the league staff</span>
+          <p className="whitespace-pre-wrap text-sm text-text">{application.decisionMessage}</p>
+          {application.reviewedAt && (
+            <p className="mt-1 text-xs text-text-dim">{fmtKickoff(application.reviewedAt)}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface RosterProps {
+  conf: string;
+  applicationId: number;
+  members: readonly ApplicationMember[];
+  editable: boolean;
+  myProfileId: number | null;
+  /** Opens the role editor for one member — the panel above owns which one is open. */
+  onEdit: (member: ApplicationMember) => void;
+  onSaved: (message: string) => void;
+}
+
+/**
+ * Everyone on the application, answered and unanswered alike.
+ *
+ * Declined and revoked people stay in the list rather than disappearing — upstream serves them
+ * deliberately, and a captain needs to see that somebody said no rather than wondering whether the
+ * invitation ever sent.
+ */
+function RosterList({ conf, applicationId, members, editable, myProfileId, onEdit, onSaved }: RosterProps) {
+  const qc = useQueryClient();
+
+  const revoke = useMutation({
+    mutationFn: (memberId: number) => revokeInvitation(conf, applicationId, memberId),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: queryRoots.applications });
+      onSaved("Removed from the roster.");
+    },
+  });
+
+  if (members.length === 0) {
+    return <p className="mt-2 text-sm text-text-dim">Nobody invited yet.</p>;
+  }
+
+  return (
+    <>
+      <ul className="mt-3 flex flex-col">
+        {members.map(member => (
+          <li
+            key={member.id}
+            className="flex flex-wrap items-center gap-2.5 border-b border-border py-2.5 last:border-b-0"
+          >
+            <MemberAvatar member={member} />
+            <PlayerLink profileId={member.profileId} className="text-accent no-underline">
+              {memberLabel(member)}
+            </PlayerLink>
+            {member.profileId === myProfileId && (
+              <span className="text-[10px] uppercase tracking-wider text-text-dim">you</span>
+            )}
+            <span className="text-xs text-text-secondary">{roleSummary(member.roles)}</span>
+            <InvitationStatusPill status={member.status} perspective="owner" />
+            {member.status === "pending" && member.dmStatus === "failed" && (
+              <span
+                className="text-xs text-ccs-orange"
+                title="Their Discord DMs are probably closed. The invitation is still waiting for them on the site."
+              >
+                DM failed
+              </span>
+            )}
+            {/* Both actions include your own row. A captain invites themselves like anybody else, so
+                there is no reason theirs should be the one nobody can fix. */}
+            {editable && member.status !== "revoked" && (
+              <span className="ml-auto flex gap-2">
+                <button type="button" onClick={() => onEdit(member)} className={ACTION_SM}>
+                  <Pencil size={13} aria-hidden="true" />
+                  Roles
+                </button>
+                <button
+                  type="button"
+                  disabled={revoke.isPending}
+                  onClick={() => {
+                    if (window.confirm(`Remove ${memberLabel(member)} from this team?`)) {
+                      revoke.mutate(member.id);
+                    }
+                  }}
+                  className={ACTION_SM_DANGER}
+                >
+                  <X size={13} aria-hidden="true" />
+                  Remove
+                </button>
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <ErrorLine message={revoke.isError ? errorMessage(revoke.error) : null} />
+    </>
+  );
+}
+
+/**
+ * What still stands between this roster and a submission.
+ *
+ * The wording is the applicant's, not the server's: upstream says "exactly one accepted sup is
+ * required", which is accurate and unreadable. The rules are the same ones `publicationIssues`
+ * applies, and the server still has the final word.
+ */
+function readinessBlockers(
+  members: readonly ApplicationMember[],
+  details: ApplicationDetails,
+): string[] {
+  const blockers: string[] = [];
+
+  // First, because it is the one the applicant can clear on their own without waiting for anybody.
+  if (!details.rulesAcknowledged) {
+    blockers.push("Confirm you've read the league rules — the box is under Edit team details.");
+  }
+  const accepted = members.filter(m => m.status === "accepted");
+  const holds = (role: string) =>
+    accepted.filter(m => m.roles.some(assignment => assignment.role === role));
+
+  const waiting = members.filter(m => m.status === "pending");
+  if (waiting.length > 0) {
+    blockers.push(
+      waiting.length === 1
+        ? `${memberLabel(waiting[0])} hasn't answered yet — wait for them, or remove them.`
+        : `${waiting.length} people haven't answered yet. Wait for them, or remove them.`,
+    );
+  }
+
+  const owners = holds("owner");
+  if (owners.length === 0) blockers.push("The team needs an owner who has accepted.");
+  if (owners.length > 1) blockers.push("Only one person can be the owner.");
+  if (holds("contact").length === 0) blockers.push("The team needs at least one contact.");
+
+  const missing = STARTER_ROLES.filter(role => holds(role).length === 0);
+  if (missing.length > 0) {
+    blockers.push(
+      `Still need a confirmed ${missing.map(role => ROLE_LABEL[role].toLowerCase()).join(", ")}.`,
+    );
+  }
+  for (const role of STARTER_ROLES) {
+    if (holds(role).length > 1) {
+      blockers.push(`Two people are down as ${ROLE_LABEL[role].toLowerCase()}.`);
+    }
+  }
+
+  if (holds("sub").length > 5) blockers.push("Five substitutes at most.");
+
+  return blockers;
+}
+
+/**
+ * The team's two colors.
+ *
+ * An inline `backgroundColor` rather than a utility, for the same reason `TeamBadge` uses one: this
+ * is the applicant's own data, so there is no `@theme` token for it and Tailwind cannot express an
+ * arbitrary value off the wire.
+ */
+function Swatches({ primary, secondary }: { primary: number | null; secondary: number | null }) {
+  if (primary === null && secondary === null) return null;
+  return (
+    <span className="flex items-center gap-1" aria-label="Team colors">
+      {[primary, secondary].map((color, i) =>
+        color === null ? null : (
+          <span
+            key={i}
+            title={hexFromInt(color)}
+            className="h-5 w-5 rounded border border-border3"
+            style={{ backgroundColor: hexFromInt(color) }}
+          />
+        ),
+      )}
+    </span>
+  );
+}

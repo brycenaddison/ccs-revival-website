@@ -6,7 +6,7 @@
  * What it deliberately does *not* show is the join keys. The Discord snowflake, the CCS profile id
  * and the roles list were all on this page and none of them are yours to act on — the ids are what
  * the API groups on, and the roles row told everyone who isn't staff that they have no roles. The
- * two names and the picture are the whole of what a player recognises as their account.
+ * two names and the picture are the whole of what a player recognizes as their account.
  *
  * `name` and `handle` come from Discord at different times and drift apart, which is why both are
  * here: `name` is the site's own field, seeded once when the profile was created and never

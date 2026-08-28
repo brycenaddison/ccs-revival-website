@@ -15,6 +15,7 @@ import {
   INFO_LINK_LABEL_MAX,
   INFO_LINK_MAX,
   INFO_LINK_URL_MAX,
+  INFO_RULEBOOK_URL_MAX,
   INFO_TITLE_MAX,
   saveLeagueInfo,
   type InfoLink,
@@ -56,6 +57,7 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
   const [links, setLinks] = useState<DraftLink[]>(
     () => info?.links.map((link, key) => ({ ...link, key })) ?? [],
   );
+  const [rulebookUrl, setRulebookUrl] = useState(info?.rulebookUrl ?? "");
   const [isPublished, setIsPublished] = useState(info?.isPublished ?? false);
 
   const input = useMemo<LeagueInfoInput>(
@@ -63,9 +65,10 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
       title: title.trim(),
       body: body.trim() === "" ? null : body,
       links: links.map(({ label, url }) => ({ label: label.trim(), url: url.trim() })),
+      rulebookUrl: rulebookUrl.trim(),
       isPublished,
     }),
-    [title, body, links, isPublished],
+    [title, body, links, rulebookUrl, isPublished],
   );
   const stored = useMemo<LeagueInfoInput | null>(
     () =>
@@ -75,6 +78,10 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
             title: info.title,
             body: info.body,
             links: info.links,
+            // `?? ""` so a document saved before the column existed compares equal to an untouched
+            // form and doesn't read as dirty on mount — the editor will still refuse to save it
+            // until a rulebook is entered, which is the correct nudge rather than a phantom change.
+            rulebookUrl: info.rulebookUrl ?? "",
             isPublished: info.isPublished,
           },
     [info],
@@ -83,7 +90,19 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
   const incompleteLink = input.links.some(link => link.label === "" || link.url === "");
   const unsafeLink = input.links.some(link => link.url !== "" && !validLinkUrl(link.url));
   const hasContent = input.body !== null || input.links.length > 0;
-  const canSave = input.title !== "" && !incompleteLink && !unsafeLink && (!isPublished || hasContent);
+  // Mandatory, and not only when publishing: the team application form links its rules confirmation
+  // straight at this URL, so a league whose Info document has none cannot tell an applicant what they
+  // are agreeing to. An existing document from before the field existed is caught by the same check,
+  // which is deliberate — that league's next save is where it gets filled in.
+  const rulebookMissing = input.rulebookUrl === "";
+  const rulebookUnsafe = !rulebookMissing && !validLinkUrl(input.rulebookUrl);
+  const canSave =
+    input.title !== "" &&
+    !incompleteLink &&
+    !unsafeLink &&
+    !rulebookMissing &&
+    !rulebookUnsafe &&
+    (!isPublished || hasContent);
 
   const save = useMutation({
     mutationFn: () => saveLeagueInfo(conf, input),
@@ -219,6 +238,24 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
         </p>
       </div>
 
+      {/* Not a quick link, and required. The team application form reads this field directly and
+          points its "I have read the rules" confirmation at it, so what a captain agreed to is the
+          document this league published rather than whatever a label in the list happened to say. */}
+      <SettingsRow
+        label="Rulebook link"
+        hint="Required. Where this league's rules live. It shows as the first quick link on the public Info page, and the team application form points its rules confirmation straight at it — so it has to be the real document."
+      >
+        <input
+          className={CONTROL_CLASS}
+          value={rulebookUrl}
+          maxLength={INFO_RULEBOOK_URL_MAX}
+          onChange={event => setRulebookUrl(event.target.value)}
+          placeholder="https://docs.google.com/document/d/… or /info"
+          inputMode="url"
+          aria-label="Rulebook link"
+        />
+      </SettingsRow>
+
       <SettingsRow
         label="Page content"
         hint="Markdown is supported. Raw HTML is shown as text and is never executed."
@@ -245,6 +282,16 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
         </label>
       </SettingsRow>
 
+      {rulebookMissing && (
+        <p className="text-ccs-red text-sm">
+          A rulebook link is required — the team application form has nothing to point at without it.
+        </p>
+      )}
+      {rulebookUnsafe && (
+        <p className="text-ccs-red text-sm">
+          The rulebook link must use HTTP(S) or a site-relative path.
+        </p>
+      )}
       {incompleteLink && <p className="text-ccs-red text-sm">Every quick link needs a label and URL.</p>}
       {!incompleteLink && unsafeLink && (
         <p className="text-ccs-red text-sm">Quick links must use HTTP(S) or a site-relative path.</p>
@@ -268,6 +315,7 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
               setBody(info.body ?? "");
               setLinks(info.links.map((link, key) => ({ ...link, key })));
               nextKey.current = info.links.length;
+              setRulebookUrl(info.rulebookUrl ?? "");
               setIsPublished(info.isPublished);
             }}
           >

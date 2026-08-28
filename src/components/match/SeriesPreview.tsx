@@ -96,9 +96,9 @@ export function SeriesPreview({ conf, codeA, codeB }: Props) {
  * Only rendered when both sides are known: a single column of numbers with a label in the middle and a
  * dash on the other side is a comparison of a team against nothing.
  *
- * **Series and games are labelled separately and never mixed.** `record` is series — what the standings
+ * **Series and games are labeled separately and never mixed.** `record` is series — what the standings
  * rank on — while `wins`/`losses` off `teamstats` are individual games; a 2-1 series win is one series
- * win and three games, so an unlabelled figure overstates one of them by roughly 2.5×.
+ * win and three games, so an unlabeled figure overstates one of them by roughly 2.5×.
  */
 function SeasonComparison({ a, b }: { a: TeamDetail; b: TeamDetail }) {
   const seriesPct = (t: TeamDetail): number | null => {
@@ -192,7 +192,7 @@ const CHAMPS_WIDTH = "w-[108px]";
 /**
  * The five declared starters with their season lines.
  *
- * Full width rather than two narrow columns: eight labelled stat columns don't fit in half a page, and
+ * Full width rather than two narrow columns: eight labeled stat columns don't fit in half a page, and
  * the two tables are in the same role order, so the roles still line up vertically for comparison.
  *
  * `joinRoster` is the same join every team card uses. A starter with no recorded games is the whole

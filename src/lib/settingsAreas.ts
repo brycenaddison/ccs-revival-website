@@ -24,7 +24,7 @@ export interface SettingsSection {
   /**
    * Content width for the page this section is on, overriding the area's own.
    *
-   * Here rather than on the area because the two shapes genuinely disagree: a column of labelled
+   * Here rather than on the area because the two shapes genuinely disagree: a column of labeled
    * fields is unreadable stretched wide, while a bracket laid out in day columns has nowhere to go at
    * 1000px — after the sidebar it gets about 650. The page reads this, not the shell: `PageShell`
    * wraps `SettingsShell`, so the width has to be resolved before the shell renders.

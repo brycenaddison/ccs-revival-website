@@ -38,6 +38,8 @@ import { useLeague } from "../../lib/leagueContext";
 import { fromLocalInput, toLocalInput } from "../../lib/utils";
 import { SettingsRow, ReadOnlyValue } from "../settings/SettingsSection";
 import { ACTION, ACTION_PRIMARY, ACTION_SM_DANGER, ErrorLine } from "../admin/adminUi";
+import { ImageUpload } from "../ImageUpload";
+import { MarkdownEditor } from "./MarkdownEditor";
 import { CONTROL_CLASS } from "../stats/FilterBar";
 
 interface Props {
@@ -263,37 +265,27 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
           />
         </SettingsRow>
       ) : (
-        <SettingsRow label="Body" hint="Markdown. Headings, lists, links, bold and italic all work.">
-          <textarea
-            className={`${CONTROL_CLASS} font-mono text-xs`}
-            rows={14}
+        <SettingsRow
+          label="Body"
+          hint="Markdown. Headings, lists, links, tables, bold and italic all work."
+        >
+          <MarkdownEditor
             value={body}
-            onChange={e => setBody(e.target.value)}
+            onChange={setBody}
             placeholder={"## Opening weekend\n\nThe **Ferrets** took it 2-0..."}
           />
         </SettingsRow>
       )}
 
       <SettingsRow label="Header image" hint="Shown on the card and at the top of the article.">
-        <div className="flex gap-3 items-start">
-          <input
-            className={CONTROL_CLASS}
-            value={imageUrl}
-            maxLength={IMAGE_URL_MAX}
-            onChange={e => setImageUrl(e.target.value)}
-            placeholder="https://.../news/week-1.jpg"
-          />
-          {imageUrl.trim() && (
-            <img
-              src={imageUrl}
-              alt=""
-              className="w-20 h-14 rounded object-cover border border-border shrink-0"
-              onError={e => {
-                (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
-              }}
-            />
-          )}
-        </div>
+        <ImageUpload
+          value={imageUrl}
+          onChange={setImageUrl}
+          maxLength={IMAGE_URL_MAX}
+          preview="wide"
+          label="Header image"
+          placeholder="https://.../news/week-1.jpg"
+        />
       </SettingsRow>
 
       <div className="grid grid-cols-2 gap-4">

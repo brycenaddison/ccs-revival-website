@@ -1,5 +1,10 @@
 /**
- * The site-admin write surface: `/admin/leagues` and `/admin/users`.
+ * The site-admin surface: `/admin/leagues` and `/admin/users`.
+ *
+ * `GET /admin/leagues` is the **unfiltered** league list and the only one that can see a hidden
+ * upcoming conference. Public `GET /tournaments` is a listed-only projection now, so every admin
+ * surface has to read this one instead: a site admin who created a hidden league would otherwise
+ * be unable to select it in their own editor. Public navigation must keep using `/tournaments`.
  *
  * The transport is `./credentialed` — shared with the season editors, and the file to read for why
  * these calls carry cookies and a JSON content type when `./http` must not. Nothing under `/admin`
@@ -10,6 +15,7 @@
  * the page, and the API is the authority regardless.
  */
 
+import { sortByRecency } from "./league";
 import { mapTournament } from "./client";
 import { credentialedRequest } from "./credentialed";
 import { ApiError, type RequestOpts } from "./http";
@@ -94,12 +100,18 @@ export interface LeagueCreate {
 
 /**
  * A subset of a league's metadata. An absent key leaves that field alone; an explicit `null`
- * shortname clears it. Sending none of the three is a `400` upstream.
+ * shortname clears it. Sending nothing at all is a `400` upstream.
+ *
+ * `listed` is typed as the literal `false`, which is not a mistake: upstream **refuses
+ * `listed: true`** here. An application-driven season becomes public only through the atomic team
+ * publication, and letting a site admin flip the switch by hand would bypass it. `false` remains
+ * available as an emergency hide, which is the only reason the key exists on this document.
  */
 export interface LeagueEdit {
   name?: string;
   shortname?: string | null;
   active?: boolean;
+  listed?: false;
 }
 
 /** What upstream accepts as a conf: `varchar(3)`, and every existing one is lowercase. */
@@ -127,10 +139,10 @@ const mapRoles = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((role): role is string => typeof role === "string") : [];
 
 /**
- * Grants are dropped rather than repaired when the scope is unrecognised.
+ * Grants are dropped rather than repaired when the scope is unrecognized.
  *
  * The vocabulary is coupled to a CHECK constraint upstream, so a scope this build doesn't know is
- * a deploy skew — rendering it as an unlabelled checkbox that PUT would then reject is worse than
+ * a deploy skew — rendering it as an unlabeled checkbox that PUT would then reject is worse than
  * not showing it. Upstream warns about the same case in `toGrants`.
  */
 function mapGrants(v: unknown): LeagueGrant[] {
@@ -257,7 +269,31 @@ export function revokeLeague(
   ).then(raw => mapGrants(asRaw(raw).leagues));
 }
 
-/** Creates a league. Rejects with a `409` `ApiError` when the conf is taken. */
+/**
+ * Every league, hidden upcoming conferences included.
+ *
+ * The one read that can see an unlisted draft. `mapTournament` is shared with the public list on
+ * purpose — an editor that normalized the admin list differently from the season picker would show
+ * the two disagreeing about the same row.
+ *
+ * **Sorted here, newest first.** Upstream returns tournaments unordered, and `LeagueProvider`
+ * already puts the public list through `sortByRecency` — so leaving this one raw meant the admin
+ * picker and the nav's season selector disagreed about which league came first, with the newest
+ * season buried somewhere in the middle of the admin list. This is the only consumer's ordering, so
+ * it belongs with the read rather than in each of them.
+ */
+export function adminLeagues(opts?: RequestOpts): Promise<Tournament[]> {
+  return adminRequest("/admin/leagues", {}, opts).then(raw =>
+    sortByRecency(Array.isArray(raw) ? raw.map(mapTournament) : []),
+  );
+}
+
+/**
+ * Creates a league. Rejects with a `409` `ApiError` when the conf is taken.
+ *
+ * A new league is **hidden, closed to applications and inactive** — the column defaults decide, and
+ * there is deliberately no way to ask for anything else here.
+ */
 export function createLeague(input: LeagueCreate, opts?: RequestOpts): Promise<Tournament> {
   return adminRequest("/admin/leagues", { method: "POST", body: input }, opts).then(mapTournament);
 }
@@ -280,6 +316,7 @@ export function updateLeague(
 
 /** Namespaced for call sites that want the surface in one object, like `api` and `auth`. */
 export const adminApi = {
+  adminLeagues,
   searchUsers,
   adminUser,
   setSiteRoles,

@@ -13,12 +13,14 @@
 
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { BookOpen, CalendarDays, ClipboardList, GitFork, Users, UsersRound } from "lucide-react";
+import { Award, BookOpen, CalendarDays, ClipboardList, GitFork, Inbox, Users, UsersRound } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
 import { ComingSoon } from "../components/settings/SettingsSection";
 import { LeaguePicker } from "../components/settings/LeaguePicker";
+import { AccoladesSection } from "../components/league/accolades/AccoladesSection";
+import { ApplicationsSection } from "../components/league/applications/ApplicationsSection";
 import { ScheduleSection } from "../components/league/schedule/ScheduleSection";
 import { BracketSection } from "../components/league/bracket/BracketSection";
 import { InfoSection } from "../components/league/info/InfoSection";
@@ -40,10 +42,31 @@ const SECTIONS: readonly SettingsSection[] = [
     Component: InfoSection,
   },
   {
+    slug: "applications",
+    label: "Team Applications",
+    icon: Inbox,
+    // Two scopes on one screen, and the page gate is the wider of them: reviewing needs `roster`
+    // while opening intake and publishing need the full conference `admin`. Nothing in `/auth/me`
+    // says which one a grant carries, so a `roster`-only reviewer sees those two controls and gets a
+    // verbatim 403 from them — same as the Schedule section below and its narrower `schedule` scope.
+    description: "Teams applying for this season: review them, then publish the approved field.",
+    Component: ApplicationsSection,
+  },
+  {
+    slug: "accolades",
+    label: "Accolades",
+    icon: Award,
+    // Both halves of the accolade surface, because they are one job: which awards this league can
+    // hand out, and who has won them. Site-wide definitions show here read-only — only Site Admin →
+    // Accolades can change one.
+    description: "Trophies and honours for this league's teams and players.",
+    Component: AccoladesSection,
+  },
+  {
     slug: "teams",
     label: "Teams",
     icon: Users,
-    description: "Team names, tags, logos and colours.",
+    description: "Team names, tags, logos and colors.",
     Component: () => <ComingSoon needs="POST/PATCH /teams plus a logo upload endpoint" />,
   },
   {

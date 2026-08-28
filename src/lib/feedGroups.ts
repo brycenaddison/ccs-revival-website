@@ -6,7 +6,7 @@
  * break it into date sections instead, so this is shared rather than written twice.
  *
  * **Sections come from the date, never from `seasonDay`.** That number is a join key — see `CLAUDE.md`
- * — and it is not the number a viewer would recognise anyway.
+ * — and it is not the number a viewer would recognize anyway.
  */
 
 import type { FeedMatch, FeedPage } from "./api";

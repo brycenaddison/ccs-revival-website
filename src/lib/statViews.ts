@@ -34,8 +34,8 @@ export const RADAR_AXES: readonly { key: keyof PlayerStats; label: string; inver
   { key: "goldMin", label: "Gold/m" },
   { key: "killParticipation", label: "KP" },
   { key: "visionScoreMin", label: "Vision" },
-  // Labelled with the arrow because the axis is inverted but the number shown is still raw deaths:
-  // further from the centre means *fewer*, and "Survival 2.10" would read as the opposite.
+  // Labeled with the arrow because the axis is inverted but the number shown is still raw deaths:
+  // further from the center means *fewer*, and "Survival 2.10" would read as the opposite.
   { key: "avgDeaths", label: "Deaths ↓", invert: true },
 ];
 

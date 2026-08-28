@@ -29,7 +29,7 @@ const iconUrl = (id: number): string => `https://cdn.communitydragon.org/latest/
  * Riot allocates them in the 60000s — `Jade_Ahri` is 60103 — and each one carries the *display
  * name of the champion it re-skins*. Indexing them by name is what made a name-keyed lookup
  * return a jade statue: whichever entry landed in the map last won, and the variants sort after
- * roughly half the roster. They are dropped rather than de-prioritised because nothing on this
+ * roughly half the roster. They are dropped rather than de-prioritized because nothing on this
  * site can ever want one — no CCS game is played in a mode that has them.
  */
 const VARIANT_ID_FLOOR = 1000;

@@ -4,19 +4,26 @@
  * **Career-wide on purpose.** The league selector scopes every statistic on the page, and upstream
  * deliberately does not scope this — a Spring championship is still a Spring championship while you
  * are reading Summer's numbers. Filtering it here would quietly hide trophies; the league is named
- * on each pill instead, which is what makes the unscoped behaviour legible rather than confusing.
+ * on each pill instead, which is what makes the unscoped behavior legible rather than confusing.
  */
 
 import { Trophy, Users } from "lucide-react";
 import type { ProfileAccolade } from "../../lib/api";
 import { useConfLabel } from "./profileUi";
 
-export function AccoladeStrip({ accolades }: { accolades: readonly ProfileAccolade[] }) {
+export function AccoladeStrip({
+  accolades,
+  className = "",
+}: {
+  accolades: readonly ProfileAccolade[];
+  /** Positioning is the caller's — this shares a row with the headline numbers. */
+  className?: string;
+}) {
   const confLabel = useConfLabel();
   if (accolades.length === 0) return null;
 
   return (
-    <ul className="mt-2.5 flex flex-wrap gap-1.5">
+    <ul className={`flex flex-wrap gap-1.5 ${className}`}>
       {accolades.map(accolade => {
         const league = confLabel(accolade.conf).short;
         // A team accolade is won with four other people; the icon says so before the text does.

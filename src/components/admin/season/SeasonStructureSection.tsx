@@ -243,7 +243,7 @@ function PhasePage({
         />
       ) : (
         // Unreachable unless the payload is neither shape — a deploy skew rather than a state.
-        <ErrorLine message="This phase's contents are in a shape this build doesn't recognise." />
+        <ErrorLine message="This phase's contents are in a shape this build doesn't recognize." />
       )}
     </div>
   );

@@ -50,7 +50,7 @@ export interface BracketNodeLayout {
   /**
    * Vertical position, in row units, where 1 unit is one card plus its gap.
    *
-   * Fractional on purpose: a match centred between two feeders three rows apart sits at 1.5, which is
+   * Fractional on purpose: a match centerd between two feeders three rows apart sits at 1.5, which is
    * the whole point. Multiply by a pitch to get pixels. Never overlaps a sibling in the same column —
    * the sweep at the end of `bracketLayout` guarantees a full unit between them.
    */
@@ -75,9 +75,9 @@ export interface BracketEdge {
   /** Which slot of `to` this fills. The line lands on that row of the card, not the card's middle. */
   side: SlotSide;
   /**
-   * The colour of the team that actually travelled this edge, or null while it is hypothetical.
+   * The color of the team that actually traveled this edge, or null while it is hypothetical.
    *
-   * Lighting the realised path in the team's own colour is the one cue that lets a reader trace a
+   * Lighting the realized path in the team's own color is the one cue that lets a reader trace a
    * run through the bracket at a glance.
    */
   live: string | null;
@@ -167,7 +167,7 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
   /*
    * Vertical placement: a post-order walk of the winner forest.
    *
-   * A node with no winner feeder takes the next free row; every other node centres on the mean of
+   * A node with no winner feeder takes the next free row; every other node centers on the mean of
    * its feeders. That is the entire rule, and on a single-elimination bracket it reproduces the shape
    * exactly — entry matches on 0, 1, 2, 3, their consumers on 0.5 and 2.5, the final on 1.5.
    *
@@ -176,7 +176,7 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
    * top of its own tree — and the column ordering is what makes the grand final lay out its whole
    * tree before a third-place match slots in underneath.
    *
-   * In double elimination this separates the brackets with nothing labelled. The upper bracket hangs
+   * In double elimination this separates the brackets with nothing labeled. The upper bracket hangs
    * off the last root and is walked first, so it takes rows 0..n. The lower bracket's opening round
    * is fed only by drops, so it has no winner feeder at all, falls through to the leaf branch, and
    * lands on fresh rows below everything the upper bracket claimed. Its later rounds then chain off
@@ -220,7 +220,7 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
   /*
    * Non-overlap, per column.
    *
-   * Two nodes in one column can want the same row: a match centred on feeders 0 and 2 sits at 1, and
+   * Two nodes in one column can want the same row: a match centerd on feeders 0 and 2 sits at 1, and
    * so can a leaf that took row 1 on its own. Sort by the row each wants and push every one down to
    * at least a full unit below the last.
    *
@@ -278,7 +278,7 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
       const source = byNode.get(from.node);
       if (!source || source.column >= placed.column) continue;
 
-      // Realised only when the feeder is actually decided *and* a team has landed in this slot.
+      // Realized only when the feeder is actually decided *and* a team has landed in this slot.
       // A propagated team with no decision behind it would be a slot filled by hand, which is not
       // this edge's doing.
       const decided = source.match.result?.winner != null;

@@ -250,7 +250,7 @@ function ScenarioLibraryEditor({
   const add = (): void => {
     let n = entries.length + 1;
     while (`scenario-${n}` in scenarios) n += 1;
-    // The first colour nobody has taken, walking the ramp from the top — so a library built by adding
+    // The first color nobody has taken, walking the ramp from the top — so a library built by adding
     // rows comes out gold, green, teal rather than three identical golds waiting to be told apart.
     const taken = new Set(entries.map(([, s]) => s.level));
     const level = SCENARIO_TONES.find(t => !taken.has(t.level))?.level ?? 1;
@@ -267,7 +267,7 @@ function ScenarioLibraryEditor({
       <p className="text-text-secondary text-sm mb-3">
         What a finishing position means — &ldquo;Advances&rdquo;, &ldquo;Play-in&rdquo;,
         &ldquo;Eliminated&rdquo;. Groups map positions onto these, so an eight-team group and two
-        six-team groups can each advance a different number of teams. The colour is how the row is
+        six-team groups can each advance a different number of teams. The color is how the row is
         shaded in the standings, and each one is picked to read on both the light and the dark theme.
       </p>
 
@@ -309,7 +309,7 @@ function ScenarioLibraryEditor({
                     `min-w-0` because a fieldset's default `min-inline-size: min-content` otherwise
                     stops it shrinking inside the grid. */}
                 <fieldset className="sm:col-span-12 min-w-0">
-                  <legend className={LABEL_CLASS}>Colour</legend>
+                  <legend className={LABEL_CLASS}>Color</legend>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
                     <TonePicker
                       scenarioKey={key}
@@ -394,12 +394,12 @@ function TonePicker({
               onChange={() => onPick(tone.level)}
               className="sr-only peer"
             />
-            {/* The dot is the tone's own colour on its own fill — the same pairing the badge and the
+            {/* The dot is the tone's own color on its own fill — the same pairing the badge and the
                 standings row use, so a swatch is a small preview rather than a legend for one.
 
                 Selection is carried by three things at once: full opacity, a solid border where the
                 others have a translucent one, and the step up in size. One of them alone is too quiet
-                against nine neighbours that are all already coloured. */}
+                against nine neighbours that are all already colored. */}
             <span
               // `group-hover`, not `peer-hover`: the peer is the `sr-only` input, which is clipped to a
               // pixel and so is never the thing under the cursor. Focus is the other way round — the
@@ -422,7 +422,7 @@ function TonePicker({
 /**
  * The scenario as the standings will render it.
  *
- * A swatch answers "which colour" but not "what will this look like", and the title and subtitle do
+ * A swatch answers "which color" but not "what will this look like", and the title and subtitle do
  * as much of the work as the hue. `ScenarioPill` is the very component the public standings table
  * draws, imported rather than copied, so what an admin approves here is literally what a viewer gets.
  */
@@ -641,7 +641,7 @@ function OutcomesEditor({
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {positions.map(position => {
-            // The mapped scenario's colour, on the row it colours. Orphaned mappings resolve to no tone
+            // The mapped scenario's color, on the row it colors. Orphaned mappings resolve to no tone
             // — the warning below is what those rows get, and tinting one would suggest it is fine.
             const mapped = byPosition.get(position);
             const tone =
@@ -652,7 +652,7 @@ function OutcomesEditor({
             return (
               <label
                 key={position}
-                // The rule and tint are always drawn, transparent when unmapped: colouring in a border
+                // The rule and tint are always drawn, transparent when unmapped: coloring in a border
                 // that was not there would nudge every row sideways as the pickers get filled.
                 className="flex items-center gap-2 rounded border-l-[3px] pl-2 py-1"
                 style={{ borderLeftColor: tone?.line ?? "transparent", background: tone?.bg }}

@@ -14,12 +14,12 @@ interface Props {
   label: string;
   /** A CSS var, not a hex literal, so the tile follows the light/dark toggle. */
   color: string;
-  /** The team or player holding this number. Switches the tile to its labelled-above layout. */
+  /** The team or player holding this number. Switches the tile to its labeled-above layout. */
   subject?: string;
   subjectLogo?: string;
   /**
-   * Fallback block colour when the subject has no logo. Defaults to the theme-aware neutral, since a
-   * team's own colour is unset often enough that it resolves to a near-invisible dark grey.
+   * Fallback block color when the subject has no logo. Defaults to the theme-aware neutral, since a
+   * team's own color is unset often enough that it resolves to a near-invisible dark gray.
    */
   subjectColor?: string;
 }

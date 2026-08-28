@@ -143,7 +143,7 @@ export interface FeedPage {
  * know, deliberately, so that a page shipping `?week=3` in the belief that it filters is told it does
  * not. Sending `to=` as an empty string would be one of those.
  *
- * Two behaviours to plan a window around:
+ * Two behaviors to plan a window around:
  *
  *  - **An undated fixture is excluded as soon as `from` or `to` is set.** It cannot be shown to fall
  *    inside a window. With neither bound it is included, which is how a `pending` bracket slot is
@@ -330,7 +330,7 @@ const matchKind = (v: unknown): MatchKind => (v === "bye" ? "bye" : "match");
 const phaseKind = (v: unknown): PhaseKind => (v === "bracket" ? "bracket" : "group");
 
 /**
- * A status, or `pending` for one this client doesn't recognise.
+ * A status, or `pending` for one this client doesn't recognize.
  *
  * `pending` is the safe fallback because it is the status that shows least: an unknown value read as
  * `live` would put a fixture on the ticker with a pulsing dot, and read as `completed` would put it in

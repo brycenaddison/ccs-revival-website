@@ -90,8 +90,8 @@ export function TotalsBar({ conf, isMobile }: Props) {
   // game itself. The Records tab shows it.
   const footnotes = [range, playtime].filter((s): s is string => s !== null);
 
-  // One running line: body text at a single size, grey for the labels, and the numbers carrying all of
-  // the emphasis through weight and the accent colour. The rule underneath separates it from the tabs
+  // One running line: body text at a single size, gray for the labels, and the numbers carrying all of
+  // the emphasis through weight and the accent color. The rule underneath separates it from the tabs
   // without drawing a box around it.
   return (
     <div className={`mb-5 pb-3 border-b border-border flex flex-wrap text-[12px] font-body text-text-muted ${

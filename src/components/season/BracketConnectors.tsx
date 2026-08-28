@@ -28,7 +28,7 @@ interface Box {
   w: number;
   h: number;
   /**
-   * Vertical centre of each slot row, in the same content coordinates as `y`.
+   * Vertical center of each slot row, in the same content coordinates as `y`.
    *
    * A line lands on the *row* it fills, not on the middle of the card, which is the difference
    * between "these two matches are connected somehow" and "this winner becomes that top seed". Read
@@ -92,7 +92,7 @@ export function useCardMeasurer(layout: BracketLayout): CardMeasurer {
         const box = { x: r.left - origin.left, y: r.top - origin.top, w: r.width, h: r.height };
         const rowY = (side: SlotSide) => {
           const row = el.querySelector(`[data-slot="${side}"]`);
-          // The card centre is the honest fallback: a card with no slot rows is one whose markup
+          // The card center is the honest fallback: a card with no slot rows is one whose markup
           // changed, and a line to the middle of it is wrong by a few pixels rather than by a card.
           if (!row) return box.y + box.h / 2;
           const rr = row.getBoundingClientRect();
@@ -190,8 +190,8 @@ export function BracketConnectors({
             // drawn at all.
             d={elbow(from.x + from.w, from.y + from.h / 2, to.x, to.slot[edge.side])}
             fill="none"
-            // The path a team actually took lights up in that team's colour; everything still
-            // hypothetical stays a hairline in the border grey.
+            // The path a team actually took lights up in that team's color; everything still
+            // hypothetical stays a hairline in the border gray.
             stroke={edge.live ?? "var(--border2)"}
             strokeWidth={edge.live ? 2 : 1.5}
             strokeOpacity={edge.live ? 0.9 : 0.55}

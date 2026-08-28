@@ -117,6 +117,18 @@ export interface HomePayload {
   announcement: Announcement | null;
   articles: ArticleCard[];
   feed: FeedItem[];
+  /**
+   * Whether **anybody** is taking team applications — and the only signed-out signal there is.
+   *
+   * `GET /tournaments/applications/open` sits behind `auth`, so before this the nav could not know
+   * until a visitor signed in, and its call to action had to say "join" when it could have said "we
+   * are recruiting right now". A bare boolean, not a count and not the list: the conference *names*
+   * stay behind auth, because a conference taking applications is deliberately hidden.
+   *
+   * Site-wide operational state like the banner beside it, and **not narrowed by `?conf=`** — a
+   * hidden conference appears in no conf-scoped view anyway.
+   */
+  applicationsOpen: boolean;
 }
 
 /** The featured Twitch stream. When both channels are live, upstream features the busier one. */
@@ -146,7 +158,7 @@ export function mapAnnouncement(raw: unknown): Announcement {
   return {
     id: int(a.id),
     message: str(a.message),
-    // An unrecognised level reads as `info` rather than being dropped. Unlike a league scope — where
+    // An unrecognized level reads as `info` rather than being dropped. Unlike a league scope — where
     // an unknown value means a grant this build can't edit — the message is still the point, and
     // showing it in the default tone beats hiding a banner an admin deliberately posted.
     level: isAnnouncementLevel(a.level) ? a.level : "info",
@@ -259,6 +271,9 @@ export function home(query: HomeQuery = {}, opts?: RequestOpts): Promise<HomePay
       announcement: p.announcement ? mapAnnouncement(p.announcement) : null,
       articles: Array.isArray(p.articles) ? p.articles.map(mapArticleCard) : [],
       feed: Array.isArray(p.feed) ? p.feed.flatMap(f => mapFeedItem(f) ?? []) : [],
+      // Absent reads as closed, which is the safe direction: a deployment older than the field shows
+      // no call to action rather than one that lands on "nothing is open right now".
+      applicationsOpen: p.applicationsOpen === true,
     };
   });
 }

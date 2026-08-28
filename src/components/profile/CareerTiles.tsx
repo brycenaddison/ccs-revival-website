@@ -10,10 +10,10 @@
  * Eight above the fold and eight behind a disclosure, split by how often a reader wants the number:
  * production and lane first, then shares, efficiency and the sparse extras.
  *
- * **Every tile is the same colour**, which is a deliberate step back. They used to be individually
+ * **Every tile is the same color**, which is a deliberate step back. They used to be individually
  * tinted — blue for lane, orange for damage — and that reads as a rating even though nothing was
  * being rated. On this page only KDA and win rate have thresholds anyone has agreed on, and both of
- * those live elsewhere. Until there is a basis for grading a damage share, sixteen coloured numbers
+ * those live elsewhere. Until there is a basis for grading a damage share, sixteen colored numbers
  * are decoration pretending to be information.
  *
  * Every value comes straight off `career.totals`. Nothing here is derived — the API computes rates
@@ -28,7 +28,7 @@ import { StatTile } from "../stats/StatTile";
 import { ACTION_QUIET } from "../admin/adminUi";
 import { metricText } from "./profileUi";
 
-/** See the header: one colour, until a stat has a basis for having its own. */
+/** See the header: one color, until a stat has a basis for having its own. */
 const TILE_COLOR = "var(--text-bright)";
 
 interface Tile {

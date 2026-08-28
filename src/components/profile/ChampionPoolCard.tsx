@@ -7,7 +7,7 @@
  * wide column back to match history, which genuinely needs the width.
  *
  * Served order is games descending, which is the order the question is asked in, so nothing is
- * re-sorted here. Win rate and KDA are colour-coded because that is what replaces the ability to
+ * re-sorted here. Win rate and KDA are color-coded because that is what replaces the ability to
  * sort: the strong and weak champions stand out without the reader doing anything.
  *
  * Kills, deaths and assists are served as career totals and shown per game — see `avgKdaText`.
@@ -29,9 +29,9 @@ const PREVIEW = 8;
  * There are no column headings: at this size a legend cost a whole row of the card to caption six
  * values that already carry their own units (`3.92 KDA`, `8.42 CS/M`, `24 games`).
  *
- * The flanking tracks are equal `1fr`s and the middle one is `auto`, which is what actually centres
+ * The flanking tracks are equal `1fr`s and the middle one is `auto`, which is what actually centers
  * the middle column in the row. With the right-hand track sized to its content instead, the middle
- * pair sat aligned with each other but pushed well right of centre — correct by the grid's rules
+ * pair sat aligned with each other but pushed well right of center — correct by the grid's rules
  * and wrong to look at.
  */
 const GRID = "grid grid-cols-[30px_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2";

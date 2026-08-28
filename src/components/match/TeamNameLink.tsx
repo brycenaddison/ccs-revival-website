@@ -2,7 +2,7 @@
  * A team named in full, linked to its page, on a surface that only knows its code.
  *
  * The box score and the series totals both identify a team by **code** — that is all the games carry; the
- * full name and the conference live on the fixture. And a code is not what a reader recognises: `XSVH`
+ * full name and the conference live on the fixture. And a code is not what a reader recognizes: `XSVH`
  * over five player rows is a lookup they have to do themselves. So the match page resolves codes once and
  * hands down a `TeamNamer`, and both surfaces render the name the header does.
  *

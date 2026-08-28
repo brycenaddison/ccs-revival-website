@@ -1056,7 +1056,7 @@ function mapIngested(raw: unknown): IngestedGame {
 
   return {
     // `duplicate` is the fallback because it is the outcome that changes nothing: reading an
-    // unrecognised status as `ingested` would report a new result that isn't there.
+    // unrecognized status as `ingested` would report a new result that isn't there.
     status: INGEST_STATUSES.includes(g.status) ? (g.status as IngestedGame["status"]) : "duplicate",
     matchId: str(g.matchId),
     ...(reason === null ? {} : { reason }),

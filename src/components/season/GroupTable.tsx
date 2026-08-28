@@ -5,7 +5,7 @@
  * ranks both come from the API, which resolves series record, then game win percentage, then
  * head-to-head among the teams still level. Head-to-head cannot be recomputed from anything this page
  * loads, and teams level on all three legitimately *share* a rank — renumbering by row would invent an
- * order the league does not recognise. `place` carries the tie marker ("T-2").
+ * order the league does not recognize. `place` carries the tie marker ("T-2").
  *
  * Records here are scoped to this phase's own match days: a group table never counts a result from
  * the playoffs, which is why these rows do not come from `/standings/:conf`.
@@ -78,7 +78,7 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
             {group.standings.map(row => {
               const played = row.seriesWins + row.seriesLosses;
               const pct = played > 0 ? Math.round((row.seriesWins / played) * 100) : 0;
-              // The row's colour is the outcome's colour — one source for the pill, the fill and the
+              // The row's color is the outcome's color — one source for the pill, the fill and the
               // rule, so a standings row and its legend entry cannot disagree. A row with no scenario
               // mapped gets no tint rather than an invented one.
               const tone = row.scenario ? toneForLevel(row.scenario.level) : null;
