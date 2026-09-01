@@ -22,11 +22,11 @@ const LABEL = "font-heading text-sm tracking-wider uppercase whitespace-nowrap";
  * rather than a button; white is ~6:1 and is already the pairing `::selection` and the old
  * registration CTA use. It also drops a raw hex, which the theme tokens exist to avoid.
  *
- * `border border-accent` is load-bearing, not decoration: this sits beside the outlined LOG IN and
+ * `border border-brand` is load-bearing, not decoration: this sits beside the outlined LOG IN and
  * account buttons, which are `border border-border`. Without a border of its own this box was two
  * pixels shorter than its neighbour and the pair looked misaligned on desktop.
  */
-const CTA = `text-white bg-accent border border-accent rounded-md px-3 py-1 no-underline font-semibold ${LABEL}`;
+const CTA = `text-white bg-brand border border-brand rounded-md px-3 py-1 no-underline font-semibold ${LABEL}`;
 
 /** The drawer's full-width row, shared by the button and link branches. */
 const ROW = `flex w-full items-center gap-2 text-left bg-transparent border-none py-3.5 px-5 border-l-[3px] border-l-transparent text-text-secondary ${LABEL}`;
@@ -90,7 +90,7 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
           <Link
             to="/register"
             onClick={onNavigate}
-            className={`block w-full text-left cursor-pointer py-3.5 px-5 border-t border-t-border border-l-[3px] border-l-accent text-accent no-underline ${LABEL}`}
+            className={`block w-full text-left cursor-pointer py-3.5 px-5 border-t border-t-border border-l-[3px] border-l-brand text-brand no-underline ${LABEL}`}
           >
             {applicationsOpen ? "Apply Now" : "Join CCS"}
           </Link>
@@ -135,7 +135,7 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
           <Link
             to="/register"
             onClick={onNavigate}
-            className={`block w-full text-left cursor-pointer py-3.5 px-5 border-t border-t-border border-l-[3px] border-l-accent text-accent no-underline ${LABEL}`}
+            className={`block w-full text-left cursor-pointer py-3.5 px-5 border-t border-t-border border-l-[3px] border-l-brand text-brand no-underline ${LABEL}`}
           >
             Apply Now
           </Link>

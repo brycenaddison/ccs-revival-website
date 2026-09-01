@@ -55,7 +55,7 @@ export function TwitchStreams({ parentDomain }: Props) {
         rel="noopener noreferrer"
         className="block px-4 py-3 no-underline group"
       >
-        <p className="text-[13px] text-text leading-snug m-0 truncate group-hover:text-accent transition-colors">
+        <p className="text-[13px] text-text leading-snug m-0 truncate group-hover:text-brand transition-colors">
           {stream.title || stream.displayName}
         </p>
         <div className="flex items-center gap-2 mt-1 text-[10px] text-text-muted">

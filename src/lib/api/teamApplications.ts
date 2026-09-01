@@ -4,9 +4,16 @@
  * Three flags on a conference are independent and must not be conflated: `listed` decides whether
  * it appears in ordinary site selectors, `applicationsOpen` decides intake, and `active` decides
  * the default schedule feed. Recruiting is a *pre-publication* operation, so the database refuses
- * open intake on a listed conference. Publication is one server transaction that inserts every
- * approved team and sets `listed`, `active` and `teamsPublishedAt` together — there is no partially
- * published field of teams, and approval alone writes no team rows.
+ * open intake on a listed conference.
+ *
+ * **Who may do which is split by audience, and this module is the `roster` half.** Reviewing
+ * applications and publishing the approved ones into `teams` are `roster` calls here — the same
+ * scope that edits a published team — and publishing stamps `teamsPublishedAt` while touching none
+ * of the three flags. Opening or closing intake and making the season public are **site-admin**
+ * calls on the league editor (`admin.ts`'s `setApplicationsOpen` and `listSeason`), because each
+ * changes what the whole site offers. What roster staff get instead is `applicationIntake`, a read
+ * of where the season stands, because the public tournament list cannot describe the hidden season
+ * a queue belongs to. Approval alone still writes no team rows.
  *
  * **The applicant and invitee reads are hydrated now.** Upstream serves `members` with their role
  * assignments, `submittedBy`/`reviewedBy`, and — on an invitation — `conf`, `application`,
@@ -23,10 +30,8 @@
  * Everything here is credentialed — there is no anonymous route in this module.
  */
 
-import { mapTournament } from "./client";
 import { credentialedRequest } from "./credentialed";
 import { ApiError, type RequestOpts } from "./http";
-import type { Tournament } from "./types";
 
 // ----------------------------------------------------------------- vocabularies
 
@@ -78,6 +83,10 @@ export function isDmStatus(v: unknown): v is DmStatus {
  *
  * `owner` and `contact` are administrative and coexist with a playing role — the same person may be
  * the owner and the mid laner. Only the mutually exclusive *playing* assignments are refused.
+ *
+ * **`owner` is a label, not authority.** It records who runs the team for the league's purposes and
+ * nothing else: every write on an application gates on `submittedByProfileId`, so accepting an owner
+ * invitation hands over no control and the person who created the application need not hold it.
  */
 export const TEAM_MEMBER_ROLES = [
   "owner",
@@ -122,6 +131,42 @@ export interface MemberRoleAssignment {
   ordinal: number;
 }
 
+/** A solo-queue rank, with the label already built upstream. */
+export interface MemberRank {
+  tier: string;
+  division: string;
+  leaguePoints: number;
+  /** `"Gold II · 45 LP"`. Built server-side, so the apex-tier rule lives in one place. */
+  label: string;
+}
+
+/**
+ * A member's Riot standing, as the roster panel and the review queue show it.
+ *
+ * **Served from upstream's persistent cache, never a live lookup** — a review queue is dozens of
+ * accounts on the same production key match ingest uses. `refreshApplicationAccounts` is the
+ * deliberate act that freshens it.
+ *
+ * Four states, and collapsing any two of them lies. `cached: false` in particular means "we have
+ * never asked", which is **not** unranked — rendering it that way would put Unranked under a
+ * Challenger whose lookup never ran.
+ */
+export interface MemberRiot {
+  /** Zero blocks submission for anyone in the playing lineup. Unverified claims do not count. */
+  verifiedAccounts: number;
+  rank: MemberRank | null;
+  cached: boolean;
+  fetchedAt: string | null;
+}
+
+/** What a deployment predating the field reads as — absent, not `undefined` in a component. */
+export const NO_MEMBER_RIOT: MemberRiot = {
+  verifiedAccounts: 0,
+  rank: null,
+  cached: false,
+  fetchedAt: null,
+};
+
 /** One invited profile on one proposed team. Includes declined and revoked people: invitation
  * history is what a reviewer reads, and an outstanding `pending` row is the only kind that blocks
  * submission. */
@@ -141,14 +186,15 @@ export interface ApplicationMember {
   revokedAt: string | null;
   dmStatus: DmStatus;
   invitedBy: ProfileRef | null;
+  riot: MemberRiot;
 }
 
 /**
  * One proposed team for one conference.
  *
  * `members`, `submittedBy` and `reviewedBy` are **optional** rather than nullable: absent means the
- * deployed API does not serve them yet, which is a different thing from an application with no
- * members — impossible, since the submitter is seeded as an accepted owner and contact.
+ * deployed API does not serve them yet, which is a different thing from `members: []` — the state
+ * every brand-new draft starts in, since nobody is seeded onto it.
  */
 export interface TeamApplication {
   id: number;
@@ -162,7 +208,10 @@ export interface TeamApplication {
    * conference that has since been deleted.
    */
   confName: string | null;
+  /** The season label ("Summer '26"). Sibling divisions share it, so it never tells them apart. */
   confShortname: string | null;
+  /** The division label ("Apollo") — what every selector strip shows. Null when the league set none. */
+  confCodename: string | null;
   submittedByProfileId: number;
   teamName: string;
   teamCode: string;
@@ -201,12 +250,13 @@ export interface TeamInvitation {
   /** Flat beside the code, and served for the same reason as on an application. */
   confName: string | null;
   confShortname: string | null;
+  confCodename: string | null;
   /**
    * Enough of the application to say whose team is asking — **not** the whole thing. An invitee is
    * not entitled to the rest of the proposed roster, so upstream projects only these fields.
    *
    * `status` matters to the recipient: an invitation on a `submitted` application can no longer be
-   * revised by its owner, so declining it is the only way to change the answer.
+   * revised by the applicant, so declining it is the only way to change the answer.
    */
   application?: {
     id: number;
@@ -227,6 +277,44 @@ export interface ApplicationSeason {
   conf: string;
   name: string;
   shortname: string | null;
+  codename: string | null;
+  /**
+   * The league's rulebook, copied here off its Info document.
+   *
+   * It is served on this list rather than read from `GET /:conf/info` because that read is
+   * **published-only**, and intake opens for a season whose Info page is routinely still a draft —
+   * so a league that had saved its rulebook told every applicant there was none. Upstream ignores
+   * publication entirely for this field.
+   *
+   * `null` means the league named no rulebook, which is now the only reason it can be missing.
+   * Nothing on the server requires one; League Admin → Info Page enforces it client-side.
+   */
+  rulebookUrl: string | null;
+  /**
+   * The league's "read this before you apply" Markdown, copied here off the same Info document and
+   * for the same reason: the public Info read is published-only and intake opens before publication.
+   * Rendered on the registration page with the shared `Markdown` component, exactly as the Info page
+   * renders its body. `null` means the league wrote none, and the page shows nothing for it.
+   */
+  applicationBody: string | null;
+}
+
+/**
+ * Where a season stands, as `GET /tournaments/:conf/applications/intake` reports it to roster staff.
+ *
+ * Read straight off the `tournaments` row rather than derived: the public tournament list is
+ * listed-only and so cannot describe the hidden season a queue belongs to, and `/admin/leagues` is
+ * site-admin only and would `403` for the league admin this read exists for. `applicationsOpen` is
+ * the fact staff need — an empty queue with intake open means more may arrive; the same queue with
+ * intake closed means the field is complete. `listed` and `teamsPublishedAt` ride along because the
+ * publish controls hinge on them. Roster staff can read all three and change none of them.
+ */
+export interface ApplicationIntake {
+  conf: string;
+  applicationsOpen: boolean;
+  listed: boolean;
+  /** Stamped by team publication. Null until the first approved team has been published. */
+  teamsPublishedAt: string | null;
 }
 
 /** A Discord guild member the applicant may invite. Identity is `userId`, never the label. */
@@ -282,8 +370,8 @@ export type InvitationInput = { roles: MemberRoleAssignment[] } & (
  * The upstream limit is generous enough not to think about: the caps below total a little over 4 KB
  * of text, well inside 32 KiB even after JSON escaping, so nothing here has to measure the document.
  *
- * Everything is optional except the acknowledgement, which gates **submission** rather than saving —
- * a draft is allowed to be half-finished, an application sent to staff is not.
+ * Everything is optional except the two acknowledgements, which gate **submission** rather than
+ * saving — a draft is allowed to be half-finished, an application sent to staff is not.
  */
 export interface ApplicationDetails {
   /** The organization behind the team, when it is not simply the team. */
@@ -292,6 +380,12 @@ export interface ApplicationDetails {
   twitter: string | null;
   /** Whether the applicant confirmed they have read the league's rules. */
   rulesAcknowledged: boolean;
+  /**
+   * Whether the applicant confirmed they opened a team-apps ticket in the Discord's #ticket-questions.
+   * The ticket is where staff actually talk to a team, and this is the site's only record that one
+   * exists — nothing here can check Discord for it.
+   */
+  ticketOpened: boolean;
   /** Free text: other leagues played, placements, how long the org has been around. */
   experience: string | null;
 }
@@ -322,14 +416,15 @@ export function twitterUrl(input: string): string | null {
  * Read the details out of a metadata document, defensively.
  *
  * Same posture as every mapper in this layer: a document written by an older build, by a script, or
- * by hand answers absent rather than throwing. An absent `rulesAcknowledged` is **false** — the one
- * field where guessing generously would be a lie about what somebody agreed to.
+ * by hand answers absent rather than throwing. An absent acknowledgement is **false** — the two
+ * fields where guessing generously would be a lie about what somebody agreed to or did.
  */
 export function readApplicationDetails(metadata: Record<string, unknown>): ApplicationDetails {
   return {
     organizationName: strOrNull(metadata.organizationName),
     twitter: strOrNull(metadata.twitter),
     rulesAcknowledged: metadata.rulesAcknowledged === true,
+    ticketOpened: metadata.ticketOpened === true,
     experience: strOrNull(metadata.experience),
   };
 }
@@ -360,6 +455,7 @@ export function writeApplicationDetails(
   put("twitter", details.twitter);
   put("experience", details.experience);
   merged.rulesAcknowledged = details.rulesAcknowledged;
+  merged.ticketOpened = details.ticketOpened;
 
   return merged;
 }
@@ -376,8 +472,7 @@ export interface PublishedTeam {
 }
 
 export interface PublicationResult {
-  /** `published` on the first success, `already_published` on an idempotent retry. */
-  status: "published" | "already_published";
+  status: "published";
   teams: PublishedTeam[];
 }
 
@@ -416,6 +511,25 @@ function mapRoles(v: unknown): MemberRoleAssignment[] {
   });
 }
 
+function mapRank(raw: unknown): MemberRank | null {
+  const r = asRaw(raw);
+  const tier = strOrNull(r.tier);
+  const label = strOrNull(r.label);
+  if (!tier || !label) return null;
+  return { tier, division: str(r.division), leaguePoints: int(r.leaguePoints), label };
+}
+
+function mapRiot(raw: unknown): MemberRiot {
+  if (raw === undefined || raw === null) return NO_MEMBER_RIOT;
+  const r = asRaw(raw);
+  return {
+    verifiedAccounts: int(r.verifiedAccounts),
+    rank: mapRank(r.rank),
+    cached: r.cached === true,
+    fetchedAt: strOrNull(r.fetchedAt),
+  };
+}
+
 function mapMember(raw: unknown): ApplicationMember | null {
   const m = asRaw(raw);
   const id = intOrNull(m.id);
@@ -434,6 +548,7 @@ function mapMember(raw: unknown): ApplicationMember | null {
     revokedAt: strOrNull(m.revokedAt),
     dmStatus: isDmStatus(m.dmStatus) ? m.dmStatus : "pending",
     invitedBy: mapProfileRef(m.invitedBy),
+    riot: mapRiot(m.riot),
   };
 }
 
@@ -449,6 +564,7 @@ function mapApplication(raw: unknown): TeamApplication {
     conf: str(a.conf),
     confName: strOrNull(a.confName),
     confShortname: strOrNull(a.confShortname),
+    confCodename: strOrNull(a.confCodename),
     submittedByProfileId: int(a.submittedByProfileId),
     teamName: str(a.teamName),
     teamCode: str(a.teamCode),
@@ -491,6 +607,7 @@ function mapInvitation(raw: unknown): TeamInvitation {
     conf: strOrNull(i.conf),
     confName: strOrNull(i.confName),
     confShortname: strOrNull(i.confShortname),
+    confCodename: strOrNull(i.confCodename),
     ...(applicationId !== null
       ? {
           application: {
@@ -512,7 +629,24 @@ function mapInvitation(raw: unknown): TeamInvitation {
 
 function mapApplicationSeason(raw: unknown): ApplicationSeason {
   const t = asRaw(raw);
-  return { conf: str(t.conf), name: str(t.name), shortname: strOrNull(t.shortname) };
+  return {
+    conf: str(t.conf),
+    name: str(t.name),
+    shortname: strOrNull(t.shortname),
+    codename: strOrNull(t.codename),
+    rulebookUrl: strOrNull(t.rulebookUrl),
+    applicationBody: strOrNull(t.applicationBody),
+  };
+}
+
+function mapIntake(raw: unknown): ApplicationIntake {
+  const s = asRaw(raw);
+  return {
+    conf: str(s.conf),
+    applicationsOpen: s.applicationsOpen === true,
+    listed: s.listed === true,
+    teamsPublishedAt: strOrNull(s.teamsPublishedAt),
+  };
 }
 
 function mapCandidate(raw: unknown): GuildMemberCandidate | null {
@@ -588,10 +722,15 @@ const forConf = (conf: string): string => `/tournaments/${encodeURIComponent(con
 // ------------------------------------------------------------- applicant reads
 
 /**
- * Hidden conferences a signed-in member may apply to.
+ * Hidden conferences a signed-in member may apply to, each with its `rulebookUrl` and
+ * `applicationBody`.
  *
  * Separate from `GET /tournaments` on purpose: these conferences are deliberately absent from
  * ordinary navigation, and folding them into the season selector would publish them early.
+ *
+ * It is also where the application form gets the rulebook it links its rules confirmation at — see
+ * `ApplicationSeason.rulebookUrl`, which is one request instead of a second read of a document the
+ * public copy of cannot answer for an unpublished page.
  */
 export function openApplicationSeasons(opts?: RequestOpts): Promise<ApplicationSeason[]> {
   return credentialedRequest("/tournaments/applications/open", {}, opts).then(raw =>
@@ -613,7 +752,12 @@ export function myInvitations(opts?: RequestOpts): Promise<TeamInvitation[]> {
 
 // ------------------------------------------------------------ applicant writes
 
-/** Creates a draft and seeds the caller as its accepted owner and contact. */
+/**
+ * Creates a draft. The roster starts **empty** — the caller included — so the captain invites
+ * everybody, themselves among them, and an org manager who plays no part in the team simply does
+ * not appear on it. Control of the application follows `submittedByProfileId`, never the `owner`
+ * role, so an application with nobody on it is still only editable by whoever started it.
+ */
 export function createApplication(
   conf: string,
   input: TeamApplicationInput,
@@ -671,7 +815,8 @@ export function withdrawApplication(
 /**
  * Guild member search, for choosing whom to invite.
  *
- * Owner-only and capped at ten results upstream, against the one configured guild. A `503` means
+ * Restricted to the application's creator and capped at ten results upstream, against the one
+ * configured guild — the gate is `submittedByProfileId`, not the `owner` role. A `503` means
  * the bot is not connected — the rest of the API does not depend on Discord readiness, so this is
  * the one call that can be unavailable on its own.
  */
@@ -745,6 +890,15 @@ export function respondToInvitation(
 
 // ------------------------------------------------------------------ staff side
 
+/**
+ * Where the season stands — intake, listing, and whether any team has been published. Needs the
+ * `roster` scope, like the queue. `404` only if the conference was deleted between the path guard
+ * and the read, which `getOne`-style tolerance would hide, so it throws like any other error.
+ */
+export function applicationIntake(conf: string, opts?: RequestOpts): Promise<ApplicationIntake> {
+  return credentialedRequest(`${forConf(conf)}/intake`, {}, opts).then(mapIntake);
+}
+
 /** Every application in one conference, oldest submission first. Needs the `roster` scope. */
 export function applicationQueue(conf: string, opts?: RequestOpts): Promise<TeamApplication[]> {
   return credentialedRequest(`${forConf(conf)}/review`, {}, opts).then(raw =>
@@ -753,8 +907,11 @@ export function applicationQueue(conf: string, opts?: RequestOpts): Promise<Team
 }
 
 /**
- * Approves or rejects a submitted application. **Approval writes no team rows** — every approved
- * team is created by the publication transaction, and only there.
+ * Approves or rejects a submitted application. **Approval writes no team rows** — publishing does,
+ * and that is a separate command staff run afterwards.
+ *
+ * A rejection also DMs the submitter, best-effort. The site is still authoritative: the decision
+ * shows on their card whether or not the DM arrived, so nothing here reports on it.
  */
 export function reviewApplication(
   conf: string,
@@ -770,41 +927,62 @@ export function reviewApplication(
   ).then(mapApplication);
 }
 
-/**
- * Opens or closes intake. Needs the full conference `admin` scope, not `roster`.
- *
- * A `409` means the conference is already listed: the database enforces
- * `NOT applications_open OR NOT listed`, which is what keeps recruiting a hidden operation.
- */
-export function setApplicationsOpen(
-  conf: string,
-  open: boolean,
-  opts?: RequestOpts,
-): Promise<Tournament> {
-  return credentialedRequest(
-    `${forConf(conf)}/open`,
-    { method: "PATCH", body: { open } },
-    opts,
-  ).then(mapTournament);
+function mapPublication(raw: unknown): PublicationResult {
+  return { status: "published", teams: list(asRaw(raw).teams).map(mapPublishedTeam) };
 }
 
 /**
- * Publishes every approved team, lists the conference and activates it — one transaction.
+ * Creates a team row for every application currently sitting at `approved`. Needs `roster`, the same
+ * scope that edits the team afterwards.
  *
- * Idempotent: a retry after success answers `already_published` with the same rows rather than
- * inserting duplicates. Any failure rolls back every team, every application status and every
- * tournament flag, so there is no state in which half a season exists.
+ * **This does not make the season public** — `admin.ts`'s `listSeason` does, and only a site admin
+ * may run it. Publishing runs while intake is open and while other applications still await review,
+ * so an approved team leaves the queue and becomes editable by roster staff without announcing the
+ * league. It can be run again as more are approved, and it stamps `teamsPublishedAt`.
+ *
+ * Validation is all-or-nothing within one call, so a batch containing one bad roster publishes
+ * none of it; `publishApplication` is the way past that. The duplicate-player check spans published
+ * teams as well as the batch in hand, so publishing in passes cannot start one profile for two teams.
  */
 export function publishTeams(conf: string, opts?: RequestOpts): Promise<PublicationResult> {
-  return credentialedRequest(`${forConf(conf)}/publish`, { method: "POST", body: {} }, opts).then(
-    raw => {
-      const result = asRaw(raw);
-      return {
-        status: result.status === "already_published" ? "already_published" : "published",
-        teams: list(result.teams).map(mapPublishedTeam),
-      };
-    },
-  );
+  return credentialedRequest(
+    `${forConf(conf)}/publish`,
+    { method: "POST", body: {} },
+    opts,
+  ).then(mapPublication);
+}
+
+/** The same transaction over one application. `409 not_approved` for any other state. */
+export function publishApplication(
+  conf: string,
+  id: number,
+  opts?: RequestOpts,
+): Promise<PublicationResult> {
+  return credentialedRequest(
+    `${forConf(conf)}/${id}/publish`,
+    { method: "POST", body: {} },
+    opts,
+  ).then(mapPublication);
+}
+
+/**
+ * Forces a Riot refresh for everybody in one application's playing lineup.
+ *
+ * The rank chips are served from upstream's persistent cache and never trigger a lookup on their
+ * own, so this is the only way to freshen them. Either the applicant or `roster` staff may run it,
+ * and it answers `429` — not the usual `409` — when the deployment's shared Riot budget is spent,
+ * because nothing about the application refused it.
+ */
+export function refreshApplicationAccounts(
+  conf: string,
+  id: number,
+  opts?: RequestOpts,
+): Promise<TeamApplication> {
+  return credentialedRequest(
+    `${forConf(conf)}/${id}/accounts/refresh`,
+    { method: "POST", body: {} },
+    opts,
+  ).then(mapApplication);
 }
 
 /** Namespaced for call sites that want the surface in one object, like `api` and `adminApi`. */
@@ -820,8 +998,10 @@ export const teamApplicationsApi = {
   inviteMember,
   revokeInvitation,
   respondToInvitation,
+  applicationIntake,
   applicationQueue,
   reviewApplication,
-  setApplicationsOpen,
   publishTeams,
+  publishApplication,
+  refreshApplicationAccounts,
 };

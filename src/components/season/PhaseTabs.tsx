@@ -34,7 +34,7 @@ export function PhaseTabs({ phases, selectedId, activeId, onSelect }: Props) {
      * only takes a couple of pixels of overflow to put a scrollbar on a single row of tabs. The
      * tabs used to sit on a `-mb-0.5` that hung them exactly that far past the content box.
      */
-    <div className="mb-4 flex flex-nowrap gap-0 overflow-x-auto overflow-y-hidden border-b-2 border-accent">
+    <div className="mb-4 flex flex-nowrap gap-0 overflow-x-auto overflow-y-hidden border-b-2 border-brand">
       {phases.map(phase => {
         const selected = phase.id === selectedId;
 
@@ -46,14 +46,14 @@ export function PhaseTabs({ phases, selectedId, activeId, onSelect }: Props) {
             aria-current={selected ? "true" : undefined}
             className={`flex shrink-0 cursor-pointer items-center gap-1.5 border-none bg-transparent px-4 py-2.5 font-heading text-[13px] uppercase tracking-wider ${
               selected
-                ? "border-b-2 border-b-accent bg-bg-input text-text-bright"
+                ? "border-b-2 border-b-brand bg-bg-input text-text-bright"
                 : "border-b-2 border-b-transparent text-text-muted"
             }`}
           >
             {phase.name}
             {phase.id === activeId && (
               <span
-                className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand"
                 title="The phase running now"
                 aria-label="The phase running now"
               />

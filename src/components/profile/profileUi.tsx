@@ -176,7 +176,7 @@ export function TeamChip({
       className={`flex min-w-0 items-center gap-2 no-underline ${className ?? ""}`}
     >
       <TeamLogo team={team} code={code} size={size} />
-      <span className="truncate font-heading text-text-bright hover:text-accent">
+      <span className="truncate font-heading text-text-bright hover:text-brand">
         {team?.name ?? code}
       </span>
     </TeamLink>

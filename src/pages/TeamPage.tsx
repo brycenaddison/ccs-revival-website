@@ -28,7 +28,7 @@ export default function TeamPage() {
           <button
             type="button"
             onClick={goBack}
-            className="cursor-pointer border-none bg-transparent text-accent font-heading text-xs tracking-wider uppercase hover:text-text-bright"
+            className="cursor-pointer border-none bg-transparent text-brand font-heading text-xs tracking-wider uppercase hover:text-text-bright"
           >
             &larr; Back
           </button>

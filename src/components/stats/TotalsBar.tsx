@@ -99,7 +99,7 @@ export function TotalsBar({ conf, isMobile }: Props) {
     }`}>
       {tiles.map(t => (
         <span key={String(t.key)} className="whitespace-nowrap">
-          <span className="font-bold text-accent">{t.display}</span> {t.label}
+          <span className="font-bold text-brand">{t.display}</span> {t.label}
         </span>
       ))}
       {footnotes.map(f => (

@@ -36,7 +36,7 @@ export function MobileBottomBar() {
             key={t.path}
             to={seasonLink(t.path)}
             aria-current={current ? "page" : undefined}
-            className={`${ITEM} ${current ? "text-accent" : "text-text-muted"}`}
+            className={`${ITEM} ${current ? "text-brand" : "text-text-muted"}`}
           >
             <Icon size={19} strokeWidth={current ? 2.5 : 2} aria-hidden="true" />
             <span className={`${LABEL} ${current ? "font-bold" : "font-normal"}`}>{t.label}</span>

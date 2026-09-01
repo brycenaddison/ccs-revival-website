@@ -93,7 +93,7 @@ function SideRow({
         >
           <TeamBadge team={toBadge(side.team)} size={20} />
           <span
-            className={`truncate font-heading text-[13px] group-hover:text-accent ${
+            className={`truncate font-heading text-[13px] group-hover:text-brand ${
               won ? "font-bold text-text-bright" : "text-text"
             }`}
           >
@@ -160,7 +160,7 @@ export function BracketMatchCard({ match, terminal, layout, conf, measureRef, sl
         {slotControl === undefined && match.status !== "pending" && (
           <Link
             to={`/match/${match.matchId}`}
-            className="shrink-0 font-mono text-[9px] uppercase text-text-muted no-underline hover:text-accent"
+            className="shrink-0 font-mono text-[9px] uppercase text-text-muted no-underline hover:text-brand"
             title="Open the match page"
           >
             match →
@@ -177,7 +177,7 @@ export function BracketMatchCard({ match, terminal, layout, conf, measureRef, sl
             href={match.streamUrl}
             target="_blank"
             rel="noreferrer"
-            className="shrink-0 text-text-muted hover:text-accent"
+            className="shrink-0 text-text-muted hover:text-brand"
             title="Watch"
           >
             <ExternalLink size={11} aria-hidden="true" />

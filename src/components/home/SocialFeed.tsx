@@ -71,7 +71,7 @@ function FeedRow({ item, isLast }: { item: FeedItem; isLast: boolean }) {
             <span className="text-[10px] text-text-muted">· {timeAgo(item.publishedAt)}</span>
           )}
         </div>
-        <p className="text-[12px] text-text leading-snug line-clamp-2 m-0 group-hover:text-accent transition-colors">
+        <p className="text-[12px] text-text leading-snug line-clamp-2 m-0 group-hover:text-brand transition-colors">
           {item.title}
         </p>
       </div>

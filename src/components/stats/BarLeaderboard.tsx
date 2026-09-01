@@ -12,6 +12,7 @@
  */
 
 import { MEDAL_COLORS } from "../../lib/statUi";
+import { teamGradient } from "../../lib/teamStyle";
 import { PlayerLink } from "../profile/PlayerLink";
 
 export interface BarLeaderboardRow {
@@ -37,6 +38,12 @@ export interface BarLeaderboardRow {
    * `rampColor` in `lib/statUi.ts`. Also used for the block that stands in for a missing logo.
    */
   color?: string;
+  /**
+   * Where the bar's gradient ends, when the subject has a second color — a team's `colorSecondary`,
+   * via `secondaryHex`. Without it the bar fades `color` out toward transparent, which is the look
+   * every team had before the column existed and the one a team with no secondary keeps.
+   */
+  colorEnd?: string;
   logo?: string;
 }
 
@@ -99,7 +106,16 @@ export function BarLeaderboard({
             // No color means the team has none set upstream, which is common. A theme-aware neutral
             // reads on both backgrounds; a hex fallback would be invisible on one of them.
             const brand = row.color;
-            const fill = brand ? `linear-gradient(90deg, ${brand}, ${brand}88)` : "var(--bar-unset)";
+            const fill = brand
+              ? `linear-gradient(90deg, ${brand}, ${row.colorEnd ?? `${brand}88`})`
+              : "var(--bar-unset)";
+            // The stand-in for a missing logo is the same badge gradient the rest of the site draws
+            // for that team, so the block reads as the team and not as a swatch of the bar.
+            const block = brand
+              ? row.colorEnd
+                ? teamGradient(brand, row.colorEnd)
+                : brand
+              : "var(--bar-unset)";
             const slot = selectedKeys?.indexOf(row.key) ?? -1;
             const selected = slot >= 0;
 
@@ -133,13 +149,13 @@ export function BarLeaderboard({
                       style={{ width: 20, height: 20 }}
                     />
                   ) : (
-                    <span className="rounded shrink-0" style={{ width: 20, height: 20, background: brand ?? "var(--bar-unset)" }} />
+                    <span className="rounded shrink-0" style={{ width: 20, height: 20, background: block }} />
                   )}
                   <div className="min-w-0">
                     <PlayerLink
                       profileId={row.profileId}
                       stopPropagation
-                      className={`block truncate font-heading text-[13px] no-underline hover:text-accent ${
+                      className={`block truncate font-heading text-[13px] no-underline hover:text-brand ${
                         isTop3 ? "text-text-bright font-bold" : "text-text font-medium"
                       }`}
                     >
@@ -205,7 +221,7 @@ export function BarLeaderboard({
                 role="button"
                 tabIndex={0}
                 aria-pressed={selected}
-                className={`${layout} ${selected ? "bg-accent/10" : "hover:bg-bg3"}`}
+                className={`${layout} ${selected ? "bg-brand/10" : "hover:bg-bg3"}`}
               >
                 {body}
               </div>

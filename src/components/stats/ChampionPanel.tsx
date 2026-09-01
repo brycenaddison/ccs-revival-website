@@ -320,7 +320,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
                   </span>
                   <TeamLink conf={conf} code={c.bestPlayerTeam} className="inline-flex items-center gap-1.5 no-underline group align-middle">
                     {c.bestPlayerLogo && <img src={c.bestPlayerLogo} alt="" loading="lazy" decoding="async" className="w-4 h-4 rounded object-contain" />}
-                    <span className="text-text-bright group-hover:text-accent font-bold">{c.bestPlayerName}</span>
+                    <span className="text-text-bright group-hover:text-brand font-bold">{c.bestPlayerName}</span>
                     <span className="text-text-secondary">
                       {c.bestPlayerGames ?? 0}g · {c.bestPlayerKda === null ? "—" : fmtRatio(c.bestPlayerKda)} KDA · {fmtPct(c.bestPlayerWinrate)}
                     </span>

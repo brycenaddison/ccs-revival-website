@@ -32,7 +32,7 @@ interface Props {
  * escalate from there, and both stay inside the theme tokens so they carry on either background.
  */
 const TONES: Record<AnnouncementLevel, { border: string; label: string; text: string }> = {
-  info: { border: "border-accent/60", label: "text-accent", text: "Announcement" },
+  info: { border: "border-brand/60", label: "text-brand", text: "Announcement" },
   warning: { border: "border-ccs-gold/60", label: "text-ccs-gold", text: "Heads up" },
   critical: { border: "border-ccs-red", label: "text-ccs-red", text: "Important" },
 };
@@ -91,7 +91,7 @@ export function AnnouncementCard({ announcement, teamCount, splitName, isMobile 
             href={announcement.linkUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mt-3.5 rounded-md border border-border px-3 py-1.5 font-heading text-xs tracking-wider uppercase text-text-bright no-underline hover:border-accent transition-colors"
+            className="inline-flex items-center gap-1.5 mt-3.5 rounded-md border border-border px-3 py-1.5 font-heading text-xs tracking-wider uppercase text-text-bright no-underline hover:border-brand transition-colors"
           >
             {label}
             <ArrowRight size={13} />

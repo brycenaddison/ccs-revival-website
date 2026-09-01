@@ -1,3 +1,4 @@
+import { teamGradient } from "../lib/teamStyle";
 import { teamInitial } from "../lib/utils";
 
 interface TeamBadgeProps {
@@ -38,7 +39,7 @@ export function TeamBadge({ team, size = 24 }: TeamBadgeProps) {
         width: size,
         height: size,
         borderRadius: size > 24 ? 6 : 4,
-        background: `linear-gradient(135deg, ${team?.color_primary || "#333"}, ${team?.color_accent || "#555"})`,
+        background: teamGradient(team?.color_primary || "#333", team?.color_accent || "#555"),
         fontSize: Math.max(8, size * 0.4),
       }}
     >

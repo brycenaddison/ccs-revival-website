@@ -30,6 +30,7 @@ import { CONTROL_CLASS } from "../../stats/FilterBar";
 import { ACTION, ACTION_PRIMARY, ACTION_SM, ACTION_SM_DANGER, ErrorLine, Pill } from "../../admin/adminUi";
 import { DefinitionForm, DefinitionRow, KindPill } from "../../admin/accolades/accoladeUi";
 import { SettingsRow } from "../../settings/SettingsSection";
+import { ConfirmButton } from "../../ConfirmButton";
 import { Toast } from "../../Toast";
 import { useDebounced } from "../../../hooks/useDebounced";
 import { queries, queryRoots } from "../../../lib/queries";
@@ -285,29 +286,29 @@ function IssuedPanel({ conf, definitions, accolades, teams, onSaved }: IssuedPro
                     <Pencil size={13} aria-hidden="true" />
                     Edit
                   </button>
-                  <button
-                    type="button"
+                  <ConfirmButton
+                    title={`Revoke “${accolade.definition.name}”?`}
+                    description={
+                      accolade.recipients.length === 1
+                        ? `It disappears from ${accolade.recipients[0].nickname ?? "the recipient"}'s profile. The definition stays, so it can be awarded again.`
+                        : `It disappears from all ${accolade.recipients.length} recipients' profiles. The definition stays, so it can be awarded again.`
+                    }
+                    confirmLabel="Revoke"
+                    onConfirm={() => remove.mutate(accolade.id)}
                     disabled={remove.isPending}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Revoke “${accolade.definition.name}” from ${accolade.recipients.length} recipient(s)? This removes it from their profiles.`,
-                        )
-                      ) {
-                        remove.mutate(accolade.id);
-                      }
-                    }}
-                    className={ACTION_SM_DANGER}
-                  >
-                    <Trash2 size={13} aria-hidden="true" />
-                    Revoke
-                  </button>
+                    trigger={
+                      <button type="button" className={ACTION_SM_DANGER}>
+                        <Trash2 size={13} aria-hidden="true" />
+                        Revoke
+                      </button>
+                    }
+                  />
                 </span>
               </div>
               <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                 {accolade.recipients.map(recipient => (
                   <li key={recipient.profileId} className="text-sm">
-                    <PlayerLink profileId={recipient.profileId} className="text-accent">
+                    <PlayerLink profileId={recipient.profileId} className="text-brand">
                       {recipient.nickname ?? `profile ${recipient.profileId}`}
                     </PlayerLink>
                   </li>
@@ -499,7 +500,7 @@ function IssueForm({ conf, accolade, definitions, teams, onDone, onCancel }: Iss
                     type="button"
                     onClick={() => toggle(recipient)}
                     title="Remove"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-accent/50 px-2.5 py-0.5 bg-transparent cursor-pointer font-heading text-[10px] tracking-wider uppercase text-text-bright"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-brand/50 px-2.5 py-0.5 bg-transparent cursor-pointer font-heading text-[10px] tracking-wider uppercase text-text-bright"
                   >
                     {recipient.name}
                     <X size={11} aria-hidden="true" />
@@ -530,7 +531,7 @@ function IssueForm({ conf, accolade, definitions, teams, onDone, onCancel }: Iss
               type="checkbox"
               checked={thisLeagueOnly}
               onChange={e => setThisLeagueOnly(e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-accent"
+              className="h-4 w-4 cursor-pointer accent-brand"
             />
             Only this league's players
           </label>
@@ -554,7 +555,7 @@ function IssueForm({ conf, accolade, definitions, teams, onDone, onCancel }: Iss
                         type="checkbox"
                         checked={picked}
                         onChange={() => toggle({ profileId: hit.profileId, name })}
-                        className="h-4 w-4 cursor-pointer accent-accent"
+                        className="h-4 w-4 cursor-pointer accent-brand"
                       />
                       {hit.avatar ? (
                         <img

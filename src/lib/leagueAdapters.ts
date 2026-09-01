@@ -10,7 +10,6 @@
 import {
   fmtRatio,
   hexFromInt,
-  lighten,
   type PlayerStats,
   type StandingRow,
   type TeamRecord,
@@ -18,6 +17,7 @@ import {
   type Tournament,
 } from "./api";
 import { rosterEntries } from "./roster";
+import { accentHex, type TeamColors } from "./teamStyle";
 import type { Player, Roster, Split, Standing, Team } from "../types/league";
 
 /**
@@ -43,12 +43,17 @@ export function parseTeamKey(id: string | null | undefined): ParsedTeamKey | nul
   return { conf: id.slice(0, i), code: id.slice(i + 1) };
 }
 
+/*
+ * `color_accent` is the gradient's second stop, and `accentHex` in `lib/teamStyle.ts` is the only
+ * thing that decides it — the team's own `colorSecondary` when it has set one, the lightened primary
+ * the site always drew otherwise. Both adapters below go through it so a badge and a team card cannot
+ * disagree about the same team.
+ */
 function toTeamBase(
   code: string,
   name: string,
   conf: string,
-  color: number | null,
-  colorHex: string,
+  colors: TeamColors,
   logo: string | undefined,
   groupName?: string,
 ): Team {
@@ -56,8 +61,8 @@ function toTeamBase(
     id: teamKey(conf, code),
     name,
     abbreviation: code,
-    color_primary: colorHex,
-    color_accent: color === null || color === 0 ? lighten(colorHex, 0.25) : lighten(colorHex, 0.35),
+    color_primary: colors.colorHex,
+    color_accent: accentHex(colors),
     logo_url: logo,
     ...(groupName ? { divisions: { name: groupName } } : {}),
   };
@@ -68,34 +73,29 @@ function toTeamBase(
  *
  * The season document has no team ids and needs none — `TeamLink` takes conf and code directly — so
  * building a whole synthetic `Team` just to draw a badge would be inventing an identity nobody asked
- * for. This mirrors the color handling in `toTeamBase` exactly, unset branch included, so a badge
- * looks the same whichever read it came from.
+ * for. Same `accentHex` as `toTeamBase`, so a badge looks the same whichever read it came from.
  */
-export function toBadge(team: {
-  name: string;
-  colorHex: string;
-  color: number | null;
-  logo?: string;
-}): { name: string; color_primary: string; color_accent: string; logo_url?: string } {
+export function toBadge(
+  team: TeamColors & { name: string; logo?: string },
+): { name: string; color_primary: string; color_accent: string; logo_url?: string } {
   return {
     name: team.name,
     color_primary: team.colorHex,
-    color_accent:
-      team.color === null || team.color === 0 ? lighten(team.colorHex, 0.25) : lighten(team.colorHex, 0.35),
+    color_accent: accentHex(team),
     logo_url: team.logo,
   };
 }
 
 export function toTeam(rec: TeamRecord, groupName?: string): Team {
-  return toTeamBase(rec.code, rec.name, rec.conf ?? "", rec.color, rec.colorHex, rec.logo, groupName);
+  return toTeamBase(rec.code, rec.name, rec.conf ?? "", rec, rec.logo, groupName);
 }
 
 export function toTeamFromStats(s: TeamStats, groupName?: string): Team {
-  return toTeamBase(s.code, s.name, s.conf, s.color, s.colorHex, s.logo, groupName);
+  return toTeamBase(s.code, s.name, s.conf, s, s.logo, groupName);
 }
 
 export function toTeamFromStanding(s: StandingRow, groupName?: string): Team {
-  return toTeamBase(s.code, s.name, s.conf, s.color, s.colorHex, s.logo, groupName);
+  return toTeamBase(s.code, s.name, s.conf, s, s.logo, groupName);
 }
 
 // ------------------------------------------------------------------- standings
@@ -264,13 +264,15 @@ export function toSplits(tournaments: readonly Tournament[]): Split[] {
 export const DEFAULT_TEAM_HEX = hexFromInt(null);
 
 /**
- * Display label per conf, for grouping standings when several run at once.
+ * Display label per conf, for telling concurrent conferences apart — the strips on Standings, Stats,
+ * Teams and the Home standings panel all label their tabs from this one map.
  *
- * A conf *is* a tournament, so concurrent divisions are separate confs (e.g. `5a`, `5b`,
- * `5c`). Always use the full `name` here: `shortname` exists to tell a team which tournament
- * it played in — where there's no ambiguity, since a team only plays one division — so
- * sibling confs deliberately share it (`wed` and `thu` are both "Summer '22"). It can't
- * distinguish groups.
+ * A conf *is* a tournament, so concurrent divisions are separate confs (e.g. `5a`, `5b`, `5c`).
+ * The label is the conference's **`codename`** ("Apollo", "Mars") — the field upstream serves for
+ * exactly this, edited as "Division Name" in Site Admin → Leagues — falling back to the full `name`
+ * for a league that has not set one. Never `shortname`: it is the **season** label, it exists to tell
+ * a team which season it played in, and sibling confs deliberately share it (`wed` and `thu` are both
+ * "Summer '22"), so it cannot distinguish groups.
  */
 export function groupLabels(
   tournaments: readonly Tournament[],
@@ -278,8 +280,9 @@ export function groupLabels(
 ): Map<string, string> {
   return new Map(
     confs.map(conf => {
-      const name = tournaments.find(t => t.conf === conf)?.name;
-      return [conf, name && name.trim() !== "" ? name : conf.toUpperCase()];
+      const t = tournaments.find(t => t.conf === conf);
+      const label = t?.codename ?? t?.name;
+      return [conf, label && label.trim() !== "" ? label : conf.toUpperCase()];
     }),
   );
 }

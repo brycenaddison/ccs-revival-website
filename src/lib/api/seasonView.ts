@@ -24,7 +24,7 @@
  */
 
 import { getOne, type RequestOpts } from "./http";
-import { hexFromInt, httpsUrl, numOrNull } from "./normalize";
+import { colorSecondaryOf, hexFromInt, httpsUrl, numOrNull } from "./normalize";
 import type { BestOf, SlotOutput, SlotSide } from "./season";
 
 // ---------------------------------------------------------------- vocabulary
@@ -43,6 +43,8 @@ export interface SeasonTeam {
   logo?: string;
   color: number | null;
   colorHex: string;
+  /** Secondary branding color. Absent until upstream serves it on this read — see `TeamRecord`. */
+  colorSecondary?: number | null;
 }
 
 /**
@@ -83,6 +85,8 @@ export interface SeasonGroupRow {
   logo?: string;
   color: number | null;
   colorHex: string;
+  /** Secondary branding color. Absent until upstream serves it on this read — see `TeamRecord`. */
+  colorSecondary?: number | null;
   seriesWins: number;
   seriesLosses: number;
   gameWins: number;
@@ -315,6 +319,7 @@ function mapTeam(raw: unknown): SeasonTeam | null {
     logo: httpsUrl(strOrNull(t.logo)),
     color,
     colorHex: hexFromInt(color),
+    ...colorSecondaryOf(t),
   };
 }
 
@@ -354,6 +359,7 @@ function mapGroupRow(raw: unknown, index: number): SeasonGroupRow {
     logo: httpsUrl(strOrNull(r.logo)),
     color,
     colorHex: hexFromInt(color),
+    ...colorSecondaryOf(r),
     seriesWins: int(r.seriesWins),
     seriesLosses: int(r.seriesLosses),
     gameWins: int(r.gameWins),

@@ -74,7 +74,7 @@ export function ArticlesSection() {
             aria-pressed={status === s.value}
             className={`rounded-full border px-3 py-1 font-heading text-[10px] tracking-wider uppercase cursor-pointer ${
               status === s.value
-                ? "border-accent text-text-bright"
+                ? "border-brand text-text-bright"
                 : "border-border text-text-dim"
             }`}
           >

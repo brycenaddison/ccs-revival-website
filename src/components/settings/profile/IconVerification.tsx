@@ -165,7 +165,7 @@ export function IconVerification({
   const canRestart = !fatal && (expired || deadStatus === "missing");
 
   return (
-    <div className="mt-2 rounded-md border border-accent/40 bg-bg2 p-3">
+    <div className="mt-2 rounded-md border border-brand/40 bg-bg2 p-3">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-heading text-sm uppercase tracking-wider text-text-bright">

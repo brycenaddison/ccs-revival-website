@@ -27,6 +27,7 @@ import {
   type TeamDetail,
 } from "../../lib/api";
 import { queries } from "../../lib/queries";
+import { toBadge } from "../../lib/leagueAdapters";
 import { joinRoster, type RosterEntry } from "../../lib/roster";
 import { PlayerLink } from "../profile/PlayerLink";
 import { TeamBadge } from "../TeamBadge";
@@ -204,12 +205,9 @@ function Starters({ team, conf }: { team: TeamDetail; conf: string }) {
   return (
     <div className="mb-4 overflow-hidden rounded-lg border border-border bg-bg2">
       <div className="flex items-center gap-2 border-b border-border bg-bg3 px-4 py-2.5">
-        <TeamBadge
-          team={{ name: team.name, color_primary: team.colorHex, color_accent: team.colorHex, logo_url: team.logo }}
-          size={20}
-        />
+        <TeamBadge team={toBadge(team)} size={20} />
         <TeamLink conf={conf} code={team.code} className="min-w-0 no-underline">
-          <span className="truncate font-heading text-xs font-semibold text-text hover:text-accent">
+          <span className="truncate font-heading text-xs font-semibold text-text hover:text-brand">
             {team.name}
           </span>
         </TeamLink>
@@ -281,7 +279,7 @@ function StarterRow({ entry }: { entry: RosterEntry<PlayerStatsRanked> }) {
         className="truncate py-2 pl-4 pr-2 font-heading text-xs font-semibold text-text-bright"
         title={entry.name}
       >
-        <PlayerLink profileId={entry.profileId} className="text-text-bright no-underline hover:text-accent">{entry.name}</PlayerLink>
+        <PlayerLink profileId={entry.profileId} className="text-text-bright no-underline hover:text-brand">{entry.name}</PlayerLink>
       </td>
       <td className="py-2 px-2 font-heading text-[10px] tracking-wider text-text-muted">
         {roleLabel(entry.role)}
@@ -359,7 +357,7 @@ function RecentGames({ team, conf }: { team: TeamDetail; conf: string }) {
     <div className="overflow-hidden rounded-lg border border-border bg-bg2">
       <div className="flex items-baseline gap-2 border-b border-border bg-bg3 px-4 py-2.5">
         <TeamLink conf={conf} code={team.code} className="min-w-0 no-underline">
-          <span className="truncate font-heading text-xs font-semibold text-text hover:text-accent">
+          <span className="truncate font-heading text-xs font-semibold text-text hover:text-brand">
             {team.name}
           </span>
         </TeamLink>

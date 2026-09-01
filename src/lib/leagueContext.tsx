@@ -12,7 +12,13 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { errorMessage, resolveActiveConfs, sortByRecency, type Tournament } from "./api";
+import {
+  errorMessage,
+  resolveActive,
+  sortByRecency,
+  type ActiveSource,
+  type Tournament,
+} from "./api";
 import { queries } from "./queries";
 
 /** Selection sentinel meaning "whatever is running now", however many confs that is. */
@@ -26,6 +32,11 @@ interface LeagueContextValue {
   tournaments: Tournament[];
   /** Confs that make up the league running now. */
   activeConfs: string[];
+  /**
+   * Which rule produced `activeConfs`. `flagged` is the only one the server shares, so it is the only
+   * one under which a read may leave the conference to the server's default — see `useFeedQuery`.
+   */
+  activeSource: ActiveSource | null;
   /** Either `CURRENT` or a specific conf id. */
   selection: string;
   setSelection: (value: string) => void;
@@ -46,9 +57,10 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   // session. Ordering and "which season is now" are derived here rather than served — see
   // `lib/api/league.ts`.
   const { data, isPending, error: failure } = useQuery(queries.tournaments());
-  const { tournaments, activeConfs } = useMemo(() => {
+  const { tournaments, activeConfs, activeSource } = useMemo(() => {
     const list = sortByRecency(data ?? []);
-    return { tournaments: list, activeConfs: resolveActiveConfs(list) };
+    const active = resolveActive(list);
+    return { tournaments: list, activeConfs: active.confs, activeSource: active.source };
   }, [data]);
 
   const loading = isPending;
@@ -101,6 +113,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     () => ({
       tournaments,
       activeConfs,
+      activeSource,
       selection,
       setSelection,
       selectedConfs,
@@ -111,7 +124,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       loading,
       error,
     }),
-    [tournaments, activeConfs, selection, setSelection, selectedConfs, loading, error],
+    [tournaments, activeConfs, activeSource, selection, setSelection, selectedConfs, loading, error],
   );
 
   return <LeagueCtx.Provider value={value}>{children}</LeagueCtx.Provider>;

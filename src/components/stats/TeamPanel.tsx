@@ -35,6 +35,7 @@ import {
 } from "../../lib/api";
 import { queries } from "../../lib/queries";
 import { joinRoster } from "../../lib/roster";
+import { secondaryHex, teamGradientFor } from "../../lib/teamStyle";
 import { PlayerLink } from "../profile/PlayerLink";
 import { flattenGroups, sortByCell, TEAM_STAT_GROUPS, type StatCell } from "../../lib/statGroups";
 import { int, pct } from "../../lib/statFormat";
@@ -288,6 +289,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
             // Only when the team really has one: `colorHex` substitutes a dark gray for the many teams
             // with no color set, and a bar in that gray is invisible on the dark page.
             color: t.color ? t.colorHex : undefined,
+            colorEnd: secondaryHex(t),
           })}
         />
       ) : (
@@ -319,11 +321,11 @@ export function TeamPanel({ conf, isMobile }: Props) {
             >
               {t.logo
                 ? <img src={t.logo} alt="" loading="lazy" decoding="async" className="w-7 h-7 rounded object-contain shrink-0" />
-                : <span className="w-7 h-7 rounded shrink-0 flex items-center justify-center text-white font-bold text-xs" style={{ background: t.color ? t.colorHex : "var(--bar-unset)" }}>{t.code.charAt(0)}</span>}
+                : <span className="w-7 h-7 rounded shrink-0 flex items-center justify-center text-white font-bold text-xs" style={{ background: t.color ? teamGradientFor(t) : "var(--bar-unset)" }}>{t.code.charAt(0)}</span>}
               <div className="min-w-0">
                 {/* Not the team's own color: it is unset for many teams and resolves to a dark gray
                     that is unreadable on this background. The logo carries the identity. */}
-                <div className="font-display text-[15px] tracking-wide truncate text-text-bright group-hover:text-accent">
+                <div className="font-display text-[15px] tracking-wide truncate text-text-bright group-hover:text-brand">
                   {t.name}
                 </div>
                 <div className="text-[10px] text-text-secondary font-mono">{t.code}</div>
@@ -343,7 +345,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
                     {starters.map((e, j) => (
                       <span key={e.key}>
                         {j > 0 && <span className="text-text-subtle"> · </span>}
-                        <PlayerLink profileId={e.profileId} stopPropagation className="text-text-secondary no-underline hover:text-accent">{e.name}</PlayerLink>
+                        <PlayerLink profileId={e.profileId} stopPropagation className="text-text-secondary no-underline hover:text-brand">{e.name}</PlayerLink>
                         {e.role && <span className="text-text-subtle"> {roleLabel(e.role).slice(0, 3)}</span>}
                       </span>
                     ))}

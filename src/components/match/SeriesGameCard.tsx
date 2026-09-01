@@ -264,7 +264,7 @@ function SideTable({
                       size={22}
                       className="flex w-[22px] shrink-0 items-center justify-center overflow-hidden text-[9px] text-text-dim"
                     />
-                    <PlayerLink profileId={p.profileId} className="min-w-0 truncate text-xs text-text no-underline hover:text-accent" title={p.name ?? undefined}>
+                    <PlayerLink profileId={p.profileId} className="min-w-0 truncate text-xs text-text no-underline hover:text-brand" title={p.name ?? undefined}>
                       {p.name ?? "Unknown"}
                     </PlayerLink>
                   </div>

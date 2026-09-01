@@ -14,15 +14,17 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus } from "lucide-react";
-import { ACTION, ACTION_PRIMARY, ErrorLine } from "../admin/adminUi";
+import { ACTION, ACTION_PRIMARY, ColorField, ErrorLine, TeamStylePreview } from "../admin/adminUi";
 import { CONTROL_CLASS } from "../stats/FilterBar";
 import { SettingsRow } from "../settings/SettingsSection";
 import { ImageUpload } from "../ImageUpload";
 import { queries, queryRoots } from "../../lib/queries";
+import { DISCORD_INVITE } from "../../lib/siteLinks";
 import {
   createApplication,
   errorMessage,
   hexFromInt,
+  intFromHex,
   readApplicationDetails,
   replaceApplication,
   twitterUrl,
@@ -45,7 +47,7 @@ interface Props {
   onCancel?: () => void;
 }
 
-/**
+/*
  * Both colors are required, so there is no clearing and no empty state to represent.
  *
  * That is what removed the "Set" checkbox each one used to carry: `<input type="color">` always
@@ -53,16 +55,10 @@ interface Props {
  * black" — a distinction that stops mattering once a team must have both. An application saved
  * before they were required arrives with `null`, which seeds a default rather than an empty control.
  *
- * Upstream reads `0` (black) as unset, so pure black is nudged to `#010101`: visually identical, and
- * it survives the round trip instead of coming back as "no color".
+ * The hex-to-integer conversion and its pure-black nudge are `intFromHex` in the API layer, beside
+ * the `hexFromInt` this form reads with — League Admin → Teams edits the same two columns and the
+ * two forms must not disagree about what black means.
  */
-const NEARLY_BLACK = 0x010101;
-
-function colorFromHex(hex: string): number {
-  const parsed = Number.parseInt(hex.replace("#", ""), 16);
-  if (!Number.isFinite(parsed)) return NEARLY_BLACK;
-  return parsed === 0 ? NEARLY_BLACK : parsed;
-}
 
 export function ApplicationForm({ conf, application = null, onDone, onCancel }: Props) {
   const qc = useQueryClient();
@@ -86,6 +82,7 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
   const [twitter, setTwitter] = useState(seeded.twitter ?? "");
   const [experience, setExperience] = useState(seeded.experience ?? "");
   const [rulesRead, setRulesRead] = useState(seeded.rulesAcknowledged);
+  const [ticketOpened, setTicketOpened] = useState(seeded.ticketOpened);
 
   const trimmedName = name.trim();
   const trimmedCode = code.trim();
@@ -100,8 +97,8 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
         // Upstream reads `null` as "no logo" and refuses an empty string, so an emptied box has to
         // become `null`.
         logo: trimmedLogo === "" ? null : trimmedLogo,
-        color: colorFromHex(primary),
-        colorSecondary: colorFromHex(secondary),
+        color: intFromHex(primary),
+        colorSecondary: intFromHex(secondary),
         // Merged over what was there rather than rebuilt: `PUT` replaces the whole application
         // document, so a question this build doesn't know about would be erased by a save. See
         // `writeApplicationDetails`.
@@ -110,6 +107,7 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
           twitter: twitterUrl(twitter),
           experience: experience.trim() === "" ? null : experience.trim(),
           rulesAcknowledged: rulesRead,
+          ticketOpened,
         }),
         message: trimmedMessage === "" ? null : trimmedMessage,
       };
@@ -146,12 +144,9 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
         />
       </SettingsRow>
 
-      {/* Case is the applicant's. It used to be forced to upper, which made "DoG" impossible to
-          write — and mixed case is a real branding choice, not a typo. Uniqueness upstream is
-          checked case-insensitively, so "DoG" and "DOG" still can't both exist in one league. */}
       <SettingsRow
         label="Tag"
-        hint={`The short form used on scoreboards and brackets, e.g. “TSM” or “DoG”. Up to ${APPLICATION_CODE_MAX} characters, capitalized however you like, and it has to be unique in this league.`}
+        hint={`The short form used on scoreboards and brackets, e.g. “TSM”. Up to ${APPLICATION_CODE_MAX} characters, capitalized however you like, and it has to be unique in this league.`}
       >
         <input
           value={code}
@@ -176,21 +171,30 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
 
       <SettingsRow
         label="Primary Color"
-        hint="Your team's main color — it fills your badge and your side of a bracket line. Required."
+        hint="Your team's main color. Required."
       >
         <ColorField id="primary-color" value={primary} onChange={setPrimary} />
       </SettingsRow>
 
       <SettingsRow
         label="Secondary Color"
-        hint="The accent that goes with it. Pick something that reads against the primary rather than beside it. Required."
+        hint="An accent for your team's primary color. Pick something that reads against the primary rather than beside it. Required."
       >
         <ColorField id="secondary-color" value={secondary} onChange={setSecondary} />
       </SettingsRow>
 
+      {/* Drawn from the same gradient recipe the site uses, so what reads badly here reads badly on
+          the standings too — which is the moment to change it, not after publication. */}
+      <SettingsRow
+        label="Preview"
+        hint="How the pair reads on your badge and across a team card. Updates as you type."
+      >
+        <TeamStylePreview name={name} code={code} logo={logo} primary={primary} secondary={secondary} />
+      </SettingsRow>
+
       <SettingsRow
         label="Organization"
-        hint="The org behind the team, if there is one. Leave it empty if the team is the whole of it."
+        hint="The org behind the team, if there is one."
       >
         <input
           value={organization}
@@ -203,7 +207,7 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
 
       <SettingsRow
         label="Twitter / X"
-        hint="A link or a handle — “@yourteam” works. Optional, and it's for the league to find you, not a requirement to have one."
+        hint="A link or a handle. Optional, and it's for the league to find you, not a requirement to have one."
       >
         <input
           value={twitter}
@@ -238,7 +242,7 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
 
       <SettingsRow
         label="Note for the league staff"
-        hint="Optional. Anything they should know while reviewing — a preferred match night, a returning roster, a question."
+        hint="Optional. Anything they should know while reviewing."
       >
         <textarea
           value={message}
@@ -257,10 +261,11 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
         Save here. Ticking it and never saving would also be meaningless, since the box *is* the
         stored answer.
 
-        The link is the league's own `rulebookUrl`, read straight off its Info document — see
-        `RulesAcknowledgement`. It deliberately does **not** route through `/info?conf=`: an unlisted
-        season cannot be selected there, and teaching the site-wide season param to accept one so this
-        link could work meant letting it name a league with no teams and no name for the selector.
+        The link is the league's own `rulebookUrl`, carried on the open-seasons list this page
+        already loads — see `RulesAcknowledgement`. It deliberately does **not** route through
+        `/info?conf=`: an unlisted season cannot be selected there, and teaching the site-wide season
+        param to accept one so this link could work meant letting it name a league with no teams and
+        no name for the selector.
       */}
       <SettingsRow label="League rules">
         <RulesAcknowledgement
@@ -268,6 +273,14 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
           checked={rulesRead}
           onChange={setRulesRead}
         />
+      </SettingsRow>
+
+      {/* Same rules as the acknowledgement above: stored on save, required to submit, and the box is
+          the record. Staff run team applications through a Discord ticket, and the site has no way to
+          see whether one exists — so this is the applicant's word, and the readiness checklist on the
+          card is what holds Submit until they give it. */}
+      <SettingsRow label="Discord ticket">
+        <TicketAcknowledgement checked={ticketOpened} onChange={setTicketOpened} />
       </SettingsRow>
 
       <div className="flex gap-2">
@@ -282,10 +295,11 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
         )}
       </div>
 
+      {/* Says nothing about who owns the team. The roster starts empty and every member — the
+          captain included — arrives through an invitation, so nothing here is decided by saving. */}
       {isNew && (
         <p className="mt-2 text-xs text-text-dim">
-          Nothing is sent to the league until you submit it. You'll be set as the team's owner, and
-          you can invite your players next.
+          Nothing is sent to the league until you submit it. You can invite your players next.
         </p>
       )}
 
@@ -294,34 +308,24 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
   );
 }
 
-interface ColorFieldProps {
-  id: string;
-  value: string;
-  onChange: (hex: string) => void;
-}
-
 /**
  * The rules confirmation, pointed at the league's own rulebook.
  *
- * The URL comes from the league's published Info document, which the League Admin editor requires —
- * so this is the document the league actually published rather than a hardcoded link or a quick link
- * matched by label. `GET /:conf/info` is public and **not gated on the season being listed**, which
- * is what lets an unlisted season being applied to answer this at all.
- *
- * **A missing link here does not mean the league has no rulebook.** `GET /:conf/info` is
- * published-only — `getPublished` filters on `isPublished` — so a league that has filled in its
- * rulebook and left its Info page as a draft reads exactly like a league that never set one. The
- * applicant cannot tell those apart, and neither can this component: the draft-aware read is
- * league-admin only. So the copy below says the link is unavailable rather than accusing the league of
- * not having one, and League Admin → Team Applications warns the person who can actually fix it.
+ * The URL rides on `GET /tournaments/applications/open` — the same list the page above reads to
+ * decide which seasons are taking teams, so this costs no request of its own and the query is
+ * already warm. It used to come from public `GET /:conf/info`, which was **published-only**: a
+ * league that filled its rulebook in and left its Info page a draft showed every applicant no link
+ * at all, indistinguishable from a league that had never set one. Upstream now serves the field
+ * here regardless of publication, so `null` means exactly one thing — the league named no rulebook.
  *
  * Two degradations, both deliberate:
  *
  *  - **While the read is in flight** the checkbox is offered anyway, unlinked. Blocking it would gate
  *    the whole form on a request that has nothing to do with the answer.
  *  - **With no link** the confirmation stays and says where to ask. Refusing to let anybody apply
- *    because a league admin hasn't published a page is the league's mistake landing on the applicant,
- *    and the acknowledgement is still an accurate record of what they were shown.
+ *    because a league admin hasn't filled in a field is the league's mistake landing on the
+ *    applicant, and the acknowledgement is still an accurate record of what they were shown.
+ *    League Admin → Team Applications warns the person who can actually fix it.
  */
 function RulesAcknowledgement({
   conf,
@@ -332,8 +336,8 @@ function RulesAcknowledgement({
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
-  const { data: info, isPending } = useQuery(queries.leagueInfo(conf));
-  const rulebook = info?.rulebookUrl ?? null;
+  const { data: seasons, isPending } = useQuery(queries.openApplicationSeasons());
+  const rulebook = seasons?.find(season => season.conf === conf)?.rulebookUrl ?? null;
 
   return (
     <>
@@ -342,47 +346,75 @@ function RulesAcknowledgement({
           type="checkbox"
           checked={checked}
           onChange={e => onChange(e.target.checked)}
-          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-accent"
+          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand"
         />
         <span>
-          I have read{" "}
+          I have read all{" "}
           {rulebook === null ? (
-            <>this league's rules</>
+            <>CCS rules and procedures</>
           ) : (
             <a
               href={rulebook}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent no-underline hover:text-text-bright"
+              className="text-brand no-underline hover:text-text-bright"
             >
-              this league's rulebook
+              CCS rules and procedures
             </a>
           )}{" "}
-          and my team will follow them.
+          and acknowledge that failure to oblige with the rules can result in punishment.
         </span>
       </label>
       {rulebook === null && !isPending && (
         <p className="mt-1.5 text-xs text-text-dim">
-          The rulebook link isn't available on the site yet — ask staff on Discord for a copy before
-          you confirm.
+          This league hasn't linked a rulebook — ask staff on Discord for a copy before you confirm.
         </p>
       )}
     </>
   );
 }
 
-/** The swatch, with its hex beside it as a read-only caption so the value is legible at a glance. */
-function ColorField({ id, value, onChange }: ColorFieldProps) {
+/**
+ * The Discord ticket confirmation.
+ *
+ * The wording is a question on purpose — it is the instruction as much as the acknowledgement, and the
+ * person who has not opened a ticket needs to be told where to go, not only asked. "The discord" links
+ * to the server invite when the deployment has one configured (`lib/siteLinks.ts`); without one the
+ * text stands on its own, same as the rulebook fallback above.
+ */
+function TicketAcknowledgement({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
   return (
-    <div className="flex items-center gap-2.5">
+    <label className="flex cursor-pointer items-start gap-2.5 text-sm text-text">
       <input
-        id={id}
-        type="color"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="h-9 w-14 shrink-0 cursor-pointer rounded border border-border bg-bg2"
+        type="checkbox"
+        checked={checked}
+        onChange={e => onChange(e.target.checked)}
+        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand"
       />
-      <span className="font-mono text-xs text-text-secondary">{value.toUpperCase()}</span>
-    </div>
+      <span>
+        Have you opened a ticket in{" "}
+        {DISCORD_INVITE ? (
+          <a
+            href={DISCORD_INVITE}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand no-underline hover:text-text-bright"
+          >
+            the discord
+          </a>
+        ) : (
+          <>the discord</>
+        )}{" "}
+        under the <span className="font-mono text-[13px]">#ticket-questions</span> tab? If not, please
+        go there and click the team apps button.
+      </span>
+    </label>
   );
 }
+

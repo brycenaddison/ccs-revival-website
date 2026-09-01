@@ -244,7 +244,7 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
               aria-pressed={kind === k}
               className={`flex-1 rounded-md border px-3 py-2 font-heading text-xs tracking-wider uppercase cursor-pointer ${
                 kind === k
-                  ? "border-accent text-text-bright"
+                  ? "border-brand text-text-bright"
                   : "border-border text-text-secondary"
               }`}
             >

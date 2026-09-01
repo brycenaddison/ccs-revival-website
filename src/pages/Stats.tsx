@@ -71,7 +71,7 @@ export default function Stats() {
               key={c}
               onClick={() => setConfIndex(i)}
               className={`py-1.5 px-3 text-[11px] font-heading uppercase tracking-wider rounded border ${
-                i === confIndex ? "bg-accent text-white border-accent" : "bg-bg2 text-text-secondary border-border"
+                i === confIndex ? "bg-brand text-white border-brand" : "bg-bg2 text-text-secondary border-border"
               }`}
             >
               {labels.get(c) ?? c}
@@ -89,7 +89,7 @@ export default function Stats() {
             onClick={() => setTab(t)}
             aria-current={tab === t ? "page" : undefined}
             className={`py-2.5 px-4 font-heading text-xs tracking-wider uppercase border-b-2 whitespace-nowrap ${
-              tab === t ? "text-text-bright border-accent font-bold" : "text-text-secondary border-transparent"
+              tab === t ? "text-text-bright border-brand font-bold" : "text-text-secondary border-transparent"
             }`}
           >
             {t}

@@ -108,7 +108,7 @@ function SeasonPanel({ conf, isMobile }: { conf: string; isMobile: boolean }) {
         <p className="mb-4 text-sm leading-relaxed text-text-muted">{error}</p>
         <button
           onClick={refetch}
-          className="cursor-pointer rounded-md border-none bg-accent px-7 py-3 font-heading text-sm font-medium uppercase tracking-wider text-white"
+          className="cursor-pointer rounded-md border-none bg-brand px-7 py-3 font-heading text-sm font-medium uppercase tracking-wider text-white"
         >
           Try again
         </button>

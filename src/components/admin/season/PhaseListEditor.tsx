@@ -387,7 +387,7 @@ function PhaseRow({
               type="checkbox"
               checked={phase.published}
               onChange={e => onChange({ published: e.target.checked })}
-              className="accent-accent w-4 h-4 cursor-pointer"
+              className="accent-brand w-4 h-4 cursor-pointer"
             />
             Visible to the public
           </label>

@@ -15,6 +15,7 @@ import {
   adminLeagues,
   adminUser,
   announcements,
+  applicationIntake,
   applicationQueue,
   article,
   articles,
@@ -573,6 +574,21 @@ export const queries = {
       staleTime: 0,
     }),
 
+  /**
+   * Where one conference's season stands — intake open, listed, teams published — as roster staff
+   * may read it. Beside the queue it describes, and `staleTime: 0` for the same reason: the two
+   * writes that move it (the site admin's intake toggle and listing command) happen on another page,
+   * and this panel's whole job is to say what they did. Under the `applications` root so the publish
+   * command, which stamps `teamsPublishedAt`, refreshes it without a second invalidation.
+   */
+  applicationIntake: (conf: string) =>
+    query({
+      queryKey: ["applications", "intake", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => applicationIntake(conf, { signal }),
+      enabled: conf !== "",
+      staleTime: 0,
+    }),
+
   /** The caller's own applications in one conference. */
   myApplications: (conf: string) =>
     query({
@@ -587,9 +603,9 @@ export const queries = {
    *
    * `LEAGUE_STALE` rather than the `0` its neighbours use, because this one is read from the **nav**:
    * `AuthControl` shows the Apply Now button off it on every page, for every signed-in visitor. The
-   * value moves a handful of times per season and the two writes that move it — the intake toggle and
-   * publication — both invalidate `queryRoots.applications`, so correctness comes from invalidation
-   * rather than from a short clock. Requires a session; the route is `401` for anonymous callers,
+   * value moves a handful of times per season and the two writes that move it — the site admin's
+   * intake toggle and listing command, both in `admin/LeaguesSection.tsx` — invalidate
+   * `queryRoots.applications`, so correctness comes from invalidation rather than from a short clock. Requires a session; the route is `401` for anonymous callers,
    * which is why every caller gates on `isAuthenticated`.
    */
   openApplicationSeasons: () =>
@@ -696,17 +712,20 @@ export const queryRoots = {
    * The league list — the public listed-only one **and** the site admin's unfiltered copy.
    *
    * One root for both, because a write moves both: creating a league adds a row the admin editor
-   * needs immediately, and publishing a season's teams lists it, which is what puts it in the public
-   * season picker. Anything that can change `listed`, `applicationsOpen` or `active` must invalidate
-   * this — the intake toggle and the publication command both do.
+   * needs immediately, and listing a season is what puts it in the public season picker. Anything
+   * that can change `listed`, `applicationsOpen`, `active` or `teamsPublishedAt` must invalidate
+   * this — the intake toggle, the listing command and team publication all do.
    */
   tournaments: ["tournaments"] as const,
   /**
-   * Every application read: the staff queue, the applicant's own list, and the open-season list.
+   * Every application read: the staff queue, the season-state read beside it, the applicant's own
+   * list, and the open-season list.
    *
-   * Publication also invalidates `tournaments`, `teams` and `standings`, because that one call lists
-   * the conference and inserts its team rows — the applications root alone would leave the season
-   * picker and the standings page showing the state from before the season existed.
+   * The site admin's intake toggle and listing command live on `/admin/leagues` but invalidate this
+   * root too, because the open-season list (the nav's Apply Now button) and the roster staff's
+   * season-state panel both read what those writes changed. Team publication additionally
+   * invalidates `tournaments`, `teams` and `standings`: it inserts team rows and stamps
+   * `teamsPublishedAt`, and a league admin can already see an unlisted conference's teams.
    */
   applications: ["applications"] as const,
   /** The invitation inbox. Separate from `applications` — an invitee is not an applicant. */

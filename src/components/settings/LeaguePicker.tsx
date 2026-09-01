@@ -44,7 +44,7 @@ export function LeaguePicker({ leagues, conf, slug }: Props) {
       aria-label="League"
       title={leagues.find(l => l.conf === conf)?.name ?? conf}
       onChange={e => navigate(`/league/${encodeURIComponent(e.target.value)}/admin${slug ? `/${slug}` : ""}`, { replace: true })}
-      className="season-select bg-bg2 border border-border rounded-md text-text font-body text-xs py-1.5 px-2 w-full truncate focus:outline-none focus:border-accent"
+      className="season-select bg-bg2 border border-border rounded-md text-text font-body text-xs py-1.5 px-2 w-full truncate focus:outline-none focus:border-brand"
     >
       {leagues.map(l => (
         <option key={l.conf} value={l.conf}>

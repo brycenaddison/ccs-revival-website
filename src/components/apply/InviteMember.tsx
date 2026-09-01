@@ -25,7 +25,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Search, UserPlus, X } from "lucide-react";
 import { ACTION, ACTION_PRIMARY, ACTION_QUIET, ACTION_SM, ErrorLine } from "../admin/adminUi";
 import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
-import { ROLE_LABEL, STARTER_ROLES } from "./applyUi";
+import { discordAvatarUrl, ROLE_LABEL, STARTER_ROLES } from "./applyUi";
 import { useDebounced } from "../../hooks/useDebounced";
 import { DISCORD_INVITE } from "../../lib/siteLinks";
 import { queryRoots } from "../../lib/queries";
@@ -57,6 +57,11 @@ interface Props {
 
 export function InviteMember({ conf, applicationId, members, editing, onDone, onCancel }: Props) {
   const qc = useQueryClient();
+
+  // Copied to a local so the `invite &&` guard below narrows away the `null` *inside* the copy
+  // handler. TypeScript does not carry a narrowing on an imported binding into a closure — another
+  // module could reassign it between the check and the click, as far as the checker knows.
+  const invite = DISCORD_INVITE;
 
   const [term, setTerm] = useState("");
   const [picked, setPicked] = useState<GuildMemberCandidate | null>(null);
@@ -128,7 +133,7 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
       )}
 
       {editing ? null : picked ? (
-        <div className="flex items-center gap-2.5 rounded-md border border-accent/50 bg-bg2 px-3 py-2">
+        <div className="flex items-center gap-2.5 rounded-md border border-brand/50 bg-bg2 px-3 py-2">
           <CandidateFace candidate={picked} />
           <span className="min-w-0 flex-1 truncate text-sm text-text-bright">
             {picked.displayName}
@@ -219,19 +224,19 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
                 Nobody in the CCS Discord matches that. They have to join the server before you can
                 invite them — send them the link, then search again once they're in.
               </p>
-              {DISCORD_INVITE && (
+              {invite && (
                 <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
                   <a
-                    href={DISCORD_INVITE}
+                    href={invite}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono text-accent no-underline hover:text-text-bright"
+                    className="font-mono text-brand no-underline hover:text-text-bright"
                   >
-                    {DISCORD_INVITE}
+                    {invite}
                   </a>
                   <button
                     type="button"
-                    onClick={() => void navigator.clipboard?.writeText(DISCORD_INVITE)}
+                    onClick={() => void navigator.clipboard?.writeText(invite)}
                     className={ACTION_QUIET}
                   >
                     <Copy size={11} aria-hidden="true" />
@@ -282,18 +287,38 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
 }
 
 /**
- * A search result's face — an initial, not an image.
+ * A search result's Discord avatar.
  *
  * The guild search returns a raw avatar **hash**, unlike a member on an application whose avatar
- * upstream has already resolved to a url. Building one from a hash needs the user id plus the
- * animated-`.gif` rule, which is server-side policy in `utils/discordAvatar.ts`; duplicating it here
- * to save one initial is not worth getting that case wrong.
+ * upstream has already resolved to a url — so this is the one face on the site the client builds
+ * itself, through `discordAvatarUrl`. It used to render an initial for exactly that reason, which
+ * left the picker showing letters beside a roster of real photographs.
+ *
+ * The initial survives as the fallback for a hash the CDN no longer serves — an avatar changed
+ * between the search and the render — rather than a broken image in a list of faces.
  */
 function CandidateFace({ candidate }: { candidate: GuildMemberCandidate }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg3 font-heading text-[11px] uppercase text-text-secondary">
+        {candidate.displayName.slice(0, 1)}
+      </span>
+    );
+  }
+
   return (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg3 font-heading text-[11px] uppercase text-text-secondary">
-      {candidate.displayName.slice(0, 1)}
-    </span>
+    <img
+      src={discordAvatarUrl(candidate.userId, candidate.avatar)}
+      alt=""
+      width={28}
+      height={28}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="h-7 w-7 shrink-0 rounded-full border border-border"
+    />
   );
 }
 
@@ -310,6 +335,9 @@ interface RolePickerProps {
  * One person may hold an administrative role *and* a playing role — the owner is often the mid
  * laner — but only ever **one** playing role. That is enforced here as a single-choice control
  * rather than left for the server to refuse after the invitation was already sent.
+ *
+ * Neither administrative role is required and neither confers anything on this page: `owner` is a
+ * label for the league's records, and an application is run by whoever created it.
  */
 function RolePicker({ roles, onToggle, subOrdinal, onSubOrdinal }: RolePickerProps) {
   const playing = roles.find(
@@ -318,7 +346,7 @@ function RolePicker({ roles, onToggle, subOrdinal, onSubOrdinal }: RolePickerPro
 
   const chip = (selected: boolean) =>
     `rounded-md border px-3 py-1.5 bg-transparent cursor-pointer font-heading text-xs uppercase tracking-wider ${
-      selected ? "border-accent text-text-bright" : "border-border text-text-secondary"
+      selected ? "border-brand text-text-bright" : "border-border text-text-secondary"
     }`;
 
   return (
@@ -383,10 +411,13 @@ function RolePicker({ roles, onToggle, subOrdinal, onSubOrdinal }: RolePickerPro
           </button>
         ))}
       </div>
+      {/* Deliberately reassuring rather than a warning. Inviting an owner used to be described as
+          handing over the application, which was never true: every write gates on whoever created
+          it, so the role records who runs the team for the league and changes nothing here. */}
       {roles.includes("owner") && (
-        <p className="mt-1.5 text-xs text-ccs-orange">
-          Handing over ownership: when they accept, they take control of this application and you stay
-          on as a contact.
+        <p className="mt-1.5 text-xs text-text-dim">
+          Owner is how the league records who runs the team. You keep control of this application
+          either way — you started it.
         </p>
       )}
     </div>

@@ -61,13 +61,13 @@ function VideoCard({ video }: { video: FeedItem }) {
           style={{ background: "rgba(0,0,0,0.35)" }}
           aria-hidden
         >
-          <span className="flex items-center justify-center w-12 h-12 rounded-full bg-accent">
+          <span className="flex items-center justify-center w-12 h-12 rounded-full bg-brand">
             <Play size={20} className="text-white ml-0.5" fill="currentColor" />
           </span>
         </div>
       </div>
 
-      <p className="text-[13px] text-text leading-snug mt-2.5 mb-0 line-clamp-2 group-hover:text-accent transition-colors">
+      <p className="text-[13px] text-text leading-snug mt-2.5 mb-0 line-clamp-2 group-hover:text-brand transition-colors">
         {video.title}
       </p>
       <div className="flex items-center gap-2 mt-1 text-[10px] text-text-muted">

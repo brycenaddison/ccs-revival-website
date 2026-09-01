@@ -19,11 +19,10 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { Toast } from "../../Toast";
-import { ACTION_SM, ErrorLine, Pill } from "../adminUi";
+import { ACTION_SM, ErrorLine, Pill, stateNote } from "../adminUi";
 import { PhaseListEditor } from "./PhaseListEditor";
 import { GroupPhaseEditor } from "./GroupPhaseEditor";
 import { BracketPhaseEditor } from "./BracketPhaseEditor";
-import { useLeague } from "../../../lib/leagueContext";
 import { queries } from "../../../lib/queries";
 import {
   errorMessage,
@@ -43,7 +42,17 @@ import {
 const FIELD_COLUMN = "w-full max-w-[1200px]";
 
 export function SeasonStructureSection() {
-  const { tournaments, loading, error } = useLeague();
+  /*
+   * `GET /admin/leagues`, not the public tournament list. A season's phases are drawn up *before*
+   * anybody can see it — the whole point of an unlisted conference is that its structure and its
+   * schedule get built while it is hidden — so reading the listed-only list meant this editor could
+   * not open the one league that most needed it, right up until publication made editing least
+   * welcome. The route agrees: `/tournaments/:conf/phases` guards on the site-admin role, and its
+   * conf check is the same unfiltered one the grant write uses.
+   */
+  const { data, isPending: loading, error: failure } = useQuery(queries.adminLeagues());
+  const tournaments = data ?? [];
+  const error = failure ? errorMessage(failure) : null;
   const [conf, setConf] = useState("");
   const [openPhase, setOpenPhase] = useState<number | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -75,7 +84,7 @@ export function SeasonStructureSection() {
           <option value="">Choose a league…</option>
           {tournaments.map(t => (
             <option key={t.conf} value={t.conf}>
-              {t.name} ({t.conf}){t.active ? " · live" : ""}
+              {t.name} ({t.conf}){stateNote(t)}
             </option>
           ))}
         </select>

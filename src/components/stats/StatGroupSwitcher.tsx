@@ -37,7 +37,7 @@ export function StatGroupSwitcher<T>({ groups, activeId, onChange, inline, child
           // width and shifted the rest of the row sideways.
           className={`rounded-md border py-1.5 px-3 font-heading font-bold text-[11px] tracking-wide uppercase ${
             g.id === activeId
-              ? "bg-accent border-accent text-white"
+              ? "bg-brand border-brand text-white"
               : "bg-bg2 border-border text-text-secondary"
           }`}
         >

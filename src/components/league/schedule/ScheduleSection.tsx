@@ -63,7 +63,7 @@ export function ScheduleSection() {
         <button
           type="button"
           onClick={() => setTab("days")}
-          className={tab === "days" ? "border-accent " + TAB : TAB}
+          className={tab === "days" ? "border-brand " + TAB : TAB}
         >
           <CalendarDays size={13} aria-hidden="true" />
           Match days
@@ -71,7 +71,7 @@ export function ScheduleSection() {
         <button
           type="button"
           onClick={() => setTab("linking")}
-          className={tab === "linking" ? "border-accent " + TAB : TAB}
+          className={tab === "linking" ? "border-brand " + TAB : TAB}
         >
           <Link2 size={13} aria-hidden="true" />
           Link past games
@@ -407,7 +407,7 @@ function MatchSummary({ match }: { match: ScheduleMatch }) {
           href={match.streamUrl}
           target="_blank"
           rel="noreferrer"
-          className="text-accent text-xs hover:underline"
+          className="text-brand text-xs hover:underline"
         >
           stream
         </a>

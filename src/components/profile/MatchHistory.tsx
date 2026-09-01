@@ -106,7 +106,7 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
                   conf={match.conf}
                   code={match.team}
                   team={teamIndex(match.conf, match.team)}
-                  className="pointer-events-auto w-fit max-w-full rounded px-1 -mx-1 hover:bg-accent/20"
+                  className="pointer-events-auto w-fit max-w-full rounded px-1 -mx-1 hover:bg-brand/20"
                 />
               </span>
 
@@ -122,10 +122,10 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
                 <TeamLink
                   conf={match.conf}
                   code={match.opponentCode}
-                  className="pointer-events-auto flex w-fit min-w-0 max-w-full items-center gap-2 rounded px-1 -mx-1 no-underline hover:bg-accent/20"
+                  className="pointer-events-auto flex w-fit min-w-0 max-w-full items-center gap-2 rounded px-1 -mx-1 no-underline hover:bg-brand/20"
                 >
                   <TeamLogo team={match.opponent} code={match.opponentCode ?? "?"} size={22} />
-                  <span className="truncate font-heading text-text-secondary hover:text-accent">
+                  <span className="truncate font-heading text-text-secondary hover:text-brand">
                     {match.opponent?.name ?? match.opponentCode ?? "Unknown"}
                   </span>
                 </TeamLink>
@@ -135,14 +135,18 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
             <span className="flex-1 font-heading text-text-secondary">Other games</span>
           )}
 
-          {/* League, then where in the season, then the date. */}
+          {/* Two lines: the league on top, then where in the season and when on one line beneath —
+              "Playoffs · Semifinals · Mar 14". Three stacked lines made the header taller than the
+              result it framed. */}
           <span className="shrink-0 text-right text-[11px] text-text-dim">
             {/* The full league name, not `short`. `shortname` is deliberately shared between the
                 divisions running concurrently, so it cannot tell two of them apart — and this card is
                 as wide as the series header, which has room for the real thing. */}
             <span className="block">{confLabel(conf).name}</span>
-            {placement && <span className="block text-text-secondary">{placement}</span>}
-            <span className="block">{fmtDay(startTime) || "—"}</span>
+            <span className="block">
+              {placement && <span className="text-text-secondary">{placement} · </span>}
+              {fmtDay(startTime) || "—"}
+            </span>
           </span>
         </div>
       </div>
@@ -171,15 +175,19 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
  * off reader-facing surfaces for exactly that reason; it survives here only as the fallback for a
  * legacy conference that predates the phase list, where the alternative is saying nothing at all.
  *
- * Within a bracket, `roundName` wins when an operator typed one. It is the node's own label, and
- * naming a round from its depth is wrong for a third-place match and for every loser's bracket — so
- * an unlabeled bracket node gets the phase name and its day rather than an invented "Round 3".
+ * Within a bracket, the **round number** leads — "Playoffs · Round 2". It is the ordinal the API
+ * serves, not a name invented from it: "Semifinals" is still never derived from depth, because that
+ * is wrong for a third-place match and for every loser's bracket. The node's verbatim `roundName` is
+ * the fallback rather than the first choice, because operators label nodes as matches ("Match 3"),
+ * which places a game in a draw sheet the viewer cannot see, where a round number places it in time.
+ * A bracket node with neither gets the phase name and its day.
  *
  * `matchDay` is deliberately *not* called a week: the API counts match days, and while CCS happens to
  * play one a week, a phase that ever doubled up would make the label a lie.
  */
 function placementLabel(phase: PhaseRef | null, seasonDay: number): string | null {
   if (phase === null) return seasonDay > 0 ? `Week ${seasonDay}` : null;
+  if (phase.round !== null) return `${phase.name} · Round ${phase.round}`;
   if (phase.roundName) return `${phase.name} · ${phase.roundName}`;
   if (phase.matchDays > 1) return `${phase.name} · Day ${phase.matchDay} of ${phase.matchDays}`;
   return phase.name;

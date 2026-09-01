@@ -45,7 +45,7 @@ export function ArticleCardTile({ article }: Props) {
       <div className="p-4 flex flex-col flex-1">
         <div className="flex items-center gap-2 mb-1.5">
           {article.tag && (
-            <span className="text-[9px] font-bold text-accent tracking-wider font-display uppercase">
+            <span className="text-[9px] font-bold text-brand tracking-wider font-display uppercase">
               {article.tag}
             </span>
           )}
@@ -56,7 +56,7 @@ export function ArticleCardTile({ article }: Props) {
           )}
         </div>
 
-        <h3 className="font-heading font-semibold text-[16px] text-text-bright leading-tight mb-1.5 group-hover:text-accent transition-colors">
+        <h3 className="font-heading font-semibold text-[16px] text-text-bright leading-tight mb-1.5 group-hover:text-brand transition-colors">
           {article.title}
         </h3>
 
@@ -75,7 +75,7 @@ export function ArticleCardTile({ article }: Props) {
           {isExternal(article) && (
             <ArrowUpRight
               size={12}
-              className="ml-auto text-text-dim group-hover:text-accent transition-colors"
+              className="ml-auto text-text-dim group-hover:text-brand transition-colors"
               aria-label="Opens on another site"
             />
           )}

@@ -79,7 +79,33 @@ export function hexFromInt(color: number | null | undefined, fallback = "#3a3a3a
   return "#" + Math.trunc(color).toString(16).padStart(6, "0");
 }
 
-/** Lighten a #rrggbb color toward white, for deriving a gradient's second stop. */
+/**
+ * The inverse: a `<input type="color">` value back into the integer column.
+ *
+ * **Pure black is nudged to `#010101`.** `hexFromInt` reads `0` as unset — it has to, because live
+ * data uses it that way — so a team that genuinely picked black would save and come back colorless.
+ * One unit off is visually identical and survives the round trip. Anything unparseable lands there
+ * too rather than on `0`, for the same reason: a color control always reports a value, so an
+ * unreadable one is a bug in the caller, not a request to clear the field.
+ */
+export function intFromHex(hex: string): number {
+  const parsed = Number.parseInt(hex.replace("#", ""), 16);
+  if (!Number.isFinite(parsed) || parsed === 0) return 0x010101;
+  return parsed;
+}
+
+/**
+ * The optional secondary color, for spreading into a mapped team.
+ *
+ * Absent keys stay absent rather than becoming `null`: a deployment or a read without the column has
+ * no secondary color, which is not the same answer as a team that has never set one. Every
+ * team-shaped mapper spreads this, so the rule lives once — `lib/teamStyle.ts` reads the result.
+ */
+export function colorSecondaryOf(raw: Record<string, unknown>): { colorSecondary?: number | null } {
+  return "colorSecondary" in raw ? { colorSecondary: numOrNull(raw.colorSecondary as Numeric) } : {};
+}
+
+/** Lighten a #rrggbb color toward white, for deriving a gradient's second stop when a team has none. */
 export function lighten(hex: string, amount = 0.35): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex);
   if (!m) return hex;

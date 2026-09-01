@@ -88,7 +88,7 @@ export function SettingsShell({ area, slug, sidebarHeader }: Props) {
               // the same reason the nav drawer and the stat pills carry their border unconditionally.
               className={`flex items-center gap-2 py-2.5 px-3 rounded-md border-l-[3px] no-underline ${ROW_LABEL} ${
                 active
-                  ? "bg-bg-input text-text-bright font-bold border-l-accent"
+                  ? "bg-bg-input text-text-bright font-bold border-l-brand"
                   : "text-text-secondary font-normal border-l-transparent hover:text-text-bright"
               }`}
             >

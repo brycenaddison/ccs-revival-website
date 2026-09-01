@@ -101,7 +101,7 @@ function BestCard({
   return (
     <Link
       to={href}
-      className="block rounded-lg border border-border bg-bg2 p-3.5 no-underline hover:border-accent"
+      className="block rounded-lg border border-border bg-bg2 p-3.5 no-underline hover:border-brand"
     >
       <div className="font-heading text-[9px] uppercase tracking-wider text-text-dim">{label}</div>
       <div className="mt-1 font-display text-[26px] leading-none text-text-bright">

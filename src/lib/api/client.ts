@@ -10,6 +10,7 @@
 
 import { getList, getOne, isAbort, post, type RequestOpts } from "./http";
 import {
+  colorSecondaryOf,
   hexFromInt,
   httpsUrl,
   normalizeRole,
@@ -83,6 +84,7 @@ export function mapTournament(input: unknown): Tournament {
     conf: str(raw.conf),
     name: str(raw.name),
     shortname: strOrNull(raw.shortname),
+    codename: strOrNull(raw.codename),
     ...(typeof raw.active === "boolean" ? { active: raw.active } : {}),
     ...(typeof raw.listed === "boolean" ? { listed: raw.listed } : {}),
     ...(typeof raw.applicationsOpen === "boolean"
@@ -156,7 +158,7 @@ export function mapTeamRecord(raw: Raw): TeamRecord {
     // no secondary color and no recorded ownership, which is not the same answer as "nobody owns
     // this team". `owner` and each contact are the same slot shape as the playing positions, so
     // they reuse `mapRosterSlot` and link through to a player page identically.
-    ...("colorSecondary" in raw ? { colorSecondary: numOrNull(raw.colorSecondary as Numeric) } : {}),
+    ...colorSecondaryOf(raw),
     ...("owner" in raw ? { owner: mapRosterSlot(raw.owner) } : {}),
     ...(Array.isArray(raw.contacts)
       ? {
@@ -191,6 +193,7 @@ function mapStandingRow(raw: Raw): StandingRow {
     logo: httpsUrl(raw.logo as string),
     color,
     colorHex: hexFromInt(color),
+    ...colorSecondaryOf(raw),
     rank: num(raw.rank as Numeric),
     // Falls back to the bare rank so a row is never left without something to show.
     place: strOrNull(raw.place) ?? String(num(raw.rank as Numeric)),
@@ -352,6 +355,7 @@ function mapTeamStats(raw: Raw): TeamStats {
     logo: httpsUrl(raw.logo as string),
     color,
     colorHex: hexFromInt(color),
+    ...colorSecondaryOf(raw),
     avgTime: str(raw.avgTime),
     ...pickCounts(raw, TEAM_COUNTS),
     ...pickRatios(raw, TEAM_RATIOS),
@@ -430,6 +434,9 @@ function buildTeamDetail(conf: string, code: string, raw: Raw, record: TeamRecor
   const hasStats = typeof raw.code === "string";
   const stats = hasStats ? mapTeamStats(raw) : null;
   const color = stats?.color ?? record?.color ?? null;
+  // The `teamstats` view predates the column, so the roster row is where a secondary usually comes
+  // from — and it stays absent, not `null`, when neither side carried one.
+  const colorSecondary = stats?.colorSecondary ?? record?.colorSecondary;
 
   const base: Partial<TeamStats> = stats ?? {};
   return {
@@ -440,6 +447,7 @@ function buildTeamDetail(conf: string, code: string, raw: Raw, record: TeamRecor
     logo: stats?.logo ?? record?.logo,
     color,
     colorHex: hexFromInt(color),
+    ...(colorSecondary !== undefined ? { colorSecondary } : {}),
     hasStats,
     roster: record ? rosterOf(record) : null,
     record: record?.record ?? null,
@@ -570,12 +578,34 @@ export function tournaments(opts?: RequestOpts): Promise<Tournament[]> {
   return getList<Raw>("/tournaments", opts).then(rows => rows.map(mapTournament));
 }
 
+/**
+ * The three `/teams` reads are the only public ones that carry the session, and they have to.
+ *
+ * A team row now exists from the moment its application is published, which is well before the
+ * season is listed — publishing the field and announcing the league are separate commands. So
+ * upstream serves an unlisted conference to a site admin or a holder of a grant on it, and answers
+ * everyone else the same `400` an unknown conf gets. Without the cookie the API cannot tell the two
+ * apart, and every League Admin surface for a season being prepared reads
+ * `"n01" is not a valid conf`.
+ *
+ * Anonymous callers are unaffected: there is no cookie to send, and the whole-site list simply
+ * omits what they may not see.
+ *
+ * `/standings/:conf`, `/matches/:conf` and the conf-scoped `/stats` routes are gated the same way
+ * upstream but stay anonymous here, because nothing asks them for a hidden conference —
+ * `LeagueProvider` only ever selects a listed one. If an admin surface ever needs one of them, it
+ * needs this flag too, and the symptom will be the same message.
+ */
+const withSession = (opts?: RequestOpts): RequestOpts => ({ ...opts, credentialed: true });
+
 export function teams(opts?: RequestOpts): Promise<TeamRecord[]> {
-  return getList<Raw>("/teams", opts).then(rows => rows.map(mapTeamRecord));
+  return getList<Raw>("/teams", withSession(opts)).then(rows => rows.map(mapTeamRecord));
 }
 
 export function teamsForConf(conf: string, opts?: RequestOpts): Promise<TeamRecord[]> {
-  return getList<Raw>(`/teams/${encodeURIComponent(conf)}`, opts).then(rows => rows.map(mapTeamRecord));
+  return getList<Raw>(`/teams/${encodeURIComponent(conf)}`, withSession(opts)).then(rows =>
+    rows.map(mapTeamRecord),
+  );
 }
 
 /**
@@ -588,7 +618,7 @@ export function teamsForConf(conf: string, opts?: RequestOpts): Promise<TeamReco
  */
 export async function teamDetail(conf: string, code: string, opts?: RequestOpts): Promise<TeamDetail | null> {
   const [raw, records] = await Promise.all([
-    getOne<Raw>(`/teams/${encodeURIComponent(conf)}/${encodeURIComponent(code)}`, opts),
+    getOne<Raw>(`/teams/${encodeURIComponent(conf)}/${encodeURIComponent(code)}`, withSession(opts)),
     teamsForConf(conf, opts).catch((e: unknown) => {
       if (isAbort(e)) throw e;
       return [] as TeamRecord[];

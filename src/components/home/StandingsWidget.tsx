@@ -1,84 +1,137 @@
 /**
- * The Home page's standings panel — a compact read of the same season document the Standings tab
- * renders in full.
+ * The Home page's standings panel — one league at a time, with a picker when several are running.
  *
- * **Which phase it shows is the whole design question**, and `standingsPhase` answers it: the active
- * phase when that is a group phase, otherwise the nearest group phase before it. During playoffs a
- * reader glancing at the sidebar still wants the table that produced the seeding, not a bracket
- * squeezed into 280 pixels — the tab is where the bracket lives.
+ * **Two sources, and the fallback is not a nicety.** The panel was written against the season
+ * document, whose group phases are the only place phase-scoped records exist. With no group phase
+ * configured — which is every league until somebody builds one — `standingsPhase` answers null, and
+ * the panel used to fall through to a flat list of every active conference's teams with no records
+ * on it at all. That list is gone. Season-wide `/standings/:conf` is the fallback, and the header
+ * says which of the two is on screen.
  *
- * The tab strip here is groups within the one conference. It used to be divisions across several,
- * which is the merge the Standings tab no longer does either: two conferences are two seasons.
+ * Why the group phase still leads where there is one: a group table is scoped to its phase, while
+ * season-wide records count playoff results into the same column. Both are true; only one of them
+ * is the table that produced the seeding.
+ *
+ * The conference strip is the outer choice, held **locally**. It must not call `setSelection` —
+ * that collapses `selectedConfs` to the one conf, which makes the strip vanish the instant it is
+ * used. `StandingsView` carries the same warning for the same reason.
  *
  * **One number, and it is the series record.** At 280px there is room for a rank, a badge, a team
  * name and a single column; the game score was the third of those and it lost. Truncating a team
  * name to fit a secondary tiebreaker is the wrong trade on a glanceable panel — the Standings tab
  * carries games, game win %, and the whole legend.
- *
- * Streak would be the better second column, and it is not on this read: `SeasonGroupRow` serves
- * series and game records, while `streak` belongs to `StandingRow` from the old `/standings/:conf`.
- * That is season-wide where these rows are phase-scoped, so it is also a second request and two
- * different denominators in one row.
  */
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { TeamBadge } from "../TeamBadge";
 import { TeamLink } from "../league/TeamLink";
-import { toBadge } from "../../lib/leagueAdapters";
+import { useSeason } from "../../hooks/useSeason";
+import { useLeague } from "../../lib/leagueContext";
+import { groupLabels, toBadge } from "../../lib/leagueAdapters";
 import { toneForLevel } from "../../lib/scenarioTones";
-import { standingsPhase, type SeasonPayload } from "../../lib/api";
-import type { Team } from "../../types/league";
+import { queries } from "../../lib/queries";
+import { standingsPhase, type SeasonScenario } from "../../lib/api";
 
 interface Props {
-  season: SeasonPayload | null;
-  /** The conference the rows belong to, for the team links. */
-  conf: string | null;
-  /** Every team in the selected season(s), for the fallback list before a season is drawn. */
-  teams: Team[];
-  /** True while the season is in flight, so the team-list fallback doesn't flash first. */
-  loading?: boolean;
+  /** The conferences the season selection resolves to. Usually `useLeague().selectedConfs`. */
+  confs: readonly string[];
 }
 
-export function StandingsWidget({ season, conf, teams, loading }: Props) {
+/** What a row needs to render, whichever source it came from. */
+interface PanelRow {
+  code: string;
+  name: string;
+  logo?: string;
+  color: number | null;
+  colorHex: string;
+  colorSecondary?: number | null;
+  place: string;
+  seriesWins: number;
+  seriesLosses: number;
+  gameWins: number;
+  gameLosses: number;
+  /** Group phases only: the playoff/elimination outcome this row is currently on for. */
+  scenario: SeasonScenario | null;
+  tied: boolean;
+}
+
+export function StandingsWidget({ confs }: Props) {
+  const { tournaments } = useLeague();
+
+  // Resolved rather than stored, so a stale pick after the season selection changes falls back to
+  // the first conference instead of showing an empty panel.
+  const [confPick, setConfPick] = useState<string | null>(null);
+  const conf = (confPick && confs.includes(confPick) ? confPick : confs[0]) ?? null;
+
+  // Codename first, full name otherwise — `groupLabels` is the one place that rule lives, so this
+  // strip, Standings, Stats and Teams cannot name the same division differently.
+  const labels = groupLabels(tournaments, confs);
+
+  return conf === null ? null : (
+    // Keyed on the conf so switching one throws away the group selection with it: group names are
+    // conf-scoped, so carrying one across would select nothing.
+    <div className="overflow-hidden rounded-md border border-border bg-bg2">
+      {confs.length > 1 && (
+        <div className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden border-b border-border px-3 py-2">
+          {confs.map(c => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setConfPick(c)}
+              className={`shrink-0 cursor-pointer border-none bg-transparent p-0 font-heading text-[11px] uppercase tracking-wider ${
+                c === conf ? "text-text-bright" : "text-text-muted"
+              }`}
+            >
+              {labels.get(c) ?? c.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      )}
+      <ConfPanel key={conf} conf={conf} />
+    </div>
+  );
+}
+
+function ConfPanel({ conf }: { conf: string }) {
+  const { season, loading: seasonLoading } = useSeason(conf);
+  // Always enabled rather than only when the season turns out to have no group phase: gating it
+  // would make the common case a waterfall of two round trips to show one table.
+  const { data: seasonWide, isLoading: standingsLoading } = useQuery(queries.standings(conf));
+
   const phase = standingsPhase(season);
   const groups = phase?.groups ?? [];
   const [groupName, setGroupName] = useState<string | null>(null);
   const group = groups.find(g => g.name === groupName) ?? groups[0] ?? null;
 
-  // The season loads on its own request, so "none yet" and "none at all" are different states —
-  // showing the fallback while one is in flight would swap the panel out from under the reader.
-  if (loading && !group) return null;
+  const rows: PanelRow[] =
+    group && group.standings.length > 0
+      ? group.standings.map(row => ({ ...row, scenario: row.scenario, tied: row.tied }))
+      : (seasonWide ?? []).map(row => ({
+          code: row.code,
+          name: row.name,
+          logo: row.logo ?? undefined,
+          color: row.color,
+          colorHex: row.colorHex,
+          colorSecondary: row.colorSecondary ?? null,
+          place: row.place,
+          seriesWins: row.seriesWins,
+          seriesLosses: row.seriesLosses,
+          gameWins: row.gameWins,
+          gameLosses: row.gameLosses,
+          scenario: null,
+          tied: false,
+        }));
 
-  if (!group && teams.length) {
-    return (
-      <div className="overflow-hidden rounded-md border border-border bg-bg2">
-        <div className="border-b border-border px-4 py-3.5">
-          <span className="font-display text-[15px] tracking-widest text-text-bright">TEAMS</span>
-        </div>
-        {teams.map((t, i) => (
-          <TeamLink
-            key={t.id}
-            team={t}
-            className={`group flex items-center gap-2 px-3 py-2.5 no-underline ${
-              i < teams.length - 1 ? "border-b border-bg2" : ""
-            }`}
-          >
-            <TeamBadge team={t} size={28} />
-            <span className="font-heading text-[13px] font-medium text-text group-hover:text-accent">
-              {t.name}
-            </span>
-            <span className="ml-auto font-mono text-[10px] text-text-dim">{t.abbreviation}</span>
-          </TeamLink>
-        ))}
-      </div>
-    );
-  }
+  // "Nothing yet" and "nothing at all" are different states, and swapping the panel out from under
+  // a reader mid-load is what showing a fallback while one is in flight looks like.
+  if (rows.length === 0) return seasonLoading || standingsLoading ? null : <Empty />;
 
-  if (!group || !conf || group.standings.length === 0) return null;
+  const usingGroups = group !== null && group.standings.length > 0;
 
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-bg2">
-      {groups.length > 1 ? (
+    <>
+      {usingGroups && groups.length > 1 ? (
         <div className="flex border-b border-border">
           {groups.map(g => (
             <button
@@ -86,7 +139,7 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
               onClick={() => setGroupName(g.name)}
               className={`flex-1 cursor-pointer border-none py-2.5 font-display text-[13px] tracking-widest ${
                 g.name === group.name
-                  ? "border-b-2 border-b-accent bg-bg-input text-text-bright"
+                  ? "border-b-2 border-b-brand bg-bg-input text-text-bright"
                   : "border-b-2 border-b-transparent bg-transparent text-text-muted"
               }`}
             >
@@ -97,7 +150,7 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
       ) : (
         <div className="border-b border-border px-4 py-3">
           <span className="font-display text-[15px] tracking-widest text-text-bright">
-            {(phase?.name ?? "STANDINGS").toUpperCase()}
+            {(usingGroups ? phase?.name ?? "STANDINGS" : "STANDINGS").toUpperCase()}
           </span>
         </div>
       )}
@@ -106,9 +159,8 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
         `whitespace-nowrap` on the numeric column is not cosmetic. This panel is 280px wide
         (`Home.tsx`), the table lays out automatically, and **`W-L` breaks at its hyphen** — as does
         a record like `5-2`. So a group whose longest team name is a few characters longer than the
-        next group's squeezes the column until the heading splits over two lines, which is why it
-        showed up on one group and not the other. Pinning it makes the team column absorb the
-        pressure instead, which it can: it truncates.
+        next group's squeezes the column until the heading splits over two lines. Pinning it makes
+        the team column absorb the pressure instead, which it can: it truncates.
       */}
       <table className="w-full border-collapse">
         <thead>
@@ -124,12 +176,12 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
         <tbody>
           {/* Rendered in the order served. Never re-sorted and never renumbered by row index — the
               ranking resolves head-to-head, which nothing on this page could reconstruct. */}
-          {group.standings.map(row => {
+          {rows.map(row => {
             const tone = row.scenario ? toneForLevel(row.scenario.level) : null;
 
             return (
               <tr
-                key={`${row.code}-${row.position}`}
+                key={`${row.code}-${row.place}`}
                 style={{
                   borderLeft: `4px solid ${tone?.line ?? "transparent"}`,
                   background: tone?.bg,
@@ -149,7 +201,7 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
                     </span>
                     <TeamBadge team={toBadge(row)} />
                     <div className="flex min-w-0 flex-col">
-                      <span className="truncate font-heading text-[13px] font-medium text-text group-hover:text-accent">
+                      <span className="truncate font-heading text-[13px] font-medium text-text group-hover:text-brand">
                         {row.name}
                       </span>
                       {row.scenario && (
@@ -182,6 +234,14 @@ export function StandingsWidget({ season, conf, teams, loading }: Props) {
           })}
         </tbody>
       </table>
+    </>
+  );
+}
+
+function Empty() {
+  return (
+    <div className="px-4 py-6 text-center text-[13px] text-text-dim">
+      No standings yet.
     </div>
   );
 }

@@ -127,6 +127,9 @@ export function StatBars<T>({
         value: v,
         display: format(v),
         color: rampColor(cell.lowerIsBetter ? 1 - goodness : goodness),
+        // A ramp color says how good the value is; running it into a team's secondary would say
+        // something else halfway along the bar.
+        colorEnd: undefined,
       };
     });
   }, [rows, cell, direction, rowMeta, colorBy]);

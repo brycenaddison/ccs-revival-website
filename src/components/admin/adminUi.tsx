@@ -7,6 +7,9 @@
  */
 
 import type { ReactNode } from "react";
+import type { Tournament } from "../../lib/api";
+import { teamGradient } from "../../lib/teamStyle";
+import { fmtDay, teamInitial } from "../../lib/utils";
 
 const ACTION_BASE =
   "inline-flex items-center gap-2 rounded-md border px-4 py-2 bg-transparent font-heading text-sm tracking-wider uppercase cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
@@ -15,7 +18,7 @@ const ACTION_BASE =
 export const ACTION = `${ACTION_BASE} border-border text-text-bright`;
 
 /** The one action a panel is for: save, create, grant. */
-export const ACTION_PRIMARY = `${ACTION_BASE} border-accent text-text-bright`;
+export const ACTION_PRIMARY = `${ACTION_BASE} border-brand text-text-bright`;
 
 /** Destructive, and irreversible from this page: revoking a grant drops its `granted_at`. */
 export const ACTION_DANGER = `${ACTION_BASE} border-ccs-red/40 text-ccs-red`;
@@ -63,10 +66,118 @@ export function Pill({ children, muted }: { children: ReactNode; muted?: boolean
   return (
     <span
       className={`inline-block rounded-full border px-2.5 py-0.5 font-heading text-[10px] tracking-wider uppercase ${
-        muted ? "border-border text-text-dim" : "border-accent/50 text-text-bright"
+        muted ? "border-border text-text-dim" : "border-brand/50 text-text-bright"
       }`}
     >
       {children}
     </span>
   );
+}
+
+/**
+ * A team color: the native swatch, with its hex beside it as a caption.
+ *
+ * Shared rather than local because two forms set the same two columns — the applicant's team
+ * details and League Admin → Teams — and a swatch that looked different depending on which side of
+ * publication you were on would read as two different fields.
+ *
+ * Controlled on a `#rrggbb` string, which is what `<input type="color">` speaks. The integer the
+ * column holds is `intFromHex`'s job, including the pure-black nudge; nothing here knows about it.
+ */
+export function ColorField({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  onChange: (hex: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <input
+        id={id}
+        type="color"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="h-9 w-14 shrink-0 cursor-pointer rounded border border-border bg-bg2"
+      />
+      <span className="font-mono text-xs text-text-secondary">{value.toUpperCase()}</span>
+    </div>
+  );
+}
+
+/**
+ * What the two colors will look like on the site, drawn while they are being chosen.
+ *
+ * It is the header of a team card on the Teams tab, the same markup: the gradient from
+ * `lib/teamStyle.ts`, the logo — or the initial, when there is none — on its translucent well inside
+ * the gradient, and the name and tag in white beside it. That card is the largest thing the pair is
+ * ever painted on, so it is where a bad pairing shows first. Keep this in step with `TeamsView`; a
+ * preview that shows something other than what ships is worse than none.
+ *
+ * Takes hex strings because it sits beside two `ColorField`s, which speak hex; it never sees the
+ * integer column. Shared for the same reason `ColorField` is: two forms set the same pair.
+ */
+export function TeamStylePreview({
+  name,
+  code,
+  logo,
+  primary,
+  secondary,
+}: {
+  name: string;
+  code: string;
+  logo: string;
+  primary: string;
+  secondary: string;
+}) {
+  const shownName = name.trim() === "" ? "Your team" : name.trim();
+  const shownCode = code.trim() === "" ? "TAG" : code.trim();
+  const logoUrl = logo.trim();
+  return (
+    <div
+      className="flex items-center gap-3.5 rounded-lg px-4 py-5"
+      style={{ background: teamGradient(primary, secondary) }}
+      aria-label="Team style preview"
+    >
+      {logoUrl !== "" ? (
+        <img
+          src={logoUrl}
+          alt=""
+          decoding="async"
+          className="h-12 w-12 rounded-lg bg-black/20 object-contain"
+        />
+      ) : (
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-black/30 font-heading text-xl font-bold text-white">
+          {teamInitial(shownName)}
+        </div>
+      )}
+      <div className="min-w-0">
+        <div className="truncate font-display text-xl tracking-wider text-white">{shownName}</div>
+        <div className="mt-0.5 font-mono text-[11px] text-white/70">{shownCode}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A one-line summary of where a league is in its lifecycle, for the admin pickers.
+ *
+ * Worth spelling out rather than leaving to three flags: "hidden" and "live" are the two states an
+ * admin is actually looking for, and a hidden league with intake open is the state the whole
+ * upcoming-season workflow exists to support. Absent flags contribute nothing — an older deployment
+ * omits them, and inventing "hidden" from a missing `listed` would relabel every existing season.
+ *
+ * Shared by League Admin's own picker and the grant picker under Roles, which both list leagues from
+ * `GET /admin/leagues` and both have to say which of them the public cannot see yet. Two spellings of
+ * "hidden" across two pickers over the same rows is the drift this module exists to prevent.
+ */
+export function stateNote(t: Tournament): string {
+  const notes: string[] = [];
+  if (t.listed === false) notes.push("hidden");
+  if (t.applicationsOpen === true) notes.push("intake open");
+  if (t.active === true) notes.push("live");
+  if (t.teamsPublishedAt) notes.push(`published ${fmtDay(t.teamsPublishedAt)}`);
+  return notes.length === 0 ? "" : ` · ${notes.join(" · ")}`;
 }

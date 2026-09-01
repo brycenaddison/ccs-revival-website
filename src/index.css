@@ -6,7 +6,7 @@
   --border: #1e1e1e; --border2: #2a2a2a; --border3: #222;
   --text: #d1d2d4; --text-bright: #fff; --text-secondary: #999;
   --text-muted: #555; --text-dim: #444; --text-subtle: #333;
-  --accent: #d20708; --accent-light: rgba(210,7,8,0.12);
+  --brand: #d20708; --brand-light: rgba(210,7,8,0.12);
   --green: #10b981; --red: #d20708; --gold: #d7a52a; --blue: #3b82f6;
   --orange: #f59e0b; --purple: #8b5cf6;
   --dark-red: #3f0008;
@@ -30,7 +30,7 @@
   --border: #e0e0e0; --border2: #d0d0d0; --border3: #ddd;
   --text: #1a1a1a; --text-bright: #111; --text-secondary: #666;
   --text-muted: #888; --text-dim: #aaa; --text-subtle: #ccc;
-  --accent: #d20708; --accent-light: rgba(210,7,8,0.08);
+  --brand: #d20708; --brand-light: rgba(210,7,8,0.08);
   --green: #059669; --red: #d20708; --gold: #d7a52a; --blue: #2563eb;
   --orange: #d97706; --purple: #7c3aed;
   --dark-red: #3f0008;
@@ -80,6 +80,13 @@
     font-size: 16px;
     line-height: 1.5;
     width: 100%;
+    /*
+     * The floor below which the page scrolls sideways rather than squeezing further. 320px is the
+     * narrowest phone still in common use, and it is where the mobile nav — mark, season picker and
+     * hamburger on one row — runs out of things that can give: the picker already shrinks and clips
+     * its name, and below this the mark or the button would be next.
+     */
+    min-width: 320px;
     transition: background 0.2s, color 0.2s;
   }
   #root {
@@ -87,7 +94,7 @@
     min-height: 100vh;
   }
 }
-::selection { background: var(--accent); color: #fff; }
+::selection { background: var(--brand); color: #fff; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border3); border-radius: 3px; }
@@ -178,7 +185,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 input[type="date"]::-webkit-calendar-picker-indicator:hover,
 input[type="time"]::-webkit-calendar-picker-indicator:hover,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
-  background-color: var(--accent);
+  background-color: var(--brand);
   opacity: 1;
 }
 input[type="date"]:focus::-webkit-calendar-picker-indicator,
@@ -215,7 +222,7 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus,
 input[type="time"]::-webkit-datetime-edit-hour-field:focus,
 input[type="time"]::-webkit-datetime-edit-minute-field:focus,
 input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
-  background: var(--accent);
+  background: var(--brand);
   color: #fff;
   border-radius: 2px;
   outline: none;
@@ -235,6 +242,80 @@ input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
 @keyframes bar-grow { from { transform: scaleX(0) } to { transform: scaleX(1) } }
 
 /* ── Custom Tailwind Theme ── */
+/*
+ * ── shadcn's token system, derived from the CCS palette ──
+ *
+ * These are aliases, not a second palette. Every value points at a CCS token defined above, so both
+ * themes keep working from one source and nothing here changes how the site looks — the point is that
+ * a component copied out of shadcn's docs finds the names it expects (`bg-background`,
+ * `text-muted-foreground`, `border-input`, `bg-primary`) and renders in CCS colors with no edits.
+ *
+ * Two collisions are worth knowing about, because both are the kind of thing that silently looks
+ * wrong rather than failing:
+ *
+ *  - **`--accent` is not the brand.** shadcn uses it for a hover surface, so it points at
+ *    `--bg-input` — which is what this app's `hover:bg-bg-input` already was. The CCS red moved to
+ *    `--brand` to make room. A `bg-accent` in a `ui/` component means "hovered", not "red".
+ *  - **`--primary` and `--destructive` are the same red.** `--brand` and `--red` are both `#d20708`
+ *    in this palette; that is a fact about CCS, not a mapping mistake. So a destructive button cannot
+ *    be told from a primary one by hue — the `ui/button` variants distinguish them by fill versus
+ *    outline instead, and anything relying on color alone here would be unreadable.
+ *
+ * `--border` and `--input` already existed with compatible meanings and are reused rather than
+ * duplicated. `--radius` is new: shadcn sizes every corner off it.
+ */
+:root {
+  --radius: 0.5rem;
+}
+
+[data-theme="dark"],
+[data-theme="light"] {
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--bg2);
+  --card-foreground: var(--text);
+  --popover: var(--bg2);
+  --popover-foreground: var(--text);
+  --primary: var(--brand);
+  --primary-foreground: #fff;
+  --secondary: var(--bg3);
+  --secondary-foreground: var(--text);
+  --muted: var(--bg3);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--bg-input);
+  --accent-foreground: var(--text-bright);
+  --destructive: var(--red);
+  --destructive-foreground: #fff;
+  --input: var(--border);
+  --ring: var(--brand);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
 @theme {
   --color-bg: var(--bg);
   --color-bg2: var(--bg2);
@@ -249,8 +330,13 @@ input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
   --color-text-muted: var(--text-muted);
   --color-text-dim: var(--text-dim);
   --color-text-subtle: var(--text-subtle);
-  --color-accent: var(--accent);
-  --color-accent-light: var(--accent-light);
+  /*
+   * The CCS brand red. **Renamed off `accent`** so that name could take shadcn's meaning, which is a
+   * subtle hover surface rather than a brand color — see the shadcn block below. Every `*-accent`
+   * class in the app moved to `*-brand` in the same change; a `bg-accent` you find now is shadcn's.
+   */
+  --color-brand: var(--brand);
+  --color-brand-light: var(--brand-light);
   --color-ccs-green: var(--green);
   --color-ccs-red: var(--red);
   --color-ccs-gold: var(--gold);
@@ -265,4 +351,47 @@ input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
   --font-heading: 'Oswald', sans-serif;
   --font-body: 'Source Sans 3', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /*
+   * `nav:` — the width from which the desktop nav fits on one row: mark, full season name, every
+   * tab at its comfortable padding, and the sign-in cluster, with nothing overlapping. Measured, not
+   * chosen: 1460px. Below it the tab strip takes a second row (`home/NavBar.tsx`). It exists because
+   * `lg` (1024px) was the previous cutover and the single row was overcrowded for four hundred pixels
+   * above it — the stock breakpoints describe content columns, not this particular strip.
+   */
+  --breakpoint-nav: 91.25rem;
+}
+
+/*
+ * ── Animations for the `ui/` primitives ──
+ *
+ * Hand-written rather than pulling in `tw-animate-css`. shadcn's components drive these through
+ * Radix's `data-[state=open]` / `data-[state=closed]` attributes, and the four keyframes below are
+ * every one its overlay and content parts reference — so a copied component animates without another
+ * dependency. The names match `tw-animate-css` exactly, which is what keeps copy-paste working.
+ *
+ * The zoom pair animates `scale` — the standalone property — and deliberately says nothing about
+ * translation, even though the thing it scales is centered with `-translate-x-1/2 -translate-y-1/2`.
+ * Tailwind v4 compiles those to the standalone `translate` property rather than into a `transform`
+ * shorthand, so a keyframe that helpfully repeats `transform: translate(-50%, -50%)` does not
+ * preserve the centering, it *doubles* it: the dialog animates in from half its own size up and to
+ * the left, snaps to center when the animation ends and `transform` drops, then jumps back out there
+ * for the whole exit. `translate`, `rotate` and `scale` compose in that order without touching each
+ * other, which is the entire reason to use them here. `tw-animate-css`'s own keyframes use the
+ * shorthand; do not copy that part back in.
+ */
+@keyframes ccs-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes ccs-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes ccs-zoom-in { from { opacity: 0; scale: 0.96 } to { opacity: 1; scale: 1 } }
+@keyframes ccs-zoom-out { from { opacity: 1; scale: 1 } to { opacity: 0; scale: 0.96 } }
+
+@utility animate-overlay-in { animation: ccs-in 150ms ease-out }
+@utility animate-overlay-out { animation: ccs-out 120ms ease-in }
+@utility animate-dialog-in { animation: ccs-zoom-in 150ms ease-out }
+@utility animate-dialog-out { animation: ccs-zoom-out 120ms ease-in }
+
+/* Respect the OS setting: a confirmation appearing instantly is fine, motion sickness is not. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-overlay-in, .animate-overlay-out,
+  .animate-dialog-in, .animate-dialog-out { animation: none }
 }

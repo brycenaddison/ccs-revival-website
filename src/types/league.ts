@@ -11,6 +11,10 @@ export interface Team {
   name: string;
   abbreviation: string;
   color_primary: string;
+  /**
+   * The second stop of the team gradient: the team's own secondary color when it has set one, else
+   * the lightened primary. Resolved by `accentHex` in `lib/teamStyle.ts`; draw it with `teamGradient`.
+   */
   color_accent: string;
   logo_url?: string;
   /**

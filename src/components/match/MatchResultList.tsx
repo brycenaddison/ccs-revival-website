@@ -63,7 +63,7 @@ export function MatchResultList({ matches, conf, emptyMessage = "No games played
                 code={match.opponent}
                 className="min-w-0 max-w-full justify-self-start no-underline @4xl:col-start-2 @4xl:row-start-1"
               >
-                <span className="block truncate font-heading text-xs text-text hover:text-accent">
+                <span className="block truncate font-heading text-xs text-text hover:text-brand">
                   vs {match.opponent}
                 </span>
               </TeamLink>

@@ -32,6 +32,7 @@ import { radarPoints } from "../../lib/statViews";
 import { flattenGroups, PLAYER_STAT_GROUPS, sortByCell, type StatCell } from "../../lib/statGroups";
 import { int } from "../../lib/statFormat";
 import { COMPARE_COLORS, MIN_GAMES_OPTIONS } from "../../lib/statUi";
+import { secondaryHex } from "../../lib/teamStyle";
 import { type RadarSeries } from "./CompareRadar";
 import { CompareDock } from "./CompareDock";
 import { StatGroupSwitcher } from "./StatGroupSwitcher";
@@ -116,14 +117,15 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
    *
    * `hex` is only set when the team actually has a color: `hexFromInt` substitutes a dark gray for the
    * roughly half of teams with none, and a bar painted that gray is invisible. Leaving it undefined lets
-   * the bar fall back to a neutral that works in both themes.
+   * the bar fall back to a neutral that works in both themes. `hexEnd` is the team's secondary, when it
+   * has one, so a player's bar runs the same two colors as their team's.
    */
   const branding = useMemo(
     () =>
       new Map(
         (teamsQuery.data ?? []).map(t => [
           t.code,
-          { name: t.name, logo: t.logo, hex: t.color ? t.colorHex : undefined },
+          { name: t.name, logo: t.logo, hex: t.color ? t.colorHex : undefined, hexEnd: secondaryHex(t) },
         ]),
       ),
     [teamsQuery.data],
@@ -301,6 +303,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
             sub: isMobile ? p.team : `${p.team} · ${roleLabel(p.role)} · ${p.games}G`,
             logo: branding.get(p.team)?.logo,
             color: branding.get(p.team)?.hex,
+            colorEnd: branding.get(p.team)?.hexEnd,
           })}
         />
       ) : (
@@ -327,7 +330,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
                   ? <img src={brand.logo} alt="" loading="lazy" decoding="async" className="w-7 h-7 rounded object-contain shrink-0" />
                   : <span className="w-7 h-7 rounded shrink-0" style={{ background: brand?.hex ?? "var(--bar-unset)" }} />}
                 <div className="min-w-0">
-                  <PlayerLink profileId={p.id} stopPropagation className="block truncate font-heading font-bold text-text-bright no-underline hover:text-accent">{p.name}</PlayerLink>
+                  <PlayerLink profileId={p.id} stopPropagation className="block truncate font-heading font-bold text-text-bright no-underline hover:text-brand">{p.name}</PlayerLink>
                   <div className="text-[10px] text-text-secondary font-heading tracking-wide truncate">
                     {p.team} · {roleLabel(p.role)}
                   </div>
@@ -353,7 +356,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
                       : "Add to comparison"
                 }
                 className={`w-5 h-5 rounded border-2 block mx-auto ${
-                  atLimit ? "opacity-25 cursor-not-allowed border-border" : selected ? "border-transparent" : "border-text-dim hover:border-accent"
+                  atLimit ? "opacity-25 cursor-not-allowed border-border" : selected ? "border-transparent" : "border-text-dim hover:border-brand"
                 }`}
                 style={{ background: selected ? COMPARE_COLORS[slot] : "transparent" }}
               />

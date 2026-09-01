@@ -128,7 +128,7 @@ export function StatTable<T>({
                 onClick={() => onSort(nameSortKey)}
                 style={{ width: nameWidth }}
                 className={`text-left py-2.5 px-3 cursor-pointer select-none ${
-                  sortKey === nameSortKey ? "text-accent font-bold" : ""
+                  sortKey === nameSortKey ? "text-brand font-bold" : ""
                 }`}
               >
                 {nameHeader}
@@ -140,7 +140,7 @@ export function StatTable<T>({
                   onClick={() => onSort(c.key)}
                   title={c.label}
                   className={`text-center py-2.5 px-2 cursor-pointer select-none truncate ${
-                    sortKey === c.key ? "text-accent font-bold" : ""
+                    sortKey === c.key ? "text-brand font-bold" : ""
                   }`}
                 >
                   {/* `short` exists because several labels are written for the bar view's select, where
@@ -235,7 +235,7 @@ export function StatGroupDetail<T>({
     >
       {groups.map(g => (
         <div key={g.id}>
-          <div className="font-heading text-[10px] font-semibold tracking-wider uppercase text-accent mb-1">
+          <div className="font-heading text-[10px] font-semibold tracking-wider uppercase text-brand mb-1">
             {g.label}
           </div>
           {g.cells.map(cell => (

@@ -17,14 +17,14 @@ import { queries } from "../lib/queries";
 
 function QuickLink({ link }: { link: InfoLink }) {
   const classes =
-    "group flex items-center justify-between gap-3 rounded-lg border border-border bg-bg2 px-4 py-3 text-text-bright hover:border-accent";
+    "group flex items-center justify-between gap-3 rounded-lg border border-border bg-bg2 px-4 py-3 text-text-bright hover:border-brand";
   const content = (
     <>
       <span className="font-heading text-sm tracking-wider uppercase">{link.label}</span>
       {link.url.startsWith("/") && !link.url.startsWith("//") ? (
-        <ArrowRight size={15} className="shrink-0 text-text-dim group-hover:text-accent" />
+        <ArrowRight size={15} className="shrink-0 text-text-dim group-hover:text-brand" />
       ) : (
-        <ExternalLink size={14} className="shrink-0 text-text-dim group-hover:text-accent" />
+        <ExternalLink size={14} className="shrink-0 text-text-dim group-hover:text-brand" />
       )}
     </>
   );
@@ -60,7 +60,7 @@ function InfoDocument({ info, leagueName }: { info: LeagueInfo; leagueName: stri
 
   return (
     <article>
-      <p className="font-heading text-xs tracking-wider uppercase text-accent mb-1">{leagueName}</p>
+      <p className="font-heading text-xs tracking-wider uppercase text-brand mb-1">{leagueName}</p>
       <h2 className="font-display text-[28px] text-text-bright tracking-widest mb-5">
         {info.title}
       </h2>

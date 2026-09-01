@@ -10,7 +10,7 @@
  */
 
 export const CONTROL_CLASS =
-  "bg-bg2 border border-border rounded-md text-text text-sm font-body px-3 py-2 focus:outline-none focus:border-accent w-full";
+  "bg-bg2 border border-border rounded-md text-text text-sm font-body px-3 py-2 focus:outline-none focus:border-brand w-full";
 
 export const LABEL_CLASS =
   "block text-[10px] font-heading uppercase tracking-wider text-text-secondary mb-1";
@@ -80,7 +80,7 @@ export function PillGroup({ options, isActive, onSelect, stretch }: PillGroupPro
             stretch ? "flex-1 px-1" : ""
           } ${
             isActive(o.value)
-              ? "bg-accent border-accent text-white"
+              ? "bg-brand border-brand text-white"
               : "bg-bg2 border-border text-text-secondary"
           }`}
         >

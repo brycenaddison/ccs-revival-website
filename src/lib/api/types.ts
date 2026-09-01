@@ -19,8 +19,15 @@ export type { Role } from "./normalize";
 export interface Tournament {
   conf: string;
   name: string;
-  /** e.g. "Spring '23". Null for older rows. */
+  /** The **season** label, e.g. "Spring '23". Null for older rows. */
   shortname: string | null;
+  /**
+   * The label the site's **season selectors** show — "Apollo", "Mars", "Neptune". Independent of
+   * `shortname` and of `name`; upstream derives neither from the other, and sibling divisions that
+   * share a season label can still carry distinct codenames. Null when the league has not set one, in
+   * which case a selector falls back to `name`.
+   */
+  codename: string | null;
   /**
    * Whether this season is running now. Served by the API and writable by a site admin through
    * `PATCH /admin/leagues/:conf`.
@@ -34,8 +41,9 @@ export interface Tournament {
    *
    * The three flags here are **independent and not interchangeable**: `listed` is navigation,
    * `applicationsOpen` is intake, `active` is the default schedule feed. A season being prepared is
-   * unlisted, closed and inactive; publication sets `listed` and `active` together with the team
-   * rows in one transaction, and the database refuses open intake on a listed conference.
+   * unlisted, closed and inactive; `POST /admin/leagues/:conf/list` sets `listed` and `active` and
+   * closes intake in one statement, and the database refuses open intake on a listed conference.
+   * Team rows are created separately and earlier, by roster staff publishing approved applications.
    *
    * Optional for the same reason `active` is: a deployment older than the column omits it, and
    * reading absent as `false` would hide every existing season from the site. Only the admin read
@@ -122,6 +130,8 @@ export interface StandingRow extends SeasonRecord {
   logo?: string;
   color: number | null;
   colorHex: string;
+  /** Secondary branding color. Absent until upstream serves it on this read — see `TeamRecord`. */
+  colorSecondary?: number | null;
   /**
    * Position, 1-based. Teams level on every tiebreaker **share** a rank, and a shared rank
    * consumes the positions it covers — three teams tied at 2 are followed by rank 5.
@@ -297,6 +307,8 @@ export interface TeamStats {
   logo?: string;
   color: number | null;
   colorHex: string;
+  /** Secondary branding color. Absent until upstream serves it on this read — see `TeamRecord`. */
+  colorSecondary?: number | null;
 
   games: number;
   wins: number;
@@ -421,6 +433,13 @@ export interface TeamDetail extends Partial<Omit<TeamStats, "code" | "name" | "c
   code: string;
   name: string;
   conf: string;
+  /**
+   * Always resolved, unlike the rest of the inherited stats: `buildTeamDetail` takes them from the
+   * stats row or, for a team that hasn't played, from the roster row — so this is a `TeamColors` and
+   * badges the same way every other team read does.
+   */
+  color: number | null;
+  colorHex: string;
   /** True when no `teamstats` row existed — i.e. the team has not played yet. */
   hasStats: boolean;
   /**

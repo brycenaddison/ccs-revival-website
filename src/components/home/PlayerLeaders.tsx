@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { roleLabel } from "../../lib/api";
+import { teamGradient } from "../../lib/teamStyle";
 import { teamInitial } from "../../lib/utils";
 import { TeamLink } from "../league/TeamLink";
 import { PlayerLink } from "../profile/PlayerLink";
@@ -73,7 +74,7 @@ export function PlayerLeaders({ players, isMobile }: Props) {
           className={`flex items-center gap-2.5 ${i < sorted.length - 1 ? "border-b border-bg3" : ""}`}
           style={{ padding: isMobile ? "10px 12px" : "12px 16px" }}
         >
-          <span className={`font-display text-xl min-w-[24px] text-center ${i === 0 ? "text-accent" : "text-text-subtle"}`}>
+          <span className={`font-display text-xl min-w-[24px] text-center ${i === 0 ? "text-brand" : "text-text-subtle"}`}>
             {i + 1}
           </span>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -83,18 +84,18 @@ export function PlayerLeaders({ players, isMobile }: Props) {
               ) : (
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] text-white font-bold font-heading shrink-0"
-                  style={{ background: p.team ? `linear-gradient(135deg, ${p.team.color_primary || "#333"}, ${p.team.color_accent || "#555"})` : "var(--text-subtle)" }}
+                  style={{ background: p.team ? teamGradient(p.team.color_primary || "#333", p.team.color_accent || "#555") : "var(--text-subtle)" }}
                 >
                   {teamInitial(p.team?.name)}
                 </div>
               )}
             </TeamLink>
             <div className="flex-1 min-w-0">
-              <PlayerLink profileId={p.profileId} className="block truncate font-heading text-[13px] font-medium text-text no-underline hover:text-accent">{p.name}</PlayerLink>
-              <TeamLink team={p.team} className="block truncate text-[10px] text-text-muted no-underline hover:text-accent">{p.team?.name || "FA"} · {roleLabel(p.role)}</TeamLink>
+              <PlayerLink profileId={p.profileId} className="block truncate font-heading text-[13px] font-medium text-text no-underline hover:text-brand">{p.name}</PlayerLink>
+              <TeamLink team={p.team} className="block truncate text-[10px] text-text-muted no-underline hover:text-brand">{p.team?.name || "FA"} · {roleLabel(p.role)}</TeamLink>
             </div>
           </div>
-          <span className={`font-display text-[22px] tracking-wider ${i === 0 ? "text-accent" : "text-text-bright"}`}>
+          <span className={`font-display text-[22px] tracking-wider ${i === 0 ? "text-brand" : "text-text-bright"}`}>
             {display(p)}
           </span>
         </div>

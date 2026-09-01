@@ -77,7 +77,7 @@ function Inbox() {
         <p className="mt-2 text-sm leading-relaxed text-text-secondary">
           No team has invited you yet. A captain has to find you in the CCS Discord to send one — so
           make sure you're in the server. You can also{" "}
-          <Link to="/register" className="text-accent no-underline">
+          <Link to="/register" className="text-brand no-underline">
             start a team of your own
           </Link>
           .
@@ -189,7 +189,7 @@ function InvitationCard({
           </p>
           <p className="mt-0.5 text-xs text-text-dim">
             Invited by{" "}
-            <PlayerLink profileId={invitation.invitedByProfileId} className="text-accent">
+            <PlayerLink profileId={invitation.invitedByProfileId} className="text-brand">
               {invitation.invitedBy?.name ?? "the team's captain"}
             </PlayerLink>
             {invitation.invitedAt && ` · ${fmtKickoff(invitation.invitedAt)}`}
@@ -206,12 +206,6 @@ function InvitationCard({
           <InvitationStatusPill status={invitation.status} perspective="invitee" />
         </div>
       </div>
-
-      {pending && roles.some(r => r.role === "owner") && (
-        <p className="mt-3 text-sm text-ccs-orange">
-          Accepting makes you the owner of this application — you'd take over running it.
-        </p>
-      )}
 
       {pending && (
         <div className="mt-4 flex flex-wrap items-center gap-2">

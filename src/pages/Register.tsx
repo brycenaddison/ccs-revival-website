@@ -24,6 +24,7 @@ import { ApplicationCard } from "../components/apply/ApplicationCard";
 import { ApplicationForm } from "../components/apply/ApplicationForm";
 import { ApplicationStatusPill } from "../components/apply/applyUi";
 import { ErrorLine } from "../components/admin/adminUi";
+import { Markdown } from "../components/Markdown";
 import { CONTROL_CLASS, LABEL_CLASS } from "../components/stats/FilterBar";
 import { Toast } from "../components/Toast";
 import { useAuth } from "../lib/authContext";
@@ -57,6 +58,7 @@ function ApplyPanel() {
 
   // An explicit choice wins; otherwise the first open season, which is the only one most of the time.
   const conf = chosen && open.some(s => s.conf === chosen) ? chosen : open[0]?.conf ?? "";
+  const season = open.find(s => s.conf === conf) ?? null;
 
   if (isPending) return <p className="text-text-dim">Checking which leagues are open…</p>;
 
@@ -83,12 +85,12 @@ function ApplyPanel() {
               href={DISCORD_INVITE}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent no-underline hover:text-text-bright"
+              className="text-brand no-underline hover:text-text-bright"
             >
               Open Discord
             </a>
           )}
-          <Link to="/team-invitations" className="text-accent no-underline hover:text-text-bright">
+          <Link to="/team-invitations" className="text-brand no-underline hover:text-text-bright">
             Your team invitations
           </Link>
         </div>
@@ -123,12 +125,27 @@ function ApplyPanel() {
         </p>
       )}
 
+      {/* The league's own "read this before you apply" copy, off the same list that named the
+          season — so it reaches an applicant while the Info page is still a draft, like the rulebook
+          the form links to. Rendered through the shared `Markdown` so it obeys the one Markdown
+          policy on the site. Absent means the league wrote none, and nothing is drawn for it. */}
+      {season?.applicationBody && (
+        <section className="rounded-lg border border-border bg-bg2 p-5">
+          <h2 className="font-display text-[20px] tracking-widest text-text-bright">
+            LEAGUE INFORMATION
+          </h2>
+          <div className="mt-2">
+            <Markdown body={season.applicationBody} />
+          </div>
+        </section>
+      )}
+
       <ConfApplications conf={conf} myProfileId={profile?.id ?? null} onSaved={setSaved} />
 
       <p className="flex items-center gap-2 text-sm text-text-dim">
         <Inbox size={15} aria-hidden="true" />
         Invited to somebody else's team?{" "}
-        <Link to="/team-invitations" className="text-accent no-underline">
+        <Link to="/team-invitations" className="text-brand no-underline">
           Check your invitations
         </Link>
       </p>
@@ -171,12 +188,12 @@ function ConfApplications({ conf, myProfileId, onSaved }: ConfProps) {
           <h2 className="font-display text-[20px] tracking-widest text-text-bright">
             START A TEAM
           </h2>
-          {/* Deliberately does not promise ownership. Upstream is dropping the seeded owner/contact
-              row, so a new application starts with an empty roster and the captain invites everybody
-              — themselves included. The readiness checklist is what tells them an owner is needed. */}
+          {/* Says nothing about ownership. A new application starts with an empty roster and the
+              captain invites everybody — themselves included — and running the application is not a
+              role: it follows whoever created it. The readiness checklist names what is missing. */}
           <p className="mt-2 text-sm text-text-secondary">
-            Nothing goes to the league until you submit it. You'll invite your players next, and one
-            of them has to be the owner — that can be you.
+            Nothing goes to the league until you submit it. You'll invite your players next — add
+            yourself too if you're playing.
           </p>
           <div className="mt-4">
             <ApplicationForm

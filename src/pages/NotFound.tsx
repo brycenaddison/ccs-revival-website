@@ -65,7 +65,7 @@ export default function NotFound() {
             links here would be the same choice offered twice. */}
         <Link
           to="/"
-          className="font-heading inline-block rounded-md bg-accent px-7 py-3 text-sm font-medium tracking-wider text-white uppercase no-underline"
+          className="font-heading inline-block rounded-md bg-brand px-7 py-3 text-sm font-medium tracking-wider text-white uppercase no-underline"
         >
           Back to home
         </Link>

@@ -87,7 +87,7 @@ export function MatchupCard({ matchups }: { matchups: readonly ProfileLaneMatchu
             <li key={row.profileId} className={`${GRID} px-3 py-2`}>
               <PlayerLink
                 profileId={row.profileId}
-                className="min-w-0 truncate font-heading text-xs text-text-bright no-underline hover:text-accent"
+                className="min-w-0 truncate font-heading text-xs text-text-bright no-underline hover:text-brand"
               >
                 {row.name ?? "Unknown"}
               </PlayerLink>

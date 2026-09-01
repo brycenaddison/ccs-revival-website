@@ -404,7 +404,7 @@ function TonePicker({
               // `group-hover`, not `peer-hover`: the peer is the `sr-only` input, which is clipped to a
               // pixel and so is never the thing under the cursor. Focus is the other way round — the
               // input is what receives it — so that one stays a `peer-` variant.
-              className={`flex h-7 w-7 items-center justify-center rounded-md border-2 transition group-hover:opacity-100 peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-bg3 ${
+              className={`flex h-7 w-7 items-center justify-center rounded-md border-2 transition group-hover:opacity-100 peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-bg3 ${
                 picked ? "scale-110" : "opacity-60"
               }`}
               style={{ background: tone.bg, borderColor: picked ? tone.fg : tone.line }}
@@ -541,7 +541,7 @@ function GroupsEditor({
                       key={id}
                       type="button"
                       onClick={() => update(index, { teams: group.teams.filter(t => t !== id) })}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-accent/50 px-2.5 py-0.5 text-xs text-text-bright hover:border-ccs-red"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-brand/50 px-2.5 py-0.5 text-xs text-text-bright hover:border-ccs-red"
                     >
                       {team ? team.code : `#${id}`}
                       <span aria-hidden="true">×</span>

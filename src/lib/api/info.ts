@@ -49,6 +49,14 @@ export interface LeagueInfo {
    * league can choose.
    */
   rulebookUrl?: string | null;
+  /**
+   * Markdown shown on the team **application** page, beside the rulebook link — "read this before
+   * you apply" copy. It is stored on this document because it is league-owned prose with the same
+   * lifecycle as the rulebook, but it is **not rendered on the Info page** and does not count toward
+   * its publish gate. Applicants read it off `GET /tournaments/applications/open`, which ignores
+   * publication, for the same reason the rulebook rides there. `null` means the league wrote none.
+   */
+  applicationBody: string | null;
   isPublished: boolean;
   publishedAt: string | null;
   createdAt: string;
@@ -62,12 +70,20 @@ export interface LeagueInfo {
  * has to stay in lockstep with `BODY_KEYS` in the server's `infoValidation.ts`. `rulebookUrl` is
  * non-optional here on purpose: the editor cannot save a document without one, and making it
  * optional would let a call site omit a key the server requires.
+ *
+ * `applicationBody` is the one key upstream treats as optional — so an editor shipped before the
+ * column existed could keep saving — but it is **required here** on purpose. A `PUT` is a
+ * whole-document replacement and an absent key reads as `null`, so a caller that left it out would
+ * silently erase the application copy every time it saved something else. Two editors write this
+ * document (League Admin → Info Page and League Admin → Team Applications) and each has to carry the
+ * other's field through untouched.
  */
 export interface LeagueInfoInput {
   title: string;
   body: string | null;
   links: InfoLink[];
   rulebookUrl: string;
+  applicationBody: string | null;
   isPublished: boolean;
 }
 
@@ -99,6 +115,9 @@ function mapLeagueInfo(raw: unknown): LeagueInfo {
     // rulebook to report, which the application form has to tell apart from a league that has one and
     // left it blank — the latter is impossible once the editor requires it.
     ...("rulebookUrl" in info ? { rulebookUrl: strOrNull(info.rulebookUrl) } : {}),
+    // Unlike `rulebookUrl`, absent and `null` are the same thing here — upstream itself reads a
+    // missing key as "none written" — so there is nothing for a caller to tell apart.
+    applicationBody: strOrNull(info.applicationBody),
     isPublished: info.isPublished === true,
     publishedAt: strOrNull(info.publishedAt),
     createdAt: str(info.createdAt),

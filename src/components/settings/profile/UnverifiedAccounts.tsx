@@ -41,11 +41,13 @@ import {
 } from "../../../lib/api";
 import { useAuth } from "../../../lib/authContext";
 import { queryRoots } from "../../../lib/queries";
+import { splitRiotId } from "../../../lib/riotId";
 import { fmtDay } from "../../../lib/utils";
 import { ACTION_SM, ACTION_SM_PRIMARY, ErrorLine } from "../../admin/adminUi";
 import { UnverifiedAccountRow } from "../../profile/RiotAccountCards";
 import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { IconVerification, verifiedText } from "./IconVerification";
+import { OpggImport } from "./OpggImport";
 
 interface Props {
   accounts: readonly UnverifiedAccount[];
@@ -54,19 +56,17 @@ interface Props {
 }
 
 /**
- * Split a Riot ID the way it is written, so a paste into the name field works.
+ * Merge the two form fields into one Riot ID, so a paste into the name field works.
  *
  * The `#` in the name wins over the tag field when it carries a tag of its own: someone who pasted
  * `Faker#KR1` meant `KR1`, whatever was left in the smaller box. A bare trailing `#` falls back to
- * the tag field instead of submitting an empty tag.
+ * the tag field instead of submitting an empty tag. The split itself is `splitRiotId` — the import
+ * beside this form has to read a Riot ID exactly the same way.
  */
 function parseRiotId(name: string, tag: string): RiotAccountInput {
   const typed = tag.trim().replace(/^#+/, "");
-  const hash = name.indexOf("#");
-  if (hash < 0) return { gameName: name.trim(), tagLine: typed };
-
-  const pasted = name.slice(hash + 1).trim();
-  return { gameName: name.slice(0, hash).trim(), tagLine: pasted || typed };
+  const pasted = splitRiotId(name);
+  return { gameName: pasted.gameName, tagLine: pasted.tagLine || typed };
 }
 
 export function UnverifiedAccounts({ accounts, canVerify }: Props) {
@@ -277,6 +277,12 @@ export function UnverifiedAccounts({ accounts, canVerify }: Props) {
           ? `That's all ${MAX_UNVERIFIED_ACCOUNTS} unverified accounts. Verify one, or remove one, to add another.`
           : "Riot IDs are case-insensitive but the tag matters — it's the part after the #."}
       </p>
+
+      {/* Below the single-account form rather than above it: one account is the common case and the
+          form is the thing to reach first, but anyone with a team's worth of alts has the link. It
+          stays available when the list is full — the preview is what explains that they won't fit,
+          which is more use than a hidden control. */}
+      <OpggImport accounts={accounts} onDone={setNotice} />
 
       {incomplete && <ErrorLine message="Enter a Riot ID and its tag, for example Faker#KR1." />}
       {add.error && <ErrorLine message={errorMessage(add.error)} />}

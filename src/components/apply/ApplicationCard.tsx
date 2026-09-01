@@ -14,7 +14,7 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Pencil, Send, Trash2, UserPlus, X } from "lucide-react";
+import { Check, Pencil, RefreshCw, Send, Trash2, UserPlus, X } from "lucide-react";
 import {
   ACTION,
   ACTION_DANGER,
@@ -25,14 +25,17 @@ import {
 } from "../admin/adminUi";
 import { LABEL_CLASS } from "../stats/FilterBar";
 import { PlayerLink } from "../profile/PlayerLink";
+import { ConfirmButton } from "../ConfirmButton";
 import { ApplicationForm } from "./ApplicationForm";
 import { InviteMember } from "./InviteMember";
 import {
   ApplicationDetailsBlock,
   ApplicationStatusPill,
   InvitationStatusPill,
+  isPlaying,
   MemberAvatar,
   memberLabel,
+  RankChip,
   roleSummary,
   STARTER_ROLES,
   ROLE_LABEL,
@@ -43,6 +46,7 @@ import {
   errorMessage,
   hexFromInt,
   readApplicationDetails,
+  refreshApplicationAccounts,
   refusalOf,
   revokeInvitation,
   submitApplication,
@@ -57,7 +61,7 @@ const EDITABLE = new Set(["draft", "rejected"]);
 
 interface Props {
   application: TeamApplication;
-  /** The signed-in profile, so the card knows whether it is the owner's copy or a member's. */
+  /** The signed-in profile, so the card knows whether it is the applicant's copy or a member's. */
   myProfileId: number | null;
   onSaved: (message: string) => void;
 }
@@ -88,6 +92,16 @@ export function ApplicationCard({ application, myProfileId, onSaved }: Props) {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: queryRoots.applications });
       onSaved(`Withdrew ${application.teamName}.`);
+    },
+  });
+
+  // Answers the whole application, so the list this card renders is replaced wholesale rather than
+  // patched member by member.
+  const refresh = useMutation({
+    mutationFn: () => refreshApplicationAccounts(conf, application.id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: queryRoots.applications });
+      onSaved("Ranks updated.");
     },
   });
 
@@ -148,13 +162,27 @@ export function ApplicationCard({ application, myProfileId, onSaved }: Props) {
       <div className="mt-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-heading text-sm uppercase tracking-wider text-text-bright">Roster</h3>
-          {editable && inviting === null && (
-            <button type="button" onClick={() => setInviting(true)} className={ACTION}>
-              <UserPlus size={15} aria-hidden="true" />
-              Invite a player
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Ranks come from a cache upstream, never a live lookup, so somebody who linked an
+                account a minute ago sees "Rank pending" until this is pressed. */}
+            <button
+              type="button"
+              onClick={() => refresh.mutate()}
+              disabled={refresh.isPending}
+              className={ACTION}
+            >
+              <RefreshCw size={15} aria-hidden="true" />
+              {refresh.isPending ? "Checking…" : "Refresh ranks"}
             </button>
-          )}
+            {editable && inviting === null && (
+              <button type="button" onClick={() => setInviting(true)} className={ACTION}>
+                <UserPlus size={15} aria-hidden="true" />
+                Invite a player
+              </button>
+            )}
+          </div>
         </div>
+        <ErrorLine message={refresh.isError ? errorMessage(refresh.error) : null} />
 
         {application.members === undefined ? (
           <p className="mt-2 text-sm text-text-dim">
@@ -224,23 +252,19 @@ export function ApplicationCard({ application, myProfileId, onSaved }: Props) {
               <Send size={15} aria-hidden="true" />
               {submit.isPending ? "Submitting…" : "Submit for review"}
             </button>
-            <button
-              type="button"
+            <ConfirmButton
+              title={`Withdraw ${application.teamName}?`}
+              description="Withdrawing is final — there's no reopening it, so getting back in means starting a new application from scratch. Everyone you invited would have to be invited again."
+              confirmLabel="Withdraw"
+              onConfirm={() => withdraw.mutate()}
               disabled={withdraw.isPending}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    `Withdraw ${application.teamName}? This can't be undone — you'd have to start a new application.`,
-                  )
-                ) {
-                  withdraw.mutate();
-                }
-              }}
-              className={ACTION_DANGER}
-            >
-              <Trash2 size={15} aria-hidden="true" />
-              Withdraw
-            </button>
+              trigger={
+                <button type="button" className={ACTION_DANGER}>
+                  <Trash2 size={15} aria-hidden="true" />
+                  Withdraw
+                </button>
+              }
+            />
           </div>
 
           {submitRefusal && (
@@ -275,7 +299,7 @@ function StatusNote({ application, owned }: { application: TeamApplication; owne
       case "submitted":
         return "League staff are reviewing it. You can't change it while they have it.";
       case "approved":
-        return "Approved. Your team goes live when the league publishes the season — nothing more to do.";
+        return "Approved. Staff will add your team to the league shortly — nothing more to do.";
       case "rejected":
         return "Staff sent it back. Fix what they asked for and submit it again; saving any change reopens it as a draft.";
       case "withdrawn":
@@ -343,14 +367,17 @@ function RosterList({ conf, applicationId, members, editable, myProfileId, onEdi
             className="flex flex-wrap items-center gap-2.5 border-b border-border py-2.5 last:border-b-0"
           >
             <MemberAvatar member={member} />
-            <PlayerLink profileId={member.profileId} className="text-accent no-underline">
+            <PlayerLink profileId={member.profileId} className="text-brand no-underline">
               {memberLabel(member)}
             </PlayerLink>
             {member.profileId === myProfileId && (
               <span className="text-[10px] uppercase tracking-wider text-text-dim">you</span>
             )}
             <span className="text-xs text-text-secondary">{roleSummary(member.roles)}</span>
-            <InvitationStatusPill status={member.status} perspective="owner" />
+            <InvitationStatusPill status={member.status} perspective="captain" />
+            {/* Only for the lineup. An owner or contact who does not play has no account
+                requirement, so a chip on their row would read as a demand nobody is making. */}
+            {isPlaying(member.roles) && <RankChip riot={member.riot} />}
             {member.status === "pending" && member.dmStatus === "failed" && (
               <span
                 className="text-xs text-ccs-orange"
@@ -367,19 +394,23 @@ function RosterList({ conf, applicationId, members, editable, myProfileId, onEdi
                   <Pencil size={13} aria-hidden="true" />
                   Roles
                 </button>
-                <button
-                  type="button"
+                <ConfirmButton
+                  title={`Remove ${memberLabel(member)}?`}
+                  description={
+                    member.status === "accepted"
+                      ? "They've already accepted, so they'll be taken off the roster and told about it on Discord. You can invite them again afterwards."
+                      : "Their invitation is withdrawn. You can invite them again afterwards."
+                  }
+                  confirmLabel="Remove"
+                  onConfirm={() => revoke.mutate(member.id)}
                   disabled={revoke.isPending}
-                  onClick={() => {
-                    if (window.confirm(`Remove ${memberLabel(member)} from this team?`)) {
-                      revoke.mutate(member.id);
-                    }
-                  }}
-                  className={ACTION_SM_DANGER}
-                >
-                  <X size={13} aria-hidden="true" />
-                  Remove
-                </button>
+                  trigger={
+                    <button type="button" className={ACTION_SM_DANGER}>
+                      <X size={13} aria-hidden="true" />
+                      Remove
+                    </button>
+                  }
+                />
               </span>
             )}
           </li>
@@ -394,8 +425,14 @@ function RosterList({ conf, applicationId, members, editable, myProfileId, onEdi
  * What still stands between this roster and a submission.
  *
  * The wording is the applicant's, not the server's: upstream says "exactly one accepted sup is
- * required", which is accurate and unreadable. The rules are the same ones `publicationIssues`
- * applies, and the server still has the final word.
+ * required", which is accurate and unreadable. Otherwise these are `publicationIssues`' rules, and
+ * the server still has the final word.
+ *
+ * **One deliberate divergence: no owner blocker.** The `owner` role is optional here — see the
+ * comment beside the contact check — while `publicationIssues` still requires exactly one until the
+ * server change lands. Until then a team with no owner clears this list and Submit answers `409`,
+ * which the card renders verbatim with its issue list; that is the interim, not a mistake to repair
+ * by putting the blocker back.
  */
 function readinessBlockers(
   members: readonly ApplicationMember[],
@@ -403,9 +440,14 @@ function readinessBlockers(
 ): string[] {
   const blockers: string[] = [];
 
-  // First, because it is the one the applicant can clear on their own without waiting for anybody.
+  // First, because these are the ones the applicant can clear on their own without waiting for anybody.
   if (!details.rulesAcknowledged) {
-    blockers.push("Confirm you've read the league rules — the box is under Edit team details.");
+    blockers.push("Confirm you've read the league rules. The check box is under \"Edit team details\".");
+  }
+  if (!details.ticketOpened) {
+    blockers.push(
+      "Open a team apps ticket in #ticket-questions on Discord, then confirm it by checking the box under \"Edit team details\".",
+    );
   }
   const accepted = members.filter(m => m.status === "accepted");
   const holds = (role: string) =>
@@ -420,10 +462,13 @@ function readinessBlockers(
     );
   }
 
-  const owners = holds("owner");
-  if (owners.length === 0) blockers.push("The team needs an owner who has accepted.");
-  if (owners.length > 1) blockers.push("Only one person can be the owner.");
-  if (holds("contact").length === 0) blockers.push("The team needs at least one contact.");
+  // No owner blocker. `owner` is a label the league records, not a requirement and not authority:
+  // control of an application follows whoever created it, so a team that names nobody its owner is
+  // a complete team. The contact requirement stays — the league has to have somebody to write to,
+  // and it is **two**, because one contact is one point of failure for a whole season of messages.
+  const contacts = holds("contact").length;
+  if (contacts === 0) blockers.push("The team needs two points of contact.");
+  else if (contacts === 1) blockers.push("Name a second point of contact.");
 
   const missing = STARTER_ROLES.filter(role => holds(role).length === 0);
   if (missing.length > 0) {
@@ -438,6 +483,17 @@ function readinessBlockers(
   }
 
   if (holds("sub").length > 5) blockers.push("Five substitutes at most.");
+
+  // Everyone in the lineup — starters and bench — needs a Riot account they have proved they own.
+  // Named per person, because the fix is per person: whoever it is has to go and link theirs.
+  // A contact or owner who does not play is exempt.
+  const unlinked = accepted.filter(m => isPlaying(m.roles) && m.riot.verifiedAccounts === 0);
+  if (unlinked.length > 0) {
+    blockers.push(
+      `${unlinked.map(memberLabel).join(", ")} ${unlinked.length === 1 ? "needs" : "need"
+      } a linked Riot account. They can add one under Settings → Connections.`,
+    );
+  }
 
   return blockers;
 }

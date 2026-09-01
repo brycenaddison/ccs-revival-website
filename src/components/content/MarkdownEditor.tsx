@@ -92,8 +92,7 @@ export function MarkdownEditor({
         <ImageUploadButton onUploaded={insert}>Insert an image</ImageUploadButton>
       </div>
       <p className="mt-1.5 text-xs text-text-dim">
-        The image goes in at the cursor. Type a description between the square brackets — it's what a
-        screen reader reads out, and what shows if the image ever fails to load.
+        The image goes in at the cursor. Provide a description of the image between the square brackets.
       </p>
     </div>
   );

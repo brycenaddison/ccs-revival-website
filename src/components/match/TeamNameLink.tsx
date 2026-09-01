@@ -38,7 +38,7 @@ export function TeamNameLink({
 
   return (
     <TeamLink conf={team.conf} code={code} title={code} className="min-w-0 no-underline">
-      <span className={`truncate hover:text-accent ${className ?? ""}`}>{team.name}</span>
+      <span className={`truncate hover:text-brand ${className ?? ""}`}>{team.name}</span>
     </TeamLink>
   );
 }

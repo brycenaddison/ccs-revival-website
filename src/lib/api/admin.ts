@@ -6,6 +6,12 @@
  * surface has to read this one instead: a site admin who created a hidden league would otherwise
  * be unable to select it in their own editor. Public navigation must keep using `/tournaments`.
  *
+ * The league editor also owns the season's two lifecycle switches — `setApplicationsOpen` and
+ * `listSeason`. They used to live on `/tournaments/:conf/applications/...` behind a conference
+ * `admin` grant and moved here because each changes what the **whole site** offers, where a league
+ * grant governs one conference's data. The old paths answer `404` now, not `403`. Roster staff read
+ * the resulting state at `GET /tournaments/:conf/applications/intake` (`teamApplications.ts`).
+ *
  * The transport is `./credentialed` — shared with the season editors, and the file to read for why
  * these calls carry cookies and a JSON content type when `./http` must not. Nothing under `/admin`
  * returns a `422`, so nothing here handles `SaveRejected`; the guards' JSON envelope and the
@@ -94,22 +100,28 @@ export interface DirectoryPage {
 export interface LeagueCreate {
   conf: string;
   name: string;
+  /** The season label ("Summer '26"). The editor calls it the Season Name. */
   shortname?: string;
+  /** The selector label ("Apollo"). The editor calls it the Division Name. */
+  codename?: string;
   active?: boolean;
 }
 
 /**
  * A subset of a league's metadata. An absent key leaves that field alone; an explicit `null`
- * shortname clears it. Sending nothing at all is a `400` upstream.
+ * shortname or codename clears that label and only that label. Sending nothing at all is a `400`
+ * upstream.
  *
  * `listed` is typed as the literal `false`, which is not a mistake: upstream **refuses
- * `listed: true`** here. An application-driven season becomes public only through the atomic team
- * publication, and letting a site admin flip the switch by hand would bypass it. `false` remains
- * available as an emergency hide, which is the only reason the key exists on this document.
+ * `listed: true`** here. `listSeason` below is the one path to public — it sets `listed` and
+ * `active` and closes intake in a single statement, and refuses an empty field — so there is one
+ * owner for the flag. `false` remains available as an emergency hide, which is the only reason the
+ * key exists on this document.
  */
 export interface LeagueEdit {
   name?: string;
   shortname?: string | null;
+  codename?: string | null;
   active?: boolean;
   listed?: false;
 }
@@ -120,6 +132,7 @@ export const CONF_PATTERN = /^[a-z0-9]{1,3}$/;
 /** Database column widths, enforced upstream. Mirrored so a field can cap its own input. */
 export const NAME_MAX = 255;
 export const SHORTNAME_MAX = 16;
+export const CODENAME_MAX = 32;
 
 // ------------------------------------------------------------------ transport
 
@@ -314,6 +327,43 @@ export function updateLeague(
   ).then(mapTournament);
 }
 
+/**
+ * Opens or closes team-application intake for a season. Site-admin only.
+ *
+ * A `409 season_listed` means the conference is already public: the database enforces
+ * `NOT applications_open OR NOT listed`, which is what keeps recruiting a hidden operation. The
+ * refusal comes in the application surface's `{status, error}` envelope, so `refusalOf` reads it.
+ * Answers the updated row.
+ */
+export function setApplicationsOpen(
+  conf: string,
+  open: boolean,
+  opts?: RequestOpts,
+): Promise<Tournament> {
+  return adminRequest(
+    `/admin/leagues/${encodeURIComponent(conf)}/applications`,
+    { method: "PATCH", body: { open } },
+    opts,
+  ).then(mapTournament);
+}
+
+/**
+ * Makes the season public: `listed`, `active`, and intake closed, in one write. Site-admin only.
+ *
+ * It creates no teams — publishing approved applications is roster staff's job on `/tournaments`,
+ * and it happens *first* — and refuses `no_teams` for a conference with none, because a listed
+ * season with an empty field is visible to every visitor at once. A second call answers
+ * `already_listed` rather than silently rewriting flags somebody may have changed by hand since.
+ * Both refusals use the application surface's `409` envelope, so `refusalOf` reads them.
+ */
+export function listSeason(conf: string, opts?: RequestOpts): Promise<Tournament> {
+  return adminRequest(
+    `/admin/leagues/${encodeURIComponent(conf)}/list`,
+    { method: "POST", body: {} },
+    opts,
+  ).then(mapTournament);
+}
+
 /** Namespaced for call sites that want the surface in one object, like `api` and `auth`. */
 export const adminApi = {
   adminLeagues,
@@ -324,4 +374,6 @@ export const adminApi = {
   revokeLeague,
   createLeague,
   updateLeague,
+  setApplicationsOpen,
+  listSeason,
 };

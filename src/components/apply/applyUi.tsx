@@ -10,12 +10,14 @@
 import { type ReactNode } from "react";
 import { Check, X } from "lucide-react";
 import { LABEL_CLASS } from "../stats/FilterBar";
+import { fmtKickoff } from "../../lib/utils";
 import {
   TEAM_MEMBER_ROLES,
   type ApplicationDetails,
   type ApplicationMember,
   type ApplicationStatus,
   type InvitationStatus,
+  type MemberRiot,
   type MemberRoleAssignment,
   type TeamMemberRole,
 } from "../../lib/api";
@@ -39,6 +41,15 @@ export const ROLE_LABEL: Readonly<Record<TeamMemberRole, string>> = {
  * `owner`, `contact` and `sub` — those are counted, not slotted.
  */
 export const STARTER_ROLES = ["top", "jg", "mid", "bot", "sup"] as const;
+
+/**
+ * The starters plus the bench — everyone upstream calls a *player*.
+ *
+ * The distinction that matters: only these need a linked Riot account, because only these have to
+ * be matched to a game. An owner or a contact who never plays is exempt, and saying otherwise would
+ * block an org manager from a team they run.
+ */
+export const PLAYING_ROLES = [...STARTER_ROLES, "sub"] as const;
 
 /** Display order for a member's roles: who they are, then where they play. */
 export function sortRoles(roles: readonly MemberRoleAssignment[]): MemberRoleAssignment[] {
@@ -96,26 +107,116 @@ export function InvitationStatusPill({
   perspective,
 }: {
   status: InvitationStatus;
-  perspective?: "owner" | "invitee";
+  /** "captain" is whoever runs the application, not the `owner` role — the two are unrelated. */
+  perspective?: "captain" | "invitee";
 }) {
   const look = INVITATION_LOOK[status];
   const label =
     status === "pending" && perspective
-      ? perspective === "owner"
+      ? perspective === "captain"
         ? "Waiting for them"
         : "Needs your answer"
       : look.label;
   return <Chip tone={look.tone}>{label}</Chip>;
 }
 
-function Chip({ tone, children }: { tone: string; children: ReactNode }) {
+/**
+ * A member's Riot standing, or the reason there isn't one.
+ *
+ * Four states, because upstream serves four and any two of them collapsed together says something
+ * untrue. **UNVERIFIED is red on purpose**: it is not a missing nicety, it is the thing stopping
+ * this application being submitted, and the readiness checklist says so in words beside it.
+ *
+ * **PENDING is not UNRANKED.** Upstream has never fetched that account — the chips come from a
+ * cache, not a live lookup — and showing "Unranked" there would put it under a Challenger nobody
+ * has looked up yet. The refresh button on the application is what resolves it.
+ */
+export function RankChip({ riot }: { riot: MemberRiot }) {
+  if (riot.verifiedAccounts === 0) {
+    return (
+      <Chip tone="border-ccs-red/50 text-ccs-red" title="No Riot account linked yet">
+        Unverified
+      </Chip>
+    );
+  }
+  if (riot.rank) {
+    return (
+      <Chip
+        tone="border-ccs-gold/50 text-ccs-gold"
+        title={riot.fetchedAt ? `Checked ${fmtKickoff(riot.fetchedAt)}` : undefined}
+      >
+        {riot.rank.label}
+      </Chip>
+    );
+  }
+  return (
+    <Chip
+      tone="border-border text-text-dim"
+      title={riot.cached ? "No ranked games this split" : "Not checked yet — use Refresh ranks"}
+    >
+      {riot.cached ? "Unranked" : "Rank pending"}
+    </Chip>
+  );
+}
+
+/** Whether this member's roles put them in the lineup, and therefore under the account rule. */
+export function isPlaying(roles: readonly MemberRoleAssignment[]): boolean {
+  return roles.some(r => (PLAYING_ROLES as readonly string[]).includes(r.role));
+}
+
+function Chip({
+  tone,
+  title,
+  children,
+}: {
+  tone: string;
+  title?: string;
+  children: ReactNode;
+}) {
   return (
     <span
+      title={title}
       className={`inline-block shrink-0 rounded-full border px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-wider ${tone}`}
     >
       {children}
     </span>
   );
+}
+
+/** How many default avatars Discord cycles through since the discriminator was retired. */
+const DISCORD_DEFAULT_AVATARS = 6n;
+
+/**
+ * A displayable Discord avatar url, built from a raw hash.
+ *
+ * **This is the one place the client owns that rule**, and it exists because the guild member
+ * search is the one Discord read whose `avatar` is a raw hash rather than a finished url — upstream
+ * resolves it for a profile the moment it stores one, but a search hit has no profile yet. Without
+ * this the invite picker showed an initial in a circle while every other face on the same screen
+ * was a real photo.
+ *
+ * Two rules, both easy to get wrong, which is why they are written down rather than inlined:
+ *
+ *  - An animated avatar's hash starts with `a_` and must be requested as `.gif`. Asking for `.png`
+ *    gets a still frame, which is fine; asking for `.gif` on a static hash 404s.
+ *  - A user with no avatar has no CDN entry at all. The numbered default is keyed on the snowflake,
+ *    in BigInt because a snowflake exceeds 2^53 and the shift would be meaningless on a double.
+ *
+ * Never returns null: a caller rendering a face always has something to point at.
+ */
+export function discordAvatarUrl(userId: string, hash: string | null, size = 64): string {
+  if (hash) {
+    const ext = hash.startsWith("a_") ? "gif" : "png";
+    return `https://cdn.discordapp.com/avatars/${userId}/${hash}.${ext}?size=${size}`;
+  }
+
+  let index = 0n;
+  try {
+    index = (BigInt(userId) >> 22n) % DISCORD_DEFAULT_AVATARS;
+  } catch {
+    // A malformed snowflake should still yield a usable image. Index 0 is a real default avatar.
+  }
+  return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
 }
 
 /**
@@ -154,7 +255,8 @@ export function ApplicationDetailsBlock({ details }: { details: ApplicationDetai
     details.organizationName !== null ||
     details.twitter !== null ||
     details.experience !== null ||
-    details.rulesAcknowledged;
+    details.rulesAcknowledged ||
+    details.ticketOpened;
   if (!hasAny) return null;
 
   return (
@@ -173,7 +275,7 @@ export function ApplicationDetailsBlock({ details }: { details: ApplicationDetai
               href={details.twitter}
               target="_blank"
               rel="noopener noreferrer"
-              className="break-all text-accent no-underline hover:text-text-bright"
+              className="break-all text-brand no-underline hover:text-text-bright"
             >
               {details.twitter}
             </a>
@@ -199,6 +301,28 @@ export function ApplicationDetailsBlock({ details }: { details: ApplicationDetai
             <>
               <Check size={14} aria-hidden="true" />
               Confirmed as read
+            </>
+          ) : (
+            <>
+              <X size={14} aria-hidden="true" />
+              Not confirmed
+            </>
+          )}
+        </dd>
+      </div>
+      {/* The applicant's word, not a lookup — nothing here can see Discord. A reviewer who finds no
+          ticket for a team that says it opened one has learned something worth asking about. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <dt className={LABEL_CLASS}>Discord ticket</dt>
+        <dd
+          className={`flex items-center gap-1.5 ${
+            details.ticketOpened ? "text-ccs-green" : "text-ccs-orange"
+          }`}
+        >
+          {details.ticketOpened ? (
+            <>
+              <Check size={14} aria-hidden="true" />
+              Confirmed as opened
             </>
           ) : (
             <>

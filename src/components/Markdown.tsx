@@ -39,7 +39,7 @@ export function Markdown({ body }: { body: string }) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent underline underline-offset-2 hover:text-text-bright"
+              className="text-brand underline underline-offset-2 hover:text-text-bright"
             >
               {children}
             </a>
@@ -47,7 +47,7 @@ export function Markdown({ body }: { body: string }) {
           ul: ({ children }) => <ul className="list-disc pl-6 mb-4 space-y-1">{children}</ul>,
           ol: ({ children }) => <ol className="list-decimal pl-6 mb-4 space-y-1">{children}</ol>,
           blockquote: ({ children }) => (
-            <blockquote className="border-l-[3px] border-accent pl-4 my-4 text-text-secondary italic">
+            <blockquote className="border-l-[3px] border-brand pl-4 my-4 text-text-secondary italic">
               {children}
             </blockquote>
           ),

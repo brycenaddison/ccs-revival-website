@@ -12,6 +12,7 @@ import {
 import { queries } from "../../lib/queries";
 import { isNoBanChampion } from "../../lib/championData";
 import { joinRoster, type JoinedRoster } from "../../lib/roster";
+import { teamGradientFor } from "../../lib/teamStyle";
 import { ChampionIcon } from "../ChampionIcon";
 import { TeamLink } from "../league/TeamLink";
 import { MatchResultList } from "../match/MatchResultList";
@@ -143,7 +144,7 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
                 {entries.map(e => (
                   <tr key={e.key} className="border-b border-border last:border-b-0">
                     <td className="py-2.5 pr-3 font-heading font-bold text-text-bright">
-                      <PlayerLink profileId={e.profileId} className="text-text-bright no-underline hover:text-accent">{e.name}</PlayerLink>
+                      <PlayerLink profileId={e.profileId} className="text-text-bright no-underline hover:text-brand">{e.name}</PlayerLink>
                       {!e.starter && (
                         <span className="ml-1.5 text-[9px] text-text-muted font-bold tracking-wide uppercase">Sub</span>
                       )}
@@ -170,7 +171,7 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
               <tbody>
                 {sortByRole(extras).map(p => (
                   <tr key={p.rowKey} className="border-b border-border last:border-b-0">
-                    <td className="py-2.5 pr-3 font-heading font-bold text-text-bright"><PlayerLink profileId={p.id} className="text-text-bright no-underline hover:text-accent">{p.name}</PlayerLink></td>
+                    <td className="py-2.5 pr-3 font-heading font-bold text-text-bright"><PlayerLink profileId={p.id} className="text-text-bright no-underline hover:text-brand">{p.name}</PlayerLink></td>
                     <td className="text-center py-2.5 px-2 text-[10px] text-text-muted">{roleLabel(p.role)}</td>
                     <StatCells p={p} />
                   </tr>
@@ -198,13 +199,13 @@ export function TeamDetailPanel({ conf, code, onBack }: Props) {
   return (
     <div>
       {onBack && (
-        <button onClick={onBack} className="mb-4 text-xs text-text-secondary hover:text-accent font-heading tracking-wider uppercase">
+        <button onClick={onBack} className="mb-4 text-xs text-text-secondary hover:text-brand font-heading tracking-wider uppercase">
           ← Back
         </button>
       )}
 
-      {/* Header */}
-      <div className="rounded-lg overflow-hidden mb-5" style={{ background: `linear-gradient(135deg, ${team.colorHex}, var(--bg2))` }}>
+      {/* Header, in the team's own gradient. The name sits at the left where the primary holds. */}
+      <div className="rounded-lg overflow-hidden mb-5" style={{ background: teamGradientFor(team) }}>
         <div className="flex items-center gap-4 p-5">
           {team.logo ? (
             <img src={team.logo} alt={team.name} decoding="async" className="w-16 h-16 rounded-lg object-contain bg-black/30" />
@@ -287,12 +288,21 @@ export function TeamDetailPanel({ conf, code, onBack }: Props) {
             </div>
           </div>
 
-          {/* Matchlist */}
+          {/* Matchlist. Newest first, like every other history on the site — the profile page's
+              series cards and the Scores feed both lead with the latest result. Sorted here rather
+              than taken in served order because the endpoint's direction isn't part of its contract;
+              `SeriesPreview.RecentGames` makes the same choice for the same reason. Dates, not season
+              days — see `CLAUDE.md`. */}
           <div className="overflow-hidden rounded-lg border border-border bg-bg2">
             <div className="border-b border-border bg-bg3 px-4 py-2.5">
               <h3 className="font-display text-sm tracking-wider text-text-bright">Match History</h3>
             </div>
-            <MatchResultList matches={team.matchlist} conf={conf} />
+            <MatchResultList
+              matches={[...team.matchlist].sort(
+                (x, y) => new Date(y.startTime).getTime() - new Date(x.startTime).getTime(),
+              )}
+              conf={conf}
+            />
           </div>
         </>
       )}

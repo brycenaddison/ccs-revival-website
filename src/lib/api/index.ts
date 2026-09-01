@@ -37,8 +37,10 @@ export {
   adminLeagues,
   adminUser,
   createLeague,
+  listSeason,
   revokeLeague,
   searchUsers,
+  setApplicationsOpen,
   setLeagueScopes,
   setSiteRoles,
   updateLeague,
@@ -48,6 +50,7 @@ export {
   CONF_PATTERN,
   LEAGUE_ADMIN_SCOPE,
   LEAGUE_SCOPES,
+  CODENAME_MAX,
   NAME_MAX,
   SHORTNAME_MAX,
 } from "./admin";
@@ -121,6 +124,7 @@ export type {
 } from "./profiles";
 export {
   teamApplicationsApi,
+  applicationIntake,
   applicationQueue,
   createApplication,
   inviteMember,
@@ -131,15 +135,16 @@ export {
   myApplications,
   myInvitations,
   openApplicationSeasons,
+  publishApplication,
   publishTeams,
   readApplicationDetails,
+  refreshApplicationAccounts,
   refusalOf,
   replaceApplication,
   respondToInvitation,
   reviewApplication,
   revokeInvitation,
   searchGuildMembers,
-  setApplicationsOpen,
   submitApplication,
   twitterUrl,
   withdrawApplication,
@@ -151,6 +156,7 @@ export {
   APPLICATION_NAME_MAX,
   APPLICATION_STATUSES,
   COLOR_MAX,
+  NO_MEMBER_RIOT,
   DM_STATUSES,
   EXPERIENCE_MAX,
   INVITATION_STATUSES,
@@ -161,6 +167,7 @@ export {
 } from "./teamApplications";
 export type {
   ApplicationDetails,
+  ApplicationIntake,
   ApplicationMember,
   ApplicationSeason,
   ApplicationStatus,
@@ -168,6 +175,8 @@ export type {
   GuildMemberCandidate,
   InvitationInput,
   InvitationStatus,
+  MemberRank,
+  MemberRiot,
   MemberRoleAssignment,
   ProfileRef,
   PublicationResult,
@@ -178,6 +187,21 @@ export type {
   TeamInvitation,
   TeamMemberRole,
 } from "./teamApplications";
+export {
+  teamAdminApi,
+  createTeam,
+  updateTeam,
+  TEAM_CODE_MAX,
+  TEAM_LOGO_MAX,
+  TEAM_NAME_MAX,
+  TEAM_SUBS_MAX,
+} from "./teamAdmin";
+export type {
+  TeamBrandingInput,
+  TeamCreate,
+  TeamEdit,
+  TeamRosterInput,
+} from "./teamAdmin";
 export {
   accoladesApi,
   createGlobalDefinition,
@@ -419,11 +443,13 @@ export type {
   UnscheduledGame,
 } from "./schedule";
 export {
+  colorSecondaryOf,
   fmtPct,
   fmtRatio,
   fmtSec,
   hexFromInt,
   httpsUrl,
+  intFromHex,
   isRole,
   lighten,
   normalizeRole,
@@ -436,5 +462,6 @@ export {
   sortValue,
 } from "./normalize";
 export type { Numeric, Role } from "./normalize";
-export { forEachConf, recencyKey, resolveActiveConfs, sortByRecency } from "./league";
+export { forEachConf, recencyKey, resolveActive, resolveActiveConfs, sortByRecency } from "./league";
+export type { ActiveResolution, ActiveSource } from "./league";
 export type * from "./types";

@@ -48,14 +48,21 @@ export function SeasonPicker({ tournaments, selection, onChange, activeConfs, co
     return (
       // A native select sizes itself to its *widest option*, and the oldest seasons carry names like
       // "CCS 2022 Fall Diamond Division". Unbounded, one of those would push the nav's tab strip into
-      // scrolling at every viewport width, so the control is capped and long names clip. The common
-      // case ("CCS 2026 Summer") fits well inside the cap.
+      // scrolling at every viewport width, so the control is capped and long names clip. The cap is
+      // the width a full season name needs, at every size above a phone: the two-row nav has a whole
+      // row for the brand and this control, so there is no width to save there, and on a phone the
+      // wrapper shrinks it regardless.
+      //
+      // `w-full` as well, so the control follows its wrapper *down*: a select's intrinsic width is
+      // its widest option regardless of the room around it, and on a phone that width was painted
+      // straight over the hamburger. The wrapper in `NavBar` is the flex item that gives up space,
+      // and this makes the control shrink with it — the browser clips the name rather than the layout.
       <select
         value={selection}
         onChange={e => onChange(e.target.value)}
         aria-label={label}
         title={label}
-        className="season-select bg-transparent border-none text-text-secondary font-heading tracking-wider cursor-pointer outline-none hover:text-text-bright max-w-[12rem] lg:max-w-[15rem]"
+        className="season-select w-full max-w-[15rem] bg-transparent border-none text-text-secondary font-heading tracking-wider cursor-pointer outline-none hover:text-text-bright"
         style={{ fontSize: "inherit" }}
       >
         {options}
@@ -69,7 +76,7 @@ export function SeasonPicker({ tournaments, selection, onChange, activeConfs, co
       <select
         value={selection}
         onChange={e => onChange(e.target.value)}
-        className="season-select bg-bg2 border border-border rounded-md text-text font-body text-sm py-2 px-3 min-w-[280px] focus:outline-none focus:border-accent"
+        className="season-select bg-bg2 border border-border rounded-md text-text font-body text-sm py-2 px-3 min-w-[280px] focus:outline-none focus:border-brand"
       >
         {options}
       </select>

@@ -51,13 +51,13 @@ function FeatureCard({ article, isMobile }: { article: ArticleCard; isMobile: bo
 
       <div className="p-4">
         {article.tag && (
-          <span className="text-[9px] font-bold text-accent tracking-wider font-display uppercase">
+          <span className="text-[9px] font-bold text-brand tracking-wider font-display uppercase">
             {article.tag}
           </span>
         )}
 
         <h3
-          className="font-heading font-semibold text-text-bright leading-tight mt-1 mb-1.5 group-hover:text-accent transition-colors"
+          className="font-heading font-semibold text-text-bright leading-tight mt-1 mb-1.5 group-hover:text-brand transition-colors"
           style={{ fontSize: isMobile ? 14 : 16 }}
         >
           {article.title}
@@ -82,7 +82,7 @@ function FeatureCard({ article, isMobile }: { article: ArticleCard; isMobile: bo
           {isExternal(article) && (
             <ArrowUpRight
               size={12}
-              className="ml-auto text-text-dim group-hover:text-accent transition-colors"
+              className="ml-auto text-text-dim group-hover:text-brand transition-colors"
               aria-label="Opens on another site"
             />
           )}
@@ -117,7 +117,7 @@ function NewsItem({ article, isLast }: { article: ArticleCard; isLast: boolean }
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           {article.tag && (
-            <span className="text-[9px] font-bold text-accent tracking-wider font-display uppercase">
+            <span className="text-[9px] font-bold text-brand tracking-wider font-display uppercase">
               {article.tag}
             </span>
           )}
@@ -129,7 +129,7 @@ function NewsItem({ article, isLast }: { article: ArticleCard; isLast: boolean }
           )}
         </div>
 
-        <h4 className="font-heading text-[13px] text-text font-medium leading-snug group-hover:text-accent transition-colors truncate">
+        <h4 className="font-heading text-[13px] text-text font-medium leading-snug group-hover:text-brand transition-colors truncate">
           {article.title}
         </h4>
 

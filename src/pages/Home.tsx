@@ -5,7 +5,6 @@ import { useWindowSize } from "../hooks/useWindowSize";
 import { useScheduleFeed } from "../hooks/useScheduleFeed";
 import { useLeagueData } from "../hooks/useLeagueData";
 import { usePlayers } from "../hooks/usePlayers";
-import { useSeason } from "../hooks/useSeason";
 import { PageShell } from "../components/layout/PageShell";
 import { TICKER_WINDOW } from "../components/home/ScoreboardTicker";
 import { HeroArticle } from "../components/home/HeroArticle";
@@ -62,14 +61,13 @@ export default function Home() {
     };
   }, [homeData?.feed]);
 
-  // `useLeagueData` is one call per conf and covers every section. Two things need their own
-  // request, so each is loaded only by the sections that render it — passing nothing is how a
-  // section opts out. Player leaderboards need `/stats/players`, which the roster no longer does.
+  // `useLeagueData` is one call per conf and covers every section. Player leaderboards need
+  // `/stats/players`, which the roster no longer does, so they are loaded only by the section that
+  // renders them — passing nothing is how a section opts out.
   //
-  // The season document is loaded here only for the Home sidebar widget. The Standings tab calls
-  // `useSeason` itself — it owns the conference strip, so it is the only thing that knows which conf
-  // is on screen — and both land on the same query key, so visiting one warms the other.
-  const { season, loading: seasonLoading } = useSeason(tab === "Home" ? selectedConfs[0] ?? null : null);
+  // The season document is **not** loaded here any more. `StandingsWidget` owns the conference it
+  // is showing, so it is the only thing that knows which season to ask for; it calls `useSeason`
+  // itself and lands on the same query key the Standings tab uses.
   const { players } = usePlayers({ confs: tab === "Home" ? selectedConfs : [], teams });
   const loading = leagueLoading || dataLoading;
 
@@ -102,7 +100,7 @@ export default function Home() {
           <p className="text-sm text-text-muted leading-relaxed mb-6">{error}</p>
           <button
             onClick={refresh}
-            className="bg-accent text-white border-none rounded-md py-3 px-7 text-sm font-heading font-medium tracking-wider uppercase cursor-pointer"
+            className="bg-brand text-white border-none rounded-md py-3 px-7 text-sm font-heading font-medium tracking-wider uppercase cursor-pointer"
           >
             Try again
           </button>
@@ -165,12 +163,7 @@ export default function Home() {
 
               {/* RIGHT COLUMN — Standings + Stats */}
               <div className="flex flex-col gap-5">
-                <StandingsWidget
-                  season={season}
-                  conf={selectedConfs[0] ?? null}
-                  teams={teams}
-                  loading={seasonLoading}
-                />
+                <StandingsWidget confs={selectedConfs} />
                 <PlayerLeaders players={players} isMobile={isMobile} />
               </div>
             </div>

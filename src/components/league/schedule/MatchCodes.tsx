@@ -414,7 +414,7 @@ function CodeRow({
             onClick={onToggle}
             aria-expanded={open}
             title="Show a summary of the game recorded on this code"
-            className="font-mono text-xs text-accent break-all text-left underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid cursor-pointer bg-transparent border-none p-0"
+            className="font-mono text-xs text-brand break-all text-left underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid cursor-pointer bg-transparent border-none p-0"
           >
             {entry.code}
           </button>

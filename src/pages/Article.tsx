@@ -67,7 +67,7 @@ export default function Article() {
         >
           <Link
             to="/news"
-            className="inline-flex items-center gap-2 rounded-md border border-accent px-4 py-2 font-heading text-sm tracking-wider uppercase text-text-bright no-underline"
+            className="inline-flex items-center gap-2 rounded-md border border-brand px-4 py-2 font-heading text-sm tracking-wider uppercase text-text-bright no-underline"
           >
             All news
           </Link>
@@ -101,7 +101,7 @@ export default function Article() {
 
       <header className="mb-7">
         {article.tag && (
-          <span className="inline-block bg-accent text-white text-[10px] font-bold font-display tracking-wider px-2.5 py-1 rounded mb-3">
+          <span className="inline-block bg-brand text-white text-[10px] font-bold font-display tracking-wider px-2.5 py-1 rounded mb-3">
             {article.tag}
           </span>
         )}
@@ -128,7 +128,7 @@ export default function Article() {
             href={article.url ?? "#"}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-accent px-4 py-2 font-heading text-sm tracking-wider uppercase text-text-bright no-underline"
+            className="inline-flex items-center gap-2 rounded-md border border-brand px-4 py-2 font-heading text-sm tracking-wider uppercase text-text-bright no-underline"
           >
             Read the full article
             <ArrowUpRight size={14} />

@@ -233,7 +233,7 @@ function Leader({
         <span className="shrink-0 font-mono text-[10px] text-text-dim" title={team?.name ?? player.team}>
           {player.team}
         </span>
-        <PlayerLink profileId={player.profileId} className="min-w-0 truncate text-[12px] text-text no-underline hover:text-accent" title={player.name}>
+        <PlayerLink profileId={player.profileId} className="min-w-0 truncate text-[12px] text-text no-underline hover:text-brand" title={player.name}>
           {player.name}
         </PlayerLink>
       </span>

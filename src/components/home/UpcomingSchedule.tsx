@@ -59,7 +59,9 @@ function Row({
           {fmtTime(match.scheduledAt ?? undefined)}
         </span>
         <span className="truncate font-heading text-[10px] tracking-wide text-text-dim">
-          {match.shortname ?? match.league}
+          {/* Same rule as `FeedMatchRow`: the division name distinguishes concurrent confs, the
+              season label does not. */}
+          {match.codename ?? match.shortname ?? match.league}
         </span>
       </div>
       <div className="flex items-center justify-center" style={{ gap: isMobile ? 10 : 16 }}>

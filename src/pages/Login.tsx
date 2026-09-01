@@ -30,7 +30,7 @@ export default function Login() {
             actionable if the API is unreachable and the redirect stalls. */}
         <a
           href={auth.loginUrl()}
-          className="text-accent text-[11px] font-heading tracking-wider uppercase no-underline hover:text-text-bright"
+          className="text-brand text-[11px] font-heading tracking-wider uppercase no-underline hover:text-text-bright"
         >
           Continue to Discord
         </a>

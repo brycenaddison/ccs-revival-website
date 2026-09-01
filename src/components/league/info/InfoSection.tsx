@@ -60,15 +60,22 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
   const [rulebookUrl, setRulebookUrl] = useState(info?.rulebookUrl ?? "");
   const [isPublished, setIsPublished] = useState(info?.isPublished ?? false);
 
+  // Not edited here — League Admin → Team Applications owns it, next to the intake controls it
+  // belongs with — but it has to be **carried through**: the `PUT` replaces the whole document and
+  // upstream reads an absent key as `null`, so leaving it out would erase the application copy on
+  // every Info save.
+  const applicationBody = info?.applicationBody ?? null;
+
   const input = useMemo<LeagueInfoInput>(
     () => ({
       title: title.trim(),
       body: body.trim() === "" ? null : body,
       links: links.map(({ label, url }) => ({ label: label.trim(), url: url.trim() })),
       rulebookUrl: rulebookUrl.trim(),
+      applicationBody,
       isPublished,
     }),
-    [title, body, links, rulebookUrl, isPublished],
+    [title, body, links, rulebookUrl, applicationBody, isPublished],
   );
   const stored = useMemo<LeagueInfoInput | null>(
     () =>
@@ -82,6 +89,7 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
             // form and doesn't read as dirty on mount — the editor will still refuse to save it
             // until a rulebook is entered, which is the correct nudge rather than a phantom change.
             rulebookUrl: info.rulebookUrl ?? "",
+            applicationBody: info.applicationBody,
             isPublished: info.isPublished,
           },
     [info],

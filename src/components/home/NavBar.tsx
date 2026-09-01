@@ -89,13 +89,15 @@ export function NavBar({ isMobile }: Props) {
       // `sticky` rather than `relative`, so the nav pins to the top once anything above it (the
       // scoreboard ticker, on the public data tabs) has scrolled away. It is still a positioned ancestor, which is
       // what the drawer's `absolute top-full` needs.
-      <nav className="bg-bg2 border-b-2 border-accent sticky top-0 z-[150]">
+      <nav className="bg-bg2 border-b-2 border-brand sticky top-0 z-[150]">
         <div className="flex items-center justify-between gap-2 px-4">
           <div className="py-2.5 shrink-0">
             <CcsBrand compact />
           </div>
           {/* Between the mark and the hamburger, so which season you're viewing stays visible
-              without opening the menu. `min-w-0` lets it give up space before the logo does. */}
+              without opening the menu. `min-w-0` lets it give up space before the logo does, and the
+              select inside is `w-full` so it actually follows; `body` carries the floor below which
+              the page scrolls sideways instead. */}
           {season && <div className="min-w-0 text-[10px]">{season}</div>}
           <button onClick={() => setOpen(!open)} className="bg-transparent border-none cursor-pointer p-2 flex flex-col gap-1 shrink-0">
             {[0, 1, 2].map(idx => (
@@ -118,7 +120,7 @@ export function NavBar({ isMobile }: Props) {
           // landscape that was most of the menu. The cap also clears the fixed bottom bar, which
           // sits above this in the stacking order and would otherwise cover the last entries.
           // `overscroll-contain` stops a flick at the end of the list scrolling the page behind it.
-          <div className="absolute top-full left-0 right-0 max-h-[calc(100dvh-3.5rem-var(--bottom-nav-h))] overflow-y-auto overscroll-contain bg-bg2 border-b-2 border-accent z-[100] shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+          <div className="absolute top-full left-0 right-0 max-h-[calc(100dvh-3.5rem-var(--bottom-nav-h))] overflow-y-auto overscroll-contain bg-bg2 border-b-2 border-brand z-[100] shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
             {TABS.map(t => (
               <Link
                 key={t.path}
@@ -126,7 +128,7 @@ export function NavBar({ isMobile }: Props) {
                 onClick={() => setOpen(false)}
                 aria-current={active === t.label ? "page" : undefined}
                 className={`block w-full text-left bg-transparent border-none cursor-pointer py-3.5 px-5 font-heading text-sm tracking-wider uppercase border-l-[3px] no-underline ${
-                  active === t.label ? "bg-bg-input text-text-bright font-bold border-l-accent" : "text-text-secondary font-normal border-l-transparent"
+                  active === t.label ? "bg-bg-input text-text-bright font-bold border-l-brand" : "text-text-secondary font-normal border-l-transparent"
                 }`}
               >
                 {t.label}
@@ -149,7 +151,7 @@ export function NavBar({ isMobile }: Props) {
                 onClick={() => setOpen(false)}
                 aria-current={onLeagueAdmin ? "page" : undefined}
                 className={`block w-full text-left bg-transparent border-none cursor-pointer py-3.5 px-5 font-heading text-sm tracking-wider uppercase border-l-[3px] no-underline ${
-                  onLeagueAdmin ? "bg-bg-input text-text-bright font-bold border-l-accent" : "text-text-secondary font-normal border-l-transparent"
+                  onLeagueAdmin ? "bg-bg-input text-text-bright font-bold border-l-brand" : "text-text-secondary font-normal border-l-transparent"
                 }`}
               >
                 Admin
@@ -166,68 +168,95 @@ export function NavBar({ isMobile }: Props) {
   }
 
   return (
-    // Three equal-outer-track grid: the `auto` middle is centerd against the nav itself, not
-    // against whatever space the logo and auth cluster leave over. As width tightens the wider
-    // side floors at its min-content size and the menu drifts off-center; tighter still, the
-    // middle's `min-w-0` lets it scroll internally. The scroller lives on the middle cell rather
-    // than the <nav> on purpose — `overflow-x` on the nav computes `overflow-y: auto` too, which
-    // would clip the account dropdown.
+    // Flex, not grid, and the reason is how the tab strip is centered.
+    //
+    // The two outer cells are `flex-1 basis-0 min-w-fit`: they grow from nothing in equal shares, so
+    // when there is room they end up the same width and the strip sits exactly on the nav's center.
+    // When there isn't, the wider side — the brand and season picker, or the auth cluster — floors at
+    // its own content and the other side takes the rest, so the strip drifts toward the narrower side
+    // *instead of* onto the picker. Tighter still, the strip is the only thing that shrinks
+    // (`min-w-0`) and scrolls internally. The previous `1fr auto 1fr` grid promised the same and
+    // delivered only the first clause: an fr track's floor is its content, but the auto middle was
+    // sized before the fr tracks were, so past the point where both fit it kept its width and was
+    // centered over the picker at every width up to roughly 1600px.
+    //
+    // Inside the strip the links are `mx-auto` rather than `justify-center`. Auto margins absorb only
+    // *positive* free space, so a strip wider than its box starts at the left edge and every tab can
+    // be scrolled to; `justify-center` would have parked the first tabs beyond the scroll's reach.
+    //
+    // Below `nav:` (1460px — see `index.css`) the strip is `basis-full`, which under `flex-wrap` gives
+    // it its own row across the whole width, with the brand and season on the left of row one and the
+    // auth cluster on the right. That is a laptop, not just a tablet: the single row only fits when
+    // every part of it is at full size, and the `lg` cutover it replaced left four hundred pixels of
+    // widths where the last tabs slid under the sign-in buttons. The nav gets taller, and stays one
+    // fixed shape on every page — the same reason the season selector was folded in here to begin
+    // with.
+    //
+    // The scroller lives on the tab cell rather than the <nav> on purpose — `overflow-x` on the nav
+    // computes `overflow-y: auto` too, which would clip the account dropdown.
     //
     // `sticky top-0` pins the nav; the z-index is needed for it to paint over the content scrolling
     // beneath it, which the desktop branch previously had no reason to declare.
-    <nav className="bg-bg2 border-b-2 border-accent w-full px-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4 sticky top-0 z-[150]">
-      <div className="justify-self-start flex items-center gap-3 py-3 min-w-fit">
+    <nav className="bg-bg2 border-b-2 border-brand w-full px-6 flex flex-wrap nav:flex-nowrap items-center gap-x-4 sticky top-0 z-[150]">
+      <div className="order-1 flex flex-1 basis-0 min-w-fit items-center gap-3 py-3">
         <CcsBrand />
         {season && (
           <div className="flex items-center gap-2 text-[11px]">
             {season}
-            {/* Dropped below `lg`, where the width is worth more to the tab strip than the wording
-                is here — the full season name still carries the year. */}
+            {/* Only on the single-row layout, where it was measured in — the full season name
+                still carries the year, so nothing is lost on the two-row one. */}
             {!isCurrent && (
-              <span className="hidden lg:inline text-text-dim font-heading tracking-wider whitespace-nowrap">
+              <span className="hidden nav:inline text-text-dim font-heading tracking-wider whitespace-nowrap">
                 PAST SEASON
               </span>
             )}
           </div>
         )}
       </div>
-      <div className="justify-self-center flex items-center min-w-0 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        {TABS.map(t => (
-          <Link
-            key={t.path}
-            to={seasonLink(t.path)}
-            aria-current={active === t.label ? "page" : undefined}
-            className={`bg-transparent cursor-pointer py-3.5 px-2.5 lg:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase no-underline ${
-              active === t.label ? "text-text-bright font-bold border-b-2 border-b-accent" : "text-text-secondary font-normal border-b-2 border-b-transparent"
-            }`}
-          >
-            {t.label}
-          </Link>
-        ))}
-        {EXTERNAL_LINKS.map(l => (
-          <a
-            key={l.label}
-            href={l.href}
-            target={l.href !== "#" ? "_blank" : undefined}
-            rel="noopener noreferrer"
-            className="bg-transparent cursor-pointer py-3.5 px-2.5 lg:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase border-b-2 border-b-transparent text-text-secondary no-underline"
-          >
-            {l.label}
-          </a>
-        ))}
-        {adminConf && (
-          <Link
-            to={`/league/${encodeURIComponent(adminConf)}/admin`}
-            aria-current={onLeagueAdmin ? "page" : undefined}
-            className={`bg-transparent cursor-pointer py-3.5 px-2.5 lg:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase no-underline ${
-              onLeagueAdmin ? "text-text-bright font-bold border-b-2 border-b-accent" : "text-text-secondary font-normal border-b-2 border-b-transparent"
-            }`}
-          >
-            Admin
-          </Link>
-        )}
+      {/* Its own row below `nav:`, the middle of row one from `nav:` up. The bottom border of the
+          active tab sits on the nav's own red rule in both layouts. */}
+      <div
+        className="order-3 nav:order-2 basis-full nav:basis-auto min-w-0 flex overflow-x-auto"
+        style={{ scrollbarWidth: "none" }}
+      >
+        <div className="mx-auto flex items-center">
+          {TABS.map(t => (
+            <Link
+              key={t.path}
+              to={seasonLink(t.path)}
+              aria-current={active === t.label ? "page" : undefined}
+              className={`bg-transparent cursor-pointer py-2.5 nav:py-3.5 px-2.5 nav:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase no-underline ${
+                active === t.label ? "text-text-bright font-bold border-b-2 border-b-brand" : "text-text-secondary font-normal border-b-2 border-b-transparent"
+              }`}
+            >
+              {t.label}
+            </Link>
+          ))}
+          {EXTERNAL_LINKS.map(l => (
+            <a
+              key={l.label}
+              href={l.href}
+              target={l.href !== "#" ? "_blank" : undefined}
+              rel="noopener noreferrer"
+              className="bg-transparent cursor-pointer py-2.5 nav:py-3.5 px-2.5 nav:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase border-b-2 border-b-transparent text-text-secondary no-underline"
+            >
+              {l.label}
+            </a>
+          ))}
+          {adminConf && (
+            <Link
+              to={`/league/${encodeURIComponent(adminConf)}/admin`}
+              aria-current={onLeagueAdmin ? "page" : undefined}
+              className={`bg-transparent cursor-pointer py-2.5 nav:py-3.5 px-2.5 nav:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase no-underline ${
+                onLeagueAdmin ? "text-text-bright font-bold border-b-2 border-b-brand" : "text-text-secondary font-normal border-b-2 border-b-transparent"
+              }`}
+            >
+              Admin
+            </Link>
+          )}
+        </div>
       </div>
-      <div className="justify-self-end flex items-center gap-3">
+      <div className="order-2 nav:order-3 flex flex-1 basis-0 min-w-fit items-center justify-end gap-3">
         <AuthControl />
         <ThemeToggle />
       </div>

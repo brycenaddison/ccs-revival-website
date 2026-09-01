@@ -65,7 +65,15 @@
 import { mapTeamRecord } from "./client";
 import { credentialedRequest } from "./credentialed";
 import { ApiError, getList, getOne, post, type RequestOpts } from "./http";
-import { hexFromInt, httpsUrl, normalizeRole, numOrNull, type Numeric, type Role } from "./normalize";
+import {
+  colorSecondaryOf,
+  hexFromInt,
+  httpsUrl,
+  normalizeRole,
+  numOrNull,
+  type Numeric,
+  type Role,
+} from "./normalize";
 import type { TeamRecord } from "./types";
 
 type Raw = Record<string, unknown>;
@@ -319,6 +327,8 @@ export interface TeamMetadata {
   color: number | null;
   /** `color` rendered as CSS hex, falling back when unset. */
   colorHex: string;
+  /** Secondary branding color; upstream's `teamMetadata` projection carries it. See `TeamRecord`. */
+  colorSecondary?: number | null;
 }
 
 /**
@@ -518,6 +528,14 @@ export interface ProfileMatch {
   conf: string;
   /** Every game in a series shares one — see `ProfileBestGame.seasonDay`. */
   seasonDay: number;
+  /**
+   * Where the series sits in the season's **structure**, or `null` on a day no published phase
+   * covers. Served on every game, series and personal best, and the mapper has always read it —
+   * the field was just missing from this type, which made a series card the one place that had to
+   * fall back to `Week {seasonDay}` even when the phase was right there. Prefer it to `seasonDay`
+   * for anything a reader sees; see "Season day is internal" in `CLAUDE.md`.
+   */
+  phase: PhaseRef | null;
   team: string;
   opponentCode: string | null;
   opponent: TeamMetadata | null;
@@ -684,10 +702,15 @@ function mapPhaseRef(value: unknown): PhaseRef | null {
   if (!value || typeof value !== "object") return null;
   const p = asRaw(value);
   const id = intOrNull(p.id);
-  if (id === null) return null;
+  // A ref with no name is dropped rather than named "": every consumer reads this to *say* where a
+  // game sits ("Playoffs · Semifinals"), and an empty phase name would render a leading separator
+  // in front of nothing. `null` already means "cannot be placed", and the callers fall back to the
+  // season-day label for it.
+  const name = strOrNull(p.name);
+  if (id === null || name === null) return null;
   return {
     id,
-    name: str(p.name),
+    name,
     kind: p.kind === "bracket" ? "bracket" : "group",
     ordinal: int(p.ordinal, 1),
     matchDays: int(p.matchDays, 1),
@@ -779,6 +802,7 @@ function mapTeamMetadata(value: unknown): TeamMetadata | null {
     logo: httpsUrl(r.logo as string),
     color,
     colorHex: hexFromInt(color),
+    ...colorSecondaryOf(r),
   };
 }
 

@@ -40,7 +40,7 @@ export function RequireAuth({ children, roles, allow }: Props) {
       >
         <button
           onClick={login}
-          className="bg-transparent border border-accent rounded-md px-4 py-2 cursor-pointer text-text-bright font-heading text-sm tracking-wider uppercase"
+          className="bg-transparent border border-brand rounded-md px-4 py-2 cursor-pointer text-text-bright font-heading text-sm tracking-wider uppercase"
         >
           Log in with Discord
         </button>

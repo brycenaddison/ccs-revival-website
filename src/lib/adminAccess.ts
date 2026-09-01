@@ -22,7 +22,13 @@
 
 import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { SITE_ADMIN_ROLE, sortByRecency, type AdminLeague, type Tournament } from "./api";
+import {
+  LEAGUE_SCOPE_NAMES,
+  SITE_ADMIN_ROLE,
+  sortByRecency,
+  type AdminLeague,
+  type Tournament,
+} from "./api";
 import { useAuth } from "./authContext";
 import { useLeague } from "./leagueContext";
 import { queries } from "./queries";
@@ -69,7 +75,15 @@ export function useAdminAccess(): AdminAccess {
     if (isSiteAdmin) {
       // Both lists arrive newest-first already — `adminLeagues` sorts, and `LeagueProvider` sorts
       // the public list it stands in for — so this needs no ordering of its own.
-      return (allLeagues ?? tournaments).map(t => ({ conf: t.conf, name: labelFor(t) }));
+      //
+      // Every scope, spelled out rather than left empty. A site admin genuinely holds all four in
+      // every conf, and `hasScope` reads `[]` as "cannot tell" — true enough to pass a check, but it
+      // would make a site admin indistinguishable from a grant on a server too old to report scopes.
+      return (allLeagues ?? tournaments).map(t => ({
+        conf: t.conf,
+        name: labelFor(t),
+        scopes: [...LEAGUE_SCOPE_NAMES],
+      }));
     }
 
     // A granted conf the site knows about gets the site's own label and takes part in recency
@@ -84,8 +98,17 @@ export function useAdminAccess(): AdminAccess {
       else unknown.push(league);
     }
 
+    // The site's label, the grant's scopes. Taking only `{conf, name}` from the recognized rows —
+    // which is what this did — dropped `scopes` on exactly the confs a league admin works in, and
+    // `hasScope` reads a missing list off a row it was handed rather than off the grant.
+    const scopesByConf = new Map(granted.map(league => [league.conf, league.scopes]));
+
     return [
-      ...sortByRecency(known).map(t => ({ conf: t.conf, name: labelFor(t) })),
+      ...sortByRecency(known).map(t => ({
+        conf: t.conf,
+        name: labelFor(t),
+        scopes: scopesByConf.get(t.conf) ?? [],
+      })),
       ...unknown,
     ];
   }, [isAuthenticated, isSiteAdmin, allLeagues, tournaments, granted]);

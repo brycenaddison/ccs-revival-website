@@ -67,6 +67,22 @@ export interface RequestOpts {
    * an unchanged resource costs a `304` with no body. Correctness with almost none of the traffic.
    */
   revalidate?: boolean;
+  /**
+   * Send the session cookie with an otherwise public read.
+   *
+   * **Opt-in, and deliberately not the default.** Most reads here are anonymous and must stay that
+   * way: a browser refuses a credentialed request whose response says
+   * `Access-Control-Allow-Origin: *`, and the routes still mounted under the API's global wildcard
+   * (`/m/:matchId`, the match viewer) answer exactly that. Turning this on globally would trade a
+   * misconfigured `WEB_ORIGIN` from "login is broken" into "the whole site is blank".
+   *
+   * It exists because a handful of reads became **mixed-audience** upstream: a conference is
+   * invisible until its season is listed, but its teams exist from the moment they are published,
+   * so `GET /teams/:conf` answers a league admin and an anonymous visitor differently. Those reads
+   * are served with a per-request CORS policy that reflects the site origin, so this works there
+   * and only there.
+   */
+  credentialed?: boolean;
 }
 
 /** Sentinel for a route that does not exist upstream (i.e. a not-yet-built endpoint). */
@@ -76,6 +92,7 @@ async function request(path: string, opts?: RequestOpts): Promise<unknown | type
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Accept: "application/json" },
     cache: opts?.revalidate ? "no-cache" : "default",
+    credentials: opts?.credentialed ? "include" : "same-origin",
     signal: opts?.signal,
   });
 

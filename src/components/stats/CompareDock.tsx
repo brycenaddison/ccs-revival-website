@@ -55,7 +55,7 @@ function PlayerColumn({
   return (
     <div className="bg-bg3 border border-border rounded-lg p-3 relative overflow-hidden">
       <span className="absolute top-0 left-0 right-0 h-0.5" style={{ background: COMPARE_COLORS[slot] }} />
-      <PlayerLink profileId={player.id} className="block truncate font-heading text-sm font-bold text-text-bright no-underline hover:text-accent">{player.name}</PlayerLink>
+      <PlayerLink profileId={player.id} className="block truncate font-heading text-sm font-bold text-text-bright no-underline hover:text-brand">{player.name}</PlayerLink>
       <div className="text-[10px] text-text-muted font-heading tracking-wide mb-2">
         {player.team} · {roleLabel(player.role)} · {player.games}G
       </div>

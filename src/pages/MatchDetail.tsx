@@ -140,7 +140,7 @@ function Tabs({
   if (entries.length < 2) return null;
 
   return (
-    <div className="mb-4 flex flex-nowrap overflow-x-auto overflow-y-hidden border-b-2 border-accent">
+    <div className="mb-4 flex flex-nowrap overflow-x-auto overflow-y-hidden border-b-2 border-brand">
       {entries.map(([key, label]) => (
         <button
           key={key}
@@ -149,7 +149,7 @@ function Tabs({
           aria-current={tab === key ? "true" : undefined}
           className={`shrink-0 cursor-pointer border-none bg-transparent px-4 py-2.5 font-heading text-[13px] uppercase tracking-wider ${
             tab === key
-              ? "border-b-2 border-b-accent bg-bg-input text-text-bright"
+              ? "border-b-2 border-b-brand bg-bg-input text-text-bright"
               : "border-b-2 border-b-transparent text-text-muted"
           }`}
         >
@@ -234,7 +234,7 @@ function SeriesHeader({ match }: { match: SeriesDetail }) {
               href={match.streamUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-accent no-underline hover:underline"
+              className="text-brand no-underline hover:underline"
             >
               WATCH
             </a>
@@ -305,7 +305,7 @@ function TeamColumn({
   const badge = <TeamBadge team={toBadge(team)} size={44} />;
   const name = (
     <span
-      className={`truncate font-heading text-base font-medium group-hover:text-accent md:text-lg ${
+      className={`truncate font-heading text-base font-medium group-hover:text-brand md:text-lg ${
         won ? "font-bold text-text-bright" : "text-text-muted"
       }`}
     >

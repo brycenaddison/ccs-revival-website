@@ -41,7 +41,7 @@ function Shell({
       <button
         type="button"
         onClick={onBack}
-        className="mb-4 text-xs text-text-secondary hover:text-accent font-heading tracking-wider uppercase"
+        className="mb-4 text-xs text-text-secondary hover:text-brand font-heading tracking-wider uppercase"
       >
         ← {backLabel}
       </button>

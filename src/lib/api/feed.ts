@@ -22,7 +22,16 @@
  */
 
 import { getOne, type RequestOpts } from "./http";
-import { hexFromInt, httpsUrl, normalizeRole, num, numOrNull, type Numeric, type Role } from "./normalize";
+import {
+  colorSecondaryOf,
+  hexFromInt,
+  httpsUrl,
+  normalizeRole,
+  num,
+  numOrNull,
+  type Numeric,
+  type Role,
+} from "./normalize";
 import type { MatchKind, PhaseKind } from "./season";
 import type { TeamRecord } from "./types";
 import { mapTeamRecord } from "./client";
@@ -61,6 +70,8 @@ export interface FeedTeam {
   logo?: string;
   color: number | null;
   colorHex: string;
+  /** Secondary branding color. Absent until upstream serves it on this read — see `TeamRecord`. */
+  colorSecondary?: number | null;
 }
 
 /**
@@ -104,8 +115,17 @@ export interface FeedMatch {
   conf: string;
   /** `tournaments.name`, so a mixed list can say which league a row belongs to. */
   league: string;
-  /** The league's abbreviation, for where the full name won't fit. Null when none is set. */
+  /**
+   * The **season** label ("Summer '26"), for where the full name won't fit. Null when none is set.
+   * Concurrent divisions deliberately share it, so on its own it cannot say which of them a row is.
+   */
   shortname: string | null;
+  /**
+   * The **division** label ("Apollo") — the same `codename` as `GET /tournaments`, served flat so a
+   * mixed feed can tell two divisions running at once apart without a lookup. Null when none is set;
+   * a row falls back to `shortname`, then `league`.
+   */
+  codename: string | null;
   phaseId: number;
   phase: string;
   phaseKind: PhaseKind;
@@ -351,6 +371,7 @@ function mapFeedTeam(raw: unknown): FeedTeam | null {
     logo: httpsUrl(t.logo as string),
     color,
     colorHex: hexFromInt(color),
+    ...colorSecondaryOf(t),
   };
 }
 
@@ -373,6 +394,7 @@ function mapFeedMatch(raw: unknown): FeedMatch {
     conf: str(m.conf),
     league: str(m.league),
     shortname: strOrNull(m.shortname),
+    codename: strOrNull(m.codename),
     phaseId: int(m.phaseId),
     phase: str(m.phase),
     phaseKind: phaseKind(m.phaseKind),

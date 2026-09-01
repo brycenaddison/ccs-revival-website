@@ -117,7 +117,7 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
                       <TeamBadge team={toBadge(row)} size={28} />
                       <div className="min-w-0">
                         <div className="truncate">
-                          <span className="font-heading text-sm font-medium text-text group-hover:text-accent">
+                          <span className="font-heading text-sm font-medium text-text group-hover:text-brand">
                             {row.name}
                           </span>
                           <span className="ml-2 font-mono text-[10px] text-text-dim">{row.code}</span>

@@ -95,7 +95,7 @@ export function GameSummary({
               to={`/game/${encodeURIComponent(id)}`}
               target="_blank"
               rel="noreferrer"
-              className="text-accent font-heading text-[10px] tracking-wider uppercase no-underline hover:underline whitespace-nowrap"
+              className="text-brand font-heading text-[10px] tracking-wider uppercase no-underline hover:underline whitespace-nowrap"
             >
               Box score ↗
             </Link>

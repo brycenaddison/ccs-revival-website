@@ -179,7 +179,7 @@ export function DefinitionForm({ definition, onSave, saving, error, onCancel }: 
             type="checkbox"
             checked={active}
             onChange={e => setActive(e.target.checked)}
-            className="accent-accent w-4 h-4 cursor-pointer"
+            className="accent-brand w-4 h-4 cursor-pointer"
           />
           Available to issue
         </label>

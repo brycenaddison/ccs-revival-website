@@ -6,10 +6,15 @@
  * neither is decided four times:
  *
  * **Which leagues.** The season selection lives in `?conf=` (`lib/leagueContext.tsx`). When it names a
- * specific season, that conference is sent; when it is `CURRENT` nothing is sent, and the endpoint's
- * own default — every league with `tournaments.active` — decides. Sending the resolved active confs
- * instead would look equivalent and isn't: it would pin the answer to whatever this client thought was
- * running when the page loaded.
+ * specific season, that conference is sent. When it is `CURRENT`, it depends on *how* the current
+ * season was decided (`activeSource`): if `tournaments.active` flagged it, nothing is sent and the
+ * endpoint's own default — every league with that flag — decides, so a flag flipped mid-session is
+ * picked up on the next poll rather than pinned to what this client saw at load. But that flag is the
+ * only rule the server knows. When the client resolved the current season from the `VITE_ACTIVE_CONFS`
+ * pin or fell back to the newest season because nothing is flagged, the server's default would answer
+ * a different set — usually an empty one — and the confs have to be named. Leaving them off is how the
+ * picker, Home, Standings and Stats all showed the newest season while the ticker, Scores and Schedule
+ * sat empty.
  *
  * **Which clock.** A window is expressed as an offset from now, and `Date.now()` in a render body would
  * mint a new query key every render and refetch forever. So now is rounded down to a five-minute
@@ -49,7 +54,7 @@ export interface FeedWindow {
  * go through the hook below, but must resolve its window the same way.
  */
 export function useFeedQuery(w: FeedWindow): FeedQuery {
-  const { selection } = useLeague();
+  const { selection, activeConfs, activeSource } = useLeague();
 
   // Read outside the memo: the value only changes every five minutes, so it is a stable dependency
   // even though the expression isn't. Nothing re-renders on the rollover — the next render for any
@@ -60,20 +65,28 @@ export function useFeedQuery(w: FeedWindow): FeedQuery {
     const at = (offset: number | undefined) =>
       offset === undefined ? undefined : new Date(bucket + offset).toISOString();
 
+    // Branching on the sentinel, not on `isCurrent`: that flag is also true for a conference named
+    // directly that happens to be running, and naming one *is* a narrower selection than "whatever
+    // is on now" — the picker offers both and they should not collapse here.
+    //
+    // Under `CURRENT`, the server's default is trusted only when it would agree — see the header.
+    // With no tournaments at all there is nothing to name and the empty default is the right answer.
+    const confs =
+      selection !== CURRENT
+        ? [selection]
+        : activeSource === "flagged" || activeConfs.length === 0
+          ? undefined
+          : activeConfs;
+
     return {
       ...(w.from === undefined ? {} : { from: at(w.from) }),
       ...(w.to === undefined ? {} : { to: at(w.to) }),
-      // Branching on the sentinel, not on `isCurrent`: that flag is also true for a conference named
-      // directly that happens to be running, and naming one *is* a narrower selection than "whatever
-      // is on now" — the picker offers both and they should not collapse here.
-      ...(selection === CURRENT ? {} : { confs: [selection] }),
+      ...(confs === undefined ? {} : { confs }),
       ...(w.statuses === undefined ? {} : { statuses: w.statuses }),
       ...(w.limit === undefined ? {} : { limit: w.limit }),
       ...(w.order === undefined ? {} : { order: w.order }),
     };
-    // `isCurrent` is deliberately not a dependency — see above; the branch is on the sentinel.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bucket, selection, w.from, w.to, w.statuses, w.limit, w.order]);
+  }, [bucket, selection, activeConfs, activeSource, w.from, w.to, w.statuses, w.limit, w.order]);
 }
 
 /**

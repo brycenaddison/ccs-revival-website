@@ -48,6 +48,23 @@ function confsFromEnv(): string[] {
 }
 
 /**
+ * How the current league was decided — which of the three rules in `resolveActive` answered.
+ *
+ * It matters because the server has only one of them. `GET /schedule` defaults to every conf with
+ * `tournaments.active`, and nothing else: it knows no env pin and does not fall back to the newest
+ * season. So the feed can lean on the server's default exactly when `flagged` answered here, and has
+ * to name the confs itself otherwise — or the ticker, Scores and Schedule stay empty while every
+ * other tab shows the season the picker says is selected.
+ */
+export type ActiveSource = "pinned" | "flagged" | "newest";
+
+export interface ActiveResolution {
+  confs: string[];
+  /** `null` only when there are no tournaments at all. */
+  source: ActiveSource | null;
+}
+
+/**
  * Which confs make up the current league.
  *
  * Resolution order:
@@ -56,17 +73,22 @@ function confsFromEnv(): string[] {
  *   2. `tournaments.active` — set from the site admin's league editor.
  *   3. The most recent tournament by `recencyKey`, for a deployment with neither.
  */
-export function resolveActiveConfs(list: readonly Tournament[]): string[] {
+export function resolveActive(list: readonly Tournament[]): ActiveResolution {
   const known = new Set(list.map(t => t.conf));
 
   const pinned = confsFromEnv().filter(c => known.has(c));
-  if (pinned.length > 0) return pinned;
+  if (pinned.length > 0) return { confs: pinned, source: "pinned" };
 
   const flagged = list.filter(t => t.active === true).map(t => t.conf);
-  if (flagged.length > 0) return flagged;
+  if (flagged.length > 0) return { confs: flagged, source: "flagged" };
 
   const newest = sortByRecency(list)[0];
-  return newest ? [newest.conf] : [];
+  return newest ? { confs: [newest.conf], source: "newest" } : { confs: [], source: null };
+}
+
+/** `resolveActive` for a caller that only wants the set. */
+export function resolveActiveConfs(list: readonly Tournament[]): string[] {
+  return resolveActive(list).confs;
 }
 
 /**

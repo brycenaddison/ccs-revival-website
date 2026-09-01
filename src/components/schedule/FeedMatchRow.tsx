@@ -95,7 +95,9 @@ export function FeedMatchRow({ match, isMobile, showLeague = true }: Props) {
 
         {showLeague && (
           <span className="truncate font-heading text-[10px] tracking-wide text-text-dim">
-            {match.shortname ?? match.league}
+            {/* Codename first: this caption exists to say which league a row in a mixed feed
+                belongs to, and the season label is shared by every division running at once. */}
+            {match.codename ?? match.shortname ?? match.league}
           </span>
         )}
 
@@ -183,7 +185,7 @@ function StreamLink({ url }: { url: string | null }) {
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="flex items-center gap-1.5 font-heading text-[10px] uppercase tracking-wider text-accent no-underline hover:underline"
+        className="flex items-center gap-1.5 font-heading text-[10px] uppercase tracking-wider text-brand no-underline hover:underline"
       >
         <ExternalLink size={11} aria-hidden="true" />
         Watch

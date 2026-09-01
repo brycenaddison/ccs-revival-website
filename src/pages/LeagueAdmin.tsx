@@ -13,17 +13,17 @@
 
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Award, BookOpen, CalendarDays, ClipboardList, GitFork, Inbox, Users, UsersRound } from "lucide-react";
+import { Award, BookOpen, CalendarDays, GitFork, Inbox, Users } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
-import { ComingSoon } from "../components/settings/SettingsSection";
 import { LeaguePicker } from "../components/settings/LeaguePicker";
 import { AccoladesSection } from "../components/league/accolades/AccoladesSection";
 import { ApplicationsSection } from "../components/league/applications/ApplicationsSection";
 import { ScheduleSection } from "../components/league/schedule/ScheduleSection";
 import { BracketSection } from "../components/league/bracket/BracketSection";
 import { InfoSection } from "../components/league/info/InfoSection";
+import { TeamsSection } from "../components/league/teams/TeamsSection";
 import { useAdminAccess } from "../lib/adminAccess";
 import { sectionForSlug, type SettingsArea, type SettingsSection } from "../lib/settingsAreas";
 
@@ -45,10 +45,10 @@ const SECTIONS: readonly SettingsSection[] = [
     slug: "applications",
     label: "Team Applications",
     icon: Inbox,
-    // Two scopes on one screen, and the page gate is the wider of them: reviewing needs `roster`
-    // while opening intake and publishing need the full conference `admin`. Nothing in `/auth/me`
-    // says which one a grant carries, so a `roster`-only reviewer sees those two controls and gets a
-    // verbatim 403 from them — same as the Schedule section below and its narrower `schedule` scope.
+    // Reviewing and publishing are both `roster`, the scope this page is gated on. Opening intake and
+    // making the season public are site-admin commands on `/admin/leagues`; the section shows their
+    // state and deliberately never names that portal. Only the application-notes editor is narrower
+    // (conference `admin`, because it writes the Info document), and it hides itself by scope.
     description: "Teams applying for this season: review them, then publish the approved field.",
     Component: ApplicationsSection,
   },
@@ -66,15 +66,18 @@ const SECTIONS: readonly SettingsSection[] = [
     slug: "teams",
     label: "Teams",
     icon: Users,
-    description: "Team names, tags, logos and colors.",
-    Component: () => <ComingSoon needs="POST/PATCH /teams plus a logo upload endpoint" />,
-  },
-  {
-    slug: "rosters",
-    label: "Rosters",
-    icon: UsersRound,
-    description: "Who plays for whom, and in which role.",
-    Component: () => <ComingSoon needs="write endpoints for rosters and player records" />,
+    // One section, not two. `teams` and `rosters` were separate tabs over the same row, which is
+    // one screen's worth of work split across two — a roster slot *is* a team column, and the
+    // person filling one in is the person who just looked at the other. Rosters lead because they
+    // move weekly while a name and a tag are chosen once; branding sits behind a button.
+    //
+    // Needs the `roster` scope, narrower than this page's own gate, the same way Schedule needs
+    // `schedule`. Without it the rosters still render, read-only.
+    description: "Rosters, and the names, tags, logos and colors the teams wear.",
+    // Takes more than a column of fields: five starter pickers side by side, and each one opens a
+    // search. At the default width they stack into a single column and the page becomes a scroll.
+    maxWidth: 1280,
+    Component: TeamsSection,
   },
   {
     slug: "schedule",
@@ -100,13 +103,6 @@ const SECTIONS: readonly SettingsSection[] = [
     // 650, which is two columns. The section caps its own reference panel; nothing else is a form.
     maxWidth: "100%",
     Component: BracketSection,
-  },
-  {
-    slug: "draft",
-    label: "Draft Board",
-    icon: ClipboardList,
-    description: "Free-agent listings for the draft.",
-    Component: () => <ComingSoon needs="draft listing endpoints" />,
   },
 ];
 

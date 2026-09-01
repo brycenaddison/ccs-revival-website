@@ -31,11 +31,18 @@ import {
   type AnnouncementUpdate,
 } from "../../lib/api";
 import { queries, queryRoots } from "../../lib/queries";
-import { useLeague } from "../../lib/leagueContext";
 import { fmtKickoff, fromLocalInput, timeAgo, toLocalInput } from "../../lib/utils";
 import { Toast } from "../Toast";
 import { SettingsRow } from "../settings/SettingsSection";
-import { ACTION, ACTION_PRIMARY, ACTION_QUIET, ACTION_SM_DANGER, ErrorLine, Pill } from "./adminUi";
+import {
+  ACTION,
+  ACTION_PRIMARY,
+  ACTION_QUIET,
+  ACTION_SM_DANGER,
+  ErrorLine,
+  Pill,
+  stateNote,
+} from "./adminUi";
 import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
 
 const LEVEL_LABELS: Record<AnnouncementLevel, string> = {
@@ -147,7 +154,14 @@ interface FormProps {
 
 function AnnouncementForm({ announcement, onSaved, onCancel }: FormProps) {
   const qc = useQueryClient();
-  const { tournaments } = useLeague();
+  /*
+   * `GET /admin/leagues` rather than the public list: an announcement is often the thing that tells
+   * people a season is coming, and the conference it is about is unlisted right up until the teams
+   * are published. Scoping one to a hidden league is also harmless — the banner is only rendered on
+   * that league's own pages, which nobody can reach yet.
+   */
+  const { data: leagues } = useQuery(queries.adminLeagues());
+  const tournaments = leagues ?? [];
   const isNew = announcement === null;
 
   const [message, setMessage] = useState(announcement?.message ?? "");
@@ -262,6 +276,7 @@ function AnnouncementForm({ announcement, onSaved, onCancel }: FormProps) {
             {tournaments.map(t => (
               <option key={t.conf} value={t.conf}>
                 {t.shortname ?? t.name}
+                {stateNote(t)}
               </option>
             ))}
           </select>

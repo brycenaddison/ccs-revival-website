@@ -24,9 +24,9 @@ import {
   ACTION_SM_PRIMARY,
   ErrorLine,
   Pill,
+  stateNote,
 } from "./adminUi";
 import { useDebounced } from "../../hooks/useDebounced";
-import { useLeague } from "../../lib/leagueContext";
 import { queries, queryRoots } from "../../lib/queries";
 import {
   ASSIGNABLE_SITE_ROLES,
@@ -142,7 +142,7 @@ function UserRow({
       onClick={onSelect}
       aria-pressed={selected}
       className={`w-full flex items-center gap-3 text-left px-3 py-2.5 border-b border-border last:border-b-0 cursor-pointer border-l-[3px] ${
-        selected ? "bg-bg-input border-l-accent" : "bg-transparent border-l-transparent"
+        selected ? "bg-bg-input border-l-brand" : "bg-transparent border-l-transparent"
       }`}
     >
       {/* Never null upstream: with no hash it resolves to the Discord default for the snowflake. */}
@@ -231,7 +231,7 @@ function byConf(grants: LeagueGrant[]): { conf: string; name: string; scopes: Le
 
 function UserDetail({ user }: { user: DirectoryUser }) {
   const qc = useQueryClient();
-  const { tournaments } = useLeague();
+  const leagues = useQuery(queries.adminLeagues());
   const [notice, setNotice] = useState<string | null>(null);
   const [addConf, setAddConf] = useState("");
   const [addScopes, setAddScopes] = useState<LeagueScope[]>([]);
@@ -239,8 +239,18 @@ function UserDetail({ user }: { user: DirectoryUser }) {
   const grants = useMemo(() => byConf(user.leagues), [user.leagues]);
   const held = useMemo(() => new Set(grants.map(g => g.conf)), [grants]);
 
-  // Only a conf `GET /tournaments` knows can be granted: `requireConf` runs ahead of the write and
-  // answers a plain-text 400 for anything else.
+  /*
+   * `GET /admin/leagues`, not the public tournament list, because a league is most likely to need
+   * its admins **before** it is public: an unlisted season is exactly the one somebody is being given
+   * authority over so they can open intake and review applications on it. Reading the listed-only
+   * list here meant the leagues that needed a grant were the ones the picker could not offer.
+   *
+   * The write agrees: `PUT /admin/users/:profileId/leagues/:conf` guards with plain `requireConf`,
+   * which validates against the whole `tournaments` table rather than the visible slice — so an
+   * unlisted conf was always grantable and only this picker said otherwise. Anything that conf list
+   * does not know is still the documented plain-text 400.
+   */
+  const tournaments = leagues.data ?? [];
   const grantable = tournaments.filter(t => !held.has(t.conf));
 
   // Both the row in the list and this panel read grants, from two different queries. Awaited so the
@@ -277,7 +287,7 @@ function UserDetail({ user }: { user: DirectoryUser }) {
         <img src={user.avatar} alt="" className="w-12 h-12 rounded-full shrink-0" />
         <div className="min-w-0">
           <h3 className="font-display text-lg text-text-bright tracking-wider truncate">
-            <PlayerLink profileId={user.profileId} className="text-text-bright no-underline hover:text-accent">{user.name ?? `Profile ${user.profileId}`}</PlayerLink>
+            <PlayerLink profileId={user.profileId} className="text-text-bright no-underline hover:text-brand">{user.name ?? `Profile ${user.profileId}`}</PlayerLink>
           </h3>
           <p className="text-text-dim text-xs truncate">
             {user.handle ? `@${user.handle} · ` : ""}Discord {user.snowflake} · profile{" "}
@@ -330,10 +340,15 @@ function UserDetail({ user }: { user: DirectoryUser }) {
             disabled={grantable.length === 0}
             className={CONTROL_CLASS}
           >
-            <option value="">Choose a league…</option>
+            <option value="">
+              {leagues.isPending ? "Loading leagues…" : "Choose a league…"}
+            </option>
+            {/* The lifecycle note is what makes an unlisted season pickable *safely*: several drafts
+                can share a name with the running season, and "hidden" is the only thing on the row
+                that tells them apart. */}
             {grantable.map(t => (
               <option key={t.conf} value={t.conf}>
-                {t.name} ({t.conf})
+                {t.name} ({t.conf}){stateNote(t)}
               </option>
             ))}
           </select>
@@ -358,6 +373,12 @@ function UserDetail({ user }: { user: DirectoryUser }) {
       </div>
       {grantable.length === 0 && tournaments.length > 0 && (
         <p className="text-text-dim text-xs mt-1.5">They already hold a grant in every league.</p>
+      )}
+      {/* Its own line rather than folded into the mutation's `ErrorLine` below: this one says the
+          picker is empty because the list never arrived, which is a different problem from a save
+          that was refused, and the two can be on screen at once. */}
+      {leagues.isError && (
+        <ErrorLine message={`Couldn't load the leagues: ${errorMessage(leagues.error)}`} />
       )}
 
       <ErrorLine message={failure ? errorMessage(failure) : null} />
@@ -403,7 +424,7 @@ function SiteRolesEditor({
                 checked={draft.includes(role)}
                 disabled={busy}
                 onChange={() => toggle(role)}
-                className="accent-accent w-4 h-4 cursor-pointer"
+                className="accent-brand w-4 h-4 cursor-pointer"
               />
               <span>
                 <span className="text-text-bright">{role}</span>
@@ -487,7 +508,7 @@ function ScopePicker({
               checked={value.includes(scope)}
               disabled={disabled}
               onChange={() => toggle(scope)}
-              className="accent-accent w-4 h-4 cursor-pointer"
+              className="accent-brand w-4 h-4 cursor-pointer"
             />
             {scope}
           </label>
