@@ -127,8 +127,15 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   a boolean prop set in `main.tsx`, because which routes show the strip is a property of the group.
   Persisting it is the point: the ticker polls `GET /schedule` and scrolls itself to the live series,
   and a per-page copy was remounted and re-anchored on every click. It also owns the lazy-route
-  `<Suspense>` boundary, so a downloading page chunk blanks the column and not the nav above it.
-  Exports `BareLayout` alongside it — the same boundary with no chrome, for the full-bleed pages.
+  `<Suspense>` boundary, so a downloading page chunk blanks the column and not the nav above it,
+  and wraps it in `layout/RouteErrorBoundary.tsx` (keyed on the pathname) so a page that throws, or
+  a chunk that fails to load, replaces the column with a Reload button rather than unmounting the
+  site. Exports `BareLayout` alongside it — the same two boundaries with no chrome, for the
+  full-bleed pages. **A chunk that fails to load is almost always a stale tab after a deploy**: the
+  hashed filenames changed and the SPA fallback answered `index.html` as `text/html`.
+  `lib/staleChunk.ts` listens for Vite's `vite:preloadError` and reloads once (guarded by URL and
+  time in `sessionStorage`) before the boundary ever sees it, and `deploy.yml` keeps the previous
+  build's `/assets/` on the server for seven days so an open tab rarely hits it at all.
 - `layout/PageShell.tsx` — `<PageShell maxWidth={1280} extraBottom>`. Still the wrapper every page
   renders, but it draws nothing: it publishes the column width and extra bottom padding up to
   `SiteLayout` through `PageColumnContext` (a `useLayoutEffect`, so the column never paints at the
@@ -217,7 +224,13 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   the left, the numbers `ml-auto` to the right, and the row is `items-end` so the pills and the
   captions share a baseline. Both were previously boxed into 220px columns that made four of
   anything wrap. `AccoladeStrip` takes its positioning as a `className` and renders nothing when
-  empty, which is why the numbers use `ml-auto` rather than the row using `justify-between`.
+  empty, which is why the numbers use `ml-auto` rather than the row using `justify-between`. Below
+  `md` that row stacks (trophies above, numbers beneath), and a pill is always one line: its name
+  never breaks and its detail ellipsizes. The series headers in `MatchHistory.tsx` are one
+  non-wrapping row each, and the list is a CSS grid with every card, header and content row a
+  `grid-cols-subgrid` of it (`HEADER_COLUMNS`), so the four columns are sized once across all cards
+  and the scorelines line up down the page. The player's team and the meta are content-sized and
+  capped; the opponent is the only column that flexes, so it is the one name that truncates.
   Its game rows are one dense line each, with the captions carried once by `GameRowHeader` above the
   list rather than repeated per row — the two-row version wasted its top row on whitespace and shrank
   the numbers past legibility. `GAME_GRID` is shared by the header and the rows; change one, change

@@ -30,15 +30,20 @@ export function AccoladeStrip({
         const Icon = accolade.kind === "team" ? Users : Trophy;
         const detail = [accolade.label, accolade.team?.name, league].filter(Boolean).join(" · ");
 
+        // A pill is one line. When the strip is squeezed, the list wraps pill by pill and a pill
+        // that is still too wide for the column ellipsizes its detail; the name itself never
+        // breaks, so a trophy is never read across two lines with its league dangling underneath.
         return (
           <li
             key={accolade.accoladeId}
             title={accolade.description ?? undefined}
-            className="flex items-center gap-1.5 rounded-md border border-ccs-gold/40 bg-ccs-gold/10 px-2 py-1"
+            className="flex max-w-full items-center gap-1.5 overflow-hidden rounded-md border border-ccs-gold/40 bg-ccs-gold/10 px-2 py-1"
           >
             <Icon size={12} className="shrink-0 text-ccs-gold" aria-hidden="true" />
-            <span className="font-heading text-[11px] tracking-wide text-text-bright">{accolade.name}</span>
-            {detail && <span className="text-[10px] text-text-secondary">{detail}</span>}
+            <span className="whitespace-nowrap font-heading text-[11px] tracking-wide text-text-bright">
+              {accolade.name}
+            </span>
+            {detail && <span className="min-w-0 truncate text-[10px] text-text-secondary">{detail}</span>}
           </li>
         );
       })}

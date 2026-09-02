@@ -9,7 +9,12 @@ import { AuthProvider } from './lib/authContext'
 import { SetupGate } from './components/auth/SetupGate'
 import { BareLayout, SiteLayout } from './components/layout/SiteLayout'
 import { TABS } from './lib/tabs'
+import { installStaleChunkReload } from './lib/staleChunk'
 import './index.css'
+
+// Before anything renders: a lazy route whose chunk a deploy has since renamed reloads the page
+// once instead of unmounting the tree. See the header of `lib/staleChunk.ts`.
+installStaleChunkReload()
 
 // The public home is the initial route, so it stays eager. Every other page is fetched only when its
 // route is visited; this keeps settings and admin editors out of the first public page download.

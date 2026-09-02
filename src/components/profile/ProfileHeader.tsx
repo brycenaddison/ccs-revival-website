@@ -98,15 +98,20 @@ export function ProfileHeader({
         numbers they line up against. Aligned on the bottom edge, the pills and the captions share a
         baseline, which is what makes the row read as one line rather than two things at similar
         heights.
+
+        Below the mobile breakpoint the row gives up and stacks: trophies above, numbers beneath. A
+        phone has no width to hand the strip, so sharing a row there meant the pills wrapped into a
+        narrow ragged column beside the numbers, or the numbers dropped under a half-filled line of
+        pills. Two full-width rows read as intended; one row that wraps unpredictably does not.
       */}
       {(accolades.length > 0 || games > 0) && (
-        <div className="mt-5 flex flex-wrap items-end gap-x-6 gap-y-4">
-          <AccoladeStrip accolades={accolades} className="min-w-0 flex-1" />
+        <div className="mt-5 flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end md:gap-x-6 md:gap-y-4">
+          <AccoladeStrip accolades={accolades} className="min-w-0 md:flex-1" />
           {/* `ml-auto` rather than `justify-between` on the row: the strip renders nothing at all for
               a player with no trophies, and with `justify-between` that left the numbers as the only
               child and slid them to the left edge. This keeps them at the right either way. */}
           {games > 0 && (
-            <dl className="ml-auto flex shrink-0 flex-wrap gap-x-5 gap-y-2">
+            <dl className="flex shrink-0 flex-wrap gap-x-5 gap-y-2 md:ml-auto">
               <Headline label="Games" value={metricText(totals.games, int)} />
               <Headline
                 label="Record"

@@ -64,10 +64,19 @@ jobs:
       # them rsync exits 23 and fails the job over an attribute nothing serves. File mtimes
       # are still preserved, which is what rsync's quick-check compares on the next run.
       #
-      # --delete-after removes stale hashed assets only once the new ones have landed,
-      # which keeps the window where index.html points at a missing chunk as short as
-      # rsync allows. Anything in the docroot that is not build output will be deleted —
-      # add --exclude lines below if that ever stops being true.
+      # --delete-after removes files the build no longer produces, once the new ones have
+      # landed. Anything in the docroot that is not build output will be deleted; add
+      # --exclude lines below if that ever stops being true.
+      #
+      # Except /assets/. The hashed chunks are protected from deletion (`P` filter rule:
+      # still uploaded, never removed by rsync) and pruned by age in the next step instead.
+      # A tab that loaded the previous index.html keeps asking for the previous chunk
+      # names, and deleting them the moment a deploy lands turned the next click on that
+      # tab into "error loading dynamically imported module": the SPA fallback answered
+      # index.html as text/html where a module was expected. Keeping the old build's
+      # assets for a week means an open tab keeps working until it reloads on its own.
+      # The client also reloads itself once on that failure (src/lib/staleChunk.ts); this
+      # is what makes the failure rare enough for that to be a net rather than a crutch.
       - name: Deploy to ${{ secrets.DEPLOY_HOST }}
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -78,6 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           flags="-rlptzv --omit-dir-times --no-perms --delete-after --human-readable"
+          flags="$flags --filter=P_/assets/**"
           if [ "${DRY_RUN:-false}" = "true" ]; then
             flags="$flags --dry-run"
             echo "::notice::Dry run — nothing will be written to $DEPLOY_HOST"
@@ -85,6 +95,23 @@ jobs:
           rsync $flags \
             -e "ssh -i ~/.ssh/deploy_key -p $DEPLOY_PORT -o IdentitiesOnly=yes" \
             dist/ "$DEPLOY_USER@$DEPLOY_HOST:$TARGET/"
+
+      # Prune chunks from builds older than seven days. rsync -t preserved each file's
+      # mtime from the build that produced it, and a chunk the current build still emits
+      # was just rewritten with a fresh one, so age here is "how long since a build last
+      # needed this file". Seven days is longer than any tab stays open.
+      - name: Prune old assets
+        if: ${{ inputs.dry_run != true }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          TARGET: /home/brycen/websites/org/ccsesports/www
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" -o IdentitiesOnly=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "find '$TARGET/assets' -type f -mtime +7 -print -delete"
 
       - name: Clean up SSH key
         if: always()

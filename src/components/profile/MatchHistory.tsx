@@ -47,14 +47,32 @@ export function MatchHistory({ matches, games, teamIndex }: Props) {
   // Everything, in one list. There was a "show more" here, which was pagination over data that had
   // already arrived — the whole career comes down in the single profile request, so the button
   // bought nothing and hid the rest of the page's own scroll position behind a click.
+  //
+  // The list is a grid and every series header is a subgrid of it (see `HEADER_COLUMNS`), so the
+  // four header columns are sized once, across all the cards, rather than once per card. That is
+  // what lines the scorelines up down the page: a card's own header cannot know how wide its
+  // neighbors' league names are, and when each header sized itself the score landed wherever that
+  // card's meta happened to leave it.
   return (
-    <div className="flex flex-col gap-3">
+    <div className={`grid gap-x-3 gap-y-3 ${HEADER_COLUMNS}`}>
       {groups.map(group => (
         <SeriesCard key={group.key} group={group} teamIndex={teamIndex} />
       ))}
     </div>
   );
 }
+
+/**
+ * The series header's columns: the player's team, the score, the opponent, the league and date.
+ *
+ * The player's team and the meta size to content (the widest of each in the list), the score to
+ * its widest, and the opponent takes whatever is left and truncates. Content-sized rather than an
+ * equal split because the player's team is the same name on nearly every card, so an equal split
+ * left white space beside a short own-team name while the opponent beside it was cut to a few
+ * letters. The two content columns are capped so one long league name on a phone cannot take the
+ * whole row: past the cap they ellipsize, and the opponent still gets something.
+ */
+const HEADER_COLUMNS = "grid-cols-[fit-content(40%)_auto_minmax(0,1fr)_fit-content(45%)]";
 
 function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }) {
   const confLabel = useConfLabel();
@@ -72,8 +90,11 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
   const won = match ? match.gameWins > match.gameLosses : games.some(g => g.win);
   const seriesId = match?.scheduleMatchId ?? null;
 
+  // The card, its header and the header's content row are each a subgrid of the list, so the
+  // header's four cells sit in the list's shared columns. Every wrapper on the way down spans all
+  // four; the games scroller does too, since it is not part of the header at all.
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-bg2">
+    <section className="col-span-4 grid grid-cols-subgrid overflow-hidden rounded-lg border border-border bg-bg2">
       {/*
         The whole header opens the series, but the two team names still open their own pages.
         That needs an *overlay* link rather than a wrapping one: an anchor cannot contain anchors,
@@ -89,7 +110,11 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
         overlay and no hover — a link to nowhere is worse than no link, and its games are still
         individually clickable from the rows beneath.
       */}
-      <div className={`relative px-3 py-2.5 transition-colors ${seriesId !== null ? "hover:bg-bg-input" : ""}`}>
+      <div
+        className={`relative col-span-4 grid grid-cols-subgrid px-3 py-2.5 transition-colors ${
+          seriesId !== null ? "hover:bg-bg-input" : ""
+        }`}
+      >
         {seriesId !== null && (
           <Link
             to={`/match/${seriesId}`}
@@ -98,31 +123,46 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
           />
         )}
 
-        <div className="pointer-events-none relative z-10 flex flex-wrap items-center gap-x-3 gap-y-2">
+        {/*
+          One row, never two. The header used to wrap, and what wrapped first was the league and
+          date at the far right, which then sat alone under the scoreline looking like a stray
+          caption. Now the row is four cells in the list's shared columns (`HEADER_COLUMNS`): the
+          opponent is the only column that flexes, so it is the one name that truncates, and it does
+          so only once the other three have what they need. A team name cut short still says who
+          played; a header spilling onto a second line said nothing extra and cost the rows below
+          their frame.
+
+          The team cells are `overflow-hidden` for the grid's sake, not to clip anything visible: a
+          grid item with visible overflow cannot be sized narrower than its longest word, and one
+          long word in a team name would then hold its column open on a phone. Hidden overflow lets
+          the column shrink and the chip's own `truncate` do the ellipsizing. The cell carries the
+          chip's 4px hover bleed as its own negative margin and padding so the clip sits outside it.
+        */}
+        <div className="pointer-events-none relative z-10 col-span-4 grid grid-cols-subgrid items-center">
           {match ? (
             <>
-              <span className="flex flex-1 basis-[140px] justify-start">
+              <span className="-mx-1 flex min-w-0 overflow-hidden px-1">
                 <TeamChip
                   conf={match.conf}
                   code={match.team}
                   team={teamIndex(match.conf, match.team)}
-                  className="pointer-events-auto w-fit max-w-full rounded px-1 -mx-1 hover:bg-brand/20"
+                  className="pointer-events-auto w-fit max-w-full rounded px-1 hover:bg-brand/20"
                 />
               </span>
 
               <span
-                className={`shrink-0 rounded px-2 py-0.5 font-display text-lg leading-none tracking-wider ${
+                className={`justify-self-center rounded px-2 py-0.5 font-display text-lg leading-none tracking-wider ${
                   won ? "bg-ccs-green/20 text-ccs-green" : "bg-ccs-red/20 text-ccs-red"
                 }`}
               >
                 {match.gameWins}–{match.gameLosses}
               </span>
 
-              <span className="flex flex-1 basis-[140px] justify-start">
+              <span className="-mx-1 flex min-w-0 overflow-hidden px-1">
                 <TeamLink
                   conf={match.conf}
                   code={match.opponentCode}
-                  className="pointer-events-auto flex w-fit min-w-0 max-w-full items-center gap-2 rounded px-1 -mx-1 no-underline hover:bg-brand/20"
+                  className="pointer-events-auto flex w-fit min-w-0 max-w-full items-center gap-2 rounded px-1 no-underline hover:bg-brand/20"
                 >
                   <TeamLogo team={match.opponent} code={match.opponentCode ?? "?"} size={22} />
                   <span className="truncate font-heading text-text-secondary hover:text-brand">
@@ -132,18 +172,22 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
               </span>
             </>
           ) : (
-            <span className="flex-1 font-heading text-text-secondary">Other games</span>
+            <span className="col-span-3 min-w-0 truncate font-heading text-text-secondary">Other games</span>
           )}
 
           {/* Two lines: the league on top, then where in the season and when on one line beneath —
               "Playoffs · Semifinals · Mar 14". Three stacked lines made the header taller than the
-              result it framed. */}
-          <span className="shrink-0 text-right text-[11px] text-text-dim">
+              result it framed.
+
+              Its column is content-sized and capped (`HEADER_COLUMNS`), so up to the cap it is the
+              opponent that gives way, and past it each line ellipsizes rather than breaking, because
+              a date wrapped onto a third line is the mess this header exists to avoid. */}
+          <span className="min-w-0 overflow-hidden text-right text-[11px] text-text-dim">
             {/* The full league name, not `short`. `shortname` is deliberately shared between the
                 divisions running concurrently, so it cannot tell two of them apart — and this card is
                 as wide as the series header, which has room for the real thing. */}
-            <span className="block">{confLabel(conf).name}</span>
-            <span className="block">
+            <span className="block truncate">{confLabel(conf).name}</span>
+            <span className="block truncate">
               {placement && <span className="text-text-secondary">{placement} · </span>}
               {fmtDay(startTime) || "—"}
             </span>
@@ -155,7 +199,7 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
           width, so on a phone this is a scroller rather than nine columns crushed to nothing — and
           the caption row has to live inside it or it would drift out of line with the rows the
           moment either one moved. */}
-      <div className="overflow-x-auto">
+      <div className="col-span-4 overflow-x-auto">
         <GameRowHeader />
         <ul className="flex flex-col">
           {games.map(game => (

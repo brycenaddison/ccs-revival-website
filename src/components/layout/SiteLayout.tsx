@@ -29,7 +29,8 @@
  */
 
 import { Suspense, useCallback, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
+import { RouteErrorBoundary } from "./RouteErrorBoundary";
 import { useWindowSize } from "../../hooks/useWindowSize";
 import { NavBar } from "../home/NavBar";
 import { MobileBottomBar } from "../home/MobileBottomBar";
@@ -47,6 +48,7 @@ interface Props {
 
 export function SiteLayout({ ticker = false }: Props) {
   const isMobile = useWindowSize() < 768;
+  const { pathname } = useLocation();
 
   const [column, setColumn] = useState<PageColumn>(DEFAULT_COLUMN);
 
@@ -83,9 +85,14 @@ export function SiteLayout({ ticker = false }: Props) {
       <main className="flex-1">
         <div className="mx-auto" style={{ maxWidth, padding: isMobile ? 12 : "24px 32px" }}>
           <PageColumnContext.Provider value={publishColumn}>
-            <Suspense fallback={<div className="py-16 text-center text-text-subtle">Loading…</div>}>
-              <Outlet />
-            </Suspense>
+            {/* The boundary wraps the Suspense, since a lazy chunk that fails to load is thrown to
+                the nearest error boundary once its promise rejects. Keyed on the path so the next
+                navigation gets a clean try rather than the previous page's failure. */}
+            <RouteErrorBoundary key={pathname}>
+              <Suspense fallback={<div className="py-16 text-center text-text-subtle">Loading…</div>}>
+                <Outlet />
+              </Suspense>
+            </RouteErrorBoundary>
           </PageColumnContext.Provider>
         </div>
       </main>
@@ -109,14 +116,20 @@ export function SiteLayout({ ticker = false }: Props) {
  * instead of the nav, and would be two navs and a stray footer deep inside a `SiteLayout`.
  *
  * They still need *a* layout route, because they are lazy chunks and a suspending component with no
- * boundary above it is an error rather than a loading state. The fallback is a bare full-height
- * background: these pages have no content column to blank, and a white flash between a match page
- * and its game page is the one thing worth preventing here.
+ * boundary above it is an error rather than a loading state. The wrapper is a bare full-height
+ * background and the Suspense fallback is nothing: these pages have no content column to blank, and a
+ * white flash between a match page and its game page is the one thing worth preventing here. The
+ * same `RouteErrorBoundary` as `SiteLayout` sits inside it, for the same stale-chunk reason.
  */
 export function BareLayout() {
+  const { pathname } = useLocation();
   return (
-    <Suspense fallback={<div className="bg-bg min-h-screen w-full" />}>
-      <Outlet />
-    </Suspense>
+    <div className="bg-bg min-h-screen w-full">
+      <RouteErrorBoundary key={pathname}>
+        <Suspense fallback={null}>
+          <Outlet />
+        </Suspense>
+      </RouteErrorBoundary>
+    </div>
   );
 }
