@@ -1,8 +1,8 @@
 /**
  * One game, small enough to read at a glance.
  *
- * The compact counterpart to `RiotMatchView`, and it exists for the moment *before* a game is
- * recorded: `POST .../codes/check` attaches a tournament code as pending and hands back the raw
+ * The compact counterpart to the match viewer (`pages/GameDetail.tsx`), and it exists for the moment
+ * *before* a game is recorded: `POST .../codes/check` attaches a tournament code as pending and hands back the raw
  * match-v5 payload without storing anything, so an admin can see what they are about to ingest.
  * That payload is in hand, which is why `GameSummary` takes data rather than an id — a preview of an
  * unstored game has no `/m/:matchId` to fetch. `LinkedGameSummary` is the other case: a code that
@@ -13,9 +13,9 @@
  * are known and the standings are right. What to say about one differs by caller, so each says it
  * itself rather than this component guessing.
  *
- * Deliberately not `RiotMatchView`'s `TeamPanel`. That is a box score — seven columns per player —
- * and a summary that needs scrolling answers a different question. This one answers "is this the
- * right game?", and links through to the box score for everything else.
+ * Deliberately not the viewer's scoreboard. That is a box score, a dozen columns per player, and a
+ * summary that needs scrolling answers a different question. This one answers "is this the right
+ * game?", and links through to the viewer for everything else.
  *
  * **The two sides are columns, blue then red**, each a vertical list of five players. Laying a side
  * out horizontally read as one long strip of champions and made comparing the two lineups a matter
@@ -95,7 +95,7 @@ export function GameSummary({
               to={`/game/${encodeURIComponent(id)}`}
               target="_blank"
               rel="noreferrer"
-              className="text-brand font-heading text-[10px] tracking-wider uppercase no-underline hover:underline whitespace-nowrap"
+              className="text-brand font-heading text-[10px] no-underline hover:underline whitespace-nowrap"
             >
               Box score ↗
             </Link>
@@ -105,13 +105,13 @@ export function GameSummary({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
         <SideColumn
-          label="BLUE"
+          label="Blue"
           team={blueTeam}
           players={participants.filter(p => p.teamId === BLUE)}
           champions={champions}
         />
         <SideColumn
-          label="RED"
+          label="Red"
           team={redTeam}
           players={participants.filter(p => p.teamId === RED)}
           champions={champions}
@@ -150,14 +150,14 @@ export function ResultOnlyCard({
     <div className="bg-bg3 border border-border rounded-md px-3 py-2 flex flex-col gap-1">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="font-mono text-[11px] text-text-dim break-all">{matchId}</span>
-        <span className="font-heading text-[10px] tracking-wider uppercase text-text-dim">{label}</span>
+        <span className="font-heading text-[10px] text-text-dim">{label}</span>
       </div>
 
       <p className="text-xs text-text-secondary">
         {result !== null && (
           <>
-            <span className="text-text-bright font-heading tracking-wider">{result.winner}</span> beat{" "}
-            <span className="text-text-bright font-heading tracking-wider">{result.loser}</span>.{" "}
+            <span className="text-text-bright font-heading ">{result.winner}</span> beat{" "}
+            <span className="text-text-bright font-heading ">{result.loser}</span>.{" "}
           </>
         )}
         {note}
@@ -228,7 +228,7 @@ function SideColumn({
   players,
   champions,
 }: {
-  label: "BLUE" | "RED";
+  label: "Blue" | "Red";
   team: RiotTeam | undefined;
   players: RiotParticipant[];
   champions: ChampionLookup | null;
@@ -238,14 +238,11 @@ function SideColumn({
   return (
     <div className="px-3 py-2 min-w-0">
       <div className="flex items-center justify-between gap-2 mb-1.5">
-        <span
-          className="font-display text-[11px] tracking-widest"
-          style={{ color: label === "BLUE" ? "#3b82f6" : "#ef4444" }}
-        >
+        <span className={`font-display text-[11px] ${label === "Blue" ? "text-side-blue" : "text-side-red"}`}>
           {label}
         </span>
         <span
-          className={`font-heading text-[10px] tracking-wider uppercase ${
+          className={`font-heading text-[10px] ${
             win === undefined ? "text-text-dim" : win ? "text-ccs-green" : "text-ccs-red"
           }`}
         >
@@ -261,6 +258,7 @@ function SideColumn({
               lookup={champions}
               fallbackLabel={p.championName}
               size={20}
+              tile
             />
             <span className="text-xs text-text truncate grow min-w-0">
               {p.riotIdGameName || p.summonerName || "Unknown"}
@@ -274,12 +272,13 @@ function SideColumn({
 
       {team?.bans && team.bans.length > 0 && (
         <div className="mt-2 flex items-center gap-1.5 border-t border-border/60 pt-2">
-          <span className="shrink-0 font-heading text-[10px] tracking-wider text-text-muted">BANS</span>
+          <span className="shrink-0 font-heading text-[10px] text-text-muted">Bans</span>
           <BanIcons
             bans={team.bans}
             champions={champions}
             size={20}
-            className="flex items-center opacity-70 grayscale"
+            tile
+            className="flex items-center"
           />
         </div>
       )}

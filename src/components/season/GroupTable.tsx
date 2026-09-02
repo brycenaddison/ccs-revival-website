@@ -39,9 +39,7 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
     <div className="mb-4 overflow-hidden rounded-md border border-border bg-bg2">
       {showName && (
         <div className="border-b border-border px-4 py-3">
-          <span className="font-display text-[15px] tracking-widest text-text-bright">
-            {group.name.toUpperCase()}
-          </span>
+          <span className="font-display text-[15px] text-text-bright">{group.name}</span>
         </div>
       )}
 
@@ -58,7 +56,7 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
                   // Nothing here wraps. `WIN%` and `GAMES` are short enough to look safe and are
                   // not: a narrow screen breaks them over two lines and the header row doubles in
                   // height. The team column is the one that gives, and it truncates.
-                  className={`whitespace-nowrap border-b border-border px-3.5 py-3 font-heading text-[10px] font-normal tracking-wider text-text-muted ${
+                  className={`whitespace-nowrap border-b border-border px-3.5 py-3 font-heading text-[10px] font-normal text-text-muted ${
                     h === "#" || h === "TEAM" ? "text-left" : "text-center"
                   }`}
                 >
@@ -68,7 +66,7 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
               {/* On mobile the scenario moves under the team name — a pill in its own column would
                   push the record off the screen. */}
               {!isMobile && (
-                <th className="border-b border-border px-3.5 py-3 text-left font-heading text-[10px] font-normal tracking-wider text-text-muted">
+                <th className="border-b border-border px-3.5 py-3 text-left font-heading text-[10px] font-normal text-text-muted">
                   SCENARIO
                 </th>
               )}
@@ -124,7 +122,7 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
                         </div>
                         {isMobile && row.scenario && (
                           <span
-                            className="block truncate font-heading text-[9px] font-bold uppercase tracking-wider"
+                            className="block truncate font-heading text-[9px] font-bold "
                             style={{ color: toneForLevel(row.scenario.level).fg }}
                           >
                             {row.scenario.title}

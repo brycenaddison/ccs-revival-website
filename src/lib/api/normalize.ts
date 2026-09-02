@@ -168,11 +168,11 @@ export function isRole(v: string): v is Role {
  * on (`/stats/champions/:conf/:role`) and what `playerstats.role` is keyed by.
  */
 const ROLE_LABELS: Record<Role, string> = {
-  TOP: "TOP",
-  JUNGLE: "JUNGLE",
-  MIDDLE: "MIDDLE",
-  BOTTOM: "BOTTOM",
-  UTILITY: "SUPPORT",
+  TOP: "Top",
+  JUNGLE: "Jungle",
+  MIDDLE: "Middle",
+  BOTTOM: "Bottom",
+  UTILITY: "Support",
 };
 
 /**

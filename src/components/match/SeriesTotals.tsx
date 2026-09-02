@@ -92,7 +92,7 @@ function TotalsCard({
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-bg2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-border bg-bg3 px-4 py-3">
-        <span className="font-display text-sm tracking-widest text-text-bright">SERIES TOTALS</span>
+        <span className="font-display text-sm text-text-bright">Series totals</span>
         <span className="font-mono text-[11px] text-text-dim">
           {stats.duration !== null && <>{fmtSec(stats.duration)} played</>}
           {stats.longest !== null && stats.counted > 1 && (
@@ -102,7 +102,7 @@ function TotalsCard({
       </div>
 
       <div className="px-4 py-3">
-        <div className="mb-1 flex items-baseline justify-between gap-2 font-heading text-[11px] font-bold tracking-wider text-text-secondary">
+        <div className="mb-1 flex items-baseline justify-between gap-2 font-heading text-[11px] font-bold text-text-secondary">
           <TeamNameLink code={codeA} nameOf={nameOf} className="text-text-secondary" />
           <TeamNameLink code={codeB} nameOf={nameOf} className="text-text-secondary" />
         </div>
@@ -178,7 +178,7 @@ function LeadersCard({ stats, nameOf }: { stats: SeriesStats; nameOf: TeamNamer 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-bg2">
       <div className="border-b border-border bg-bg3 px-4 py-3">
-        <span className="font-display text-sm tracking-widest text-text-bright">SERIES LEADERS</span>
+        <span className="font-display text-sm text-text-bright">Series leaders</span>
       </div>
 
       <div className="px-4 py-1.5">
@@ -226,7 +226,7 @@ function Leader({
 
   return (
     <div className="flex items-baseline gap-2 border-b border-border/50 py-1.5 last:border-b-0">
-      <span className="w-17 shrink-0 font-heading text-[9px] uppercase tracking-wider text-text-dim">
+      <span className="w-17 shrink-0 font-heading text-[9px] text-text-dim">
         {label}
       </span>
       <span className="flex min-w-0 grow items-baseline gap-1.5">

@@ -168,9 +168,7 @@ function PhasePage({
       </button>
       {doc.data && (
         <>
-          <h3 className="font-display text-lg text-text-bright tracking-widest">
-            {doc.data.phase.name.toUpperCase()}
-          </h3>
+          <h3 className="font-display text-lg text-text-bright ">{doc.data.phase.name}</h3>
           <Pill muted={!doc.data.phase.published}>
             {doc.data.phase.days.from === doc.data.phase.days.to
               ? `Day ${doc.data.phase.days.from}`

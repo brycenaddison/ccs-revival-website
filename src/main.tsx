@@ -123,6 +123,16 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   <Route path="/league/:conf/admin/:section" element={<LeagueAdmin />} />
                   <Route path="/content" element={<ContentPortal />} />
                   <Route path="/content/:section" element={<ContentPortal />} />
+                  {/* The three data pages that used to be full-bleed. They wear the nav now, because a
+                      reader who arrives from a Discord embed or a shared link has no other way to the
+                      rest of the site; each still carries a small back link at the top of its content.
+                      `:id` on `/match` is a `schedule_match` id. The viewer's tabs are URL segments
+                      (`lib/game/tabs.ts`); its bare path is fixed by the bot's embeds and eight in-app
+                      links. */}
+                  <Route path="/teams/:conf/:code" element={<TeamPage />} />
+                  <Route path="/match/:id" element={<MatchDetail />} />
+                  <Route path="/game/:matchId" element={<GameDetail />} />
+                  <Route path="/game/:matchId/:tab" element={<GameDetail />} />
                   {/* The catch-all, and it has to exist because of the nginx SPA fallback: every unmatched
                       URL is served `index.html` so a refresh on `/schedule` works, so a typo arrives here
                       rather than at the server's own 404. Without it `Routes` rendered nothing and a bad
@@ -131,16 +141,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   <Route path="*" element={<NotFound />} />
                 </Route>
 
-                {/* No chrome: each of these draws its own full-bleed page with a back button where
-                    the nav would be. `BareLayout` is here only to give their lazy chunks a
-                    `<Suspense>` boundary — see its header. */}
+                {/* No chrome: the sign-in bounce draws nothing but its own notice. `BareLayout` is
+                    here only to give its lazy chunk a `<Suspense>` boundary — see its header. */}
                 <Route element={<BareLayout />}>
-                  <Route path="/teams/:conf/:code" element={<TeamPage />} />
-                  {/* `:id` is a `schedule_match` id. The old form took a synthesized series key
-                      (`4:w1:ANE_vs_XSV`) because there was no endpoint that answered "this fixture" —
-                      `GET /tournaments/schedule/:id/result` is that endpoint. */}
-                  <Route path="/match/:id" element={<MatchDetail />} />
-                  <Route path="/game/:matchId" element={<GameDetail />} />
                   <Route path="/login" element={<Login />} />
                 </Route>
               </Routes>

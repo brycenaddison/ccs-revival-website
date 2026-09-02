@@ -42,7 +42,7 @@ export function StandingsView({ isMobile }: Props) {
 
   return (
     <div className="mx-auto max-w-[1200px]">
-      <h2 className="mb-4 font-display text-[22px] tracking-widest text-text-bright">STANDINGS</h2>
+      <h2 className="mb-4 font-display text-[22px] text-text-bright">Standings</h2>
 
       {/* `overflow-y-hidden` because `overflow-x` being set at all makes `overflow-y` compute to
           `auto`, and a single row of buttons has no business owning a vertical scrollbar. */}
@@ -53,7 +53,7 @@ export function StandingsView({ isMobile }: Props) {
               key={c}
               type="button"
               onClick={() => setConfPick(c)}
-              className={`shrink-0 cursor-pointer border-none bg-transparent p-0 font-heading text-[12px] uppercase tracking-wider ${
+              className={`shrink-0 cursor-pointer border-none bg-transparent p-0 font-heading text-[12px] ${
                 c === conf ? "text-text-bright" : "text-text-muted"
               }`}
             >
@@ -108,7 +108,7 @@ function SeasonPanel({ conf, isMobile }: { conf: string; isMobile: boolean }) {
         <p className="mb-4 text-sm leading-relaxed text-text-muted">{error}</p>
         <button
           onClick={refetch}
-          className="cursor-pointer rounded-md border-none bg-brand px-7 py-3 font-heading text-sm font-medium uppercase tracking-wider text-white"
+          className="cursor-pointer rounded-md border-none bg-brand px-7 py-3 font-heading text-sm font-medium text-white"
         >
           Try again
         </button>
@@ -135,7 +135,7 @@ function SeasonPanel({ conf, isMobile }: { conf: string; isMobile: boolean }) {
 
       {/* With one phase there is no strip, so the heading is the only thing naming what is on screen. */}
       {phases.length < 2 && (
-        <div className="mb-4 font-heading text-[13px] uppercase tracking-wider text-text-secondary">
+        <div className="mb-4 font-heading text-[13px] text-text-secondary">
           {phase.name}
         </div>
       )}

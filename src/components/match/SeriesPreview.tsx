@@ -134,10 +134,10 @@ function SeasonComparison({ a, b }: { a: TeamDetail; b: TeamDetail }) {
   return (
     <div className="mb-4 overflow-hidden rounded-lg border border-border bg-bg2">
       <div className="border-b border-border bg-bg3 px-4 py-3">
-        <span className="font-display text-sm tracking-widest text-text-bright">SEASON FORM</span>
+        <span className="font-display text-sm text-text-bright">Season form</span>
       </div>
       <div className="px-4 py-3">
-        <div className="mb-1 flex items-baseline justify-between font-heading text-[11px] font-bold tracking-wider text-text-secondary">
+        <div className="mb-1 flex items-baseline justify-between font-heading text-[11px] font-bold text-text-secondary">
           <span>{a.code}</span>
           <span>{b.code}</span>
         </div>
@@ -206,12 +206,12 @@ function Starters({ team, conf }: { team: TeamDetail; conf: string }) {
     <div className="mb-4 overflow-hidden rounded-lg border border-border bg-bg2">
       <div className="flex items-center gap-2 border-b border-border bg-bg3 px-4 py-2.5">
         <TeamBadge team={toBadge(team)} size={20} />
-        <TeamLink conf={conf} code={team.code} className="min-w-0 no-underline">
+        <TeamLink conf={conf} code={team.code} className="min-w-0 no-underline [&:hover_*]:text-brand">
           <span className="truncate font-heading text-xs font-semibold text-text hover:text-brand">
             {team.name}
           </span>
         </TeamLink>
-        <span className="ml-auto font-heading text-[10px] uppercase tracking-wider text-text-dim">Starters</span>
+        <span className="ml-auto font-heading text-[10px] text-text-dim">Starters</span>
       </div>
 
       {starters.length === 0 ? (
@@ -231,22 +231,22 @@ function Starters({ team, conf }: { team: TeamDetail; conf: string }) {
                   over and truncate when there isn't enough, so the stat columns keep their places and the
                   numbers stay right-aligned against the edge of the card.
                 */}
-                <th className="py-2 pl-4 pr-2 text-left font-heading text-[9px] font-normal uppercase tracking-wider text-text-dim">
+                <th className="py-2 pl-4 pr-2 text-left font-heading text-[9px] font-normal text-text-dim">
                   Player
                 </th>
-                <th className="w-[46px] py-2 px-2 text-left font-heading text-[9px] font-normal uppercase tracking-wider text-text-dim">
+                <th className="w-[46px] py-2 px-2 text-left font-heading text-[9px] font-normal text-text-dim">
                   Role
                 </th>
                 {STARTER_COLUMNS.map(({ label, width }) => (
                   <th
                     key={label}
-                    className={`${width} whitespace-nowrap py-2 px-2 text-right font-heading text-[9px] font-normal uppercase tracking-wider text-text-dim`}
+                    className={`${width} whitespace-nowrap py-2 px-2 text-right font-heading text-[9px] font-normal text-text-dim`}
                   >
                     {label}
                   </th>
                 ))}
                 <th
-                  className={`${CHAMPS_WIDTH} whitespace-nowrap py-2 pl-2 pr-4 text-right font-heading text-[9px] font-normal uppercase tracking-wider text-text-dim`}
+                  className={`${CHAMPS_WIDTH} whitespace-nowrap py-2 pl-2 pr-4 text-right font-heading text-[9px] font-normal text-text-dim`}
                 >
                   Champs
                 </th>
@@ -281,7 +281,7 @@ function StarterRow({ entry }: { entry: RosterEntry<PlayerStatsRanked> }) {
       >
         <PlayerLink profileId={entry.profileId} className="text-text-bright no-underline hover:text-brand">{entry.name}</PlayerLink>
       </td>
-      <td className="py-2 px-2 font-heading text-[10px] tracking-wider text-text-muted">
+      <td className="py-2 px-2 font-heading text-[10px] text-text-muted">
         {roleLabel(entry.role)}
       </td>
 
@@ -320,6 +320,7 @@ function StarterRow({ entry }: { entry: RosterEntry<PlayerStatsRanked> }) {
                   name={ch.name}
                   title={`${ch.name} — ${ch.picks ?? 0} game${ch.picks === 1 ? "" : "s"}`}
                   size={24}
+                  tile
                   className="flex shrink-0"
                 />
               ))}
@@ -356,12 +357,12 @@ function RecentGames({ team, conf }: { team: TeamDetail; conf: string }) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-bg2">
       <div className="flex items-baseline gap-2 border-b border-border bg-bg3 px-4 py-2.5">
-        <TeamLink conf={conf} code={team.code} className="min-w-0 no-underline">
+        <TeamLink conf={conf} code={team.code} className="min-w-0 no-underline [&:hover_*]:text-brand">
           <span className="truncate font-heading text-xs font-semibold text-text hover:text-brand">
             {team.name}
           </span>
         </TeamLink>
-        <span className="ml-auto shrink-0 font-heading text-[10px] uppercase tracking-wider text-text-dim">
+        <span className="ml-auto shrink-0 font-heading text-[10px] text-text-dim">
           Recent games
         </span>
       </div>

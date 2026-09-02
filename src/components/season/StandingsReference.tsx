@@ -73,7 +73,7 @@ export function StandingsReference({
 
   return (
     <section className={compact ? "" : "border-t border-border pt-4"}>
-      <h3 className="mb-1 font-heading text-xs uppercase tracking-wider text-text-secondary">
+      <h3 className="mb-1 font-heading text-xs text-text-secondary">
         Who finished where
       </h3>
       <p className={`text-text-secondary ${compact ? "mb-3 text-xs" : "mb-3 text-sm"}`}>
@@ -83,7 +83,7 @@ export function StandingsReference({
       <div className={compact ? "flex flex-col gap-3" : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"}>
         {tables.map(table => (
           <div key={table.key} className="rounded-md border border-border bg-bg3 p-3">
-            <p className="mb-2 font-heading text-[10px] uppercase tracking-wider text-text-dim">
+            <p className="mb-2 font-heading text-[10px] text-text-dim">
               {table.heading}
             </p>
             <ol className="flex flex-col gap-1">

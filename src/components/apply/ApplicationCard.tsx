@@ -147,7 +147,7 @@ export function ApplicationCard({ application, myProfileId, onSaved }: Props) {
 
         <div className="mt-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-heading text-sm uppercase tracking-wider text-text-bright">Roster</h3>
+            <h3 className="font-heading text-sm text-text-bright">Roster</h3>
             <div className="flex flex-wrap items-center gap-2">
               {/* Ranks come from a cache upstream, never a live lookup, so somebody who linked an
                 account a minute ago sees "Rank pending" until this is pressed. */}
@@ -359,11 +359,11 @@ function RosterList({ conf, applicationId, members, editable, myProfileId, onEdi
             className="flex flex-wrap items-center gap-2.5 border-b border-border py-2.5 last:border-b-0"
           >
             <MemberAvatar member={member} />
-            <PlayerLink profileId={member.profileId} className="text-brand no-underline">
+            <PlayerLink profileId={member.profileId} className="text-brand no-underline hover:underline">
               {memberLabel(member)}
             </PlayerLink>
             {member.profileId === myProfileId && (
-              <span className="text-[10px] uppercase tracking-wider text-text-dim">you</span>
+              <span className="text-[10px] text-text-dim">you</span>
             )}
             <span className="text-xs text-text-secondary">{roleSummary(member.roles)}</span>
             <InvitationStatusPill status={member.status} perspective="captain" />

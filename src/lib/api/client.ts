@@ -9,6 +9,8 @@
  */
 
 import { getList, getOne, isAbort, post, type RequestOpts } from "./http";
+import { isNoBanChampion, NO_BAN_CHAMPION } from "../championData";
+import { mapPhaseRef } from "./phaseRef";
 import {
   colorSecondaryOf,
   hexFromInt,
@@ -34,7 +36,6 @@ import type {
   RecordRow,
   RecordUnit,
   RecordsResponse,
-  RiotMatch,
   RoleKey,
   RosterSlot,
   SeasonRecord,
@@ -206,12 +207,27 @@ function mapStandingRow(raw: Raw): StandingRow {
 
 // ------------------------------------------------------------------ champions
 
+/**
+ * Riot records a declined ban as champion `-1`. Upstream enriches ids against the champion manifest,
+ * which has no entry for it, so the row arrives with no `name` and an `img` that 404s. The sentinel in
+ * `lib/championData.ts` supplies both, the same way `ChampionIcon` does for a raw payload, so "No ban"
+ * ranks on the Most Banned board like any champion rather than as a blank chip.
+ */
+function champName(id: number, name: unknown): string {
+  return isNoBanChampion(id) ? NO_BAN_CHAMPION.name : str(name);
+}
+
+function champImg(id: number, img: unknown): string {
+  return isNoBanChampion(id) ? NO_BAN_CHAMPION.icon : str(img);
+}
+
 function mapChamp(raw: unknown): Champ {
   const c = asRaw(raw);
+  const champid = num(c.champid as Numeric);
   return {
-    champid: num(c.champid as Numeric),
-    name: str(c.name),
-    img: str(c.img),
+    champid,
+    name: champName(champid, c.name),
+    img: champImg(champid, c.img),
     ...(typeof c.splash === "string" ? { splash: c.splash } : {}),
     picks: numOrNull(c.picks as Numeric),
   };
@@ -219,10 +235,11 @@ function mapChamp(raw: unknown): Champ {
 
 function mapBanCount(raw: unknown): BanCount {
   const b = asRaw(raw);
+  const championId = num(b.championId as Numeric);
   return {
-    championId: num(b.championId as Numeric),
-    name: str(b.name),
-    img: str(b.img),
+    championId,
+    name: champName(championId, b.name),
+    img: champImg(championId, b.img),
     bans: num(b.bans as Numeric),
   };
 }
@@ -393,6 +410,8 @@ function mapMatchlistEntry(raw: Raw): MatchlistEntry {
     matchId: str(raw.matchId),
     conf: str(raw.conf),
     seasonDay: num(raw.seasonDay as Numeric),
+    scheduleMatchId: numOrNull(raw.scheduleMatchId as Numeric),
+    phase: mapPhaseRef(raw.phase),
     team: str(raw.team),
     opponent: str(raw.opponent),
     game: num(raw.game as Numeric, 1),
@@ -476,11 +495,12 @@ const CHAMPION_RATIOS = [
 ] as const;
 
 function mapChampionStats(raw: Raw): ChampionStats {
+  const champid = num(raw.champid as Numeric);
   return {
-    champid: num(raw.champid as Numeric),
+    champid,
     conf: str(raw.conf),
-    name: str(raw.name),
-    img: str(raw.img),
+    name: champName(champid, raw.name),
+    img: champImg(champid, raw.img),
     role: normalizeRole(raw.role as string),
     avgTime: str(raw.avgTime),
     kda: ratio(raw.kda as Numeric),
@@ -681,10 +701,6 @@ export function records(
   );
 }
 
-export function matchData(matchId: string, opts?: RequestOpts): Promise<RiotMatch | null> {
-  return getOne<RiotMatch>(`/m/${encodeURIComponent(matchId)}`, opts);
-}
-
 export function articleViews(slug: string, opts?: RequestOpts): Promise<{ article: boolean; views: number }> {
   return getOne<{ article?: boolean; views?: number }>(`/articles/view/${encodeURIComponent(slug)}`, opts).then(r => ({
     article: r?.article === true,
@@ -708,7 +724,6 @@ export const api = {
   teamStats,
   championStats,
   statTotals,
-  matchData,
   articleViews,
   bumpArticleView,
 };

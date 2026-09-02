@@ -44,10 +44,10 @@ export default function Setup() {
         <div className="mx-auto rounded-lg border border-border bg-bg2 p-5 sm:p-7">
           {savedId === null ? (
             <>
-              <p className="mb-1 font-heading text-xs uppercase tracking-wider text-brand">
+              <p className="mb-1 font-heading text-xs text-brand">
                 Step 1 of 2
               </p>
-              <h1 className="font-display text-[28px] tracking-widest text-text-bright">
+              <h1 className="font-display text-[28px] text-text-bright">
                 SET UP YOUR PLAYER PROFILE
               </h1>
               <p className="mb-7 mt-2 max-w-[620px] text-sm text-text-secondary">
@@ -92,8 +92,8 @@ function AccountsStep({
 
   return (
     <>
-      <p className="mb-1 font-heading text-xs uppercase tracking-wider text-brand">Step 2 of 2</p>
-      <h1 className="font-display text-[28px] tracking-widest text-text-bright">
+      <p className="mb-1 font-heading text-xs text-brand">Step 2 of 2</p>
+      <h1 className="font-display text-[28px] text-text-bright">
         ADD YOUR RIOT ACCOUNTS
       </h1>
       <p className="mt-2 max-w-[620px] text-sm text-text-secondary">

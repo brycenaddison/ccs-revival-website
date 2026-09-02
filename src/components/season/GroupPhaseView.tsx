@@ -48,8 +48,8 @@ export function GroupPhaseView({ phase, conf, isMobile }: Props) {
       {legend.length > 0 && (
         <div className="mt-4 overflow-hidden rounded-md border border-border bg-bg2">
           <div className="border-b border-border px-4 py-3">
-            <span className="font-display text-[14px] tracking-widest text-text-bright">
-              {phase.name.toUpperCase()} — OUTCOMES
+            <span className="font-display text-[14px] text-text-bright">
+              {phase.name} · Outcomes
             </span>
           </div>
           <div className="flex flex-col gap-2 p-4">

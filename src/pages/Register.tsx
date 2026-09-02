@@ -35,7 +35,7 @@ import { DISCORD_INVITE } from "../lib/siteLinks";
 export default function Register() {
   return (
     <PageShell maxWidth={880}>
-      <h1 className="mb-1 font-display text-[30px] tracking-widest text-text-bright">
+      <h1 className="mb-1 font-display text-[30px] text-text-bright">
         TEAM REGISTRATION
       </h1>
       <p className="mb-6 text-sm text-text-secondary">
@@ -69,8 +69,8 @@ function ApplyPanel() {
   if (open.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-bg2 p-6">
-        <h2 className="font-display text-[20px] tracking-widest text-text-bright">
-          NO LEAGUES ARE TAKING TEAMS RIGHT NOW
+        <h2 className="font-display text-[20px] text-text-bright">
+          No league are taking teams right now.
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-text-secondary">
           Registration opens before each season. Join the Discord and you'll hear about it there
@@ -131,7 +131,7 @@ function ApplyPanel() {
           policy on the site. Absent means the league wrote none, and nothing is drawn for it. */}
       {season?.applicationBody && (
         <section className="rounded-lg border border-border bg-bg2 p-5">
-          <h2 className="font-display text-[20px] tracking-widest text-text-bright">
+          <h2 className="font-display text-[20px] text-text-bright">
             LEAGUE INFORMATION
           </h2>
           <div className="mt-2">
@@ -182,7 +182,7 @@ function ConfApplications({ conf, myProfileId, onSaved }: ConfProps) {
     <div className="flex flex-col gap-5">
       {live.length === 0 && !starting && (
         <div className="rounded-lg border border-border bg-bg2 p-5">
-          <h2 className="font-display text-[20px] tracking-widest text-text-bright">
+          <h2 className="font-display text-[20px] text-text-bright">
             START A TEAM
           </h2>
           {/* Says nothing about ownership. A new application starts with an empty roster and the
@@ -217,7 +217,7 @@ function ConfApplications({ conf, myProfileId, onSaved }: ConfProps) {
           so these are one line each rather than full cards. */}
       {asMember.length > 0 && (
         <section>
-          <h2 className="font-heading text-sm uppercase tracking-wider text-text-bright">
+          <h2 className="font-heading text-sm text-text-bright">
             Teams you're on
           </h2>
           <ul className="mt-2 flex flex-col">
@@ -226,7 +226,7 @@ function ConfApplications({ conf, myProfileId, onSaved }: ConfProps) {
                 key={application.id}
                 className="flex flex-wrap items-center gap-2.5 border-b border-border py-2.5 last:border-b-0"
               >
-                <span className="font-heading text-sm tracking-wider text-text-bright">
+                <span className="font-heading text-sm text-text-bright">
                   {application.teamName}
                 </span>
                 <span className="font-mono text-xs text-text-secondary">
@@ -246,7 +246,7 @@ function ConfApplications({ conf, myProfileId, onSaved }: ConfProps) {
         <button
           type="button"
           onClick={() => setStarting(true)}
-          className="self-start bg-transparent border-none p-0 cursor-pointer font-heading text-xs uppercase tracking-wider text-text-dim hover:text-text-bright"
+          className="self-start bg-transparent border-none p-0 cursor-pointer font-heading text-xs text-text-dim hover:text-text-bright"
         >
           Start another team
         </button>
@@ -254,7 +254,7 @@ function ConfApplications({ conf, myProfileId, onSaved }: ConfProps) {
 
       {starting && live.length > 0 && (
         <div className="rounded-lg border border-border bg-bg2 p-5">
-          <h2 className="font-display text-[20px] tracking-widest text-text-bright">
+          <h2 className="font-display text-[20px] text-text-bright">
             ANOTHER TEAM
           </h2>
           <p className="mt-2 text-sm text-text-secondary">

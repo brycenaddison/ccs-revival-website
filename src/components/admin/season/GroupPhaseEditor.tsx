@@ -261,7 +261,7 @@ function ScenarioLibraryEditor({
 
   return (
     <section>
-      <h3 className="font-heading text-xs tracking-wider uppercase text-text-secondary mb-1">
+      <h3 className="font-heading text-xs text-text-secondary mb-1">
         Scenario library
       </h3>
       <p className="text-text-secondary text-sm mb-3">
@@ -470,7 +470,7 @@ function GroupsEditor({
 
   return (
     <section>
-      <h3 className="font-heading text-xs tracking-wider uppercase text-text-secondary mb-1">
+      <h3 className="font-heading text-xs text-text-secondary mb-1">
         Groups
       </h3>
       <p className="text-text-secondary text-sm mb-3">
@@ -758,7 +758,7 @@ function MatchesEditor({
 
   return (
     <section>
-      <h3 className="font-heading text-xs tracking-wider uppercase text-text-secondary mb-1">
+      <h3 className="font-heading text-xs text-text-secondary mb-1">
         Match days
       </h3>
       <p className="text-text-secondary text-sm mb-3">
@@ -786,7 +786,7 @@ function MatchesEditor({
                   button a screen and a half below the one before it, so adding several meant
                   scrolling back down after every click. Up here its position never moves. */}
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="font-display text-base text-text-bright tracking-widest">
+                <span className="font-display text-base text-text-bright ">
                   DAY {matchDay}
                 </span>
                 <Pill muted>Season day {seasonDayOf(phase, matchDay)}</Pill>

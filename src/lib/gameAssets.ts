@@ -11,46 +11,30 @@
  * modules can't disagree about where artwork comes from or drift onto different patches. Unlike
  * champions, though, these two manifests do *not* expose a convenience `/latest/item/:id/icon`
  * route we can build a URL from: each entry carries an `iconPath` into the game-data asset tree,
- * which has to be rewritten to a servable URL. `assetUrl` is that rewrite, and it is the reason
- * this is a manifest fetch rather than a string template.
+ * which has to be rewritten to a servable URL. `assetUrl` in `lib/riot/cdragon.ts` is that rewrite,
+ * and it is the reason this is a manifest fetch rather than a string template.
  *
  * Two static, heavily-cached CDN files, each memoized for the page lifetime and fetched only when
- * something actually asks.
+ * something actually asks. The match viewer (`components/game/`) is the consumer: its scoreboard rows
+ * and build paths draw every item and spell through `RiotIcons.tsx`, over the lookups here.
  *
- * **Nothing imports this today, and that is deliberate — do not delete it as dead code.** It was
- * written for an expandable build panel on the profile's game rows, which was cut on presentation
- * grounds rather than data grounds: the rows read better as a single dense line. The lookups are
- * kept because the hard part is here — the `iconPath` rewrite below is not something to work out
- * twice — and item and spell artwork is wanted again wherever a build eventually gets shown.
- *
- * The one thing that went with the panel is `summoner1Id`/`summoner2Id` on `RiotParticipant`
- * (`lib/api/types.ts`), since that type declares only the fields the UI actually reads. Re-add them
- * when there is something to render them into.
+ * `description` rides along for the tooltips. It is Riot's own markup (`<mainText>`, `<attention>`,
+ * `<br>`), rendered by `components/game/RiotText.tsx` and never injected as HTML.
  */
 
-const CDRAGON_BASE =
-  "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default";
+import { CDRAGON_BASE, assetUrl } from "./riot/cdragon";
 
 const ITEMS_URL = `${CDRAGON_BASE}/v1/items.json`;
 const SPELLS_URL = `${CDRAGON_BASE}/v1/summoner-spells.json`;
-
-/**
- * Riot's `iconPath` is an absolute path into the game client's asset tree
- * (`/lol-game-data/assets/ASSETS/Items/Icons2D/3153.png`) in mixed case. Community Dragon serves
- * the same tree lowercased under its `default` root, with that prefix stripped.
- */
-function assetUrl(iconPath: string): string | null {
-  const lower = iconPath.toLowerCase();
-  const marker = "/lol-game-data/assets";
-  const index = lower.indexOf(marker);
-  if (index === -1) return null;
-  return `${CDRAGON_BASE}${lower.slice(index + marker.length)}`;
-}
 
 export interface GameAsset {
   id: number;
   name: string;
   icon: string;
+  /** Riot's description markup, or "" when the manifest has none. See the header. */
+  description: string;
+  /** Items only: the full price. Undefined for a spell. */
+  price?: number;
 }
 
 export interface GameAssetLookup {
@@ -69,6 +53,8 @@ interface ManifestEntry {
   id: number;
   name: string;
   iconPath: string;
+  description?: string;
+  priceTotal?: number;
 }
 
 function buildLookup(entries: readonly ManifestEntry[]): GameAssetLookup {
@@ -76,10 +62,15 @@ function buildLookup(entries: readonly ManifestEntry[]): GameAssetLookup {
 
   for (const raw of entries) {
     if (!raw || !Number.isFinite(raw.id) || raw.id <= 0) continue;
-    if (typeof raw.iconPath !== "string" || raw.iconPath === "") continue;
     const icon = assetUrl(raw.iconPath);
     if (!icon) continue;
-    byId.set(raw.id, { id: raw.id, name: typeof raw.name === "string" ? raw.name : "", icon });
+    byId.set(raw.id, {
+      id: raw.id,
+      name: typeof raw.name === "string" ? raw.name : "",
+      icon,
+      description: typeof raw.description === "string" ? raw.description : "",
+      ...(typeof raw.priceTotal === "number" ? { price: raw.priceTotal } : {}),
+    });
   }
 
   return {

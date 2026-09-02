@@ -239,7 +239,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
       {/* Summary tiles. Each superlative names the team that holds it, with its logo — the point of the
           tile is the team, so it gets a line of its own rather than a truncated caption suffix. */}
       <div className={`grid gap-3 mb-5 ${isMobile ? "grid-cols-2" : "grid-cols-4"}`}>
-        <StatTile value={String(summary.teams)} label="Teams" color="var(--accent)" />
+        <StatTile value={String(summary.teams)} label="Teams" color="var(--brand)" />
         <StatTile
           value={summary.bestWr ? fmtPct(summary.bestWr.winrate) : "—"}
           label="Best Win%"
@@ -273,7 +273,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
 
       {view === "bars" ? (
         <StatBars
-          subject="TEAMS"
+          subject="Teams"
           rows={ordered}
           catalog={catalog}
           statKey={barStat}
@@ -339,7 +339,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
               <>
                 {starters.length > 0 && (
                   <div className="mb-3 text-[11px]">
-                    <span className="font-heading tracking-wider uppercase text-[10px] text-text-muted mr-2">
+                    <span className="font-heading text-[10px] text-text-muted mr-2">
                       Starters
                     </span>
                     {starters.map((e, j) => (

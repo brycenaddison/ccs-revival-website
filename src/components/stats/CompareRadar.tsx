@@ -67,7 +67,7 @@ export function CompareRadar({ series, size = 260 }: Props) {
               dominantBaseline="middle"
               fontSize={9}
               fill="var(--text-secondary)"
-              style={{ fontFamily: "var(--font-heading, inherit)", letterSpacing: "0.05em", textTransform: "uppercase" }}
+              style={{ fontFamily: "var(--font-heading, inherit)", letterSpacing: "0.05em", textTransform: "" }}
             >
               {axis.label}
             </text>

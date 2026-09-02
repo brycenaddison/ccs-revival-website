@@ -123,7 +123,7 @@ function DefinitionsPanel({ conf, definitions, onSaved }: DefinitionsProps) {
 
   return (
     <section>
-      <h3 className="font-display text-[18px] text-text-bright tracking-widest">DEFINITIONS</h3>
+      <h3 className="font-display text-[18px] text-text-bright ">Definitions</h3>
       <p className="text-text-dim text-xs mt-1">
         What this league can award. Site-wide definitions are managed by a site admin; the ones this
         league owns are editable here.
@@ -222,7 +222,7 @@ function IssuedPanel({ conf, definitions, accolades, teams, onSaved }: IssuedPro
 
   return (
     <section>
-      <h3 className="font-display text-[18px] text-text-bright tracking-widest">AWARDS</h3>
+      <h3 className="font-display text-[18px] text-text-bright ">Awards</h3>
       <p className="text-text-dim text-xs mt-1">
         Newest first, as served. Every award here shows on each recipient's public profile —
         career-wide, so it stays visible while they're reading a different season.
@@ -265,7 +265,7 @@ function IssuedPanel({ conf, definitions, accolades, teams, onSaved }: IssuedPro
             <li key={accolade.id} className="bg-bg2 border border-border rounded-lg p-3">
               <div className="flex flex-wrap items-center gap-2.5">
                 <KindPill kind={accolade.definition.kind} />
-                <span className="font-heading text-sm tracking-wider text-text-bright">
+                <span className="font-heading text-sm text-text-bright">
                   {accolade.definition.name}
                 </span>
                 {accolade.label && <Pill muted>{accolade.label}</Pill>}
@@ -308,7 +308,7 @@ function IssuedPanel({ conf, definitions, accolades, teams, onSaved }: IssuedPro
               <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                 {accolade.recipients.map(recipient => (
                   <li key={recipient.profileId} className="text-sm">
-                    <PlayerLink profileId={recipient.profileId} className="text-brand">
+                    <PlayerLink profileId={recipient.profileId} className="text-brand hover:underline">
                       {recipient.nickname ?? `profile ${recipient.profileId}`}
                     </PlayerLink>
                   </li>
@@ -500,7 +500,7 @@ function IssueForm({ conf, accolade, definitions, teams, onDone, onCancel }: Iss
                     type="button"
                     onClick={() => toggle(recipient)}
                     title="Remove"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-brand/50 px-2.5 py-0.5 bg-transparent cursor-pointer font-heading text-[10px] tracking-wider uppercase text-text-bright"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-brand/50 px-2.5 py-0.5 bg-transparent cursor-pointer font-heading text-[10px] text-text-bright"
                   >
                     {recipient.name}
                     <X size={11} aria-hidden="true" />

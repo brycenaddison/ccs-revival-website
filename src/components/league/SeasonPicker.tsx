@@ -62,7 +62,7 @@ export function SeasonPicker({ tournaments, selection, onChange, activeConfs, co
         onChange={e => onChange(e.target.value)}
         aria-label={label}
         title={label}
-        className="season-select w-full max-w-[15rem] bg-transparent border-none text-text-secondary font-heading tracking-wider cursor-pointer outline-none hover:text-text-bright"
+        className="season-select w-full max-w-[15rem] bg-transparent border-none text-text-secondary font-heading cursor-pointer outline-none hover:text-text-bright"
         style={{ fontSize: "inherit" }}
       >
         {options}
@@ -72,7 +72,7 @@ export function SeasonPicker({ tournaments, selection, onChange, activeConfs, co
 
   return (
     <div className="flex items-center gap-3 mb-5">
-      <label className="font-heading text-xs text-text-secondary tracking-wider uppercase">{label}</label>
+      <label className="font-heading text-xs text-text-secondary ">{label}</label>
       <select
         value={selection}
         onChange={e => onChange(e.target.value)}

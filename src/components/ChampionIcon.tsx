@@ -3,6 +3,7 @@ import {
   NO_BAN_CHAMPION,
   type ChampionLookup,
 } from "../lib/championData";
+import { tileClass } from "../lib/tile";
 
 interface Props {
   /** Numeric champion id, internal alias, or display name — whatever the payload carries. */
@@ -30,6 +31,14 @@ interface Props {
    * Empties the `alt`, which is what stops a screen reader announcing the name twice for one cell.
    */
   decorative?: boolean;
+  /**
+   * Draw the icon as a tile: clipped to a rounded box with the artwork scaled up 20%, on a lift.
+   *
+   * Riot bakes a one-pixel dark border into every square; the client hides it by zooming the art a
+   * touch past the box, and so does this. The lift is `shadow-tile`, the same one every item, rune and
+   * spell tile wears (`game/RiotIcons.tsx`), so a row of mixed icons reads as one set.
+   */
+  tile?: boolean;
   className?: string;
 }
 
@@ -55,6 +64,7 @@ export function ChampionIcon({
   fallbackLabel,
   title,
   decorative = false,
+  tile = false,
   className,
 }: Props) {
   const noBan = isNoBanChampion(champion);
@@ -74,18 +84,28 @@ export function ChampionIcon({
     return decorative ? null : <span className={className ?? "text-xs text-text-secondary"}>{label}</span>;
   }
 
+  const img = (
+    <img
+      src={icon}
+      alt={decorative ? "" : label}
+      loading="lazy"
+      decoding="async"
+      width={size}
+      height={size}
+      className={tile ? "block h-full w-full scale-[1.2] object-cover object-center" : "rounded shrink-0"}
+      style={tile ? undefined : { width: size, height: size }}
+    />
+  );
+
   return (
     <span className={className ?? "flex items-center gap-1.5 min-w-0"} title={title ?? label}>
-      <img
-        src={icon}
-        alt={decorative ? "" : label}
-        loading="lazy"
-        decoding="async"
-        width={size}
-        height={size}
-        className="rounded shrink-0"
-        style={{ width: size, height: size }}
-      />
+      {tile ? (
+        <span className={`inline-block shrink-0 overflow-hidden bg-bg3 ${tileClass(size)}`} style={{ width: size, height: size }}>
+          {img}
+        </span>
+      ) : (
+        img
+      )}
       {showName && <span className="text-xs text-text-secondary truncate">{label}</span>}
     </span>
   );

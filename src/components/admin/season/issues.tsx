@@ -64,7 +64,7 @@ export function IssueList({
 
   return (
     <div role="alert" className="border border-ccs-red/40 rounded-md p-3.5 bg-ccs-red/5">
-      <p className="flex items-center gap-2 font-heading text-xs tracking-wider uppercase text-ccs-red">
+      <p className="flex items-center gap-2 font-heading text-xs text-ccs-red">
         <AlertTriangle size={14} aria-hidden="true" />
         {issues.length === 1 ? "Save refused" : `Save refused — ${issues.length} problems`}
       </p>

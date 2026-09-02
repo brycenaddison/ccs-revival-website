@@ -19,19 +19,19 @@ import { playerPath } from "../profile/PlayerLink";
 export type MenuEntry =
   | { kind: "divider" }
   | {
-      kind: "item";
-      label: string;
-      icon?: LucideIcon;
-      /**
-       * A route. Rendered as a `<Link>`, so the entry can be middle-clicked and copied like any
-       * other navigation. Mutually exclusive with `onSelect`.
-       */
-      to?: string;
-      /** Omitted for placeholders — an item with no handler is inert by construction. */
-      onSelect?: () => void;
-      disabled?: boolean;
-      title?: string;
-    };
+    kind: "item";
+    label: string;
+    icon?: LucideIcon;
+    /**
+     * A route. Rendered as a `<Link>`, so the entry can be middle-clicked and copied like any
+     * other navigation. Mutually exclusive with `onSelect`.
+     */
+    to?: string;
+    /** Omitted for placeholders — an item with no handler is inert by construction. */
+    onSelect?: () => void;
+    disabled?: boolean;
+    title?: string;
+  };
 
 interface EntryOpts {
   profileId: number | null;
@@ -78,18 +78,18 @@ export function accountMenuEntries({
   profileId,
 }: EntryOpts): MenuEntry[] {
   return [
-    ...(profileId ? [{ kind: "item" as const, label: "View profile", icon: UserRound, to: playerPath(profileId) }] : []),
+    ...(profileId ? [{ kind: "item" as const, label: "View Profile", icon: UserRound, to: playerPath(profileId) }] : []),
     // Only while there is one to return to: the row disappears with the application, or when intake
     // closes on it. Its own page rather than `/register`: that page is built around starting a team,
     // and somebody coming back to check on one they already sent wants every league's cards in one
     // place with no form in the way.
     ...(hasApplication
-      ? [{ kind: "item" as const, label: "My applications", icon: ClipboardList, to: "/my-applications" }]
+      ? [{ kind: "item" as const, label: "My Applications", icon: ClipboardList, to: "/my-applications" }]
       : []),
     // Unconditional, unlike the Apply Now button beside this menu. An invitation can arrive long
     // after intake closes — staff review takes days — and this is the only page that can answer it,
     // since the Discord DM is best-effort and may never have been delivered.
-    { kind: "item", label: "Team invitations", icon: Inbox, to: "/team-invitations" },
+    { kind: "item", label: "Team Invitations", icon: Inbox, to: "/team-invitations" },
     { kind: "item", label: "Settings", icon: Settings, to: "/settings" },
     ...(canEditContent
       ? [{ kind: "item" as const, label: "Content", icon: FileText, to: "/content" }]
@@ -99,22 +99,22 @@ export function accountMenuEntries({
       : []),
     ...(canLinkRiot
       ? [
-          { kind: "divider" as const },
-          {
-            kind: "item" as const,
-            label: "Link Riot Account",
-            icon: Link2,
-            title: "Verify a Riot account and attach it to your profile",
-            onSelect: () => void linkRiot(),
-          },
-        ]
+        { kind: "divider" as const },
+        {
+          kind: "item" as const,
+          label: "Link Riot Account",
+          icon: Link2,
+          title: "Verify a Riot account and attach it to your profile",
+          onSelect: () => void linkRiot(),
+        },
+      ]
       : []),
     { kind: "divider" },
     { kind: "item", label: "Log out", icon: LogOut, onSelect: () => void logout() },
   ];
 }
 
-const LABEL = "font-heading text-sm tracking-wider uppercase whitespace-nowrap";
+const LABEL = "font-heading text-sm whitespace-nowrap";
 
 /** Shared by the button and link branches, so the two are indistinguishable in the panel. */
 const ITEM = `flex w-full items-center gap-2 text-left bg-transparent border-none px-4 py-2.5 text-text-secondary ${LABEL}`;
@@ -219,9 +219,9 @@ export function UserMenu({ name }: { name: string }) {
                   entry.disabled
                     ? undefined
                     : () => {
-                        setOpen(false);
-                        entry.onSelect?.();
-                      }
+                      setOpen(false);
+                      entry.onSelect?.();
+                    }
                 }
                 className={`${ITEM} ${state}`}
               >

@@ -281,7 +281,7 @@ function PhaseRow({
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-2.5 min-w-0">
           <Icon size={16} className="text-text-secondary shrink-0" aria-hidden="true" />
-          <span className="font-heading text-xs tracking-wider uppercase text-text-secondary">
+          <span className="font-heading text-xs text-text-secondary">
             {phase.kind === "group" ? "Group stage" : "Bracket"}
           </span>
           <Pill muted={!phase.published}>

@@ -15,6 +15,8 @@ interface Props {
   champions: ChampionLookup | null;
   size: number;
   className?: string;
+  /** Draw each ban as a clipped, lifted tile. See `ChampionIcon`. */
+  tile?: boolean;
 }
 
 /**
@@ -23,7 +25,7 @@ interface Props {
  * Keeping the map here prevents compact summaries and full box scores from quietly disagreeing
  * about whether a declined ban is part of the draft. `ChampionIcon` owns the sentinel artwork.
  */
-export function BanIcons({ bans, champions, size, className }: Props) {
+export function BanIcons({ bans, champions, size, className, tile }: Props) {
   return (
     <>
       {bans.map((ban, i) => (
@@ -33,6 +35,7 @@ export function BanIcons({ bans, champions, size, className }: Props) {
           lookup={champions}
           fallbackLabel={ban.champion ?? ban.name ?? undefined}
           size={size}
+          tile={tile}
           className={className}
         />
       ))}

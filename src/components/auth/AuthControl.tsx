@@ -13,7 +13,7 @@ import { accountMenuEntries, UserMenu } from "./UserMenu";
  */
 type Variant = "nav" | "menu";
 
-const LABEL = "font-heading text-sm tracking-wider uppercase whitespace-nowrap";
+const LABEL = "font-heading text-sm whitespace-nowrap";
 
 /**
  * The one filled button in the nav — JOIN CCS signed out, APPLY NOW signed in.
@@ -30,7 +30,7 @@ const LABEL = "font-heading text-sm tracking-wider uppercase whitespace-nowrap";
 const CTA = `text-white bg-brand border border-brand rounded-md px-3 py-1 no-underline font-semibold ${LABEL}`;
 
 /** The drawer's full-width row, shared by the button and link branches. */
-const ROW = `flex w-full items-center gap-2 text-left bg-transparent border-none py-3.5 px-5 border-l-[3px] border-l-transparent text-text-secondary ${LABEL}`;
+const ROW = `flex w-full items-center gap-2 text-left bg-transparent border-none py-3.5 px-5 border-l-[3px] border-l-transparent text-text-secondary transition-colors hover:bg-bg-input hover:text-text-bright ${LABEL}`;
 
 interface Props {
   variant?: Variant;

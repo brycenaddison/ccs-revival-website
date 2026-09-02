@@ -15,7 +15,7 @@ import { joinRoster, type JoinedRoster } from "../../lib/roster";
 import { teamGradientFor } from "../../lib/teamStyle";
 import { ChampionIcon } from "../ChampionIcon";
 import { TeamLink } from "../league/TeamLink";
-import { MatchResultList } from "../match/MatchResultList";
+import { TeamMatchHistory } from "../match/TeamMatchHistory";
 import { PlayerLink } from "../profile/PlayerLink";
 
 interface Props {
@@ -48,7 +48,7 @@ function BanCountChip({ ban }: { ban: BanCount }) {
 
   return (
     <div className="flex items-center gap-2 bg-bg3 border border-border rounded px-2 py-1">
-      <ChampionIcon champion={ban.championId} src={ban.img} name={name} className="flex shrink-0" />
+      <ChampionIcon champion={ban.championId} src={ban.img} name={name} size={28} tile className="flex shrink-0" />
       <span className="text-xs">{name}</span>
       <span className="text-xs text-text-dim font-mono">{ban.bans}x</span>
     </div>
@@ -99,7 +99,7 @@ function StatCells({ p }: { p: PlayerStatsRanked | null }) {
       <td className="py-2.5 px-2">
         <div className="flex gap-1">
           {p.champs.slice(0, 3).map(ch => (
-            <ChampionIcon key={ch.champid} src={ch.img} name={ch.name} title={`${ch.name} (${ch.picks ?? 0}p)`} className="flex shrink-0" />
+            <ChampionIcon key={ch.champid} champion={ch.champid} src={ch.img} name={ch.name} title={`${ch.name} (${ch.picks ?? 0}p)`} size={28} tile className="flex shrink-0" />
           ))}
         </div>
       </td>
@@ -110,7 +110,7 @@ function StatCells({ p }: { p: PlayerStatsRanked | null }) {
 function RosterHead() {
   return (
     <thead>
-      <tr className="text-[10px] text-text-secondary uppercase tracking-wider border-b border-border">
+      <tr className="text-[10px] text-text-secondary border-b border-border">
         {ROSTER_COLUMNS.map((label, i) => (
           <th key={label} className={i === 0 ? "text-left py-2 pr-3" : i === ROSTER_COLUMNS.length - 1 ? "text-left py-2 px-2" : "text-center py-2 px-2"}>
             {label}
@@ -133,7 +133,7 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
   return (
     <>
       <div className="bg-bg2 border border-border rounded-md p-4 mb-5">
-        <h3 className="font-display text-sm text-text-bright tracking-wider mb-3">Roster</h3>
+        <h3 className="font-display text-sm text-text-bright mb-3">Roster</h3>
         {entries.length === 0 ? (
           <div className="py-2 text-xs text-text-dim">No roster set for this team.</div>
         ) : (
@@ -146,7 +146,7 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
                     <td className="py-2.5 pr-3 font-heading font-bold text-text-bright">
                       <PlayerLink profileId={e.profileId} className="text-text-bright no-underline hover:text-brand">{e.name}</PlayerLink>
                       {!e.starter && (
-                        <span className="ml-1.5 text-[9px] text-text-muted font-bold tracking-wide uppercase">Sub</span>
+                        <span className="ml-1.5 text-[9px] text-text-muted font-bold tracking-wide ">Sub</span>
                       )}
                     </td>
                     <td className="text-center py-2.5 px-2 text-[10px] text-text-muted">{roleLabel(e.role)}</td>
@@ -161,7 +161,7 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
 
       {extras.length > 0 && (
         <div className="bg-bg2 border border-border rounded-md p-4 mb-5">
-          <h3 className="font-display text-sm text-text-bright tracking-wider mb-1">Other Appearances</h3>
+          <h3 className="font-display text-sm text-text-bright mb-1">Other Appearances</h3>
           <p className="text-[11px] text-text-dim mb-3">
             Games played for {code} outside a roster slot — stand-ins, and roster players in a second role.
           </p>
@@ -199,7 +199,7 @@ export function TeamDetailPanel({ conf, code, onBack }: Props) {
   return (
     <div>
       {onBack && (
-        <button onClick={onBack} className="mb-4 text-xs text-text-secondary hover:text-brand font-heading tracking-wider uppercase">
+        <button onClick={onBack} className="mb-4 text-xs text-text-secondary hover:text-brand font-heading ">
           ← Back
         </button>
       )}
@@ -215,7 +215,7 @@ export function TeamDetailPanel({ conf, code, onBack }: Props) {
             </div>
           )}
           <div>
-            <h2 className="font-display text-2xl text-white tracking-wider">{team.name}</h2>
+            <h2 className="font-display text-2xl text-white ">{team.name}</h2>
             <div className="text-sm text-white/70 mt-1 font-mono">{headline(team)}</div>
           </div>
         </div>
@@ -232,7 +232,7 @@ export function TeamDetailPanel({ conf, code, onBack }: Props) {
           {/* Stats grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
             <div className="bg-bg2 border border-border rounded-md p-4">
-              <h3 className="font-display text-sm text-text-bright tracking-wider mb-2">Combat</h3>
+              <h3 className="font-display text-sm text-text-bright mb-2">Combat</h3>
               <StatRow label="Avg Game Time" value={team.avgTime || "—"} />
               <StatRow label="KD Ratio" value={stat(team.killDeathRatio)} />
               <StatRow label="Avg Kills" value={stat(team.avgKills)} />
@@ -241,7 +241,7 @@ export function TeamDetailPanel({ conf, code, onBack }: Props) {
               <StatRow label="First Blood Rate" value={fmtPct(team.firstBloodPercent)} />
             </div>
             <div className="bg-bg2 border border-border rounded-md p-4">
-              <h3 className="font-display text-sm text-text-bright tracking-wider mb-2">Economy</h3>
+              <h3 className="font-display text-sm text-text-bright mb-2">Economy</h3>
               <StatRow label="DMG / min" value={rounded(team.damageMin)} />
               <StatRow label="Gold / min" value={rounded(team.goldMin)} />
               <StatRow label="CS / min" value={stat(team.csMin)} />
@@ -250,7 +250,7 @@ export function TeamDetailPanel({ conf, code, onBack }: Props) {
               <StatRow label="Blueside WR" value={fmtPct(team.bluesideWinrate)} />
             </div>
             <div className="bg-bg2 border border-border rounded-md p-4">
-              <h3 className="font-display text-sm text-text-bright tracking-wider mb-2">Objectives</h3>
+              <h3 className="font-display text-sm text-text-bright mb-2">Objectives</h3>
               <StatRow label="First Tower %" value={fmtPct(team.firstTowerPercent)} />
               <StatRow label="Avg Towers" value={stat(team.avgTowersTaken)} />
               <StatRow label="First Dragon %" value={fmtPct(team.firstDragonPercent)} />
@@ -271,7 +271,7 @@ export function TeamDetailPanel({ conf, code, onBack }: Props) {
           {/* Bans */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
             <div className="bg-bg2 border border-border rounded-md p-4">
-              <h3 className="font-display text-sm text-text-bright tracking-wider mb-3">Most Banned Against {team.code}</h3>
+              <h3 className="font-display text-sm text-text-bright mb-3">Most Banned Against {team.code}</h3>
               <div className="flex flex-wrap gap-2">
                 {team.bannedAgainst.slice(0, 10).map(b => (
                   <BanCountChip key={b.championId} ban={b} />
@@ -279,7 +279,7 @@ export function TeamDetailPanel({ conf, code, onBack }: Props) {
               </div>
             </div>
             <div className="bg-bg2 border border-border rounded-md p-4">
-              <h3 className="font-display text-sm text-text-bright tracking-wider mb-3">Most Banned By {team.code}</h3>
+              <h3 className="font-display text-sm text-text-bright mb-3">Most Banned By {team.code}</h3>
               <div className="flex flex-wrap gap-2">
                 {team.bannedBy.slice(0, 10).map(b => (
                   <BanCountChip key={b.championId} ban={b} />
@@ -293,16 +293,9 @@ export function TeamDetailPanel({ conf, code, onBack }: Props) {
               than taken in served order because the endpoint's direction isn't part of its contract;
               `SeriesPreview.RecentGames` makes the same choice for the same reason. Dates, not season
               days — see `CLAUDE.md`. */}
-          <div className="overflow-hidden rounded-lg border border-border bg-bg2">
-            <div className="border-b border-border bg-bg3 px-4 py-2.5">
-              <h3 className="font-display text-sm tracking-wider text-text-bright">Match History</h3>
-            </div>
-            <MatchResultList
-              matches={[...team.matchlist].sort(
-                (x, y) => new Date(y.startTime).getTime() - new Date(x.startTime).getTime(),
-              )}
-              conf={conf}
-            />
+          <div>
+            <h3 className="mb-3 font-display text-[22px] text-text-bright">Match history</h3>
+            <TeamMatchHistory matches={team.matchlist} conf={conf} />
           </div>
         </>
       )}

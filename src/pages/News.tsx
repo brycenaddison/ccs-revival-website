@@ -43,7 +43,7 @@ export default function News() {
   return (
     <PageShell maxWidth={1100}>
       <div className="mb-6">
-        <h1 className="font-display text-[22px] text-text-bright tracking-widest">NEWS</h1>
+        <h1 className="font-display text-[22px] text-text-bright ">News</h1>
         <p className="text-text-secondary text-sm">
           Recaps, roster moves and announcements from across the league.
         </p>
@@ -75,7 +75,7 @@ export default function News() {
               <button
                 onClick={() => setLimit(l => l + PAGE_SIZE)}
                 disabled={isPlaceholderData}
-                className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 bg-transparent font-heading text-sm tracking-wider uppercase cursor-pointer text-text-bright hover:border-brand disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 bg-transparent font-heading text-sm cursor-pointer text-text-bright hover:border-brand disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isPlaceholderData ? "Loading..." : "Load more"}
               </button>

@@ -48,9 +48,12 @@ const QUEUE_LABEL: Record<AccountRank["queue"], string> = { solo: "Solo/Duo", fl
  */
 const APEX_TIERS = new Set(["MASTER", "GRANDMASTER", "CHALLENGER"]);
 
+/** Riot serves tiers shouted (`EMERALD`); a person writes Emerald. */
+const tierName = (tier: string): string => tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase();
+
 function tierLabel(rank: AccountRank): string {
-  if (!rank.division || APEX_TIERS.has(rank.tier.toUpperCase())) return rank.tier;
-  return `${rank.tier} ${rank.division}`;
+  if (!rank.division || APEX_TIERS.has(rank.tier.toUpperCase())) return tierName(rank.tier);
+  return `${tierName(rank.tier)} ${rank.division}`;
 }
 
 /**
@@ -148,7 +151,7 @@ function RankBlock({ rank }: { rank: AccountRank }) {
       />
 
       <span className="flex min-w-0 items-baseline gap-1.5">
-        <span className="truncate font-heading text-sm uppercase tracking-wider text-text-bright">
+        <span className="truncate font-heading text-sm text-text-bright">
           {tierLabel(rank)}
         </span>
         {rank.hotStreak && (
@@ -161,12 +164,12 @@ function RankBlock({ rank }: { rank: AccountRank }) {
 
       <span className="flex min-w-0 items-baseline gap-1.5">
         <span className="shrink-0 font-mono text-[11px] text-text-secondary">{rank.leaguePoints} LP</span>
-        <span className="truncate font-heading text-[9px] uppercase tracking-wider text-text-dim">
+        <span className="truncate font-heading text-[9px] text-text-dim">
           {QUEUE_LABEL[rank.queue]}
         </span>
       </span>
       <span className="flex items-baseline justify-self-end gap-1.5 whitespace-nowrap">
-        <span className="font-heading text-[9px] uppercase tracking-wider text-text-dim">Win rate</span>
+        <span className="font-heading text-[9px] text-text-dim">Win rate</span>
         <span className={`font-mono text-[11px] ${winRateTone(winRate, "text-text-secondary")}`}>
           {metricText(winRate, pct0)}
         </span>
@@ -199,7 +202,7 @@ function CompactCard({ account }: { account: LinkedAccount }) {
             decoding="async"
             className="h-[18px] w-[18px] shrink-0 object-contain"
           />
-          <span className="shrink-0 truncate font-heading text-[10px] uppercase tracking-wider text-text-secondary">
+          <span className="shrink-0 truncate font-heading text-[10px] text-text-secondary">
             {tierLabel(rank)}
           </span>
           <span className="shrink-0 whitespace-nowrap font-mono text-[10px] text-text-dim">
@@ -238,7 +241,7 @@ export function UnverifiedAccountRow({
       <span className="min-w-0 flex-1">
         <RiotId riotId={account.riotId} compact />
       </span>
-      <span className="shrink-0 rounded-full border border-border px-2 py-0.5 font-heading text-[9px] uppercase tracking-wider text-text-dim">
+      <span className="shrink-0 rounded-full border border-border px-2 py-0.5 font-heading text-[9px] text-text-dim">
         Unverified
       </span>
       {actions}

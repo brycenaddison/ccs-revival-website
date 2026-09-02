@@ -32,7 +32,7 @@ import {
 export function KindPill({ kind }: { kind: AccoladeKind }) {
   const Icon = kind === "team" ? Users : Trophy;
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-ccs-gold/40 bg-ccs-gold/10 px-2.5 py-0.5 font-heading text-[10px] tracking-wider uppercase text-text-bright">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-ccs-gold/40 bg-ccs-gold/10 px-2.5 py-0.5 font-heading text-[10px] text-text-bright">
       <Icon size={11} aria-hidden="true" className="shrink-0 text-ccs-gold" />
       {kind}
     </span>
@@ -54,14 +54,14 @@ export function DefinitionRow({
     <li className="flex flex-wrap items-center gap-2.5 border-b border-border py-2.5 last:border-b-0">
       <KindPill kind={definition.kind} />
       <span
-        className={`font-heading text-sm tracking-wider ${
+        className={`font-heading text-sm ${
           definition.active ? "text-text-bright" : "text-text-dim line-through"
         }`}
       >
         {definition.name}
       </span>
-      {!definition.active && <span className="text-text-dim text-[10px] uppercase">retired</span>}
-      {scope && <span className="text-text-dim text-[10px] uppercase tracking-wider">{scope}</span>}
+      {!definition.active && <span className="text-text-dim text-[10px] ">retired</span>}
+      {scope && <span className="text-text-dim text-[10px] ">{scope}</span>}
       {definition.description && (
         <span className="min-w-0 flex-1 truncate text-text-secondary text-xs" title={definition.description}>
           {definition.description}

@@ -13,7 +13,7 @@ export const CONTROL_CLASS =
   "bg-bg2 border border-border rounded-md text-text text-sm font-body px-3 py-2 focus:outline-none focus:border-brand w-full";
 
 export const LABEL_CLASS =
-  "block text-[10px] font-heading uppercase tracking-wider text-text-secondary mb-1";
+  "block text-[10px] font-heading font-medium text-text-secondary mb-1";
 
 interface BarProps {
   isMobile: boolean;
@@ -76,7 +76,7 @@ export function PillGroup({ options, isActive, onSelect, stretch }: PillGroupPro
           key={o.value}
           onClick={() => onSelect(o.value)}
           aria-pressed={isActive(o.value)}
-          className={`rounded-md border py-1.5 px-3 font-heading font-bold text-[11px] tracking-wide uppercase whitespace-nowrap ${
+          className={`rounded-md border py-1.5 px-3 font-heading font-bold text-[11px] tracking-wide whitespace-nowrap ${
             stretch ? "flex-1 px-1" : ""
           } ${
             isActive(o.value)

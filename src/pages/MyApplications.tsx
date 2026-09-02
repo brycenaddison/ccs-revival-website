@@ -39,7 +39,7 @@ import { errorMessage, type ApplicationSeason, type TeamApplication } from "../l
 export default function MyApplications() {
   return (
     <PageShell maxWidth={880}>
-      <h1 className="mb-1 font-display text-[30px] tracking-widest text-text-bright">
+      <h1 className="mb-1 font-display text-[30px] text-text-bright">
         MY APPLICATIONS
       </h1>
       <p className="mb-6 text-sm text-text-secondary">
@@ -90,7 +90,7 @@ function Panel() {
   if (shown.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-bg2 p-6">
-        <h2 className="font-display text-[20px] tracking-widest text-text-bright">
+        <h2 className="font-display text-[20px] text-text-bright">
           NOTHING SUBMITTED
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-text-secondary">
@@ -157,9 +157,7 @@ function LeagueSection({
 
   return (
     <section>
-      <h2 className="font-display text-[22px] tracking-widest text-text-bright">
-        {season.name.toUpperCase()}
-      </h2>
+      <h2 className="font-display text-[22px] text-text-bright">{season.name}</h2>
       {sub.length > 0 && <p className="text-xs text-text-dim">{sub.join(" · ")}</p>}
 
       <div className="mt-3">
@@ -200,7 +198,7 @@ function LeagueInfoDisclosure({ season }: { season: ApplicationSeason }) {
 
   return (
     <details className="group rounded-lg border border-border bg-bg2">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 font-heading text-sm uppercase tracking-wider text-text-bright [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 font-heading text-sm text-text-bright [&::-webkit-details-marker]:hidden">
         <ChevronDown
           size={15}
           aria-hidden="true"

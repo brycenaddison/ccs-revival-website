@@ -242,7 +242,7 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
               type="button"
               onClick={() => setKind(k)}
               aria-pressed={kind === k}
-              className={`flex-1 rounded-md border px-3 py-2 font-heading text-xs tracking-wider uppercase cursor-pointer ${
+              className={`flex-1 rounded-md border px-3 py-2 font-heading text-xs cursor-pointer ${
                 kind === k
                   ? "border-brand text-text-bright"
                   : "border-border text-text-secondary"
@@ -272,6 +272,7 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
           <MarkdownEditor
             value={body}
             onChange={setBody}
+            preset="article"
             placeholder={"## Opening weekend\n\nThe **Ferrets** took it 2-0..."}
           />
         </SettingsRow>

@@ -62,7 +62,7 @@ export default function Stats() {
     // The dock is pinned over the content, so the page has to reserve room for it or the last table row
     // becomes unreachable.
     <PageShell extraBottom={compareCount > 0 ? COMPARE_DOCK_MAX : undefined}>
-      <h2 className="font-display text-[22px] text-text-bright tracking-widest mb-4">STATS</h2>
+      <h2 className="font-display text-[22px] text-text-bright mb-4">Stats</h2>
 
       {selectedConfs.length > 1 && (
         <div className="flex gap-1 mb-4 flex-wrap">
@@ -70,7 +70,7 @@ export default function Stats() {
             <button
               key={c}
               onClick={() => setConfIndex(i)}
-              className={`py-1.5 px-3 text-[11px] font-heading uppercase tracking-wider rounded border ${
+              className={`py-1.5 px-3 text-[11px] font-heading rounded border ${
                 i === confIndex ? "bg-brand text-white border-brand" : "bg-bg2 text-text-secondary border-border"
               }`}
             >
@@ -88,7 +88,7 @@ export default function Stats() {
             key={t}
             onClick={() => setTab(t)}
             aria-current={tab === t ? "page" : undefined}
-            className={`py-2.5 px-4 font-heading text-xs tracking-wider uppercase border-b-2 whitespace-nowrap ${
+            className={`py-2.5 px-4 font-heading text-xs border-b-2 whitespace-nowrap ${
               tab === t ? "text-text-bright border-brand font-bold" : "text-text-secondary border-transparent"
             }`}
           >

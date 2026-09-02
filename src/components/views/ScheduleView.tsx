@@ -10,6 +10,7 @@
  * date, which reads honestly — the fixture is still unplayed and still on the schedule.
  */
 
+import { feedMatchKey } from "../../lib/api";
 import { useMemo } from "react";
 import { errorMessage } from "../../lib/api";
 import { groupByDay } from "../../lib/feedGroups";
@@ -34,16 +35,16 @@ export function ScheduleView({ isMobile }: { isMobile: boolean }) {
 
   return (
     <div className="mx-auto max-w-[800px]">
-      <h2 className="mb-4 font-display text-[22px] tracking-widest text-text-bright">SCHEDULE</h2>
+      <h2 className="mb-4 font-display text-[22px] text-text-bright">Schedule</h2>
 
       {days.map(day => (
         <section key={day.key} className="mb-6">
-          <h3 className="mb-2 font-heading text-[11px] uppercase tracking-widest text-text-muted">
+          <h3 className="mb-2 font-heading text-[11px] text-text-muted">
             {day.label}
           </h3>
           <div className="flex flex-col gap-2">
             {day.matches.map(m => (
-              <FeedMatchRow key={m.scheduleMatchId} match={m} isMobile={isMobile} />
+              <FeedMatchRow key={feedMatchKey(m)} match={m} isMobile={isMobile} />
             ))}
           </div>
         </section>

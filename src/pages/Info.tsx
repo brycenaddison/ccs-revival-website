@@ -20,7 +20,7 @@ function QuickLink({ link }: { link: InfoLink }) {
     "group flex items-center justify-between gap-3 rounded-lg border border-border bg-bg2 px-4 py-3 text-text-bright hover:border-brand";
   const content = (
     <>
-      <span className="font-heading text-sm tracking-wider uppercase">{link.label}</span>
+      <span className="font-heading text-sm ">{link.label}</span>
       {link.url.startsWith("/") && !link.url.startsWith("//") ? (
         <ArrowRight size={15} className="shrink-0 text-text-dim group-hover:text-brand" />
       ) : (
@@ -60,8 +60,8 @@ function InfoDocument({ info, leagueName }: { info: LeagueInfo; leagueName: stri
 
   return (
     <article>
-      <p className="font-heading text-xs tracking-wider uppercase text-brand mb-1">{leagueName}</p>
-      <h2 className="font-display text-[28px] text-text-bright tracking-widest mb-5">
+      <p className="font-heading text-xs text-brand mb-1">{leagueName}</p>
+      <h2 className="font-display text-[28px] text-text-bright mb-5">
         {info.title}
       </h2>
 
@@ -88,7 +88,7 @@ export default function Info() {
   return (
     <PageShell maxWidth={900}>
       <div className="mb-7">
-        <h1 className="font-display text-[22px] text-text-bright tracking-widest">INFO</h1>
+        <h1 className="font-display text-[22px] text-text-bright ">Info</h1>
         <p className="text-text-secondary text-sm">
           Important league information and frequently used links.
         </p>
@@ -116,7 +116,7 @@ export default function Info() {
                   <InfoDocument info={result.data} leagueName={leagueName} />
                 ) : (
                   <div className="py-12 text-center">
-                    <p className="font-heading text-sm tracking-wider uppercase text-text-secondary">
+                    <p className="font-heading text-sm text-text-secondary">
                       {leagueName}
                     </p>
                     <p className="text-text-dim text-sm mt-2">Nothing published yet.</p>

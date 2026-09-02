@@ -168,7 +168,7 @@ export function IconVerification({
     <div className="mt-2 rounded-md border border-brand/40 bg-bg2 p-3">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-heading text-sm uppercase tracking-wider text-text-bright">
+          <p className="truncate font-heading text-sm text-text-bright">
             Verify {claim.riotId ?? "this account"}
           </p>
           <p className="mt-0.5 text-xs text-text-secondary">

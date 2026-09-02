@@ -109,7 +109,7 @@ export function AnnouncementsSection() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-text-bright m-0 truncate">{a.message}</p>
                 <div className="flex items-center gap-2 mt-1 text-[10px] text-text-dim">
-                  <span className="uppercase font-heading tracking-wider">{a.level}</span>
+                  <span className="font-heading ">{a.level}</span>
                   <span>· {a.conf ?? "site-wide"}</span>
                   <span>· {timeAgo(a.createdAt)}</span>
                   {a.endsAt && <span>· until {fmtKickoff(a.endsAt)}</span>}
@@ -126,7 +126,7 @@ export function AnnouncementsSection() {
 
       {(selected === "new" || editing !== null) && (
         <div className="border-t border-border pt-5">
-          <h3 className="font-display text-[18px] text-text-bright tracking-widest mb-4">
+          <h3 className="font-display text-[18px] text-text-bright mb-4">
             {selected === "new" ? "NEW BANNER" : "EDIT BANNER"}
           </h3>
           <AnnouncementForm

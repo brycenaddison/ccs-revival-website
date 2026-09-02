@@ -43,7 +43,7 @@ import { errorMessage, respondToInvitation, type TeamInvitation } from "../lib/a
 export default function TeamInvitations() {
   return (
     <PageShell maxWidth={760}>
-      <h1 className="mb-1 font-display text-[30px] tracking-widest text-text-bright">
+      <h1 className="mb-1 font-display text-[30px] text-text-bright">
         TEAM INVITATIONS
       </h1>
       <p className="mb-6 text-sm text-text-secondary">
@@ -74,7 +74,7 @@ function Inbox() {
   if (invitations.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-bg2 p-6">
-        <h2 className="font-display text-[20px] tracking-widest text-text-bright">
+        <h2 className="font-display text-[20px] text-text-bright">
           NOTHING WAITING
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-text-secondary">
@@ -187,7 +187,7 @@ function InvitationCard({
             </p>
             <p className="mt-0.5 text-xs text-text-dim">
               Invited by{" "}
-              <PlayerLink profileId={invitation.invitedByProfileId} className="text-brand">
+              <PlayerLink profileId={invitation.invitedByProfileId} className="text-brand hover:underline">
                 {invitation.invitedBy?.name ?? "the team's captain"}
               </PlayerLink>
               {invitation.invitedAt && ` · ${fmtKickoff(invitation.invitedAt)}`}

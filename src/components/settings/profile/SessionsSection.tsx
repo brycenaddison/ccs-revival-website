@@ -12,7 +12,7 @@
 import { LogOut, ShieldOff } from "lucide-react";
 import { useAuth } from "../../../lib/authContext";
 
-const BUTTON = "flex items-center gap-2 rounded-md px-4 py-2 cursor-pointer font-heading text-sm tracking-wider uppercase bg-transparent";
+const BUTTON = "flex items-center gap-2 rounded-md px-4 py-2 cursor-pointer font-heading text-sm bg-transparent";
 
 export function SessionsSection() {
   const { logout, logoutEverywhere } = useAuth();

@@ -33,7 +33,7 @@ export function TwitchStreams({ parentDomain }: Props) {
   return (
     <div className="bg-bg2 rounded-lg border border-border overflow-hidden">
       <div className="px-4 py-3.5 border-b border-border flex items-center gap-2.5">
-        <span className="font-display text-[15px] text-text-bright tracking-widest">LIVE NOW</span>
+        <span className="font-display text-[15px] text-text-bright ">Live now</span>
         <span className="w-1.5 h-1.5 rounded-full bg-ccs-red animate-pulse" aria-hidden />
         <span className="ml-auto font-mono text-[11px] text-text-muted">
           {stream.viewers.toLocaleString()} watching
@@ -59,7 +59,7 @@ export function TwitchStreams({ parentDomain }: Props) {
           {stream.title || stream.displayName}
         </p>
         <div className="flex items-center gap-2 mt-1 text-[10px] text-text-muted">
-          <span className="font-heading uppercase tracking-wider">{stream.displayName}</span>
+          <span className="font-heading ">{stream.displayName}</span>
           {stream.gameName && (
             <>
               <span>·</span>

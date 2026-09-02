@@ -96,11 +96,11 @@ export default function Home() {
         <div className="py-16 text-center text-text-subtle">Loading...</div>
       ) : error ? (
         <div className="max-w-[500px] mx-auto mt-16 text-center px-5">
-          <h2 className="font-display text-[24px] text-text-bright tracking-widest mb-2">COULDN'T LOAD THE LEAGUE</h2>
+          <h2 className="font-display text-[24px] text-text-bright mb-2">Couldn&apos;t load the league</h2>
           <p className="text-sm text-text-muted leading-relaxed mb-6">{error}</p>
           <button
             onClick={refresh}
-            className="bg-brand text-white border-none rounded-md py-3 px-7 text-sm font-heading font-medium tracking-wider uppercase cursor-pointer"
+            className="bg-brand text-white border-none rounded-md py-3 px-7 text-sm font-heading font-medium cursor-pointer"
           >
             Try again
           </button>
@@ -108,7 +108,7 @@ export default function Home() {
       ) : !teams.length ? (
         <div className="max-w-[500px] mx-auto mt-16 text-center px-5">
           <span className="text-5xl block mb-4">⚔️</span>
-          <h2 className="font-display text-[28px] text-text-bright tracking-widest mb-2">CCS IS BEING SET UP</h2>
+          <h2 className="font-display text-[28px] text-text-bright mb-2">CCS is being set up</h2>
           <p className="text-sm text-text-muted leading-relaxed">No teams registered for this season yet.</p>
         </div>
       ) : (
@@ -123,10 +123,10 @@ export default function Home() {
                 {(tiers.features.length > 0 || tiers.news.length > 0) && (
                   <>
                     <div className="flex justify-between items-center">
-                      <span className="font-display text-text-bright tracking-widest" style={{ fontSize: isMobile ? 16 : 18 }}>TOP STORIES</span>
+                      <span className="font-display text-text-bright "style={{ fontSize: isMobile ? 16 : 18 }}>Top stories</span>
                       <Link
                         to="/news"
-                        className="font-heading text-[10px] tracking-wider uppercase text-text-dim hover:text-text-bright no-underline"
+                        className="font-heading text-[10px] text-text-dim hover:text-text-bright no-underline"
                       >
                         All news →
                       </Link>

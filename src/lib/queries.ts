@@ -31,9 +31,11 @@ import {
   manageArticles,
   manageLeagueInfo,
   gameCandidates,
+  gameContext,
   matchCodes,
   matchData,
   matchDetail,
+  matchTimeline,
   matchResult,
   phaseCandidates,
   phaseDocument,
@@ -259,6 +261,37 @@ export const queries = {
       queryFn: ({ signal }: { signal: AbortSignal }) => matchData(matchId, { signal }),
       staleTime: Infinity,
       gcTime: Infinity,
+    }),
+
+  /**
+   * The same game's Riot timeline, on the same terms: immutable once stored, so never revalidated.
+   *
+   * `gcTime: Infinity` is a deliberate trade. A forty-minute timeline is one to three megabytes, and a
+   * session that opens many games holds every one of them; a match viewer is the one place on the site
+   * where a reader flips between tabs of one game, and refetching that payload on each flip is worse.
+   * If it ever matters, this is the one entry to give an hour rather than forever.
+   */
+  matchTimeline: (matchId: string) =>
+    query({
+      queryKey: ["matchTimeline", matchId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => matchTimeline(matchId, { signal }),
+      staleTime: Infinity,
+      gcTime: Infinity,
+    }),
+
+  /**
+   * The league's context for a game: conference, fixture, teams, and puuid → profile.
+   *
+   * Not immutable like the two payloads beside it. A player who links a Riot account later, or a
+   * roster repoint, changes who a line belongs to, so this refreshes on the league cadence. Under its
+   * own root rather than `["matchData", …]` because nothing that invalidates a payload (nothing does)
+   * should be the thing that refreshes a profile link.
+   */
+  gameContext: (matchId: string) =>
+    query({
+      queryKey: ["game", "context", matchId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => gameContext(matchId, { signal }),
+      staleTime: LEAGUE_STALE,
     }),
 
   /**

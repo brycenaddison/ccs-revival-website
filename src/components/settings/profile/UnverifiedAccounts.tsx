@@ -150,7 +150,7 @@ export function UnverifiedAccounts({ accounts, canVerify }: Props) {
 
   return (
     <div className="mt-6 border-t border-border pt-5">
-      <h3 className="font-heading text-sm uppercase tracking-wider text-text-bright">
+      <h3 className="font-heading text-sm text-text-bright">
         Unverified accounts
       </h3>
       <p className="mt-1 text-xs text-text-dim">

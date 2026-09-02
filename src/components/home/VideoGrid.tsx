@@ -72,7 +72,7 @@ function VideoCard({ video }: { video: FeedItem }) {
       </p>
       <div className="flex items-center gap-2 mt-1 text-[10px] text-text-muted">
         {video.author && (
-          <span className="font-heading uppercase tracking-wider">{video.author}</span>
+          <span className="font-heading ">{video.author}</span>
         )}
         {video.author && video.publishedAt && <span>·</span>}
         {video.publishedAt && <span>{timeAgo(video.publishedAt)}</span>}
@@ -89,8 +89,8 @@ export function VideoGrid({ videos, isMobile }: Props) {
   return (
     <div className="bg-bg2 rounded-lg border border-border overflow-hidden">
       <div className="px-4 py-3.5 border-b border-border">
-        <span className="font-display text-[15px] text-text-bright tracking-widest">
-          LATEST VIDEOS
+        <span className="font-display text-[15px] text-text-bright ">
+          Latest Videos
         </span>
       </div>
       <div

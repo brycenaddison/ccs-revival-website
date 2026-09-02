@@ -20,9 +20,9 @@ import type { ComponentProps } from "react";
 import { cn } from "../../lib/cn";
 
 const buttonVariants = cva(
-  // The shared box. `font-heading … uppercase` rather than shadcn's default weight, because that is
-  // what every actionable surface on this site already looks like — see `CLAUDE.md`'s UI section.
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-heading uppercase tracking-wider transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  // The shared box. `font-heading` at medium weight rather than shadcn's `font-medium` on the body
+  // face: the heading role is what every actionable surface on this site wears (`CLAUDE.md`, UI).
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-heading font-medium transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {

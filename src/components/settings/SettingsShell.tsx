@@ -31,7 +31,7 @@ interface Props {
   sidebarHeader?: ReactNode;
 }
 
-const ROW_LABEL = "font-heading text-sm tracking-wider uppercase";
+const ROW_LABEL = "font-heading text-sm ";
 
 export function SettingsShell({ area, slug, sidebarHeader }: Props) {
   const isMobile = useWindowSize() < 768;
@@ -41,7 +41,7 @@ export function SettingsShell({ area, slug, sidebarHeader }: Props) {
   // Never true for the three areas shipped here, but league admin's list is the kind of thing that
   // gets filtered by permission later, and an empty grid would render as a blank page.
   if (sections.length === 0) {
-    return <NoticePanel title={title.toUpperCase()} body="There's nothing to configure here yet." />;
+    return <NoticePanel title={title} body="There's nothing to configure here yet." />;
   }
 
   if (isMobile) {
@@ -72,9 +72,7 @@ export function SettingsShell({ area, slug, sidebarHeader }: Props) {
   return (
     <div className="grid grid-cols-[220px_1fr] gap-6 items-start">
       <nav aria-label={title} className="bg-bg2 border border-border rounded-lg p-2">
-        <h2 className="font-display text-lg text-text-bright tracking-widest px-3 pt-1 pb-2">
-          {title.toUpperCase()}
-        </h2>
+        <h2 className="font-display text-lg text-text-bright px-3 pt-1 pb-2">{title}</h2>
         {sidebarHeader && <div className="px-2 pb-2">{sidebarHeader}</div>}
         {sections.map(s => {
           const active = s.slug === section.slug;
@@ -110,9 +108,7 @@ export function SettingsShell({ area, slug, sidebarHeader }: Props) {
 function MobileList({ area, sidebarHeader }: { area: SettingsArea; sidebarHeader?: ReactNode }) {
   return (
     <div>
-      <h2 className="font-display text-[22px] text-text-bright tracking-widest mb-4">
-        {area.title.toUpperCase()}
-      </h2>
+      <h2 className="font-display text-[22px] text-text-bright mb-4">{area.title}</h2>
       {sidebarHeader && <div className="mb-4">{sidebarHeader}</div>}
       <div className="bg-bg2 border border-border rounded-lg overflow-hidden">
         {area.sections.map(s => {

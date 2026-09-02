@@ -90,7 +90,7 @@ export function TeamsSection() {
       {canEdit &&
         (creating ? (
           <section className="rounded-lg border border-border bg-bg2 p-5">
-            <h3 className="font-display text-[18px] tracking-widest text-text-bright">
+            <h3 className="font-display text-[18px] text-text-bright">
               NEW TEAM
             </h3>
             {/* Says what this is *not*, because the other way in is the one people expect. An
@@ -253,9 +253,7 @@ function TeamCard({ conf, team, canEdit, onSaved }: CardProps) {
           <div className="h-10 w-10 shrink-0 rounded border border-border bg-bg3" />
         )}
         <div className="min-w-0 flex-1">
-          <h3 className="font-display text-[20px] leading-none tracking-widest text-text-bright">
-            {team.name.toUpperCase()}
-          </h3>
+          <h3 className="font-display text-[20px] leading-none text-text-bright">{team.name}</h3>
           <p className="mt-1 font-mono text-xs text-text-secondary">{team.code}</p>
         </div>
         <Swatches primary={team.color} secondary={team.colorSecondary ?? null} />

@@ -19,7 +19,8 @@
 
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import type { PhaseRef, ProfileGame, ProfileMatch } from "../../lib/api";
+import { placementLabel } from "../../lib/api";
+import type { ProfileGame, ProfileMatch } from "../../lib/api";
 import { fmtDay } from "../../lib/utils";
 import { GameRowHeader, ProfileGameRow } from "./ProfileGameRow";
 import { TeamLink } from "../league/TeamLink";
@@ -151,7 +152,7 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
               </span>
 
               <span
-                className={`justify-self-center rounded px-2 py-0.5 font-display text-lg leading-none tracking-wider ${
+                className={`justify-self-center rounded px-2 py-0.5 font-display text-lg leading-none ${
                   won ? "bg-ccs-green/20 text-ccs-green" : "bg-ccs-red/20 text-ccs-red"
                 }`}
               >
@@ -211,31 +212,6 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
   );
 }
 
-/**
- * Where in the season a series sat, in one line.
- *
- * Prefers the **phase**, which is what a player actually says — "semifinals", "week 3 of groups" —
- * over `seasonDay`, which is a season-wide ordinal and a join key first. `CLAUDE.md` keeps season day
- * off reader-facing surfaces for exactly that reason; it survives here only as the fallback for a
- * legacy conference that predates the phase list, where the alternative is saying nothing at all.
- *
- * Within a bracket, the **round number** leads — "Playoffs · Round 2". It is the ordinal the API
- * serves, not a name invented from it: "Semifinals" is still never derived from depth, because that
- * is wrong for a third-place match and for every loser's bracket. The node's verbatim `roundName` is
- * the fallback rather than the first choice, because operators label nodes as matches ("Match 3"),
- * which places a game in a draw sheet the viewer cannot see, where a round number places it in time.
- * A bracket node with neither gets the phase name and its day.
- *
- * `matchDay` is deliberately *not* called a week: the API counts match days, and while CCS happens to
- * play one a week, a phase that ever doubled up would make the label a lie.
- */
-function placementLabel(phase: PhaseRef | null, seasonDay: number): string | null {
-  if (phase === null) return seasonDay > 0 ? `Week ${seasonDay}` : null;
-  if (phase.round !== null) return `${phase.name} · Round ${phase.round}`;
-  if (phase.roundName) return `${phase.name} · ${phase.roundName}`;
-  if (phase.matchDays > 1) return `${phase.name} · Day ${phase.matchDay} of ${phase.matchDays}`;
-  return phase.name;
-}
 
 /** G1 before G2. An unnumbered game sorts last, then by kickoff, so the order is always total. */
 function byGameNumber(a: ProfileGame, b: ProfileGame): number {

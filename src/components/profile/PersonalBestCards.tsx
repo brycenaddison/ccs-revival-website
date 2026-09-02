@@ -85,7 +85,7 @@ function BestCard({
   if (!best) {
     return (
       <div className="rounded-lg border border-border bg-bg2 p-3.5">
-        <div className="font-heading text-[9px] uppercase tracking-wider text-text-dim">{label}</div>
+        <div className="font-heading text-[9px] text-text-dim">{label}</div>
         <div className="mt-1 font-display text-[26px] leading-none text-text-dim">—</div>
         <p className="mt-2 text-[11px] text-text-dim">No qualifying game.</p>
       </div>
@@ -103,13 +103,13 @@ function BestCard({
       to={href}
       className="block rounded-lg border border-border bg-bg2 p-3.5 no-underline hover:border-brand"
     >
-      <div className="font-heading text-[9px] uppercase tracking-wider text-text-dim">{label}</div>
+      <div className="font-heading text-[9px] text-text-dim">{label}</div>
       <div className="mt-1 font-display text-[26px] leading-none text-text-bright">
         {spec.text(best.value, line)}
       </div>
 
       <div className="mt-2.5 flex items-center gap-2">
-        <ChampionIcon champion={game.champId} name={game.champ} size={22} decorative />
+        <ChampionIcon champion={game.champId} name={game.champ} size={22} tile decorative />
         <span className="min-w-0 truncate font-heading text-[11px] text-text-bright">
           {game.champ ?? "Unknown"}
           {line?.role && <span className="text-text-secondary"> · {roleLabel(line.role)}</span>}

@@ -26,7 +26,7 @@ export function LeaguePicker({ leagues, conf, slug }: Props) {
   // One league is a label, not a choice. A single-option select is just a worse label.
   if (leagues.length <= 1) {
     return (
-      <div className="font-heading text-xs tracking-wider uppercase text-text-secondary truncate">
+      <div className="font-heading text-xs text-text-secondary truncate">
         {leagues[0]?.name ?? conf}
       </div>
     );

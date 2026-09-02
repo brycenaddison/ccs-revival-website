@@ -40,7 +40,7 @@ export function defaultDirection<T>(cell: FlatStatCell<T> | undefined): BarDirec
 }
 
 interface Props<T> {
-  /** Plural subject, uppercase — "CHAMPIONS", "TEAMS", "PLAYERS". */
+  /** Plural subject, sentence case — "Champions", "Teams", "Players". */
   subject: string;
   rows: readonly T[];
   /** The active group's numeric cells. */
@@ -136,8 +136,8 @@ export function StatBars<T>({
 
   const pool = poolSize ?? rows.length;
   const scope =
-    direction === "all" ? `ALL ${subject}` : direction === "lowest" ? `BOTTOM ${TOP_N}` : `TOP ${TOP_N}`;
-  const heading = `${scope} — ${(cell?.label ?? "").toUpperCase()}`;
+    direction === "all" ? `All ${subject.toLowerCase()}` : direction === "lowest" ? `Bottom ${TOP_N}` : `Top ${TOP_N}`;
+  const heading = `${scope} · ${cell?.label ?? ""}`;
 
   /**
    * Gold, silver and bronze only when the first rows really are the leaders.

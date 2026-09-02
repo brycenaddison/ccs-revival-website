@@ -31,7 +31,7 @@ export function StatTile({ value, label, color, subject, subjectLogo, subjectCol
       // and a top-aligned lone number next to three three-line tiles reads as a mistake.
       <div className="bg-bg3 border border-border rounded-lg px-3 py-3.5 text-center min-w-0 h-full flex flex-col justify-center">
         <div className="font-display text-[26px] leading-none truncate" style={{ color }}>{value}</div>
-        <div className="text-[9px] text-text-muted font-heading tracking-wider uppercase mt-1.5 truncate" title={label}>
+        <div className="text-[9px] text-text-muted font-heading mt-1.5 truncate"title={label}>
           {label}
         </div>
       </div>
@@ -40,7 +40,7 @@ export function StatTile({ value, label, color, subject, subjectLogo, subjectCol
 
   return (
     <div className="bg-bg3 border border-border rounded-lg px-3 py-3 min-w-0 h-full">
-      <div className="text-[9px] text-text-muted font-heading tracking-wider uppercase truncate" title={label}>
+      <div className="text-[9px] text-text-muted font-heading truncate"title={label}>
         {label}
       </div>
       <div className="font-display text-[26px] leading-none truncate mt-1" style={{ color }}>{value}</div>

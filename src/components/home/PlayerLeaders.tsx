@@ -51,8 +51,8 @@ export function PlayerLeaders({ players, isMobile }: Props) {
   return (
     <div className="bg-bg2 rounded-md overflow-hidden border border-border">
       <div className="px-4 py-3.5 border-b border-border flex justify-between items-center">
-        <span className="font-display text-[15px] text-text-bright tracking-widest">
-          STAT LEADERS
+        <span className="font-display text-[15px] text-text-bright ">
+          Stat Leaders
           {gated && <span className="ml-2 font-heading text-[10px] tracking-normal text-text-muted">min {MIN_GAMES} games</span>}
         </span>
         <select
@@ -78,7 +78,7 @@ export function PlayerLeaders({ players, isMobile }: Props) {
             {i + 1}
           </span>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <TeamLink team={p.team} className="shrink-0 no-underline">
+            <TeamLink team={p.team} className="shrink-0 no-underline [&:hover_*]:text-brand">
               {p.team?.logo_url ? (
                 <img src={p.team.logo_url} alt={p.team.name || ""} loading="lazy" decoding="async" className="w-8 h-8 rounded-full object-contain shrink-0" />
               ) : (
@@ -95,7 +95,7 @@ export function PlayerLeaders({ players, isMobile }: Props) {
               <TeamLink team={p.team} className="block truncate text-[10px] text-text-muted no-underline hover:text-brand">{p.team?.name || "FA"} · {roleLabel(p.role)}</TeamLink>
             </div>
           </div>
-          <span className={`font-display text-[22px] tracking-wider ${i === 0 ? "text-brand" : "text-text-bright"}`}>
+          <span className={`font-display text-[22px] ${i === 0 ? "text-brand" : "text-text-bright"}`}>
             {display(p)}
           </span>
         </div>

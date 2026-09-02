@@ -20,7 +20,7 @@ import { teamInitial } from "../../lib/utils";
 export function RailCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mb-5 last:mb-0">
-      <h2 className="mb-2 font-display text-base tracking-widest text-text-bright">{title}</h2>
+      <h2 className="mb-2 font-display text-base text-text-bright">{title}</h2>
       <div className="rounded-lg border border-border bg-bg2">{children}</div>
     </section>
   );
@@ -40,7 +40,7 @@ export function ProfileSection({
   return (
     <section className="mb-7 last:mb-0">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="font-display text-[22px] tracking-widest text-text-bright">{title}</h2>
+        <h2 className="font-display text-[22px] text-text-bright">{title}</h2>
         {aside}
       </div>
       {children}

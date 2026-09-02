@@ -66,7 +66,7 @@ export function AccountsCard({ data }: { data: PlayerProfile }) {
   });
 
   return (
-    <RailCard title="RIOT ACCOUNTS">
+    <RailCard title="Riot accounts">
       <div className="p-3">
         <RiotAccountCards accounts={data.accounts} />
 

@@ -84,12 +84,12 @@ export function FeedMatchRow({ match, isMobile, showLeague = true }: Props) {
               className="h-2 w-2 rounded-full bg-ccs-red shadow-[0_0_8px_var(--red)]"
               style={{ animation: "pulse 1.5s infinite" }}
             />
-            <span className="font-display text-[10px] tracking-widest text-ccs-red">LIVE</span>
+            <span className="font-display text-[10px] text-ccs-red">Live</span>
           </span>
         ) : (
           <span className="font-heading text-[10px] tracking-wide text-text-muted">
             {/* A finished fixture is labeled by its outcome, not by a kickoff nobody is waiting for. */}
-            {status === "completed" ? "FINAL" : fmtClock(match.scheduledAt)}
+            {status === "completed" ? "Final" : fmtClock(match.scheduledAt)}
           </span>
         )}
 
@@ -103,9 +103,12 @@ export function FeedMatchRow({ match, isMobile, showLeague = true }: Props) {
 
         {/* The phase, and — on a bracket — which round of it. `matchDay` is phase-relative, which is
             what a round is called on screen; `seasonDay` is a join key and never appears. */}
-        <span className="truncate font-heading text-[10px] tracking-wide text-text-dim">
-          {match.phaseKind === "bracket" ? `${match.phase} · Round ${match.matchDay}` : match.phase}
-        </span>
+        {/* Absent on a legacy series row, which has no phase to be placed in. */}
+        {match.phase !== null && (
+          <span className="truncate font-heading text-[10px] tracking-wide text-text-dim">
+            {match.phaseKind === "bracket" ? `${match.phase} · Round ${match.matchDay}` : match.phase}
+          </span>
+        )}
 
         <span className="ml-auto flex shrink-0 items-center gap-2">
           {result?.hasForfeit && (
@@ -140,8 +143,8 @@ export function FeedMatchRow({ match, isMobile, showLeague = true }: Props) {
               </span>
             </>
           ) : (
-            <span className="rounded bg-bg-input px-3 py-1 font-display text-sm tracking-widest text-text-dim">
-              VS
+            <span className="rounded bg-bg-input px-3 py-1 font-display text-sm text-text-dim">
+              vs
             </span>
           )}
         </div>
@@ -158,7 +161,8 @@ export function FeedMatchRow({ match, isMobile, showLeague = true }: Props) {
   // A fixture missing a side has nothing to show on its own page but the two words already on this
   // card, so it doesn't pretend to be a link. The stream anchor lives outside the `Link` for the same
   // reason a nested anchor is avoided anywhere else.
-  if (teamA === null || teamB === null) {
+  // A legacy series row (no fixture) has no match page either; the card says everything there is.
+  if (teamA === null || teamB === null || match.scheduleMatchId === null) {
     return (
       <div className={shell}>
         {card}
@@ -185,7 +189,7 @@ function StreamLink({ url }: { url: string | null }) {
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="flex items-center gap-1.5 font-heading text-[10px] uppercase tracking-wider text-brand no-underline hover:underline"
+        className="flex items-center gap-1.5 font-heading text-[10px] text-brand no-underline hover:underline"
       >
         <ExternalLink size={11} aria-hidden="true" />
         Watch

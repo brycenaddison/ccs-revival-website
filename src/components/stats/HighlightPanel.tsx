@@ -9,9 +9,11 @@
  * many picks, so that is the number it says, and it says it large.
  */
 
+import { ChampionIcon } from "../ChampionIcon";
+
 interface PanelProps {
   title: string;
-  /** A CSS var — `var(--accent)` for the primary panel, `var(--red)` for its counterpart. */
+  /** A CSS var — `var(--brand)` for the primary panel, `var(--red)` for its counterpart. */
   titleColor?: string;
   emptyMessage?: string;
   children?: React.ReactNode;
@@ -22,7 +24,7 @@ interface PanelProps {
 
 export function HighlightPanel({
   title,
-  titleColor = "var(--accent)",
+  titleColor = "var(--brand)",
   emptyMessage,
   children,
   empty,
@@ -31,7 +33,7 @@ export function HighlightPanel({
   return (
     <div className="bg-bg3 border border-border rounded-lg p-3.5">
       <div
-        className="font-heading text-[11px] font-semibold tracking-wider uppercase mb-2.5"
+        className="font-heading text-[11px] font-semibold mb-2.5"
         style={{ color: titleColor }}
       >
         {title}
@@ -54,10 +56,12 @@ interface ChipProps {
   img?: string;
   /** Fallback block color when there is no image. */
   color?: string;
+  /** The champion id, so `-1` resolves to the no-ban artwork even when `img` is a dead URL. */
+  championId?: number;
   name: string;
   /** The one number this chip is about, pre-formatted. */
   value: string;
-  /** What the number counts — "picks", "bans". Rendered uppercase. */
+  /** What the number counts: "picks", "bans". Rendered as written. */
   unit: string;
   /** A CSS var for the number. */
   valueColor?: string;
@@ -65,19 +69,23 @@ interface ChipProps {
   dim?: boolean;
 }
 
-export function HighlightChip({ img, color, name, value, unit, valueColor = "var(--text-bright)", dim }: ChipProps) {
+export function HighlightChip({ img, championId, color, name, value, unit, valueColor = "var(--text-bright)", dim }: ChipProps) {
   return (
     <div className="flex flex-col gap-1.5 bg-bg2 border border-border rounded-md px-3 py-2.5 min-w-0">
       <div className="flex items-center gap-2">
-        {img ? (
-          <img
-            src={img}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="w-10 h-10 rounded object-contain shrink-0"
-            style={dim ? { filter: "grayscale(45%)" } : undefined}
-          />
+        {img || championId !== undefined ? (
+          // Through `ChampionIcon` rather than a bare `<img>`, so a declined ban (`-1`) draws the
+          // generic square here the way it does on every other surface.
+          <span className="shrink-0" style={dim ? { filter: "grayscale(45%)" } : undefined}>
+            <ChampionIcon
+              champion={championId}
+              src={img}
+              size={40}
+              decorative
+              tile
+                    className="flex"
+            />
+          </span>
         ) : (
           <span className="w-10 h-10 rounded shrink-0" style={{ background: color ?? "var(--bg3)" }} />
         )}
@@ -85,7 +93,7 @@ export function HighlightChip({ img, color, name, value, unit, valueColor = "var
             starting at whatever offset the artwork leaves. */}
         <div className="min-w-0 ml-auto text-right">
           <div className="font-display text-[22px] leading-none" style={{ color: valueColor }}>{value}</div>
-          <div className="text-[9px] text-text-muted font-heading tracking-wider uppercase mt-1">{unit}</div>
+          <div className="text-[9px] text-text-muted font-heading mt-1">{unit}</div>
         </div>
       </div>
       <div className="text-[12px] font-heading font-bold text-text-bright truncate" title={name}>

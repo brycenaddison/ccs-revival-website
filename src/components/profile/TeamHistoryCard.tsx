@@ -16,7 +16,7 @@ export function TeamHistoryCard({ teams }: { teams: readonly ProfileTeamBreakdow
   const confLabel = useConfLabel();
 
   return (
-    <RailCard title="TEAM HISTORY">
+    <RailCard title="Team history">
       {teams.length === 0 ? (
         <p className="px-3 py-4 text-xs text-text-dim">No recorded games.</p>
       ) : (

@@ -183,7 +183,7 @@ function Chip({
   return (
     <span
       title={title}
-      className={`inline-block shrink-0 rounded-full border px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-wider ${tone}`}
+      className={`inline-block shrink-0 rounded-full border px-2.5 py-0.5 font-heading text-[10px] ${tone}`}
     >
       {children}
     </span>
@@ -289,7 +289,7 @@ export function ApplicationTeamHeader({
  * the mixed-case value beside it reads from its x-height. Two runs of text on one baseline is what
  * the eye calls aligned, whatever their sizes.
  */
-const INLINE_LABEL = "text-[10px] font-heading uppercase tracking-wider text-text-secondary";
+const INLINE_LABEL = "text-[10px] font-heading text-text-secondary";
 
 /**
  * The supplementary answers, read-only.

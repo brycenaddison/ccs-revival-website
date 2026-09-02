@@ -131,9 +131,9 @@ export function ApplicationsSection() {
           if (rows.length === 0) return null;
           return (
             <section key={group.status}>
-              <h3 className="font-display text-[18px] text-text-bright tracking-widest">
-                {group.label.toUpperCase()}
-                <span className="ml-2 font-body text-sm tracking-normal text-text-dim">
+              <h3 className="font-display text-[18px] text-text-bright ">
+                {group.label}
+                <span className="ml-2 font-body text-sm normal-case tracking-normal text-text-dim">
                   {rows.length}
                 </span>
               </h3>
@@ -180,7 +180,7 @@ function RulebookWarning({ conf }: { conf: string }) {
 
   return (
     <div role="alert" className="rounded-lg border border-ccs-orange/40 bg-ccs-orange/10 p-4">
-      <p className="font-heading text-sm uppercase tracking-wider text-text-bright">
+      <p className="font-heading text-sm text-text-bright">
         Applicants can't see your rulebook
       </p>
       <p className="mt-1.5 text-sm text-text-secondary">
@@ -461,7 +461,7 @@ function SeasonPanel({ conf, applications, onSaved }: SeasonProps) {
           <ul className="flex flex-wrap gap-x-4 gap-y-1">
             {published.teams.map(team => (
               <li key={team.id} className="text-sm">
-                <TeamLink conf={team.conf} code={team.code} className="text-brand no-underline">
+                <TeamLink conf={team.conf} code={team.code} className="text-brand no-underline hover:underline">
                   {team.name} ({team.code})
                 </TeamLink>
               </li>
@@ -535,7 +535,7 @@ function ApplicationCard({ conf, application, onSaved }: CardProps) {
       <div className="p-4">
         <p className="text-text-dim text-xs">
           Submitted by{" "}
-          <PlayerLink profileId={application.submittedByProfileId} className="text-brand">
+          <PlayerLink profileId={application.submittedByProfileId} className="text-brand hover:underline">
             {submitter?.name ?? `profile ${application.submittedByProfileId}`}
           </PlayerLink>
           {application.submittedAt && ` · ${fmtKickoff(application.submittedAt)}`}
@@ -690,7 +690,7 @@ function MemberList({
         {members.map(member => (
           <li key={member.id} className="flex flex-wrap items-center gap-2 text-sm">
             <Pill muted={member.status !== "accepted"}>{member.status}</Pill>
-            <PlayerLink profileId={member.profileId} className="text-brand">
+            <PlayerLink profileId={member.profileId} className="text-brand hover:underline">
               {member.name ?? `profile ${member.profileId}`}
             </PlayerLink>
             <span className="text-text-secondary text-xs">

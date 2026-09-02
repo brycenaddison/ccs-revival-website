@@ -41,7 +41,7 @@ export function ChampionPoolCard({ champions }: { champions: readonly ProfileCha
 
   if (champions.length === 0) {
     return (
-      <RailCard title="CHAMPION POOL">
+      <RailCard title="Champion pool">
         <p className="px-3 py-4 text-xs text-text-dim">No champions played.</p>
       </RailCard>
     );
@@ -50,7 +50,7 @@ export function ChampionPoolCard({ champions }: { champions: readonly ProfileCha
   const shown = showAll ? champions : champions.slice(0, PREVIEW);
 
   return (
-    <RailCard title="CHAMPION POOL">
+    <RailCard title="Champion pool">
       <ul className="divide-y divide-border/60">
         {shown.map((champion, index) => (
           <li key={champion.champId ?? `unknown-${index}`} className={`${GRID} px-3 py-2`}>
@@ -59,6 +59,7 @@ export function ChampionPoolCard({ champions }: { champions: readonly ProfileCha
               src={champion.img}
               name={champion.champ}
               size={30}
+              tile
               decorative
               className="row-span-2 flex shrink-0"
             />

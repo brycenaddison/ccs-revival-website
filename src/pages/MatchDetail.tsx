@@ -22,6 +22,7 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useBackNavigation } from "../hooks/useGoBack";
+import { PageShell } from "../components/layout/PageShell";
 import { errorMessage, type SeriesDetail, type TeamRecord } from "../lib/api";
 import { toBadge } from "../lib/leagueAdapters";
 import { queries } from "../lib/queries";
@@ -59,9 +60,9 @@ export default function MatchDetail() {
   }
   if (isPending) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-bg font-body text-text">
-        <div className="font-heading text-sm tracking-wider text-text-muted">Loading match…</div>
-      </div>
+      <PageShell maxWidth={1100}>
+        <div className="py-16 text-center font-heading text-sm text-text-muted">Loading match…</div>
+      </PageShell>
     );
   }
   if (error) return <Missing message={errorMessage(error)} onBack={goBack} backLabel={backLabel} />;
@@ -74,20 +75,9 @@ export default function MatchDetail() {
   const tab: Tab = hasResults ? (picked ?? "results") : "preview";
 
   return (
-    <div className="min-h-screen w-full bg-bg font-body text-text">
-      <div className="border-b border-bg2 bg-bg px-4 py-3">
-        <div className="mx-auto max-w-[1100px]">
-          <button
-            type="button"
-            onClick={goBack}
-            className="cursor-pointer border-none bg-transparent font-heading text-xs tracking-wider text-ccs-green hover:underline"
-          >
-            &larr; {backLabel.toUpperCase()}
-          </button>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-[1100px] px-4 py-6">
+    <PageShell maxWidth={1100}>
+      <BackLink onBack={goBack} backLabel={backLabel} />
+      <div>
         <SeriesHeader match={data} />
 
         {/*
@@ -113,7 +103,20 @@ export default function MatchDetail() {
           />
         )}
       </div>
-    </div>
+    </PageShell>
+  );
+}
+
+/** The history-aware back link every state of the page carries above its content. */
+function BackLink({ onBack, backLabel }: { onBack: () => void; backLabel: "Back" | "Home" }) {
+  return (
+    <button
+      type="button"
+      onClick={onBack}
+      className="mb-4 cursor-pointer border-none bg-transparent p-0 font-heading text-xs text-text-secondary hover:text-brand hover:underline"
+    >
+      &larr; {backLabel}
+    </button>
   );
 }
 
@@ -147,7 +150,7 @@ function Tabs({
           type="button"
           onClick={() => onSelect(key)}
           aria-current={tab === key ? "true" : undefined}
-          className={`shrink-0 cursor-pointer border-none bg-transparent px-4 py-2.5 font-heading text-[13px] uppercase tracking-wider ${
+          className={`shrink-0 cursor-pointer border-none bg-transparent px-4 py-2.5 font-heading text-[13px] ${
             tab === key
               ? "border-b-2 border-b-brand bg-bg-input text-text-bright"
               : "border-b-2 border-b-transparent text-text-muted"
@@ -170,16 +173,10 @@ function Missing({
   backLabel: "Back" | "Home";
 }) {
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center gap-4 bg-bg font-body text-text">
-      <div className="font-heading text-sm tracking-wider text-text-muted">{message}</div>
-      <button
-        type="button"
-        onClick={onBack}
-        className="cursor-pointer border-none bg-transparent font-heading text-sm text-ccs-green hover:underline"
-      >
-        &larr; {backLabel}
-      </button>
-    </div>
+    <PageShell maxWidth={1100}>
+      <BackLink onBack={onBack} backLabel={backLabel} />
+      <div className="py-16 text-center font-heading text-sm text-text-muted">{message}</div>
+    </PageShell>
   );
 }
 
@@ -197,8 +194,8 @@ function SeriesHeader({ match }: { match: SeriesDetail }) {
 
         <div className="flex min-w-[90px] shrink-0 flex-col items-center gap-1">
           {result === null ? (
-            <span className="rounded bg-bg-input px-3 py-1 font-display text-base tracking-widest text-text-dim">
-              VS
+            <span className="rounded bg-bg-input px-3 py-1 font-display text-base text-text-dim">
+              vs
             </span>
           ) : (
             <div className="flex items-center gap-3">
@@ -217,16 +214,21 @@ function SeriesHeader({ match }: { match: SeriesDetail }) {
         <TeamColumn team={teamB} conf={conf} side="right" won={result !== null && result.winner === teamB?.code} />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-heading text-[11px] tracking-wider text-text-muted">
-        <Caption>{match.league.toUpperCase()}</Caption>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-heading text-[11px] text-text-muted">
+        <Caption>{match.league}</Caption>
         {/* `matchDay` is the day within its own phase, which is what a bracket round is called on
             screen. `seasonDay` is a join key and is never rendered — see `CLAUDE.md`. */}
         <Caption>
           {match.phase.kind === "bracket" ? `${match.phase.name} · Round ${match.phase.matchDay}` : match.phase.name}
         </Caption>
-        <Caption>BO{match.bestOf}</Caption>
-        {match.scheduledAt !== null && <Caption>{fmtKickoff(match.scheduledAt)}</Caption>}
-        {result?.hasForfeit && <Caption>DECIDED IN PART BY FORFEIT</Caption>}
+        <Caption>Bo{match.bestOf}</Caption>
+        {/* A date keeps its own case: "SAT, SEP 6" reads as shouting. */}
+        {match.scheduledAt !== null && (
+          <Caption>
+            <span className="normal-case">{fmtKickoff(match.scheduledAt)}</span>
+          </Caption>
+        )}
+        {result?.hasForfeit && <Caption>Decided in part by forfeit</Caption>}
         {match.streamUrl && (
           <>
             <span className="text-text-subtle">·</span>
@@ -236,7 +238,7 @@ function SeriesHeader({ match }: { match: SeriesDetail }) {
               rel="noreferrer"
               className="text-brand no-underline hover:underline"
             >
-              WATCH
+              Watch
             </a>
           </>
         )}
@@ -263,7 +265,7 @@ function StatusChip({ match }: { match: SeriesDetail }) {
           className="h-2 w-2 rounded-full bg-ccs-red shadow-[0_0_8px_var(--red)]"
           style={{ animation: "pulse 1.5s infinite" }}
         />
-        <span className="font-display text-[10px] tracking-widest text-ccs-red">LIVE</span>
+        <span className="font-display text-[10px] text-ccs-red">Live</span>
       </span>
     );
   }
@@ -274,13 +276,13 @@ function StatusChip({ match }: { match: SeriesDetail }) {
   const label =
     match.status === "completed"
       ? match.result?.winner === null
-        ? "NO RESULT"
-        : "FINAL"
+        ? "No result"
+        : "Final"
       : match.status === "upcoming"
-        ? "SCHEDULED"
-        : "TO BE CONFIRMED";
+        ? "Scheduled"
+        : "To be confirmed";
 
-  return <span className="font-display text-[10px] tracking-widest text-text-dim">{label}</span>;
+  return <span className="font-display text-[10px] text-text-dim">{label}</span>;
 }
 
 function TeamColumn({

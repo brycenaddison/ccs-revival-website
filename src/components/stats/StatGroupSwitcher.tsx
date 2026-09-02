@@ -35,7 +35,7 @@ export function StatGroupSwitcher<T>({ groups, activeId, onChange, inline, child
           aria-pressed={g.id === activeId}
           // Bold on every pill, not just the active one: bolding on selection changed the button's
           // width and shifted the rest of the row sideways.
-          className={`rounded-md border py-1.5 px-3 font-heading font-bold text-[11px] tracking-wide uppercase ${
+          className={`rounded-md border py-1.5 px-3 font-heading font-bold text-[11px] tracking-wide ${
             g.id === activeId
               ? "bg-brand border-brand text-white"
               : "bg-bg2 border-border text-text-secondary"

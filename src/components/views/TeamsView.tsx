@@ -53,7 +53,7 @@ export function TeamsView({ teams, standings, rosters, isMobile }: Props) {
 
   return (
     <div className="max-w-[1000px] mx-auto">
-      <h2 className="font-display text-[22px] text-text-bright tracking-widest mb-4">TEAMS</h2>
+      <h2 className="font-display text-[22px] text-text-bright mb-4">Teams</h2>
 
       {/* `overflow-y-hidden` because `overflow-x` being set at all makes `overflow-y` compute to
           `auto`, and a single row of buttons has no business owning a vertical scrollbar. */}
@@ -64,7 +64,7 @@ export function TeamsView({ teams, standings, rosters, isMobile }: Props) {
               key={c}
               type="button"
               onClick={() => setConfPick(c)}
-              className={`shrink-0 cursor-pointer border-none bg-transparent p-0 font-heading text-[12px] uppercase tracking-wider ${
+              className={`shrink-0 cursor-pointer border-none bg-transparent p-0 font-heading text-[12px] ${
                 c === conf ? "text-text-bright" : "text-text-muted"
               }`}
             >
@@ -96,7 +96,7 @@ export function TeamsView({ teams, standings, rosters, isMobile }: Props) {
                   </div>
                 )}
                 <div>
-                  <div className="font-display text-xl text-white tracking-wider">{t.name}</div>
+                  <div className="font-display text-xl text-white ">{t.name}</div>
                   <div className="flex gap-2 items-center mt-0.5">
                     <span className="text-[11px] text-white/70 font-mono">{t.abbreviation}</span>
                     {/* The division caption is gone from the card: the strip above names the
@@ -127,7 +127,7 @@ export function TeamsView({ teams, standings, rosters, isMobile }: Props) {
                           </td>
                           {/* Empty rather than a dash: the bench genuinely has no assigned role,
                               so a placeholder would imply the data is missing. */}
-                          <td className="py-2 text-[11px] text-text-muted text-right font-heading uppercase tracking-wide">{roleLabel(r.role, "")}</td>
+                          <td className="py-2 text-[11px] text-text-muted text-right font-heading tracking-wide">{roleLabel(r.role, "")}</td>
                           <td className="py-2 pl-3 text-[10px] text-right">
                             {r.is_starter ? <span className="text-ccs-green">Starter</span> : <span className="text-ccs-red">Sub</span>}
                           </td>

@@ -106,7 +106,7 @@ export function MatchEditor({ matchId, teams, onClose, onSaved }: Props) {
   return (
     <div className="bg-bg2 border border-brand/40 rounded-md p-3.5">
       <div className="flex items-baseline justify-between gap-3 mb-3">
-        <p className="font-heading text-xs tracking-wider uppercase text-text-secondary">
+        <p className="font-heading text-xs text-text-secondary">
           {phase.name} · day {match.matchDay} of the phase · season day {seasonDay}
         </p>
         <button

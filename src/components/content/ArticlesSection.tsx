@@ -72,7 +72,7 @@ export function ArticlesSection() {
             type="button"
             onClick={() => setStatus(s.value)}
             aria-pressed={status === s.value}
-            className={`rounded-full border px-3 py-1 font-heading text-[10px] tracking-wider uppercase cursor-pointer ${
+            className={`rounded-full border px-3 py-1 font-heading text-[10px] cursor-pointer ${
               status === s.value
                 ? "border-brand text-text-bright"
                 : "border-border text-text-dim"
@@ -133,7 +133,7 @@ export function ArticlesSection() {
 
       {(selected === "new" || editing !== null) && (
         <div className="border-t border-border pt-5">
-          <h3 className="font-display text-[18px] text-text-bright tracking-widest mb-4">
+          <h3 className="font-display text-[18px] text-text-bright mb-4">
             {selected === "new" ? "NEW ARTICLE" : "EDIT ARTICLE"}
           </h3>
           <ArticleEditor

@@ -44,7 +44,7 @@ export function PhaseTabs({ phases, selectedId, activeId, onSelect }: Props) {
             type="button"
             onClick={() => onSelect(phase.id)}
             aria-current={selected ? "true" : undefined}
-            className={`flex shrink-0 cursor-pointer items-center gap-1.5 border-none bg-transparent px-4 py-2.5 font-heading text-[13px] uppercase tracking-wider ${
+            className={`flex shrink-0 cursor-pointer items-center gap-1.5 border-none bg-transparent px-4 py-2.5 font-heading text-[13px] ${
               selected
                 ? "border-b-2 border-b-brand bg-bg-input text-text-bright"
                 : "border-b-2 border-b-transparent text-text-muted"

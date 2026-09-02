@@ -13,7 +13,7 @@ import { fmtDay } from "../../lib/utils";
 import { TeamStyleHeader } from "../TeamBadge";
 
 const ACTION_BASE =
-  "inline-flex items-center gap-2 rounded-md border px-4 py-2 bg-transparent font-heading text-sm tracking-wider uppercase cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
+  "inline-flex items-center gap-2 rounded-md border px-4 py-2 bg-transparent font-heading font-medium text-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
 
 /** A secondary action — cancel, page, deselect. */
 export const ACTION = `${ACTION_BASE} border-border text-text-bright`;
@@ -42,7 +42,7 @@ export const ACTION_SM_DANGER = `${ACTION_DANGER} px-3 py-1.5 text-xs`;
  * is whichever Tailwind emitted last, not whichever came last in the attribute.
  */
 export const ACTION_QUIET_BASE =
-  "inline-flex items-center gap-1.5 bg-transparent border-none p-0 font-heading text-[10px] tracking-wider uppercase cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
+  "inline-flex items-center gap-1.5 bg-transparent border-none p-0 font-heading font-medium text-[10px] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
 
 export const ACTION_QUIET = `${ACTION_QUIET_BASE} text-text-dim hover:text-text-bright`;
 
@@ -66,7 +66,7 @@ export function ErrorLine({ message }: { message: string | null }) {
 export function Pill({ children, muted }: { children: ReactNode; muted?: boolean }) {
   return (
     <span
-      className={`inline-block rounded-full border px-2.5 py-0.5 font-heading text-[10px] tracking-wider uppercase ${
+      className={`inline-block rounded-full border px-2.5 py-0.5 font-heading text-[10px] ${
         muted ? "border-border text-text-dim" : "border-brand/50 text-text-bright"
       }`}
     >
@@ -103,7 +103,7 @@ export function ColorField({
         onChange={e => onChange(e.target.value)}
         className="h-9 w-14 shrink-0 cursor-pointer rounded border border-border bg-bg2"
       />
-      <span className="font-mono text-xs text-text-secondary">{value.toUpperCase()}</span>
+      <span className="font-mono text-xs text-text-secondary">{value}</span>
     </div>
   );
 }

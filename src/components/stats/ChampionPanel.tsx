@@ -186,7 +186,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
     <div>
       {/* Summary tiles */}
       <div className="grid gap-3 mb-5 grid-cols-2">
-        <StatTile value={String(summary.picks)} label="Unique Picks" color="var(--accent)" />
+        <StatTile value={String(summary.picks)} label="Unique Picks" color="var(--brand)" />
         <StatTile
           value={summary.banned > 0 ? String(summary.banned) : "—"}
           label={summary.banned > 0 ? "Champions Banned" : "No Ban Data"}
@@ -206,10 +206,11 @@ export function ChampionPanel({ conf, isMobile }: Props) {
             <HighlightChip
               key={c.champid}
               img={c.img}
+              championId={c.champid}
               name={c.name}
               value={String(c.games)}
               unit="picks"
-              valueColor="var(--accent)"
+              valueColor="var(--brand)"
             />
           ))}
         </HighlightPanel>
@@ -225,6 +226,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
             <HighlightChip
               key={c.champid}
               img={c.img}
+              championId={c.champid}
               name={c.name}
               dim
               value={String(c.bans)}
@@ -272,7 +274,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
 
       {view === "bars" ? (
         <StatBars
-          subject="CHAMPIONS"
+          subject="Champions"
           rows={filtered}
           catalog={catalog}
           statKey={barStat}
@@ -307,7 +309,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
           </>}
           renderName={c => (
             <div className="flex items-center gap-2">
-              <ChampionIcon src={c.img} size={28} decorative className="flex shrink-0" />
+              <ChampionIcon champion={c.champid} src={c.img} size={28} tile decorative className="flex shrink-0" />
               <span className="font-heading font-bold text-text-bright">{c.name}</span>
             </div>
           )}
@@ -315,7 +317,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
             <>
               {c.bestPlayerName && (
                 <div className="mb-3 text-[11px]">
-                  <span className="font-heading tracking-wider uppercase text-[10px] text-text-muted mr-2">
+                  <span className="font-heading text-[10px] text-text-muted mr-2">
                     Best on champion
                   </span>
                   <TeamLink conf={conf} code={c.bestPlayerTeam} className="inline-flex items-center gap-1.5 no-underline group align-middle">

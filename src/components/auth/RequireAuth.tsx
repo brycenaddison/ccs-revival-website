@@ -35,12 +35,12 @@ export function RequireAuth({ children, roles, allow }: Props) {
   if (!isAuthenticated) {
     return (
       <NoticePanel
-        title="SIGN IN REQUIRED"
+        title="Sign in required"
         body={error ? `Couldn't reach the login service: ${error}` : "Log in with Discord to view this page."}
       >
         <button
           onClick={login}
-          className="bg-transparent border border-brand rounded-md px-4 py-2 cursor-pointer text-text-bright font-heading text-sm tracking-wider uppercase"
+          className="bg-transparent border border-brand rounded-md px-4 py-2 cursor-pointer text-text-bright font-heading text-sm "
         >
           Log in with Discord
         </button>
@@ -49,11 +49,11 @@ export function RequireAuth({ children, roles, allow }: Props) {
   }
 
   if (roles?.length && !hasRole(...roles)) {
-    return <NoticePanel title="NOT AUTHORIZED" body="Your account doesn't have access to this page." />;
+    return <NoticePanel title="Not authorized" body="Your account doesn't have access to this page." />;
   }
 
   if (allow === false) {
-    return <NoticePanel title="NOT AUTHORIZED" body="Your account doesn't have access to this page." />;
+    return <NoticePanel title="Not authorized" body="Your account doesn't have access to this page." />;
   }
 
   return <>{children}</>;
@@ -66,7 +66,7 @@ export function RequireAuth({ children, roles, allow }: Props) {
 export function NoticePanel({ title, body, children }: { title: string; body: string; children?: ReactNode }) {
   return (
     <div className="max-w-[500px] mx-auto mt-16 text-center px-5">
-      <h2 className="font-display text-[24px] text-text-bright tracking-widest mb-2">{title}</h2>
+      <h2 className="font-display text-[24px] text-text-bright mb-2">{title}</h2>
       <p className="text-text-secondary mb-5">{body}</p>
       {children}
     </div>

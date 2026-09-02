@@ -67,7 +67,7 @@ export function MatchupCard({ matchups }: { matchups: readonly ProfileLaneMatchu
 
   if (rows.length === 0) {
     return (
-      <RailCard title="LANE MATCHUPS">
+      <RailCard title="Lane matchups">
         <p className="px-3 py-4 text-xs text-text-dim">No lane opponents recorded.</p>
       </RailCard>
     );
@@ -76,7 +76,7 @@ export function MatchupCard({ matchups }: { matchups: readonly ProfileLaneMatchu
   const shown = showAll ? rows : rows.slice(0, PREVIEW);
 
   return (
-    <RailCard title="LANE MATCHUPS">
+    <RailCard title="Lane matchups">
       <ul className="divide-y divide-border/60">
         {shown.map(row => {
           const winRate = row.games > 0 ? row.wins / row.games : null;

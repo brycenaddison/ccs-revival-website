@@ -13,6 +13,7 @@
  * back to a setting already seen is free.
  */
 
+import { useChampions } from "../../hooks/useChampions";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -49,6 +50,7 @@ function formatter(unit: RecordUnit): (v: number) => string {
 }
 
 export function RecordsPanel({ conf, isMobile }: Props) {
+  const champions = useChampions();
   const navigate = useNavigate();
   const [side, setSide] = useState<Side>("players");
   const [limit, setLimit] = useState(5);
@@ -124,6 +126,7 @@ export function RecordsPanel({ conf, isMobile }: Props) {
               value: r.value ?? 0,
               display: r.value === null ? "—" : format(r.value),
               // Champion art on a player board; the team crest on a team board, where `name` is the code.
+              champion: r.champ,
               logo: r.champImg ?? logoOf.get(r.team) ?? logoOf.get(r.name),
               color: rampColor(1 - i / last),
             }));
@@ -137,6 +140,7 @@ export function RecordsPanel({ conf, isMobile }: Props) {
                 rows={rows}
                 isMobile={isMobile}
                 emptyMessage="Nobody has one yet."
+                champions={champions}
                 // Rows are best-first, so the medals land where they should.
                 medals
                 onSelect={key => {

@@ -28,9 +28,10 @@ export function ScenarioPill({ scenario, provisional }: Props) {
   const tone = toneForLevel(scenario.level);
 
   return (
-    // `items-baseline`, not `items-center`. The title is uppercase Oswald and the subtitle is Source
-    // Sans 3 — same 11px, but different ascent and descent metrics, so centring each one's *line box*
-    // leaves the glyphs at visibly different heights. Baselines are what the eye reads as level.
+    // `items-baseline`, not `items-center`. The title is a heading and the subtitle is body text at
+    // the same 11px; when the two roles wore different faces their ascent and descent metrics
+    // differed, so centering each one's *line box* left the glyphs at visibly different heights.
+    // Baselines are what the eye reads as level, whatever the faces are.
     <span
       className="inline-flex items-baseline gap-1.5 rounded px-2.5 py-1"
       style={{
@@ -47,7 +48,7 @@ export function ScenarioPill({ scenario, provisional }: Props) {
     >
       {/* The dot has no text, so it has no baseline worth aligning — center it against the line. */}
       <span className="h-2 w-2 shrink-0 self-center rounded-full" style={{ background: tone.fg }} />
-      <span className="font-heading text-[11px] font-semibold uppercase tracking-wider">
+      <span className="font-heading text-[11px] font-semibold ">
         {scenario.title || "Untitled"}
       </span>
       {scenario.subtitle && <span className="text-[11px] opacity-75">{scenario.subtitle}</span>}

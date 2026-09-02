@@ -53,7 +53,7 @@ export default function Article() {
   if (error) {
     return (
       <PageShell maxWidth={760}>
-        <NoticePanel title="COULDN'T LOAD THIS ARTICLE" body={errorMessage(error)} />
+        <NoticePanel title="Couldn't load this article" body={errorMessage(error)} />
       </PageShell>
     );
   }
@@ -62,12 +62,12 @@ export default function Article() {
     return (
       <PageShell maxWidth={760}>
         <NoticePanel
-          title="ARTICLE NOT FOUND"
+          title="Article not found"
           body="This article doesn't exist, or it hasn't been published yet."
         >
           <Link
             to="/news"
-            className="inline-flex items-center gap-2 rounded-md border border-brand px-4 py-2 font-heading text-sm tracking-wider uppercase text-text-bright no-underline"
+            className="inline-flex items-center gap-2 rounded-md border border-brand px-4 py-2 font-heading text-sm text-text-bright no-underline"
           >
             All news
           </Link>
@@ -80,7 +80,7 @@ export default function Article() {
     <PageShell maxWidth={760}>
       <Link
         to="/news"
-        className="inline-flex items-center gap-1.5 font-heading text-[11px] tracking-wider uppercase text-text-dim hover:text-text-bright no-underline mb-5"
+        className="inline-flex items-center gap-1.5 font-heading text-[11px] text-text-dim hover:text-text-bright no-underline mb-5"
       >
         <ArrowLeft size={13} />
         All news
@@ -101,12 +101,12 @@ export default function Article() {
 
       <header className="mb-7">
         {article.tag && (
-          <span className="inline-block bg-brand text-white text-[10px] font-bold font-display tracking-wider px-2.5 py-1 rounded mb-3">
+          <span className="inline-block bg-brand text-white text-[10px] font-bold font-display px-2.5 py-1 rounded mb-3">
             {article.tag}
           </span>
         )}
 
-        <h1 className="font-display text-[34px] text-text-bright tracking-wider leading-tight mb-2">
+        <h1 className="font-display text-[34px] text-text-bright leading-tight mb-2">
           {article.title}
         </h1>
 
@@ -115,7 +115,7 @@ export default function Article() {
         )}
 
         <div className="flex items-center gap-2 text-text-muted text-xs">
-          {article.author && <span className="font-heading uppercase tracking-wider">{article.author}</span>}
+          {article.author && <span className="font-heading ">{article.author}</span>}
           {article.author && article.publishedAt && <span>·</span>}
           {article.publishedAt && <span>{fmtDay(article.publishedAt)}</span>}
         </div>
@@ -128,14 +128,14 @@ export default function Article() {
             href={article.url ?? "#"}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-brand px-4 py-2 font-heading text-sm tracking-wider uppercase text-text-bright no-underline"
+            className="inline-flex items-center gap-2 rounded-md border border-brand px-4 py-2 font-heading text-sm text-text-bright no-underline"
           >
             Read the full article
             <ArrowUpRight size={14} />
           </a>
         </div>
       ) : article.body ? (
-        <Markdown body={article.body} />
+        <Markdown body={article.body} preset="article" />
       ) : (
         // The CHECK constraint upstream makes a bodyless native article impossible, so this is a
         // deploy-skew case rather than a real one — but an empty page with no explanation is worse.

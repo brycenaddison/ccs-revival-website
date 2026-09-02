@@ -64,7 +64,7 @@ function FeedRow({ item, isLast }: { item: FeedItem; isLast: boolean }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-1 text-text-dim">
           <SourceIcon source={item.source} />
-          <span className="font-heading text-[9px] tracking-wider uppercase">
+          <span className="font-heading text-[9px] ">
             {item.author || item.source}
           </span>
           {item.publishedAt && (
@@ -85,7 +85,7 @@ export function SocialFeed({ items }: Props) {
   return (
     <div className="bg-bg2 rounded-lg border border-border overflow-hidden">
       <div className="px-4 py-3 border-b border-border">
-        <span className="font-display text-[14px] text-text-bright tracking-widest">SOCIAL</span>
+        <span className="font-display text-[14px] text-text-bright ">Social</span>
       </div>
       <div className="px-4">
         {items.map((item, i) => (

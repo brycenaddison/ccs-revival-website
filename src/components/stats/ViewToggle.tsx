@@ -29,7 +29,7 @@ export function ViewToggle<V extends string>({ options, value, onChange }: Props
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
           // Bold on both, so switching doesn't resize the control.
-          className={`py-1.5 px-3 font-heading font-bold text-[10px] tracking-wider uppercase ${
+          className={`py-1.5 px-3 font-heading font-bold text-[10px] ${
             value === o.value ? "bg-brand text-white" : "bg-bg2 text-text-secondary"
           }`}
         >

@@ -39,9 +39,10 @@ import { DEFAULT_COLUMN, PageColumnContext, type PageColumn } from "./PageShell"
 
 interface Props {
   /**
-   * Whether this group of routes carries the scoreboard ticker above the nav. It scrolls away with
-   * the page; the nav then pins. Left off wherever the strip would be a fortnight of scores a reader
-   * has to scroll past to reach what they came for — a 404, first-time setup, settings and admin.
+   * Whether this group of routes carries the scoreboard ticker above the nav. It is fixed chrome,
+   * since the content scrolls in a box under the nav rather than the document. Left off wherever the
+   * strip would be a fortnight of scores a reader has to look past to reach what they came for — a
+   * 404, first-time setup, settings and admin.
    */
   ticker?: boolean;
 }
@@ -61,7 +62,6 @@ export function SiteLayout({ ticker = false }: Props) {
     );
   }, []);
 
-  const navReserve = isMobile ? "var(--bottom-nav-h)" : "0px";
   const { maxWidth, extraBottom } = column;
 
   // A column with the content set to grow, so the footer sits on the bottom of the *viewport* when a
@@ -72,38 +72,57 @@ export function SiteLayout({ ticker = false }: Props) {
   //
   // The footer keeps its `mt-10`. Margins count towards a flex line's free space, so the grow resolves
   // around it rather than overflowing by 40px and minting a scrollbar on a page that fits.
+  //
+  // The *content* scrolls, not the document. A classic scrollbar takes layout width, so a page tall
+  // enough to need one was six pixels narrower than a page that fit, and the centered tabs and the
+  // right-hand controls in the nav slid on every navigation between the two. Reserving the gutter
+  // (`scrollbar-gutter: stable`) left a visible strip beside the nav on every page instead. So the
+  // wrapper is viewport height, the ticker and nav are fixed chrome, and the scroller below them owns
+  // the bar: only the content column ever sees it, and the nav is the same width on every page. The
+  // ticker therefore never scrolls away. On mobile the same shape keeps the nav in reach without a
+  // scroll back up, and the reserve for the bottom tab bar stays on the wrapper, outside the scroller,
+  // so the scroller's own height already excludes it. `h-dvh` rather than `h-screen` because the mobile
+  // browser's toolbar changes the viewport's height, and the wrapper has to follow it.
   return (
     <div
-      className="bg-bg flex min-h-screen w-full flex-col text-text font-body"
-      style={{ paddingBottom: extraBottom ? `calc(${extraBottom} + ${navReserve})` : navReserve }}
+      className="bg-bg flex h-dvh w-full flex-col text-text font-body"
+      style={{ paddingBottom: isMobile ? "var(--bottom-nav-h)" : undefined }}
     >
       {ticker && <ScoreboardTicker />}
       <NavBar isMobile={isMobile} />
 
-      {/* `flex-1` lives on this wrapper rather than the content column, which has to keep `mx-auto` and
-          a max width to stay centerd and capped. */}
-      <main className="flex-1">
-        <div className="mx-auto" style={{ maxWidth, padding: isMobile ? 12 : "24px 32px" }}>
-          <PageColumnContext.Provider value={publishColumn}>
-            {/* The boundary wraps the Suspense, since a lazy chunk that fails to load is thrown to
-                the nearest error boundary once its promise rejects. Keyed on the path so the next
-                navigation gets a clean try rather than the previous page's failure. */}
-            <RouteErrorBoundary key={pathname}>
-              <Suspense fallback={<div className="py-16 text-center text-text-subtle">Loading…</div>}>
-                <Outlet />
-              </Suspense>
-            </RouteErrorBoundary>
-          </PageColumnContext.Provider>
-        </div>
-      </main>
+      {/* `min-h-0` lets the scroller shrink below its content, which a flex item will not do on its own;
+          without it the wrapper grows past the viewport and the document scrolls after all. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {/* The compare dock's reserve sits on this wrapper rather than on the scroller: trailing padding
+            on a scroll container has a history of being dropped from the scrollable overflow. */}
+        <div className="flex flex-1 flex-col" style={{ paddingBottom: extraBottom || undefined }}>
+          {/* `flex-1` lives on this wrapper rather than the content column, which has to keep `mx-auto`
+              and a max width to stay centered and capped. */}
+          <main className="flex-1">
+            <div className="mx-auto" style={{ maxWidth, padding: isMobile ? 12 : "24px 32px" }}>
+              <PageColumnContext.Provider value={publishColumn}>
+                {/* The boundary wraps the Suspense, since a lazy chunk that fails to load is thrown to
+                    the nearest error boundary once its promise rejects. Keyed on the path so the next
+                    navigation gets a clean try rather than the previous page's failure. */}
+                <RouteErrorBoundary key={pathname}>
+                  <Suspense fallback={<div className="py-16 text-center text-text-subtle">Loading…</div>}>
+                    <Outlet />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </PageColumnContext.Provider>
+            </div>
+          </main>
 
-      <footer
-        className="border-t border-bg3 text-center mt-10"
-        style={{ padding: isMobile ? "20px 12px" : "24px 20px" }}
-      >
-        <span className="font-display text-lg text-text-subtle tracking-widest">CCS</span>
-        <div className="text-[10px] text-text-subtle mt-2">Amateur Esports · Community Driven · Website built by gl4cial and dribb</div>
-      </footer>
+          <footer
+            className="border-t border-bg3 text-center mt-10"
+            style={{ padding: isMobile ? "20px 12px" : "24px 20px" }}
+          >
+            <span className="font-display text-lg text-text-subtle ">CCS</span>
+            <div className="text-[10px] text-text-subtle mt-2">Amateur Esports · Community Driven · Website built by gl4cial and dribb</div>
+          </footer>
+        </div>
+      </div>
 
       {isMobile && <MobileBottomBar />}
     </div>

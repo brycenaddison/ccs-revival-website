@@ -88,7 +88,7 @@ export function TeamStyleHeader({
         </div>
       )}
       <div className="min-w-0">
-        <div className="truncate font-display text-xl tracking-wider text-white">{name}</div>
+        <div className="truncate font-display text-xl text-white">{name}</div>
         <div className="mt-0.5 font-mono text-[11px] text-white/70">{code}</div>
       </div>
     </div>

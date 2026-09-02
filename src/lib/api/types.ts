@@ -7,6 +7,7 @@
  * upstream (divide-by-zero in the views, and ban-only champions from a FULL JOIN).
  */
 
+import type { PhaseRef } from "./phaseRef";
 import type { Role } from "./normalize";
 
 export type { Role } from "./normalize";
@@ -664,60 +665,10 @@ export interface ChampionStats {
 }
 
 /**
- * Raw Riot Match-V5 payload, passed through unmodified by `GET /m/:matchId`.
- * Only the fields the UI reads are declared.
+ * The raw Riot Match-V5 payload `GET /m/:matchId` passes through, in full.
+ *
+ * Declared in `lib/riot/matchV5.ts` and re-exported here under the names this module always used,
+ * so `GameSummary`, `SeriesGameCard` and the code-check preview import them from the same place they
+ * did before the match viewer needed every column.
  */
-export interface RiotMatch {
-  metadata?: { matchId?: string; participants?: string[] };
-  info?: {
-    gameCreation?: number;
-    gameDuration?: number;
-    gameVersion?: string;
-    platformId?: string;
-    queueId?: number;
-    participants?: RiotParticipant[];
-    teams?: RiotTeam[];
-  };
-}
-
-export interface RiotParticipant {
-  puuid?: string;
-  teamId?: number;
-  teamPosition?: string;
-  individualPosition?: string;
-  championId?: number;
-  championName?: string;
-  riotIdGameName?: string;
-  riotIdTagline?: string;
-  summonerName?: string;
-  win?: boolean;
-  kills?: number;
-  deaths?: number;
-  assists?: number;
-  totalMinionsKilled?: number;
-  neutralMinionsKilled?: number;
-  goldEarned?: number;
-  totalDamageDealtToChampions?: number;
-  totalDamageTaken?: number;
-  damageSelfMitigated?: number;
-  visionScore?: number;
-  wardsPlaced?: number;
-  wardsKilled?: number;
-  visionWardsBoughtInGame?: number;
-  turretKills?: number;
-  champLevel?: number;
-  item0?: number;
-  item1?: number;
-  item2?: number;
-  item3?: number;
-  item4?: number;
-  item5?: number;
-  item6?: number;
-}
-
-export interface RiotTeam {
-  teamId?: number;
-  win?: boolean;
-  bans?: { championId?: number; pickTurn?: number }[];
-  objectives?: Record<string, { first?: boolean; kills?: number } | undefined>;
-}
+export type { RiotMatch, RiotParticipant, RiotTeam, RiotTimeline } from "../riot/matchV5";

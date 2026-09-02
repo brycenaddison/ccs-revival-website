@@ -137,14 +137,14 @@ export function BracketMatchCard({ match, terminal, layout, conf, measureRef, sl
       title={terminal ? "Nothing advances from this match" : undefined}
     >
       <div className="flex items-center gap-2 border-b border-border px-2.5 py-1.5">
-        <span className="min-w-0 flex-1 truncate font-heading text-[10px] uppercase tracking-wider text-text-muted">
+        <span className="min-w-0 flex-1 truncate font-heading text-[10px] text-text-muted">
           {/* No synthetic name. The server names no final and no round, and `label` is the admin's
               own word for this match — inventing one here would be this client's guess. */}
           {match.label ?? ""}
         </span>
 
         {chip && (
-          <span className="shrink-0 font-mono text-[9px] font-bold uppercase text-ccs-orange">{chip}</span>
+          <span className="shrink-0 font-mono text-[9px] font-bold text-ccs-orange">{chip}</span>
         )}
         {/*
           `match.matchId` is the underlying `schedule_match` id, which is exactly what `/match/:id`
@@ -160,7 +160,7 @@ export function BracketMatchCard({ match, terminal, layout, conf, measureRef, sl
         {slotControl === undefined && match.status !== "pending" && (
           <Link
             to={`/match/${match.matchId}`}
-            className="shrink-0 font-mono text-[9px] uppercase text-text-muted no-underline hover:text-brand"
+            className="shrink-0 font-mono text-[9px] text-text-muted no-underline hover:text-brand"
             title="Open the match page"
           >
             match →

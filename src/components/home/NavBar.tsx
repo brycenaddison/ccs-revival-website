@@ -6,7 +6,7 @@ import { AuthControl } from "../auth/AuthControl";
 import { SeasonPicker } from "../league/SeasonPicker";
 import { useAdminAccess } from "../../lib/adminAccess";
 import { useLeague, useSeasonLink } from "../../lib/leagueContext";
-import { TABS, tabForPathname } from "../../lib/tabs";
+import { TABS, tabForPathname, visibleTabs } from "../../lib/tabs";
 
 interface Props {
   isMobile: boolean;
@@ -14,18 +14,14 @@ interface Props {
 
 const EXTERNAL_LINKS = [{ label: "Merch", href: "https://classicchampionshipseries.itemorder.com/shop/sale/" }];
 
+/**
+ * The mark alone. The wordmark that sat beside it said what the image already says, so it went; the
+ * `alt` now carries the name, since the image is the only thing left that does.
+ */
 function CcsBrand({ compact = false }: { compact?: boolean }) {
   return (
-    <div className={`flex items-center ${compact ? "gap-2" : "gap-3"}`}>
-      <img
-        src={ccsLogo}
-        alt=""
-        aria-hidden="true"
-        className={`${compact ? "h-7" : "h-8"} w-auto shrink-0 object-contain`}
-      />
-      <span className={`font-display text-text-bright tracking-widest ${compact ? "text-xl" : "text-[22px]"}`}>
-        CCS
-      </span>
+    <div className="flex items-center">
+      <img src={ccsLogo} alt="CCS" className={`${compact ? "h-7" : "h-8"} w-auto shrink-0 object-contain`} />
     </div>
   );
 }
@@ -70,7 +66,9 @@ export function NavBar({ isMobile }: Props) {
 
   // The season selector lives here rather than in a strip above the nav, so the chrome doesn't change
   // height between a league page and an admin page.
-  const { tournaments, activeConfs, selection, setSelection, isCurrent } = useLeague();
+  const { tournaments, activeConfs, selection, setSelection, isCurrent, selectedConfs } = useLeague();
+  // A season that is not running has no fixtures to come, so its Schedule tab would always be empty.
+  const tabs = visibleTabs(TABS, selectedConfs, activeConfs);
   // The length check is what keeps the wrappers below from rendering an empty box: `SeasonPicker`
   // answers `null` with nothing to choose between, and it's the caller that owns the layout around it.
   const showSeason = tournaments.length > 0 && !SEASONLESS_PREFIXES.some(p => pathname.startsWith(p));
@@ -86,9 +84,9 @@ export function NavBar({ isMobile }: Props) {
 
   if (isMobile) {
     return (
-      // `sticky` rather than `relative`, so the nav pins to the top once anything above it (the
-      // scoreboard ticker, on the public data tabs) has scrolled away. It is still a positioned ancestor, which is
-      // what the drawer's `absolute top-full` needs.
+      // The content scrolls in a box below the nav (`SiteLayout`), so nothing passes under it and
+      // `sticky` is idle; it stays for the z-index and as the positioned ancestor the drawer's
+      // `absolute top-full` needs.
       <nav className="bg-bg2 border-b-2 border-brand sticky top-0 z-[150]">
         <div className="flex items-center justify-between gap-2 px-4">
           <div className="py-2.5 shrink-0">
@@ -105,7 +103,7 @@ export function NavBar({ isMobile }: Props) {
                 key={idx}
                 className="block w-[22px] h-0.5 rounded-sm transition-all duration-200"
                 style={{
-                  background: open ? "var(--accent)" : "var(--text-secondary)",
+                  background: open ? "var(--brand)" : "var(--text-secondary)",
                   transform: open
                     ? idx === 0 ? "rotate(45deg) translate(4px,4px)" : idx === 2 ? "rotate(-45deg) translate(4px,-4px)" : "scaleX(0)"
                     : "none",
@@ -120,16 +118,15 @@ export function NavBar({ isMobile }: Props) {
           // landscape that was most of the menu. The cap also clears the fixed bottom bar, which
           // sits above this in the stacking order and would otherwise cover the last entries.
           // `overscroll-contain` stops a flick at the end of the list scrolling the page behind it.
-          <div className="absolute top-full left-0 right-0 max-h-[calc(100dvh-3.5rem-var(--bottom-nav-h))] overflow-y-auto overscroll-contain bg-bg2 border-b-2 border-brand z-[100] shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
-            {TABS.map(t => (
+          <div className="absolute top-full left-0 right-0 max-h-[calc(100dvh-3.5rem-var(--bottom-nav-h))] overflow-y-auto overscroll-contain bg-bg2 border-b-2 border-brand z-[100] shadow-popover">
+            {tabs.map(t => (
               <Link
                 key={t.path}
                 to={seasonLink(t.path)}
                 onClick={() => setOpen(false)}
                 aria-current={active === t.label ? "page" : undefined}
-                className={`block w-full text-left bg-transparent border-none cursor-pointer py-3.5 px-5 font-heading text-sm tracking-wider uppercase border-l-[3px] no-underline ${
-                  active === t.label ? "bg-bg-input text-text-bright font-bold border-l-brand" : "text-text-secondary font-normal border-l-transparent"
-                }`}
+                className={`block w-full text-left bg-transparent border-none cursor-pointer py-3.5 px-5 font-display text-[15px] border-l-[3px] no-underline transition-colors hover:bg-bg-input hover:text-text-bright ${active === t.label ? "bg-bg-input text-text-bright border-l-brand" : "text-text font-medium border-l-transparent"
+                  }`}
               >
                 {t.label}
               </Link>
@@ -140,7 +137,7 @@ export function NavBar({ isMobile }: Props) {
                 href={l.href}
                 target={l.href !== "#" ? "_blank" : undefined}
                 rel="noopener noreferrer"
-                className="block w-full text-left bg-transparent border-none cursor-pointer py-3.5 px-5 font-heading text-sm tracking-wider uppercase border-l-[3px] border-l-transparent text-text-secondary no-underline"
+                className="block w-full text-left bg-transparent border-none cursor-pointer py-3.5 px-5 font-display text-[15px] border-l-[3px] border-l-transparent text-text font-medium no-underline transition-colors hover:bg-bg-input hover:text-text-bright"
               >
                 {l.label}
               </a>
@@ -150,9 +147,8 @@ export function NavBar({ isMobile }: Props) {
                 to={`/league/${encodeURIComponent(adminConf)}/admin`}
                 onClick={() => setOpen(false)}
                 aria-current={onLeagueAdmin ? "page" : undefined}
-                className={`block w-full text-left bg-transparent border-none cursor-pointer py-3.5 px-5 font-heading text-sm tracking-wider uppercase border-l-[3px] no-underline ${
-                  onLeagueAdmin ? "bg-bg-input text-text-bright font-bold border-l-brand" : "text-text-secondary font-normal border-l-transparent"
-                }`}
+                className={`block w-full text-left bg-transparent border-none cursor-pointer py-3.5 px-5 font-display text-[15px] border-l-[3px] no-underline transition-colors hover:bg-bg-input hover:text-text-bright ${onLeagueAdmin ? "bg-bg-input text-text-bright border-l-brand" : "text-text font-medium border-l-transparent"
+                  }`}
               >
                 Admin
               </Link>
@@ -195,8 +191,9 @@ export function NavBar({ isMobile }: Props) {
     // The scroller lives on the tab cell rather than the <nav> on purpose — `overflow-x` on the nav
     // computes `overflow-y: auto` too, which would clip the account dropdown.
     //
-    // `sticky top-0` pins the nav; the z-index is needed for it to paint over the content scrolling
-    // beneath it, which the desktop branch previously had no reason to declare.
+    // On desktop the content scrolls in a box below the nav (`SiteLayout`), so nothing passes under
+    // it and `sticky top-0` is idle there; it stays for the z-index, which the dropdowns and the
+    // drawer rely on to paint over the page, and so the two branches read alike.
     <nav className="bg-bg2 border-b-2 border-brand w-full px-6 flex flex-wrap nav:flex-nowrap items-center gap-x-4 sticky top-0 z-[150]">
       <div className="order-1 flex flex-1 basis-0 min-w-fit items-center gap-3 py-3">
         <CcsBrand />
@@ -206,8 +203,8 @@ export function NavBar({ isMobile }: Props) {
             {/* Only on the single-row layout, where it was measured in — the full season name
                 still carries the year, so nothing is lost on the two-row one. */}
             {!isCurrent && (
-              <span className="hidden nav:inline text-text-dim font-heading tracking-wider whitespace-nowrap">
-                PAST SEASON
+              <span className="hidden nav:inline text-text-dim font-heading whitespace-nowrap">
+                Past season
               </span>
             )}
           </div>
@@ -220,14 +217,13 @@ export function NavBar({ isMobile }: Props) {
         style={{ scrollbarWidth: "none" }}
       >
         <div className="mx-auto flex items-center">
-          {TABS.map(t => (
+          {tabs.map(t => (
             <Link
               key={t.path}
               to={seasonLink(t.path)}
               aria-current={active === t.label ? "page" : undefined}
-              className={`bg-transparent cursor-pointer py-2.5 nav:py-3.5 px-2.5 nav:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase no-underline ${
-                active === t.label ? "text-text-bright font-bold border-b-2 border-b-brand" : "text-text-secondary font-normal border-b-2 border-b-transparent"
-              }`}
+              className={`bg-transparent cursor-pointer py-2.5 nav:py-3.5 px-2.5 nav:px-4 font-display text-[15px] whitespace-nowrap no-underline transition-colors hover:text-brand ${active === t.label ? "text-text-bright border-b-2 border-b-brand" : "text-text font-medium border-b-2 border-b-transparent"
+                }`}
             >
               {t.label}
             </Link>
@@ -238,7 +234,7 @@ export function NavBar({ isMobile }: Props) {
               href={l.href}
               target={l.href !== "#" ? "_blank" : undefined}
               rel="noopener noreferrer"
-              className="bg-transparent cursor-pointer py-2.5 nav:py-3.5 px-2.5 nav:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase border-b-2 border-b-transparent text-text-secondary no-underline"
+              className="bg-transparent cursor-pointer py-2.5 nav:py-3.5 px-2.5 nav:px-4 font-display text-[15px] whitespace-nowrap border-b-2 border-b-transparent text-text font-medium no-underline transition-colors hover:text-brand"
             >
               {l.label}
             </a>
@@ -247,9 +243,8 @@ export function NavBar({ isMobile }: Props) {
             <Link
               to={`/league/${encodeURIComponent(adminConf)}/admin`}
               aria-current={onLeagueAdmin ? "page" : undefined}
-              className={`bg-transparent cursor-pointer py-2.5 nav:py-3.5 px-2.5 nav:px-4 font-heading text-sm tracking-wider whitespace-nowrap uppercase no-underline ${
-                onLeagueAdmin ? "text-text-bright font-bold border-b-2 border-b-brand" : "text-text-secondary font-normal border-b-2 border-b-transparent"
-              }`}
+              className={`bg-transparent cursor-pointer py-2.5 nav:py-3.5 px-2.5 nav:px-4 font-display text-[15px] whitespace-nowrap no-underline transition-colors hover:text-brand ${onLeagueAdmin ? "text-text-bright border-b-2 border-b-brand" : "text-text font-medium border-b-2 border-b-transparent"
+                }`}
             >
               Admin
             </Link>

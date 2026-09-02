@@ -121,9 +121,7 @@ export function BracketSection() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-2.5">
-          <span className="font-display text-lg tracking-widest text-text-bright">
-            {phase.name.toUpperCase()}
-          </span>
+          <span className="font-display text-lg text-text-bright">{phase.name}</span>
           <Pill muted>
             {phase.matchDays} match {phase.matchDays === 1 ? "day" : "days"}
           </Pill>
@@ -179,10 +177,11 @@ export function BracketSection() {
           Deliberately *not* `items-start` on the grid. A sticky child can only travel inside its
           containing block, so the aside has to stretch to the row's full height — which the default
           `align-items: stretch` gives it — for the panel inside to stay put while the bracket
-          scrolls past. `top-16` clears the nav, which pins at the top of every page.
+          scrolls past. The offset is from the top of the page's scroller, which `SiteLayout` starts
+          under the nav; there is no nav height to clear, because nothing scrolls under the nav.
         */}
         <aside>
-          <div className="sticky top-16 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-lg border border-border p-3">
+          <div className="sticky top-4 max-h-[calc(100dvh-8rem)] overflow-y-auto rounded-lg border border-border p-3">
             <StandingsReference compact tables={reference} />
           </div>
         </aside>

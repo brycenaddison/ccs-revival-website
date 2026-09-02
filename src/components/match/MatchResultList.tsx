@@ -108,8 +108,9 @@ export function MatchResultList({ matches, conf, emptyMessage = "No games played
                         champion={player?.champ}
                         lookup={champions}
                         fallbackLabel={player?.champ ?? "—"}
-                        size={18}
-                        className="flex w-[18px] shrink-0 items-center justify-center overflow-hidden text-[9px] text-text-dim"
+                        size={20}
+                        tile
+                        className="flex w-[20px] shrink-0 items-center justify-center text-[9px] text-text-dim"
                       />
                     );
                   })}
@@ -126,8 +127,9 @@ export function MatchResultList({ matches, conf, emptyMessage = "No games played
                     <BanIcons
                       bans={match.bans}
                       champions={champions}
-                      size={18}
-                      className="flex w-[18px] shrink-0 items-center justify-center overflow-hidden text-[9px] text-text-dim opacity-70 grayscale"
+                      size={20}
+                      tile
+                      className="flex w-[20px] shrink-0 items-center justify-center text-[9px] text-text-dim"
                     />
                   ) : (
                     <span className="text-[10px] text-text-secondary">—</span>
@@ -148,7 +150,7 @@ export function MatchResultList({ matches, conf, emptyMessage = "No games played
               <Link
                 to={gameHref}
                 aria-label={`Open game ${match.game}, ${match.blueside ? "blue" : "red"} side`}
-                className={`justify-self-end text-right font-heading text-[10px] font-semibold tracking-wider no-underline @4xl:col-start-9 @4xl:row-start-1 @4xl:justify-self-center @4xl:text-center ${
+                className={`justify-self-end text-right font-heading text-[10px] font-semibold no-underline @4xl:col-start-9 @4xl:row-start-1 @4xl:justify-self-center @4xl:text-center ${
                   match.blueside ? "text-ccs-blue" : "text-ccs-red"
                 }`}
               >
@@ -165,7 +167,7 @@ export function MatchResultList({ matches, conf, emptyMessage = "No games played
 function DraftIcons({ label, children }: { label: string; children: ReactNode }) {
   return (
     <span className="flex items-center gap-0.5 sm:gap-1">
-      <span className="mr-0.5 font-heading text-[9px] font-semibold uppercase tracking-wider text-text-secondary">
+      <span className="mr-0.5 font-heading text-[9px] font-semibold text-text-secondary">
         <span className="sm:hidden">{label.charAt(0)}</span>
         <span className="hidden sm:inline">{label}</span>
       </span>

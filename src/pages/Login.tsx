@@ -24,13 +24,13 @@ export default function Login() {
   return (
     <div className="bg-bg min-h-screen text-text font-body flex items-center justify-center px-5">
       <div className="text-center">
-        <h1 className="font-display text-[22px] text-text-bright tracking-widest mb-2">SIGNING IN</h1>
+        <h1 className="font-display text-[22px] text-text-bright mb-2">Signing in</h1>
         <p className="text-text-secondary mb-5">Redirecting you to Discord...</p>
         {/* Escape hatch: covers a blocked automatic navigation, and gives the page something
             actionable if the API is unreachable and the redirect stalls. */}
         <a
           href={auth.loginUrl()}
-          className="text-brand text-[11px] font-heading tracking-wider uppercase no-underline hover:text-text-bright"
+          className="text-brand text-[11px] font-heading no-underline hover:text-text-bright"
         >
           Continue to Discord
         </a>

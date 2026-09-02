@@ -9,7 +9,7 @@
  * — and it is not the number a viewer would recognize anyway.
  */
 
-import type { FeedMatch, FeedPage } from "./api";
+import { feedMatchKey, type FeedMatch, type FeedPage } from "./api";
 import { fmtDay } from "./utils";
 
 export interface FeedDay {
@@ -62,13 +62,13 @@ export function groupByDay(matches: readonly FeedMatch[]): FeedDay[] {
 /**
  * The pages of a cursored feed as one list.
  *
- * Deduplicated on `scheduleMatchId`, because the cursor is an **inclusive** `to` and consecutive pages
+ * Deduplicated on `feedMatchKey` (the fixture id, or the series key on a legacy row), because the cursor is an **inclusive** `to` and consecutive pages
  * therefore overlap at the instant they meet — see `queries.scores`. The overlap is deliberate (the
  * alternative skips fixtures), so removing it is this function's job. First occurrence wins, which
  * keeps the served order intact.
  */
 export function flattenFeedPages(pages: readonly FeedPage[]): FeedMatch[] {
-  const seen = new Set<number>();
+  const seen = new Set<string>();
   const out: FeedMatch[] = [];
 
   for (const page of pages) {

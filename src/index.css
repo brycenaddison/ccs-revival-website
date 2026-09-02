@@ -1,4 +1,18 @@
+/*
+ * The site's two faces, self-hosted through fontsource so they ship with the build rather than from
+ * Google's CDN. Variable packages, one axis (weight), so every weight a token or a utility asks for is
+ * one file. The families are `'Geist Variable'` and `'Geist Mono Variable'`; see the font tokens below.
+ */
+@import "@fontsource-variable/geist/wght.css";
+@import "@fontsource-variable/geist-mono/wght.css";
 @import "tailwindcss";
+/*
+ * shadcn/typeset: the one stylesheet for rendered Markdown (articles, league Info, application notes).
+ * Imported after Tailwind so its `@layer components` rules sit below the utilities and a Tailwind
+ * class on an element inside a `.typeset` still wins without `!important`. Its presets live at the
+ * end of this file; the file itself is shadcn's, kept unedited so the next update is a diff.
+ */
+@import "./typeset.css";
 
 /* ── Theme Variables ── */
 [data-theme="dark"] {
@@ -14,6 +28,12 @@
   --overlay: rgba(1,1,1,0.9);
   /* Bar fill for a team with no color set. Light against the dark page. */
   --bar-unset: #9ca3af;
+  /*
+   * The two sides of the map. Distinct from `--blue` and `--red`, which are semantic (a KDA tier, the
+   * brand): "red side" is a place, and the brand red is far too saturated to fill a whole team block
+   * with. Every surface that colors by side reads these and nothing else.
+   */
+  --side-blue: #3b82f6; --side-red: #ef4444;
   /*
    * Height of MobileBottomBar, so the pages reserving room for it and the compare dock sitting on
    * top of it all agree. Derived from that component: 1px border-top + 6px padding-top + a 48.5px
@@ -38,6 +58,8 @@
   --overlay: rgba(0,0,0,0.5);
   /* Bar fill for a team with no color set. Dark against the light page. */
   --bar-unset: #4b5563;
+  /* See the dark theme. A step darker so both hold up on white. */
+  --side-blue: #2563eb; --side-red: #dc2626;
   /* See the dark theme for the derivation. */
   --bottom-nav-h: calc(55.5px + env(safe-area-inset-bottom, 8px));
 }
@@ -76,9 +98,14 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'Source Sans 3', sans-serif;
+    font-family: var(--font-body);
     font-size: 16px;
     line-height: 1.5;
+    /* Grayscale antialiasing, the same as Tailwind's `antialiased`: Geist's thin strokes bloom under
+       subpixel rendering on dark surfaces, which read as a heavier face than it is. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     width: 100%;
     /*
      * The floor below which the page scrolls sideways rather than squeezing further. 320px is the
@@ -343,14 +370,35 @@ input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
   --color-ccs-blue: var(--blue);
   --color-ccs-orange: var(--orange);
   --color-ccs-purple: var(--purple);
+  /* Map sides. `text-side-blue`, `bg-side-red/20`, `border-side-blue`. See the theme block above. */
+  --color-side-blue: var(--side-blue);
+  --color-side-red: var(--side-red);
 
   /* OP.GG's brand blue. Fixed in both themes: it identifies their product, not ours. */
   --color-opgg: #5383e8;
 
-  --font-display: 'Bebas Neue', sans-serif;
-  --font-heading: 'Oswald', sans-serif;
-  --font-body: 'Source Sans 3', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  /*
+   * One family for everything. The four tokens stay, because they name *roles* (a section heading,
+   * a nav label, prose, a number) that the whole codebase is written against, and what changed is the
+   * face each role wears: Geist for all three text roles, Geist Mono for numbers and ids. The roles'
+   * default weights live in the `@layer components` block near the foot of this file.
+   */
+  --font-display: 'Geist Variable', sans-serif;
+  --font-heading: 'Geist Variable', sans-serif;
+  --font-body: 'Geist Variable', sans-serif;
+  --font-mono: 'Geist Mono Variable', monospace;
+
+  /*
+   * The lift under an item, rune, spell or champion icon: the client's tiles sit a hair above the
+   * row rather than on it, and with no border that is what separates a dark icon from a dark surface.
+   * Three steps by icon size, chosen by `lib/tile.ts`; all of them subtle.
+   */
+  --shadow-tile-sm: 0 1px 2px rgb(0 0 0 / 0.25);
+  --shadow-tile: 0 2px 3px rgb(0 0 0 / 0.28);
+  --shadow-tile-lg: 0 3px 5px rgb(0 0 0 / 0.3);
+  /* Floating layers: a popover or tooltip lifts a little, a dialog or sheet a little more. */
+  --shadow-popover: 0 6px 20px rgb(0 0 0 / 0.22);
+  --shadow-dialog: 0 12px 36px rgb(0 0 0 / 0.3);
 
   /*
    * `nav:` — the width from which the desktop nav fits on one row: mark, full season name, every
@@ -390,8 +438,78 @@ input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
 @utility animate-dialog-in { animation: ccs-zoom-in 150ms ease-out }
 @utility animate-dialog-out { animation: ccs-zoom-out 120ms ease-in }
 
+/*
+ * The sheet's slide, for `ui/sheet.tsx`. Animates the standalone `translate` for the reason the zoom
+ * pair does: Tailwind v4 positions with `translate`, and a `transform` keyframe would fight it.
+ */
+@keyframes ccs-slide-in-right { from { translate: 100% 0 } to { translate: 0 0 } }
+@keyframes ccs-slide-out-right { from { translate: 0 0 } to { translate: 100% 0 } }
+@keyframes ccs-slide-in-left { from { translate: -100% 0 } to { translate: 0 0 } }
+@keyframes ccs-slide-out-left { from { translate: 0 0 } to { translate: -100% 0 } }
+
+@utility animate-sheet-in-right { animation: ccs-slide-in-right 250ms ease-out }
+@utility animate-sheet-out-right { animation: ccs-slide-out-right 200ms ease-in }
+@utility animate-sheet-in-left { animation: ccs-slide-in-left 250ms ease-out }
+@utility animate-sheet-out-left { animation: ccs-slide-out-left 200ms ease-in }
+
 /* Respect the OS setting: a confirmation appearing instantly is fine, motion sickness is not. */
 @media (prefers-reduced-motion: reduce) {
   .animate-overlay-in, .animate-overlay-out,
-  .animate-dialog-in, .animate-dialog-out { animation: none }
+  .animate-dialog-in, .animate-dialog-out,
+  .animate-sheet-in-right, .animate-sheet-out-right,
+  .animate-sheet-in-left, .animate-sheet-out-left { animation: none }
+}
+
+/*
+ * ── The two heading roles, in sentence case ──
+ *
+ * The site's headings and labels were uppercase with wide tracking, a treatment the condensed faces
+ * wanted and Geist does not. The `uppercase` and `tracking-wider`/`tracking-widest` utilities were
+ * removed from every heading and label in one sweep (2026-09-02), and the roles now carry their own
+ * weight and spacing here: display headings at 650 with a touch of negative tracking, as any grotesque
+ * wants above 18px, and labels at 500 so a nav tab or a caption reads as a label and not as body text.
+ *
+ * In `@layer components` deliberately: Tailwind's utilities layer comes after it, so an element that
+ * says `font-heading font-bold` still gets bold. A `font-variation-settings` pin would not have
+ * allowed that, which is why it is not one.
+ */
+@layer components {
+  .font-display { font-weight: 650; letter-spacing: -0.015em; }
+  .font-heading { font-weight: 500; letter-spacing: 0; }
+}
+
+/*
+ * ── Typeset presets ──
+ *
+ * `typeset.css` (imported at the top, shadcn's file, unedited) styles every element inside a
+ * `.typeset` from three rhythm variables and the theme's own tokens. These are the site's presets;
+ * `components/Markdown.tsx` puts one on every rendered body. Two, because a news article and a page of
+ * league rules are read differently: an article is long-form and gets air, a rulebook or a set of
+ * application notes is scanned and gets a tighter flow and smaller type.
+ *
+ * Unlayered on purpose: typeset's own rules sit in `@layer components`, so anything here wins a tie
+ * without `!important`. Links are the one thing overridden: typeset inherits the text color, and the
+ * site's links are brand red everywhere else.
+ */
+.typeset {
+  --typeset-font-body: var(--font-body);
+  --typeset-font-heading: var(--font-heading);
+  --typeset-font-mono: var(--font-mono);
+}
+.typeset-article {
+  --typeset-size: 16px;
+  --typeset-leading: 1.75;
+  --typeset-flow: 1.5em;
+}
+.typeset-notes {
+  --typeset-size: 15px;
+  --typeset-leading: 1.65;
+  --typeset-flow: 1.25em;
+}
+.typeset :where(a) {
+  color: var(--brand);
+  text-decoration-color: color-mix(in oklab, var(--brand) 40%, transparent);
+}
+.typeset :where(a:hover) {
+  text-decoration-color: var(--brand);
 }

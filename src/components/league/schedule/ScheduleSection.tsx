@@ -103,7 +103,7 @@ export function ScheduleSection() {
 }
 
 const TAB =
-  "inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 bg-transparent font-heading text-xs tracking-wider uppercase text-text-bright cursor-pointer";
+  "inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 bg-transparent font-heading text-xs text-text-bright cursor-pointer";
 
 function DayList({
   conf,
@@ -260,7 +260,7 @@ function DayPanel({
     <div className="bg-bg3 border border-border rounded-lg p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex flex-wrap items-baseline gap-2.5">
-          <span className="font-display text-lg text-text-bright tracking-widest">
+          <span className="font-display text-lg text-text-bright ">
             DAY {day.seasonDay}
           </span>
           <Pill muted>{day.phase}</Pill>

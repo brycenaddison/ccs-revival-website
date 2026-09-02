@@ -100,7 +100,7 @@ export function HeadToHead({ rows }: { rows: readonly ComparisonRow[] }) {
             >
               {row.a}
             </td>
-            <td className="whitespace-nowrap px-2 py-1.5 text-center font-heading text-[10px] uppercase tracking-wider text-text-dim">
+            <td className="whitespace-nowrap px-2 py-1.5 text-center font-heading text-[10px] text-text-dim">
               {row.label}
             </td>
             <td

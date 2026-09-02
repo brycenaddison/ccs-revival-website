@@ -128,7 +128,7 @@ function PlayerSearch({ conf, placed, onPick, onCancel }: SearchProps) {
                   <span className="shrink-0 text-xs text-text-dim">@{hit.handle}</span>
                 )}
                 {placed.has(hit.profileId) && (
-                  <span className="shrink-0 text-[10px] uppercase tracking-wider text-text-dim">
+                  <span className="shrink-0 text-[10px] text-text-dim">
                     on this team
                   </span>
                 )}

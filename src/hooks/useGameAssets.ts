@@ -15,8 +15,6 @@ export interface GameAssets {
  * The loaders behind it are memoized for the page lifetime, so this is only as expensive as the
  * first component to mount it — and because it fetches on mount rather than on page load, a screen
  * that never renders an item or a spell never pays for either manifest.
- *
- * **Currently unused, and kept on purpose** — see the header of `lib/gameAssets.ts`.
  */
 export function useGameAssets(): GameAssets {
   const [items, setItems] = useState<GameAssetLookup | null>(null);

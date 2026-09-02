@@ -77,3 +77,19 @@ export function tabForPathname(pathname: string): string | null {
   if (slug === "") return "Home";
   return TABS.find(t => t.path !== "/" && t.path === slug)?.label ?? null;
 }
+
+/**
+ * The tabs a reader can use for the league they are looking at.
+ *
+ * Schedule is the one conditional tab: it lists fixtures to come, and a season that is not running
+ * has none, so for an archived league the tab is an empty page with a name. It is hidden unless at
+ * least one of the selected conferences is active. The route stays mounted; only the entry goes.
+ */
+export function visibleTabs(
+  tabs: readonly SiteTab[],
+  selectedConfs: readonly string[],
+  activeConfs: readonly string[],
+): SiteTab[] {
+  const hasActive = selectedConfs.some(c => activeConfs.includes(c));
+  return tabs.filter(t => t.path !== "/schedule" || hasActive);
+}

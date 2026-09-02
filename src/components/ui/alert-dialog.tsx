@@ -53,7 +53,7 @@ export function AlertDialogContent({
       <AlertDialogPrimitive.Content
         className={cn(
           "fixed left-1/2 top-1/2 z-[301] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2",
-          "rounded-lg border border-border bg-card p-5 shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
+          "rounded-lg border border-border bg-card p-5 shadow-dialog",
           "data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out",
           className,
         )}
@@ -85,7 +85,7 @@ export function AlertDialogTitle({
       // The site's section-heading treatment, so a dialog reads as part of the page rather than as a
       // component from somewhere else. Callers pass sentence-case text; nothing here uppercases it,
       // because a name inside the sentence ("Remove Gl4cial?") must not be shouted.
-      className={cn("font-display text-[22px] tracking-widest text-text-bright", className)}
+      className={cn("font-display text-[22px] text-text-bright", className)}
       {...props}
     />
   );

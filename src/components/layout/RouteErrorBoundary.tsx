@@ -43,7 +43,7 @@ export class RouteErrorBoundary extends Component<Props, State> {
 
     return (
       <div role="alert" className="mx-auto max-w-md py-16 text-center">
-        <h2 className="font-display text-[22px] tracking-widest text-text-bright">
+        <h2 className="font-display text-[22px] text-text-bright">
           THIS PAGE DIDN'T LOAD
         </h2>
         <p className="mt-2 text-sm text-text-secondary">

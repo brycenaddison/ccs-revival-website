@@ -380,7 +380,7 @@ export function BracketPhaseEditor({
               >
                 <div className="mb-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-display text-base text-text-bright tracking-widest">
+                    <span className="font-display text-base text-text-bright ">
                       DAY {matchDay}
                     </span>
                     <Pill muted>Season day {seasonDayOf(phase, matchDay)}</Pill>
@@ -796,7 +796,7 @@ function SlotEditor({
     // there is no honest way to fit a seed box, a source picker and a team picker side by side — the
     // previous 2/5/5 split left the seed about 30px wide.
     <div className="mb-2.5">
-      <p className="font-heading text-[10px] tracking-wider uppercase text-text-secondary mb-1">
+      <p className="font-heading text-[10px] text-text-secondary mb-1">
         {side === "top" ? "Top" : "Bottom"}
       </p>
 

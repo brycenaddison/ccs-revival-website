@@ -11,7 +11,7 @@ import { TeamBadge } from "../TeamBadge";
 import { toBadge } from "../../lib/leagueAdapters";
 import { fmtTime } from "../../lib/utils";
 import { useScheduleFeed, type FeedWindow } from "../../hooks/useScheduleFeed";
-import type { FeedMatch } from "../../lib/api";
+import { feedMatchKey, type FeedMatch } from "../../lib/api";
 
 /**
  * From now on, upcoming only, five of them.
@@ -30,10 +30,10 @@ export function UpcomingSchedule({ isMobile }: { isMobile: boolean }) {
   return (
     <div className="overflow-hidden rounded-md border border-border bg-bg2">
       <div className="border-b border-border px-4 py-3.5">
-        <span className="font-display text-[15px] tracking-widest text-text-bright">UPCOMING</span>
+        <span className="font-display text-[15px] text-text-bright">Upcoming</span>
       </div>
       {matches.map((m, i) => (
-        <Row key={m.scheduleMatchId} match={m} isMobile={isMobile} divider={i < matches.length - 1} />
+        <Row key={feedMatchKey(m)} match={m} isMobile={isMobile} divider={i < matches.length - 1} />
       ))}
     </div>
   );
@@ -74,8 +74,8 @@ function Row({
           </span>
           <TeamBadge team={teamA === null ? undefined : toBadge(teamA)} />
         </div>
-        <span className="shrink-0 rounded bg-bg-input px-2 py-0.5 font-display text-[13px] tracking-widest text-text-dim">
-          VS
+        <span className="shrink-0 rounded bg-bg-input px-2 py-0.5 font-display text-[13px] text-text-dim">
+          vs
         </span>
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <TeamBadge team={teamB === null ? undefined : toBadge(teamB)} />
@@ -92,7 +92,7 @@ function Row({
 
   const padding = `px-4 py-3.5 ${divider ? "border-b border-bg3" : ""}`;
 
-  if (teamA === null || teamB === null) return <div className={padding}>{body}</div>;
+  if (teamA === null || teamB === null || match.scheduleMatchId === null) return <div className={padding}>{body}</div>;
 
   return (
     <Link to={`/match/${match.scheduleMatchId}`} className={`block no-underline ${padding} hover:bg-bg3/30`}>

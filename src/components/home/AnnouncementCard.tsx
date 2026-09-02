@@ -51,7 +51,7 @@ export function AnnouncementCard({ announcement, teamCount, splitName, isMobile 
           <span className="text-lg">⚔️</span>
           <div>
             <h2
-              className="font-display text-white tracking-wider"
+              className="font-display text-white "
               style={{ fontSize: isMobile ? 16 : 18 }}
             >
               WELCOME TO CCS
@@ -72,7 +72,7 @@ export function AnnouncementCard({ announcement, teamCount, splitName, isMobile 
     <div className={`bg-bg2 rounded-lg border-l-[3px] border-y border-r border-border ${tone.border}`}>
       <div style={{ padding: isMobile ? "14px 14px" : "18px 20px" }}>
         <span
-          className={`block font-heading text-[10px] tracking-wider uppercase mb-2 ${tone.label}`}
+          className={`block font-heading text-[10px] mb-2 ${tone.label}`}
         >
           {tone.text}
         </span>
@@ -91,7 +91,7 @@ export function AnnouncementCard({ announcement, teamCount, splitName, isMobile 
             href={announcement.linkUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mt-3.5 rounded-md border border-border px-3 py-1.5 font-heading text-xs tracking-wider uppercase text-text-bright no-underline hover:border-brand transition-colors"
+            className="inline-flex items-center gap-1.5 mt-3.5 rounded-md border border-border px-3 py-1.5 font-heading text-xs text-text-bright no-underline hover:border-brand transition-colors"
           >
             {label}
             <ArrowRight size={13} />

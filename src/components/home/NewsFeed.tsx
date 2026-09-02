@@ -45,15 +45,15 @@ function FeatureCard({ article, isMobile }: { article: ArticleCard; isMobile: bo
             background: "linear-gradient(135deg, var(--accent) 0%, #3f0008 100%)",
           }}
         >
-          <span className="font-display text-white/30 text-4xl tracking-widest">CCS</span>
+          <span className="font-display text-white/30 text-4xl ">CCS</span>
         </div>
       )}
 
       <div className="p-4">
         {article.tag && (
-          <span className="text-[9px] font-bold text-brand tracking-wider font-display uppercase">
+          <div className="text-[9px] font-bold text-brand font-display ">
             {article.tag}
-          </span>
+          </div>
         )}
 
         <h3
@@ -71,7 +71,7 @@ function FeatureCard({ article, isMobile }: { article: ArticleCard; isMobile: bo
 
         <div className="flex items-center gap-2 mt-3 text-[10px] text-text-muted">
           {article.author && (
-            <span className="font-heading uppercase tracking-wider">{article.author}</span>
+            <span className="font-heading ">{article.author}</span>
           )}
           {article.publishedAt && (
             <>
@@ -110,14 +110,14 @@ function NewsItem({ article, isLast }: { article: ArticleCard; isLast: boolean }
         </div>
       ) : (
         <div className="w-20 h-14 rounded shrink-0 bg-bg3 flex items-center justify-center">
-          <span className="text-text-subtle text-[10px] font-display tracking-wider">CCS</span>
+          <span className="text-text-subtle text-[10px] font-display ">CCS</span>
         </div>
       )}
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           {article.tag && (
-            <span className="text-[9px] font-bold text-brand tracking-wider font-display uppercase">
+            <span className="text-[9px] font-bold text-brand font-display ">
               {article.tag}
             </span>
           )}
@@ -163,7 +163,7 @@ export function NewsFeed({ features, news, isMobile }: Props) {
       {news.length > 0 && (
         <div className="bg-bg2 rounded-lg border border-border overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
-            <span className="font-display text-[14px] text-text-bright tracking-widest">
+            <span className="font-display text-[14px] text-text-bright ">
               LATEST NEWS
             </span>
           </div>

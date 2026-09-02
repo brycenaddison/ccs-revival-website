@@ -286,7 +286,7 @@ function UserDetail({ user }: { user: DirectoryUser }) {
       <div className="flex items-center gap-3 mb-5">
         <img src={user.avatar} alt="" className="w-12 h-12 rounded-full shrink-0" />
         <div className="min-w-0">
-          <h3 className="font-display text-lg text-text-bright tracking-wider truncate">
+          <h3 className="font-display text-lg text-text-bright truncate">
             <PlayerLink profileId={user.profileId} className="text-text-bright no-underline hover:text-brand">{user.name ?? `Profile ${user.profileId}`}</PlayerLink>
           </h3>
           <p className="text-text-dim text-xs truncate">

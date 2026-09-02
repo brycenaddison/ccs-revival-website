@@ -93,10 +93,10 @@ export function CompareDock({ players, series, poolSize, onClear, isMobile }: Pr
         }}
       >
         <div className="flex justify-between items-center mb-1">
-          <h3 className="font-display text-base text-text-bright tracking-widest m-0">PLAYER COMPARISON</h3>
+          <h3 className="font-display text-base text-text-bright m-0">Player comparison</h3>
           <button
             onClick={onClear}
-            className="text-[10px] font-heading tracking-wider uppercase text-ccs-red border border-ccs-red rounded px-2.5 py-1 bg-transparent"
+            className="text-[10px] font-heading text-ccs-red border border-ccs-red rounded px-2.5 py-1 bg-transparent"
           >
             Clear
           </button>

@@ -58,13 +58,13 @@ export default function PlayerProfile() {
   return (
     <PageShell maxWidth={1280}>
       {profileId === null ? (
-        <Empty title="PLAYER NOT FOUND" body="That player link isn't valid." />
+        <Empty title="Player not found" body="That player link isn't valid." />
       ) : query.isPending ? (
         <div className="py-16 text-center text-text-subtle">Loading player profile…</div>
       ) : query.error ? (
-        <Empty title="COULDN'T LOAD PLAYER" body={errorMessage(query.error)} />
+        <Empty title="Couldn't load player" body={errorMessage(query.error)} />
       ) : !query.data ? (
-        <Empty title="PLAYER NOT FOUND" body={`No player profile exists for #${profileId}.`} />
+        <Empty title="Player not found" body={`No player profile exists for #${profileId}.`} />
       ) : (
         <ProfileContent data={query.data} onConfChange={onConfChange} />
       )}
@@ -151,11 +151,11 @@ function ProfileContent({
             </div>
           ) : (
             <>
-              <ProfileSection title="CAREER">
+              <ProfileSection title="Career">
                 <CareerTiles totals={career.totals} />
               </ProfileSection>
 
-              <ProfileSection title="PERSONAL BESTS">
+              <ProfileSection title="Personal bests">
                 <PersonalBestCards
                   personalBests={career.personalBests}
                   gamesById={gamesById}
@@ -163,7 +163,7 @@ function ProfileContent({
                 />
               </ProfileSection>
 
-              <ProfileSection title="MATCH HISTORY">
+              <ProfileSection title="Match history">
                 <MatchHistory matches={matches} games={games} teamIndex={teamIndex} />
               </ProfileSection>
             </>
@@ -177,7 +177,7 @@ function ProfileContent({
 function Empty({ title, body }: { title: string; body: string }) {
   return (
     <div className="mx-auto mt-16 max-w-[520px] text-center">
-      <h1 className="font-display text-[26px] tracking-widest text-text-bright">{title}</h1>
+      <h1 className="font-display text-[26px] text-text-bright">{title}</h1>
       <p className="mt-2 text-text-secondary">{body}</p>
     </div>
   );

@@ -2,7 +2,7 @@
  * The frame a settings section renders inside, plus the handful of pieces sections are built from.
  *
  * Kept small on purpose. The repo has no component library — panels are `bg-bg2 border border-border
- * rounded-lg`, headings are uppercase `font-display`, labels are `LABEL_CLASS` — and every section
+ * rounded-lg`, headings are `font-display`, labels are `LABEL_CLASS` — and every section
  * would otherwise re-derive all three from memory. These are those idioms named once.
  */
 
@@ -23,9 +23,7 @@ import type { SettingsSection as Section } from "../../lib/settingsAreas";
 export function SectionFrame({ section, children }: { section: Section; children: ReactNode }) {
   return (
     <div className="bg-bg2 border border-border rounded-lg p-5 min-w-0">
-      <h2 className="font-display text-[22px] text-text-bright tracking-widest">
-        {section.label.toUpperCase()}
-      </h2>
+      <h2 className="font-display text-[22px] text-text-bright ">{section.label}</h2>
       {section.description && (
         <p className="text-text-secondary text-sm mt-1">{section.description}</p>
       )}

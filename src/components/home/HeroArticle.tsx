@@ -58,7 +58,7 @@ export function HeroArticle({ article, isMobile }: Props) {
         <div className="relative z-[2]" style={{ padding: isMobile ? "20px 16px" : "32px 28px" }}>
           {article.tag && (
             <span
-              className="inline-block bg-brand text-white font-extrabold rounded font-display tracking-wider mb-2"
+              className="inline-block bg-brand text-white font-extrabold rounded font-display mb-2"
               style={{ fontSize: isMobile ? 9 : 10, padding: "3px 8px" }}
             >
               {article.tag}
@@ -72,13 +72,13 @@ export function HeroArticle({ article, isMobile }: Props) {
           </h2>
           {article.subtitle && (
             <p
-              className="text-text-secondary leading-normal m-0"
+              className="text-white/75 leading-normal m-0"
               style={{ fontSize: isMobile ? 12 : 14 }}
             >
               {article.subtitle}
             </p>
           )}
-          <div className="flex items-center gap-2 mt-2 text-[11px] text-text-muted">
+          <div className="flex items-center gap-2 mt-2 text-[11px] text-white/60">
             {article.author && <span>{article.author}</span>}
             {article.publishedAt && (
               <>
@@ -86,7 +86,7 @@ export function HeroArticle({ article, isMobile }: Props) {
                 <span>{timeAgo(article.publishedAt)}</span>
               </>
             )}
-            <span className="ml-auto text-brand text-[10px] font-heading tracking-wider uppercase opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="ml-auto text-brand text-[10px] font-heading opacity-0 group-hover:opacity-100 transition-opacity">
               {isExternal(article) ? "Read more ↗" : "Read more →"}
             </span>
           </div>

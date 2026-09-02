@@ -52,7 +52,7 @@ export function ProfileHeader({
           )}
 
           <div className="min-w-0">
-            <h1 className="mt-0.5 truncate font-display text-[34px] leading-none tracking-widest text-text-bright">
+            <h1 className="mt-0.5 truncate font-display text-[34px] leading-none text-text-bright">
               {profile.nickname}
             </h1>
             <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1 text-sm text-text-secondary">
@@ -65,7 +65,7 @@ export function ProfileHeader({
 
         {/* The selector alone on the right of the identity row. The four headline numbers used to sit
             under it, which is what pushed the trophies down to a row of their own — see below. */}
-        <label className="shrink-0 font-heading text-xs uppercase tracking-wider text-text-secondary lg:w-[220px]">
+        <label className="shrink-0 font-heading text-xs text-text-secondary lg:w-[220px]">
           League
           <select
             value={conf ?? ""}
@@ -139,8 +139,8 @@ export function ProfileHeader({
 function Headline({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-left">
-      <dd className="font-display text-[22px] leading-none tracking-wider text-text-bright">{value}</dd>
-      <dt className="mt-1 font-heading text-[9px] uppercase tracking-wider text-text-dim">{label}</dt>
+      <dd className="font-display text-[22px] leading-none text-text-bright">{value}</dd>
+      <dt className="mt-1 font-heading text-[9px] text-text-dim">{label}</dt>
     </div>
   );
 }

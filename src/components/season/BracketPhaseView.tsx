@@ -121,8 +121,8 @@ export function BracketPhaseView({
           .map(column => (
             <div key={column[0].matchDay}>
               <div className="mb-2 flex items-baseline gap-2">
-                <span className="font-display text-[15px] tracking-widest text-text-bright">
-                  ROUND {column[0].matchDay}
+                <span className="font-display text-[15px] text-text-bright">
+                  Round {column[0].matchDay}
                 </span>
                 <span className="text-[10px] text-text-dim">
                   {columnDate(column.map(n => n.match))}
@@ -312,8 +312,8 @@ function BracketCanvas({
               className="absolute top-0"
               style={{ left: padL + index * (COLUMN_W + COLUMN_GAP), width: COLUMN_W }}
             >
-              <div className="font-display text-[14px] tracking-widest text-text-bright">
-                ROUND {column[0]?.matchDay ?? index + 1}
+              <div className="font-display text-[14px] text-text-bright">
+                Round {column[0]?.matchDay ?? index + 1}
               </div>
               {/* The date, not the season day: that number is an internal ordinal, and a reader
                   seeing "Day 14" next to "Round 4" reads it as a contradiction. */}

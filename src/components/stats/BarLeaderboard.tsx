@@ -11,8 +11,10 @@
  * inline copy is gone.
  */
 
+import type { ChampionLookup } from "../../lib/championData";
 import { MEDAL_COLORS } from "../../lib/statUi";
 import { teamGradient } from "../../lib/teamStyle";
+import { ChampionIcon } from "../ChampionIcon";
 import { PlayerLink } from "../profile/PlayerLink";
 
 export interface BarLeaderboardRow {
@@ -45,6 +47,12 @@ export interface BarLeaderboardRow {
    */
   colorEnd?: string;
   logo?: string;
+  /**
+   * A champion reference (id, alias or name) when the row is about a champion. Drawn as a clipped
+   * tile through `ChampionIcon` with `logo` as the served artwork; rows without one show `logo` as a
+   * crest. Needs the board's `champions` lookup to resolve a name.
+   */
+  champion?: string | number | null;
 }
 
 interface Props {
@@ -65,6 +73,8 @@ interface Props {
   selectedKeys?: readonly string[];
   selectColors?: readonly string[];
   onSelect?: (key: string) => void;
+  /** The champion lookup, for rows that carry a `champion`. */
+  champions?: ChampionLookup | null;
 }
 
 export function BarLeaderboard({
@@ -79,6 +89,7 @@ export function BarLeaderboard({
   selectedKeys,
   selectColors,
   onSelect,
+  champions = null,
 }: Props) {
   // Scaled on absolute value so a signed stat is zero-centerd: a −400 gold diff has to draw as a
   // short bar, not the longest one on the board. Non-finite values (a deathless KDA) are pinned to
@@ -88,8 +99,8 @@ export function BarLeaderboard({
   return (
     <div className={`bg-bg2 border border-border rounded-lg ${isMobile ? "px-3 py-4" : "px-5 py-5"}`}>
       <div className="flex justify-between items-baseline mb-1">
-        <h3 className="font-display text-base text-text-bright tracking-widest m-0">{title}</h3>
-        {badge && <span className="text-[10px] text-text-dim font-heading tracking-wider">{badge}</span>}
+        <h3 className="font-display text-base text-text-bright m-0">{title}</h3>
+        {badge && <span className="text-[10px] text-text-dim font-heading ">{badge}</span>}
       </div>
       {note && <p className="text-[11px] text-text-dim mb-4">{note}</p>}
 
@@ -139,7 +150,17 @@ export function BarLeaderboard({
                     isMobile ? "min-w-[104px] max-w-[104px]" : "min-w-[176px] max-w-[176px]"
                   }`}
                 >
-                  {row.logo ? (
+                  {row.champion != null ? (
+                    <ChampionIcon
+                      champion={row.champion}
+                      lookup={champions}
+                      src={row.logo}
+                      size={28}
+                      tile
+                      decorative
+                      className="flex shrink-0"
+                    />
+                  ) : row.logo ? (
                     <img
                       src={row.logo}
                       alt=""
@@ -199,7 +220,7 @@ export function BarLeaderboard({
                 {selectedKeys && (
                   <span
                     className="w-2 shrink-0 rounded-full"
-                    style={{ height: 16, background: selected ? selectColors?.[slot] ?? "var(--accent)" : "transparent" }}
+                    style={{ height: 16, background: selected ? selectColors?.[slot] ?? "var(--brand)" : "transparent" }}
                   />
                 )}
               </>

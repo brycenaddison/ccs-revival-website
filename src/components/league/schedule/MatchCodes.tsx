@@ -398,7 +398,7 @@ function CodeRow({
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-heading text-[10px] tracking-wider uppercase text-text-dim w-12 shrink-0">
+        <span className="font-heading text-[10px] text-text-dim w-12 shrink-0">
           Game {entry.game}
         </span>
         {/*

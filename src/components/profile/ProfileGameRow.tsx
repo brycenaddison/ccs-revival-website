@@ -74,6 +74,7 @@ export function ProfileGameRow({ game }: { game: ProfileGame }) {
             src={game.champImg}
             name={game.champ}
             size={24}
+            tile
             decorative
             className="flex shrink-0"
           />
@@ -82,7 +83,7 @@ export function ProfileGameRow({ game }: { game: ProfileGame }) {
               {game.champ ?? "Unknown"}
             </span>
             {game.role && (
-              <span className="block truncate font-heading text-[9px] uppercase tracking-wider text-text-secondary">
+              <span className="block truncate font-heading text-[9px] text-text-secondary">
                 {roleLabel(game.role)}
               </span>
             )}
@@ -108,7 +109,7 @@ export function ProfileGameRow({ game }: { game: ProfileGame }) {
 export function GameRowHeader() {
   return (
     <div
-      className={`${GAME_GRID} border-t border-border/40 bg-bg3/40 px-3 py-1 font-heading text-[9px] uppercase tracking-wider text-text-dim`}
+      className={`${GAME_GRID} border-t border-border/40 bg-bg3/40 px-3 py-1 font-heading text-[9px] text-text-dim`}
     >
       <span>Champion</span>
       <span className="text-center">K/D/A</span>

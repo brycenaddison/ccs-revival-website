@@ -284,7 +284,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
 
       {view === "bars" ? (
         <StatBars
-          subject="PLAYERS"
+          subject="Players"
           rows={eligible}
           catalog={catalog}
           statKey={barStat}

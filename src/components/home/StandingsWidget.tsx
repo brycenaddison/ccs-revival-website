@@ -79,7 +79,7 @@ export function StandingsWidget({ confs }: Props) {
               key={c}
               type="button"
               onClick={() => setConfPick(c)}
-              className={`shrink-0 cursor-pointer border-none bg-transparent p-0 font-heading text-[11px] uppercase tracking-wider ${
+              className={`shrink-0 cursor-pointer border-none bg-transparent p-0 font-heading text-[11px] ${
                 c === conf ? "text-text-bright" : "text-text-muted"
               }`}
             >
@@ -137,7 +137,7 @@ function ConfPanel({ conf }: { conf: string }) {
             <button
               key={`${g.ordinal}-${g.name}`}
               onClick={() => setGroupName(g.name)}
-              className={`flex-1 cursor-pointer border-none py-2.5 font-display text-[13px] tracking-widest ${
+              className={`flex-1 cursor-pointer border-none py-2.5 font-display text-[13px] ${
                 g.name === group.name
                   ? "border-b-2 border-b-brand bg-bg-input text-text-bright"
                   : "border-b-2 border-b-transparent bg-transparent text-text-muted"
@@ -149,8 +149,8 @@ function ConfPanel({ conf }: { conf: string }) {
         </div>
       ) : (
         <div className="border-b border-border px-4 py-3">
-          <span className="font-display text-[15px] tracking-widest text-text-bright">
-            {(usingGroups ? phase?.name ?? "STANDINGS" : "STANDINGS").toUpperCase()}
+          <span className="font-display text-[15px] text-text-bright">
+            {usingGroups ? phase?.name ?? "Standings" : "Standings"}
           </span>
         </div>
       )}
@@ -165,7 +165,7 @@ function ConfPanel({ conf }: { conf: string }) {
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th className="border-b border-border px-3 py-2 text-left font-heading text-[10px] font-normal tracking-wider text-text-muted">
+            <th className="border-b border-border px-3 py-2 text-left font-heading text-[10px] font-normal text-text-muted">
               TEAM
             </th>
             <th className="whitespace-nowrap border-b border-border px-3 py-2 text-right font-heading text-[10px] font-normal text-text-muted">
@@ -206,7 +206,7 @@ function ConfPanel({ conf }: { conf: string }) {
                       </span>
                       {row.scenario && (
                         <span
-                          className="truncate font-heading text-[8px] font-bold uppercase tracking-wider"
+                          className="truncate font-heading text-[8px] font-bold "
                           style={{ color: tone?.fg }}
                           title={row.tied ? "Tied on rank — not settled yet" : row.scenario.subtitle || undefined}
                         >

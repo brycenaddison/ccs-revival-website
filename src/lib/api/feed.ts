@@ -111,7 +111,12 @@ export interface MatchOutcome {
  * round is called on screen.
  */
 export interface FeedMatch {
-  scheduleMatchId: number;
+  /**
+   * The fixture, or **null on a legacy row**: a conference with no phases is served from the `series`
+   * view, which has games and no fixtures. Null means "no match page to link to"; `feedMatchKey` is
+   * the stable identity in either case.
+   */
+  scheduleMatchId: number | null;
   conf: string;
   /** `tournaments.name`, so a mixed list can say which league a row belongs to. */
   league: string;
@@ -126,11 +131,12 @@ export interface FeedMatch {
    * a row falls back to `shortname`, then `league`.
    */
   codename: string | null;
-  phaseId: number;
-  phase: string;
-  phaseKind: PhaseKind;
+  /** All three null on a legacy row, where there is no phase to place the series in. */
+  phaseId: number | null;
+  phase: string | null;
+  phaseKind: PhaseKind | null;
   seasonDay: number;
-  /** Phase-relative, 1-based. */
+  /** Phase-relative, 1-based. Equal to `seasonDay` on a legacy row. */
   matchDay: number;
   kind: MatchKind;
   bestOf: number;
@@ -387,17 +393,26 @@ function mapOutcome(raw: unknown): MatchOutcome | null {
   };
 }
 
+/**
+ * A row's identity, for keys and de-duplication: the fixture id when there is one, else the `series`
+ * view's own grouping key, which is what a legacy row *is*.
+ */
+export function feedMatchKey(m: FeedMatch): string {
+  if (m.scheduleMatchId !== null) return `fixture-${m.scheduleMatchId}`;
+  return `series-${m.conf}-${m.seasonDay}-${m.teamA?.code ?? "?"}-${m.teamB?.code ?? "?"}`;
+}
+
 function mapFeedMatch(raw: unknown): FeedMatch {
   const m = asRaw(raw);
   return {
-    scheduleMatchId: int(m.scheduleMatchId),
+    scheduleMatchId: intOrNull(m.scheduleMatchId),
     conf: str(m.conf),
     league: str(m.league),
     shortname: strOrNull(m.shortname),
     codename: strOrNull(m.codename),
-    phaseId: int(m.phaseId),
-    phase: str(m.phase),
-    phaseKind: phaseKind(m.phaseKind),
+    phaseId: intOrNull(m.phaseId),
+    phase: strOrNull(m.phase),
+    phaseKind: m.phaseKind == null ? null : phaseKind(m.phaseKind),
     seasonDay: int(m.seasonDay, 1),
     matchDay: Math.max(1, int(m.matchDay, 1)),
     kind: matchKind(m.kind),

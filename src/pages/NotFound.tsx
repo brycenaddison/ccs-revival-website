@@ -43,10 +43,10 @@ export default function NotFound() {
   return (
     <PageShell maxWidth={720}>
       <div className="mx-auto mt-16 max-w-[500px] px-5 text-center">
-        <span className="font-display block text-[64px] leading-none tracking-widest text-text-dim">
+        <span className="font-display block text-[64px] leading-none text-text-dim">
           404
         </span>
-        <h1 className="font-display mt-3 mb-2 text-[26px] tracking-widest text-text-bright">
+        <h1 className="font-display mt-3 mb-2 text-[26px] text-text-bright">
           PAGE NOT FOUND
         </h1>
 
@@ -65,7 +65,7 @@ export default function NotFound() {
             links here would be the same choice offered twice. */}
         <Link
           to="/"
-          className="font-heading inline-block rounded-md bg-brand px-7 py-3 text-sm font-medium tracking-wider text-white uppercase no-underline"
+          className="font-heading inline-block rounded-md bg-brand px-7 py-3 text-sm font-medium text-white no-underline"
         >
           Back to home
         </Link>

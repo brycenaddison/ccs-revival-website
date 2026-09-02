@@ -46,7 +46,7 @@ you find it wrong, fix it in the same change.
 | `static/` | Vite's configured `publicDir`: favicon files, Apple touch icon, Android/PWA icons, and `site.webmanifest`. Assets here are served and copied to the build root. |
 
 Routes: `/` + the non-standalone `TABS` paths → `Home`; `/scores`, `/schedule`, `/stats`, `/info`,
-`/teams/:conf/:code`, `/match/:id`, `/game/:matchId`, `/players/:profileId`, `/register`, `/login`,
+`/teams/:conf/:code`, `/match/:id`, `/game/:matchId` and `/game/:matchId/:tab`, `/players/:profileId`, `/register`, `/login`,
 `/setup`, `/team-invitations`, `/my-applications`, `/settings/:section?`, `/admin/:section?`,
 `/league/:conf/admin/:section?`, `*` →
 `NotFound`. The whole tree sits inside `SetupGate`, which holds a signed-in user with an incomplete
@@ -67,14 +67,26 @@ Three route groups, and the group is what decides a page's chrome:
   `ScoreboardTicker` itself.
 - **`SiteLayout`** — the same chrome without the strip: `/setup`, `/players/:profileId`,
   `/news/:slug`, `/register`, `/team-invitations`, `/my-applications`, `/settings`, `/admin`,
-  `/league/:conf/admin`, `/content`, and `*`. `/register` moved here from `BareLayout` when it stopped being a signpost and
-  became the application form: it is reached from a nav button now, and a page you arrive at from the
-  nav should not delete the nav.
-- **`BareLayout`** — `/match/:id`, `/game/:matchId`, `/teams/:conf/:code`, `/login`.
-  These render no nav and no footer at all — each draws its own header with a back button
-  (`useBackNavigation`) — so they must **not** be moved under `SiteLayout`, which would give them a
-  second header and a content column they don't want. `BareLayout` exists to give their lazy chunks
-  a `<Suspense>` boundary and nothing else.
+  `/league/:conf/admin`, `/content`, `/teams/:conf/:code`, `/match/:id`, `/game/:matchId` (+ `/:tab`),
+  and `*`. The last three were full-bleed pages with their own header until 2026-09-02; they wear the
+  nav now because a reader arriving from a Discord embed or a shared link had no way to the rest of the
+  site. Each keeps a small back link (`useBackNavigation`) at the top of its content and declares its
+  width through `PageShell`.
+- **`BareLayout`** — `/login` only. It renders no nav and no footer; `BareLayout` exists to give its
+  lazy chunk a `<Suspense>` boundary and nothing else.
+
+`/game/:matchId` is the **match viewer** (`pages/GameDetail.tsx`), and its bare path is fixed twice
+over: eight in-app links point at it and the bot's Discord embeds link `FRONTEND_URL/game/:matchId`.
+Its four tabs (`lib/game/tabs.ts`: Scoreboard, Graphs, Builds, Timeline) are URL segments, because the
+repo's tabs are `<Link>`s with `aria-current` and a tab's address should be shareable; the bare path
+is the Scoreboard. The tab links navigate with `replace`, so flipping tabs adds no history and one
+Back press leaves the viewer for wherever it was opened from. The page owns every fetch (`matchData`, `matchTimeline`, `gameContext`) and every
+Community Dragon lookup, and hands them down through `components/game/GameView.tsx`
+(`useGameView()`); the tabs never fetch, and three of them are lazy chunks because chart.js lives in
+two. A `null` timeline is normal (Riot's retention window) and costs the Builds and Timeline tabs
+their minute-by-minute data, never the page. A `null` context, which is every game until
+`GET /m/:matchId/context` exists upstream (`API-GAP-ANALYSIS.md` §20), costs the team headers and the
+profile links and nothing else.
 
 The browser says `players` where the API says `profiles`: the public concept is a player, while
 `profile` stays the server's durable identity model.
@@ -89,7 +101,8 @@ Import from the barrel: `import { … } from "../lib/api"` (`index.ts` re-export
 | `credentialed.ts` | **Signed-in** transport. `credentialedRequest(path, {method, body})`, `SaveRejected`, `issuesOf`, `ValidationIssue`. Sends `credentials: "include"`; the JSON content type is the CSRF defense, not decoration. A `422` becomes `SaveRejected` carrying field-pointer issues. |
 | `normalize.ts` | Boundary coercion: `num`, `numOrNull`, `ratio`, `fmtPct`, `fmtRatio`, `fmtSec`, `hexFromInt`/`intFromHex` (and its pure-black nudge), `colorSecondaryOf` (the optional-key spread every team mapper uses), `lighten`, `httpsUrl`, `sortValue`, plus the role vocabulary (`ROLE_ORDER`, `normalizeRole`, `roleLabel`, `sortByRole`). |
 | `client.ts` | Public reads: tournaments, teams, standings, stats, records, match data. |
-| `feed.ts` | The public fixture feed + one series in full (`scheduleFeed`, `matchResult`). |
+| `feed.ts` | The public fixture feed + one series in full (`scheduleFeed`, `matchResult`). **A conference with no phases is served from the `series` view**, so a `FeedMatch` can carry `scheduleMatchId: null` and null phase fields: no match page to link to, and `feedMatchKey` (fixture id, else the series key) is the identity every list keys and de-duplicates on. |
+| `game.ts` | One game for the match viewer: `matchData` and `matchTimeline` are **pass-throughs** of Riot's documents (typed in `lib/riot/matchV5.ts`, envelope-checked by `isRenderableMatch`, never mapped), and `gameContext` is the league's context for them (conference, fixture, `TeamMetadata` per code, puuid → `profileId`). All three answer JSON `null` for a game that is not stored. **`/m/:matchId/context` does not exist upstream yet**; `getOne` resolves its `404` to `null` and the viewer degrades to Riot IDs and "Blue side" / "Red side". |
 | `profiles.ts` | The player-profile surface. `GET /profiles/:id/accounts` is the only public read that hits Riot at request time, so entries degrade one at a time and `ranked: null` (Riot declined) is not `ranked: []` (unranked). `GET /profiles/:id?conf=` is the whole `/players/:id` page in one request. Three of its shapes are easy to get wrong: `career.teams` carries full `TeamRecord`s (mapped with `client.ts`'s `mapTeamRecord`, not a second mapper) while opponents carry compact `TeamMetadata`; `opponent` is the **object** and `opponentCode` the string, on games, series and personal bests alike; and `career.laneMatchups` is **per conference and never merged**, so `(conf, profileId)` identifies a row. `accolades` is career-wide *even when `?conf=` scopes the statistics*. It also owns the player-owned account writes: `unverifiedAccounts` are **claims, not identity** (display and the OP.GG link only — the same account may be claimed by several profiles until one proves it), and `checkIconVerification` returns upstream's `410`/`429`/`404` refusals **as values** rather than throwing, because those bodies carry a status and no readable message. It also owns `searchProfiles` — the **public** `GET /profiles/search`, whose optional `conf` narrows to profiles a published team in that conference references, and therefore *excludes* anyone unrostered rather than ranking them lower. |
 | `uploads.ts` | `POST /uploads/images`. **The one write with its own `fetch`**, and it has to be: the route takes the raw file bytes as the body and reads the image type off `Content-Type`, which is exactly what `credentialed.ts` cannot do. Exports `uploadImage`, `UploadRejected` (every refusal already worded for a person — 5 MB, wrong type, 20/hour quota, storage unconfigured), and the type/size mirrors the picker filters against. |
 | `info.ts` | League Info documents: public `GET /:conf/info`, draft-aware `GET /:conf/info/manage`, and complete-document `PUT /:conf/info`. Ordered quick links plus Markdown; writes require full admin access to that conf. **`rulebookUrl` is a required first-class field, not a quick link** — it cannot be identified by matching a label an editor can rename. The team application form does *not* read it from here: it comes off `GET /tournaments/applications/open`, which ignores publication (see `teamApplications.ts`). Upstream matches keys exactly, so `LeagueInfoInput` has to stay in lockstep with the server's `BODY_KEYS`. The document also stores **`applicationBody`**, the "before you apply" Markdown — the one key upstream treats as optional (absent reads as `null`), which is exactly why `LeagueInfoInput` makes it **required**: two editors write this document, and a `PUT` that omitted it would erase the other editor's field. |
@@ -99,6 +112,7 @@ Import from the barrel: `import { … } from "../lib/api"` (`index.ts` re-export
 | `admin.ts` | Site-admin surface: `/admin/users`, `/admin/leagues`. The clearest small example of the write idiom — read it before adding a new mutating module. `GET /admin/leagues` is the **unfiltered** league list; `LeagueEdit.listed` is typed as the literal `false`, because upstream refuses `true` there. Also the season's two lifecycle switches, **site-admin only**: `setApplicationsOpen` (`PATCH /admin/leagues/:conf/applications`) and `listSeason` (`POST /admin/leagues/:conf/list`). They used to sit on `/tournaments` behind a conference `admin` grant; the old paths answer `404`. Their `409`s use the application surface's envelope, so `refusalOf` reads them. |
 | `teamAdmin.ts` | League Admin → Teams writes: `POST /tournaments/:conf/teams` and `PATCH .../:id`, `roster` scope. **Neither route exists upstream yet** — the contract is `league-admin-teams-api-spec.md`, and the module is written ahead of it (§17). No read of its own: public `GET /teams/:conf` already carries every editable column, and both writes answer that same shape, so they reuse `mapTeamRecord`. Create is a complete strict document, edit is a partial patch — the two halves of that editor save on different schedules and a `PUT` would let a roster save clobber branding. |
 | `teamApplications.ts` | The upcoming-season workflow: applicant drafts, Discord invitations, roster review, the publication command, and `applicationIntake` — the **`roster`-readable** `GET /tournaments/:conf/applications/intake` (`{conf, applicationsOpen, listed, teamsPublishedAt}`), which exists because the public tournament list cannot describe a hidden season and `/admin/leagues` would `403` a league admin. Everything here is `roster` scope; the intake and listing *switches* are `admin.ts`'s. Exports `refusalOf`, which lifts `issues` off a `409` — every refusal on this surface answers one shape, `{status, error, issues?}`, so `error` rides in `ApiError.detail` and there is nothing left to translate. `InvitationInput` takes **exactly one** of `discordUserId` (a new invitee, guild membership rechecked) or `profileId` (somebody already on the roster — the only way to change their position). `confName` is served flat because an application only exists while its conference is hidden. `ApplicationSeason` carries **`rulebookUrl`** and **`applicationBody`**, both copied off the Info document: the former is where the applicant form links its rules confirmation, the latter is the Markdown `pages/Register.tsx` renders above the form — the public Info read is published-only and intake routinely opens for a league whose Info page is still a draft. |
+| `phaseRef.ts` | `PhaseRef`, its mapper, and `placementLabel` (the one rule for saying where a game sat: round number, then the operator's round name, then "Day n of m", then the week fallback). Its own module because both `profiles.ts` and `client.ts` (the team matchlist) need it and `profiles.ts` already imports `client.ts`. |
 | `accolades.ts` | Reusable accolade definitions (site-wide or conf-owned) and the occurrences issued under them. Both write documents are exact-key, so there is no partial patch. A **team** award sends no profile list — the server expands that team's current roster. |
 | `auth.ts` | `/auth/me`, login/logout, `SITE_ADMIN_ROLE`, `Identity`, `SessionProfile`, `AdminLeague`, `AccountVerificationMethods`. The last is configuration, not permission: a method whose settings are missing answers 404 or 503, so a control that starts one is rendered from these flags and absence reads as off. |
 | `league.ts` | Conf helpers: `sortByRecency`, `recencyKey`, `resolveActive` (the set *and* the `ActiveSource` that produced it; `resolveActiveConfs` is the set alone), `forEachConf`. |
@@ -116,7 +130,9 @@ draft-backed editors also set `refetchOnWindowFocus: false`).
 
 `useLeagueData` (teams/standings for a conf selection, plus `findTeam`), `usePlayers`,
 `useSeason`, `useScheduleFeed` / `useFeedQuery` (+ `MINUTE_MS`/`HOUR_MS`/`DAY_MS`),
-`useChampions`, `useWindowSize`, `useDebounced`, `useDragScroll`, `useGoBack`.
+`useChampions`, `useGameAssets` (items and spells), `useRunes`, `useChampionAbilities` (per champion,
+Builds tab only), `useThemeColors` (the theme's tokens as strings, for a canvas), `useWindowSize`,
+`useDebounced`, `useDragScroll`, `useGoBack`.
 Match and game detail pages use `useBackNavigation(fallback)` so their button says Home on a
 cold/direct arrival and Back when it can preserve useful in-app navigation.
 
@@ -136,12 +152,29 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   `lib/staleChunk.ts` listens for Vite's `vite:preloadError` and reloads once (guarded by URL and
   time in `sessionStorage`) before the boundary ever sees it, and `deploy.yml` keeps the previous
   build's `/assets/` on the server for seven days so an open tab rarely hits it at all.
+  **The content scrolls, not the document.** The wrapper is `h-dvh`, the ticker and nav are fixed
+  chrome, and the box under them is the scroll container, so its scrollbar never changes the nav's
+  width; with document scrolling the nav's centered tabs and right-hand controls slid a few pixels on
+  every navigation between a page that scrolled and one that fit, and `scrollbar-gutter: stable` left
+  a visible strip beside the nav instead. The ticker therefore never scrolls away, and on mobile the
+  nav is always in reach. Three consequences: nothing may assume the window is the scroller (there is
+  no `window.scrollTo` anywhere today; keep it that way, or find the scroller); a page's own `sticky`
+  element offsets itself from the top of the scroller, never by a nav height, because nothing scrolls
+  under the nav; and `FullBleedScroller` measures its breakout against the nearest scrolling
+  ancestor's `clientWidth`, not the document's, or it runs under the bar. The mobile browser's toolbar
+  no longer collapses on scroll, which is the price; `h-dvh` is what keeps the wrapper the viewport's
+  height when the toolbar changes it anyway.
 - `layout/PageShell.tsx` — `<PageShell maxWidth={1280} extraBottom>`. Still the wrapper every page
   renders, but it draws nothing: it publishes the column width and extra bottom padding up to
   `SiteLayout` through `PageColumnContext` (a `useLayoutEffect`, so the column never paints at the
   previous page's width). Those two values are why the chrome wasn't a layout route before — Home is
   wider than Stats, and Stats' padding depends on its compare-dock selection. A page still adds the
   chrome by being routed under a `SiteLayout`; don't hand-roll either half.
+- `layout/FullBleedScroller.tsx` — a horizontal scroller that breaks out to the window edges when its
+  content is wider than the column, puts the page gutters back inside as padding, hides the native bar
+  and draws `ScrollRail` in the column. The bracket's arrangement, lifted out; the scoreboard wears it.
+  Anything wide enough to scroll sideways inside a page column should use it rather than an
+  `overflow-x-auto` box, which clips at the column's right margin.
 - `auth/RequireAuth.tsx` — `<RequireAuth roles={[…]} allow={boolean|null}>`. `allow: null`
   means "still resolving" and holds the checking state. Also exports `NoticePanel`.
 - `settings/SettingsShell.tsx` — the sidebar + mobile drill-down shell shared by all three
@@ -198,7 +231,14 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   `secondaryHex` — the chosen secondary only, never the derived stop — so a team without one keeps
   the primary-to-transparent fade it always had, and `StatBars` clears it in `colorBy="value"` mode.
   Don't write a bare `linear-gradient` for a team.
-- `ChampionIcon.tsx` — **the only way a champion's square icon reaches the screen.** Takes either an
+- `ChampionIcon.tsx` — **the only way a champion's square icon reaches the screen.** Its `tile` prop
+  is the clipped, lifted, 20%-zoomed treatment that hides the border Riot bakes into the square; every
+  champion drawn as a standalone tile (game rows, ban strips, leaderboard rows, highlight chips, the
+  stat table heads, the timeline's player picker) uses it, and only an icon inline in a sentence does
+  not. The radius and the lift scale with the size through `lib/tile.ts`, which `game/RiotIcons.tsx`
+  shares, so a 16px ban chip and a 48px item well never carry the same shadow. **Never put
+  `overflow-hidden` on the wrapper of a tile**: it clips the lift, which is how the team page's game
+  rows came to have none. Takes either an
   API-served URL (`src`) or an id/name plus the `useChampions()` lookup; both resolve to the same
   Community Dragon URL, which is the point. Pass `championId` even when `src` is available: Riot's
   `-1` means "no ban", and the component uses that id to override the broken normal-champion URL with
@@ -235,23 +275,61 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   list rather than repeated per row — the two-row version wasted its top row on whitespace and shrank
   the numbers past legibility. `GAME_GRID` is shared by the header and the rows; change one, change
   both.
-- `gameAssets.ts` + `useGameAssets()` — Community Dragon item and summoner-spell lookups, built the
-  same way as `championData.ts`/`useChampions()`. **Deliberately unused right now**: nothing on the
-  site shows a build, because the API has no item or spell columns and the only source is the raw
-  Riot payload behind `GET /m/:matchId`. Kept for when one is shown again — don't delete them as
-  dead code, and don't write a bare `<img>` for an item or a spell any more than for a champion.
-- `Markdown.tsx` — the shared safe renderer for native article bodies and league Info pages. It uses
-  `remark-gfm` for pipe tables, autolinks, task lists and strikethrough; raw HTML stays disabled. Do
-  not introduce a second Markdown policy in a feature folder.
+- `game/` — the match viewer. `RiotIcons.tsx` is **the only way an item, summoner spell, rune, lane or
+  ability icon reaches the screen**, over the lookups in `lib/gameAssets.ts` (items, spells),
+  `lib/runeData.ts` and `lib/championAbilities.ts`, all Community Dragon `latest` through
+  `lib/riot/cdragon.ts`; don't write a bare `<img>` for any of them any more than for a champion.
+  **Two Community Dragon hosts, and which one is not a choice**: the routed `cdn.` host answers by id
+  (champion squares, centered splashes, ability icons, profile icons) and is preferred wherever it has a
+  route; the `raw.` tree is for the things it has no route for (the champion manifest, items, summoner
+  spells, runes, lane icons, ranked crests), each with an `iconPath` rewrite. `cdragon.ts` names both.
+  `RiotText.tsx` renders Riot's description markup (`<attention>`, `<passive>`, `<br>`) as React spans
+  by tokenizing it; nothing here uses `dangerouslySetInnerHTML`. `lib/game/participants.ts` is the one
+  place the Riot-ID fallback for a name is decided, so a linked and an unlinked player read alike on
+  every tab. `scoreboard/density.ts` is the one table of sizes for the three scoreboard densities
+  **and owns the board's grid template**: from `md` up every row, header and footer is a
+  `grid-cols-subgrid` child of one seven-track grid, which is what puts the two column switchers over
+  the columns they drive. Do not rebuild a row out of flex cells. One layout at every width: below
+  `md` the icons and type shrink (`DENSITY.sm`) and the name track, the grid's one flexible track,
+  gives way down to a floor; then the three stat tracks (`minmax(max-content, colPx)`) give up the
+  space around their content, and only then does the board scroll. That order depends on the grid
+  being `min-w-min` and the scroller's wrapper being `w-min`; a max-content floor on either pins the
+  stat tracks at full width and buys a scrollbar instead. A block's numbers (K/D/A, gold, objectives,
+  bans) are its `TeamFooter`, beneath the rows, not its header. Champion splashes (`ChampionSplashArt.tsx`) come from
+  the routed CDN by id and have **no icon fallback**; an id the CDN lacks is an empty tile. The
+  Timeline tab's state (graph, stat, selected and hovered players, hidden event types, focused
+  minute) is one context in `timeline/TimelineTab.tsx`. **Map sides are colored with `side-blue` and
+  `side-red` and nothing else** (`text-side-blue`, `bg-side-red/20`, `ring-side-blue`); `ccs-red` is
+  the brand and is wrong for "red side". The two charts read those tokens as strings through
+  `useThemeColors` because a canvas cannot take a class.
+- `Markdown.tsx` — the shared safe renderer for native article bodies, league Info pages and
+  application notes. It uses `remark-gfm` for pipe tables, autolinks, task lists and strikethrough; raw
+  HTML stays disabled. Styling is the typeset (`src/typeset.css`, presets in `index.css`), chosen by
+  the `preset` prop; the renderer overrides only links (new tab), images (lazy) and tables, which keep
+  the site's own full-width ruled treatment with a filled bold header row because typeset's bare table
+  read as loose prose. Do not introduce a second Markdown policy in a feature folder.
 - `match/SeriesTotals.tsx` — series totals and player leaders reduced from the loaded game box scores.
   Rate and efficiency leaders (including damage per gold) use aggregate player totals, not averages of
   per-game rates.
 - `match/BanIcons.tsx` — renders every ban slot a payload supplies and deliberately preserves champion
   `-1`, which `ChampionIcon` turns into the no-ban artwork. Both the season-result payload behind
   `/match/:id` and the team matchlist preserve skipped-ban entries.
-- `match/MatchResultList.tsx` — the shared team-perspective game row used by a match's Preview tab and a
-  team page's Match History: result, opponent, picks, bans, K/D/A, duration, date and side. Callers own
-  ordering and truncation. Its draft strip is a fixed-column grid; narrow rows abbreviate Picks/Bans and
+- `match/TeamMatchHistory.tsx` — a team's matchlist grouped into series cards in the profile page's
+  shape: score chip, "vs", opponent chip with logo and full name, placement and date; the team's own
+  name is not repeated on its own page. The header links to the series page and names the phase and
+  round. Every matchlist row serves `scheduleMatchId` and `phase` (§21 of `API-GAP-ANALYSIS.md`,
+  resolved 2026-09-02), so a series is keyed on its fixture id and labeled from its phase with no
+  second read; both are `null` on a legacy season's rows and the grouping then falls back to
+  `(seasonDay, opponent)`. The component used to rebuild both by joining the rows to
+  `GET /tournaments/:conf/schedule`; don't bring that back, since only the server can reach a bracket
+  round. Each game is one dense row and one anchor (`TeamGameRow`): draft, K/D/A, gold
+  difference at 14, objectives, duration, side. `MatchResultList` remains the row for the series
+  preview's recent games.
+- `match/SeriesGameCard.tsx` — one game of a best-of on `/match/:id`. Its header is the link to the
+  viewer ("View match details"); the sides are captioned by team and a large Victory / Defeat, never by
+  blue and red. Every champion in it is a `ChampionIcon` tile.
+- `match/MatchResultList.tsx` — the shared team-perspective game row used by a match's Preview tab:
+  result, opponent, picks, bans, K/D/A, duration, date and side. Callers own ordering and truncation. Its draft strip is a fixed-column grid; narrow rows abbreviate Picks/Bans and
   hide objectives before falling back to scrolling. Do not reintroduce wrapping: the side and objective
   columns must align across results. The list is a Tailwind `@container`: at `@4xl` its existing elements
   collapse into one dense row, which keeps the full-width team history from looking stretched while the
@@ -623,8 +701,9 @@ rewrite a sentence that has one, take it out.
   card is clipped without the portal. A destructive confirmation is `ConfirmButton`, which composes
   `ui/alert-dialog` so a call site stays one element.
 - **Prefer a stylized shadcn/ui primitive over hand-written markup, and add the primitive when it
-  doesn't exist yet.** `src/components/ui/` is deliberately thin — today only `button.tsx` and
-  `alert-dialog.tsx` — but that is a gap, not a policy. When a control has a shadcn template that
+  doesn't exist yet.** `src/components/ui/` is deliberately thin — today `button.tsx`,
+  `alert-dialog.tsx`, `tooltip.tsx`, `checkbox.tsx`, `popover.tsx`, `select.tsx` and `sheet.tsx` — but
+  that is a gap, not a policy. When a control has a shadcn template that
   fits (dialog, dropdown-menu, select, tabs, tooltip, popover, checkbox, switch, input, table,
   sheet, accordion, badge, skeleton, …), copy that template into `components/ui/` and use it rather
   than assembling the same behavior out of `<div>`s and class strings. The registry versions carry
@@ -647,11 +726,30 @@ rewrite a sentence that has one, take it out.
 - Tailwind utilities only, against the `@theme` tokens — no raw hex, no inline color styles.
   Available: `bg`/`bg2`/`bg3`/`bg-input`, `border`/`border2`/`border3`,
   `text`/`text-bright`/`text-secondary`/`text-muted`/`text-dim`/`text-subtle`,
-  `accent`/`accent-light`, `ccs-green`/`ccs-red`/`ccs-gold`/`ccs-blue`/`ccs-orange`/`ccs-purple`.
-  Fonts: `font-display` (Bebas Neue), `font-heading` (Oswald), `font-body` (Source Sans 3),
-  `font-mono` (JetBrains Mono). Both themes must work — that's what the tokens are for.
-- Section headings are `font-display text-[22px] text-text-bright tracking-widest` with
-  uppercase literal text. Nav/label surfaces are `font-heading text-sm tracking-wider uppercase`.
+  `accent`/`accent-light`, `ccs-green`/`ccs-red`/`ccs-gold`/`ccs-blue`/`ccs-orange`/`ccs-purple`, and
+  `side-blue`/`side-red` for the two sides of the map (a place, not a semantic; `ccs-red` is the brand).
+  Fonts: **Geist everywhere, Geist Mono for numbers and ids**, self-hosted through
+  `@fontsource-variable/geist` and `@fontsource-variable/geist-mono`, imported at the top of
+  `index.css` (families `'Geist Variable'`, `'Geist Mono Variable'`). The four role tokens are
+  unchanged and still mean what they did: `font-display` is a section heading, `font-heading` a nav
+  label or caption, `font-body` prose, `font-mono` a number. The two heading roles carry their default
+  weight (650 and 500) and tracking in an `@layer components` block near the foot of `index.css`, so an
+  explicit `font-bold` on an element still wins; never pin a weight with `font-variation-settings`,
+  which would not let it. Never write a family name in a component; a canvas reads the stack through
+  `useThemeColors().fontBody`. Body text is grayscale-antialiased in `index.css`. Both themes must
+  work — that's what the tokens are for. `shadow-tile` is the lift under every game-asset icon.
+- **Rendered Markdown is styled by shadcn's typeset**, `src/typeset.css`, imported after Tailwind and
+  kept unedited. `components/Markdown.tsx` renders plain elements inside `typeset typeset-<preset>`;
+  the two presets (`article` for news, `notes` for Info pages and application copy) are defined at the
+  end of `index.css` and are the only place rhythm is set. Don't add per-element classes back to the
+  renderer, and don't wrap a component in `.typeset` that isn't Markdown output; `not-typeset` opts an
+  element out. `MarkdownEditor` previews with the same renderer and the same preset.
+- Section headings are `font-display text-[22px] text-text-bright`, in **sentence case**. Nav/label
+  surfaces are `font-heading text-sm` (add `font-medium` where a label needs to lead). **No caps
+  treatment anywhere**: no `uppercase` utility, no literal caps, no `.toUpperCase()`. The two roles own
+  their weight (`--font-display--font-variation-settings`) and tracking (the two rules at the foot of
+  `index.css`), so a heading never carries `tracking-*` of its own. Acronyms (KDA, CS, TBD, CCS) are
+  written as acronyms; everything else is a sentence.
 - Mobile breakpoint is `useWindowSize() < 768`, checked in JS rather than a `md:` variant where
   the two layouts genuinely differ. One custom breakpoint, `nav:` (1460px, `--breakpoint-nav` in
   `index.css`), is the width from which the desktop nav fits on a single row; below it the tab strip

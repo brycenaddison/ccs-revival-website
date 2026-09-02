@@ -1,4 +1,8 @@
-export { api, tournaments, teams, teamsForConf, teamDetail, standings, playerStats, teamStats, championStats, statTotals, records, matchData, articleViews, bumpArticleView, mapTeamRecord, mapTournament } from "./client";
+export { api, tournaments, teams, teamsForConf, teamDetail, standings, playerStats, teamStats, championStats, statTotals, records, articleViews, bumpArticleView, mapTeamRecord, mapTournament } from "./client";
+export { gameApi, matchData, matchTimeline, gameContext, mapGameContext } from "./game";
+export { mapPhaseRef, placementLabel } from "./phaseRef";
+export type { PhaseRef } from "./phaseRef";
+export type { GameContext, GameContextParticipant } from "./game";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
 export type { RequestOpts } from "./http";
 export {
@@ -113,7 +117,6 @@ export type {
   ProfilePersonalBest,
   ProfilePresentation,
   ProfilePresentationInput,
-  PhaseRef,
   ProfileRoleBreakdown,
   ProfileSearchResult,
   ProfileTeamBreakdown,
@@ -382,7 +385,7 @@ export type {
   SeasonScenarioLibrary,
   SeasonTeam,
 } from "./seasonView";
-export { feedApi, scheduleFeed, matchResult, MATCH_STATUSES } from "./feed";
+export { feedApi, feedMatchKey, scheduleFeed, matchResult, MATCH_STATUSES } from "./feed";
 export type {
   FeedMatch,
   FeedPage,

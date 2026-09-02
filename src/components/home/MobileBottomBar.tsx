@@ -1,12 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
 import { ShoppingCart } from "lucide-react";
-import { useSeasonLink } from "../../lib/leagueContext";
-import { TABS, tabForPathname } from "../../lib/tabs";
+import { useLeague, useSeasonLink } from "../../lib/leagueContext";
+import { TABS, tabForPathname, visibleTabs } from "../../lib/tabs";
 
 const MERCH = { label: "Merch", icon: ShoppingCart, href: "https://classicchampionshipseries.itemorder.com/shop/sale/" };
 
-const ITEM = "bg-transparent border-none cursor-pointer flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] no-underline";
-const LABEL = "font-heading text-[9px] tracking-wide uppercase";
+const ITEM = "bg-transparent border-none cursor-pointer flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] no-underline transition-colors hover:text-text-bright";
+const LABEL = "font-heading text-[9px] tracking-wide ";
 
 /**
  * The bottom bar carries a subset of the nav — see `inBottomBar` — plus the merch link, which is
@@ -19,6 +19,8 @@ const LABEL = "font-heading text-[9px] tracking-wide uppercase";
 export function MobileBottomBar() {
   const active = tabForPathname(useLocation().pathname);
   const seasonLink = useSeasonLink();
+  const { selectedConfs, activeConfs } = useLeague();
+  const tabs = visibleTabs(TABS, selectedConfs, activeConfs);
 
   return (
     // The height this composes to is mirrored by `--bottom-nav-h` in index.css, which is what the
@@ -28,7 +30,7 @@ export function MobileBottomBar() {
     // replaces left the bar dark in light mode, which is the one place on the site the theme
     // toggle did nothing. The alpha is what the blur behind it needs to be worth having.
     <div className="fixed bottom-0 left-0 right-0 bg-bg2/95 backdrop-blur-xl border-t border-border flex justify-around items-center z-[200]" style={{ padding: "6px 0 env(safe-area-inset-bottom, 8px)" }}>
-      {TABS.filter(t => t.inBottomBar).map(t => {
+      {tabs.filter(t => t.inBottomBar).map(t => {
         const current = active === t.label;
         const Icon = t.icon;
         return (

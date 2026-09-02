@@ -37,7 +37,7 @@ export function TeamNameLink({
   if (team === null) return <span className={`truncate ${className ?? ""}`}>{code}</span>;
 
   return (
-    <TeamLink conf={team.conf} code={code} title={code} className="min-w-0 no-underline">
+    <TeamLink conf={team.conf} code={code} title={code} className="min-w-0 no-underline hover:text-brand [&:hover_*]:text-brand">
       <span className={`truncate hover:text-brand ${className ?? ""}`}>{team.name}</span>
     </TeamLink>
   );

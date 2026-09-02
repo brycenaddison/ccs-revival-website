@@ -115,7 +115,7 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
 
   return (
     <div className="rounded-lg border border-border bg-bg3 p-4">
-      <p className="font-heading text-sm uppercase tracking-wider text-text-bright">
+      <p className="font-heading text-sm text-text-bright">
         {editing ? `Change ${editing.name ?? "their"} roles` : "Invite a player"}
       </p>
 
@@ -202,7 +202,7 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
                         <span className="ml-2 text-xs text-text-dim">@{candidate.username}</span>
                       </span>
                       {already && (
-                        <span className="shrink-0 text-[10px] uppercase tracking-wider text-text-dim">
+                        <span className="shrink-0 text-[10px] text-text-dim">
                           already invited
                         </span>
                       )}
@@ -298,7 +298,7 @@ function CandidateFace({ candidate }: { candidate: GuildMemberCandidate }) {
 
   if (failed) {
     return (
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg3 font-heading text-[11px] uppercase text-text-secondary">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg3 font-heading text-[11px] text-text-secondary">
         {candidate.displayName.slice(0, 1)}
       </span>
     );
@@ -371,7 +371,7 @@ function RolePicker({ roles, onToggle }: RolePickerProps) {
   );
 
   const chip = (selected: boolean) =>
-    `rounded-md border px-3 py-1.5 bg-transparent cursor-pointer font-heading text-xs uppercase tracking-wider ${
+    `rounded-md border px-3 py-1.5 bg-transparent cursor-pointer font-heading text-xs ${
       selected ? "border-brand text-text-bright" : "border-border text-text-secondary"
     }`;
 

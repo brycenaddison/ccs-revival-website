@@ -117,7 +117,7 @@ export function StatTable<T>({
       <div ref={scrollRef} className="overflow-x-auto rounded-md">
         <table className="w-full table-fixed border-collapse bg-bg2 text-sm" style={{ minWidth }}>
           <thead>
-            <tr className="bg-bg3 text-[10px] text-text-secondary uppercase tracking-wider">
+            <tr className="bg-bg3 text-[10px] text-text-secondary ">
               {renderLeading && (
                 <th className="text-center py-2.5 px-2" style={{ width: LEADING_W }}>
                   {leadingHeader ?? ""}
@@ -235,7 +235,7 @@ export function StatGroupDetail<T>({
     >
       {groups.map(g => (
         <div key={g.id}>
-          <div className="font-heading text-[10px] font-semibold tracking-wider uppercase text-brand mb-1">
+          <div className="font-heading text-[10px] font-semibold text-brand mb-1">
             {g.label}
           </div>
           {g.cells.map(cell => (

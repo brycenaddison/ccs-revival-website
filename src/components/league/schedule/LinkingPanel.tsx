@@ -51,7 +51,7 @@ export function LinkingPanel({ conf, days, onSaved }: Props) {
   return (
     <section className="flex flex-col gap-4">
       <div>
-        <h3 className="font-heading text-xs tracking-wider uppercase text-text-secondary mb-1">
+        <h3 className="font-heading text-xs text-text-secondary mb-1">
           Unlinked games
         </h3>
         <p className="text-text-secondary text-sm">

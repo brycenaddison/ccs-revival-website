@@ -16,7 +16,7 @@ import type { LucideIcon } from "lucide-react";
 export interface SettingsSection {
   /** URL segment. Lowercase, hyphenated. */
   slug: string;
-  /** Sidebar label, written in title case — the shell renders it uppercase. */
+  /** Sidebar label, in sentence case; the shell renders it as written. */
   label: string;
   icon: LucideIcon;
   /** One line under the heading saying what this section controls. Also the mobile row's subtitle. */

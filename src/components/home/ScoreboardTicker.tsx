@@ -22,7 +22,7 @@ import { toBadge } from "../../lib/leagueAdapters";
 import { fmtRelativeDay, fmtTime } from "../../lib/utils";
 import { DAY_MS, useScheduleFeed, type FeedWindow } from "../../hooks/useScheduleFeed";
 import { useWindowSize } from "../../hooks/useWindowSize";
-import type { FeedMatch, FeedTeam } from "../../lib/api";
+import { feedMatchKey, type FeedMatch, type FeedTeam } from "../../lib/api";
 
 /**
  * Two weeks back, a week forward — so the strip carries the last couple of game nights' results
@@ -111,7 +111,7 @@ export function ScoreboardTicker() {
       >
         {matches.map((m, i) => (
           <TickerCard
-            key={m.scheduleMatchId}
+            key={feedMatchKey(m)}
             match={m}
             isMobile={isMobile}
             divider={i < matches.length - 1}
@@ -133,11 +133,11 @@ export function ScoreboardTicker() {
  * day isn't today — a strip of `FINAL · Today` down the whole left side says nothing five times.
  */
 function caption(match: FeedMatch): string {
-  if (match.scheduledAt === null) return match.status === "completed" ? "FINAL" : "TBC";
+  if (match.scheduledAt === null) return match.status === "completed" ? "Final" : "TBC";
 
   if (match.status === "completed") {
     const day = fmtRelativeDay(match.scheduledAt);
-    return day === "Today" ? "FINAL" : `FINAL · ${day}`;
+    return day === "Today" ? "Final" : `Final · ${day}`;
   }
 
   return fmtTime(match.scheduledAt);
@@ -165,7 +165,7 @@ function TickerCard({
             style={{ animation: "pulse 1.5s infinite" }}
           />
           <span
-            className="font-display text-[11px] font-bold tracking-widest text-ccs-red"
+            className="font-display text-[11px] font-bold text-ccs-red"
             style={{ textShadow: "0 0 8px var(--red)" }}
           >
             LIVE
@@ -209,6 +209,15 @@ function TickerCard({
     );
   }
 
+  // A legacy series row has no fixture and so no match page; it is a card, not a link.
+  if (match.scheduleMatchId === null) {
+    return (
+      <div className={className} style={style}>
+        {content}
+      </div>
+    );
+  }
+
   return (
     <Link to={`/match/${match.scheduleMatchId}`} className={`${className} no-underline`} style={style}>
       {content}
@@ -244,7 +253,7 @@ function TickerSide({
         </span>
       </div>
       <span
-        className={`font-display font-extrabold tracking-wider ${
+        className={`font-display font-extrabold ${
           won || live ? "text-text-bright" : "text-text-muted"
         }`}
         style={{ fontSize: isMobile ? 14 : 16 }}
