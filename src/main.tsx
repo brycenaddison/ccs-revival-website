@@ -32,6 +32,7 @@ const Article = lazy(() => import('./pages/Article'))
 const Info = lazy(() => import('./pages/Info'))
 const Setup = lazy(() => import('./pages/Setup'))
 const TeamInvitations = lazy(() => import('./pages/TeamInvitations'))
+const MyApplications = lazy(() => import('./pages/MyApplications'))
 const PlayerProfile = lazy(() => import('./pages/PlayerProfile'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
@@ -103,6 +104,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                       notifications landing on the catch-all below. */}
                   <Route path="/register" element={<Register />} />
                   <Route path="/team-invitations" element={<TeamInvitations />} />
+                  {/* The account menu's "My applications": every team the member has submitted, across
+                      every open league, with nowhere to start a new one. Starting stays on `/register`. */}
+                  <Route path="/my-applications" element={<MyApplications />} />
                   {/* Each settings area is two routes rather than one optional `:section?` segment.
                       The no-slug form is a real state — it's the mobile section list, and on desktop it
                       redirects to the first section — so spelling both out keeps that explicit. */}

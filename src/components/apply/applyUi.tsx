@@ -10,6 +10,8 @@
 import { type ReactNode } from "react";
 import { Check, X } from "lucide-react";
 import { LABEL_CLASS } from "../stats/FilterBar";
+import { TeamStyleHeader } from "../TeamBadge";
+import { teamGradientForInts } from "../../lib/teamStyle";
 import { fmtKickoff } from "../../lib/utils";
 import {
   TEAM_MEMBER_ROLES,
@@ -57,10 +59,16 @@ export function sortRoles(roles: readonly MemberRoleAssignment[]): MemberRoleAss
   return [...roles].sort((a, b) => rank(a.role) - rank(b.role) || a.ordinal - b.ordinal);
 }
 
-/** A member's roles as one readable phrase: "Owner · Contact · Mid". */
+/**
+ * A member's roles as one readable phrase: "Owner · Contact · Mid".
+ *
+ * A substitute is "Substitute", never "Substitute 3". The ordinal orders the bench and means nothing
+ * to anybody outside that list, so numbering it reads as a rank the player has been given. The
+ * client assigns it silently when it sends the invitation; see `InviteMember`.
+ */
 export function roleSummary(roles: readonly MemberRoleAssignment[]): string {
   return sortRoles(roles)
-    .map(r => (r.role === "sub" ? `${ROLE_LABEL.sub} ${r.ordinal + 1}` : ROLE_LABEL[r.role]))
+    .map(r => ROLE_LABEL[r.role])
     .join(" · ");
 }
 
@@ -75,7 +83,6 @@ const APPLICATION_LOOK: Readonly<Record<ApplicationStatus, StatusLook>> = {
   submitted: { label: "Waiting on staff", tone: "border-ccs-blue/50 text-ccs-blue" },
   approved: { label: "Approved", tone: "border-ccs-green/50 text-ccs-green" },
   rejected: { label: "Changes needed", tone: "border-ccs-orange/50 text-ccs-orange" },
-  withdrawn: { label: "Withdrawn", tone: "border-border text-text-dim" },
   published: { label: "In the league", tone: "border-ccs-gold/50 text-ccs-gold" },
 };
 
@@ -243,6 +250,48 @@ export function MemberAvatar({ member }: { member: Pick<ApplicationMember, "avat
 }
 
 /**
+ * A proposed team's card header, drawn as the site will draw the team once it exists.
+ *
+ * `TeamStyleHeader` over the application's own columns, so the applicant's card, the review queue
+ * and the invitation inbox all introduce a team the same way, and the same way the Teams tab will.
+ * The caller's card needs `overflow-hidden` for the gradient to take its corners.
+ */
+export function ApplicationTeamHeader({
+  team,
+}: {
+  team: {
+    teamName: string;
+    teamCode: string;
+    logo: string | null;
+    color: number | null;
+    colorSecondary: number | null;
+  };
+}) {
+  return (
+    <TeamStyleHeader
+      name={team.teamName}
+      code={team.teamCode}
+      logo={team.logo}
+      background={teamGradientForInts(team.color, team.colorSecondary)}
+    />
+  );
+}
+
+/**
+ * `LABEL_CLASS` for a label that sits *beside* its value rather than above it.
+ *
+ * The shared token is `block` with a bottom margin, which is right over an input and wrong in a row:
+ * the margin lifted the label a few pixels above the text it names, so "Organization" floated above
+ * the organization. Same face, same color, no box model of its own.
+ *
+ * The rows that use it align on the **baseline**, not the center. Centering the boxes still left the
+ * label high: it is all capitals in a smaller size, so its visual center is its cap height's, while
+ * the mixed-case value beside it reads from its x-height. Two runs of text on one baseline is what
+ * the eye calls aligned, whatever their sizes.
+ */
+const INLINE_LABEL = "text-[10px] font-heading uppercase tracking-wider text-text-secondary";
+
+/**
  * The supplementary answers, read-only.
  *
  * Shared by the applicant's own card and the roster-staff review queue, because they want to see the
@@ -262,14 +311,14 @@ export function ApplicationDetailsBlock({ details }: { details: ApplicationDetai
   return (
     <dl className="mt-3 flex flex-col gap-2 border-t border-border pt-3 text-sm">
       {details.organizationName && (
-        <div className="flex flex-wrap gap-x-2">
-          <dt className={LABEL_CLASS}>Organization</dt>
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <dt className={INLINE_LABEL}>Organization</dt>
           <dd className="text-text">{details.organizationName}</dd>
         </div>
       )}
       {details.twitter && (
-        <div className="flex flex-wrap gap-x-2">
-          <dt className={LABEL_CLASS}>Twitter / X</dt>
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <dt className={INLINE_LABEL}>Twitter / X</dt>
           <dd className="min-w-0">
             <a
               href={details.twitter}
@@ -290,21 +339,24 @@ export function ApplicationDetailsBlock({ details }: { details: ApplicationDetai
           <dd className="whitespace-pre-wrap text-text-secondary">{details.experience}</dd>
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-2">
-        <dt className={LABEL_CLASS}>Rules</dt>
+      {/* The icon is `self-center` so it opts out of baseline alignment: a flex container's baseline
+          is taken from its first participating item, and an SVG's synthesized baseline is its bottom
+          edge, which would drag the label down to the icon's foot instead of the text's baseline. */}
+      <div className="flex flex-wrap items-baseline gap-2">
+        <dt className={INLINE_LABEL}>Rules</dt>
         <dd
-          className={`flex items-center gap-1.5 ${
+          className={`flex items-baseline gap-1.5 ${
             details.rulesAcknowledged ? "text-ccs-green" : "text-ccs-orange"
           }`}
         >
           {details.rulesAcknowledged ? (
             <>
-              <Check size={14} aria-hidden="true" />
+              <Check size={14} aria-hidden="true" className="self-center" />
               Confirmed as read
             </>
           ) : (
             <>
-              <X size={14} aria-hidden="true" />
+              <X size={14} aria-hidden="true" className="self-center" />
               Not confirmed
             </>
           )}
@@ -312,21 +364,21 @@ export function ApplicationDetailsBlock({ details }: { details: ApplicationDetai
       </div>
       {/* The applicant's word, not a lookup — nothing here can see Discord. A reviewer who finds no
           ticket for a team that says it opened one has learned something worth asking about. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <dt className={LABEL_CLASS}>Discord ticket</dt>
+      <div className="flex flex-wrap items-baseline gap-2">
+        <dt className={INLINE_LABEL}>Discord ticket</dt>
         <dd
-          className={`flex items-center gap-1.5 ${
+          className={`flex items-baseline gap-1.5 ${
             details.ticketOpened ? "text-ccs-green" : "text-ccs-orange"
           }`}
         >
           {details.ticketOpened ? (
             <>
-              <Check size={14} aria-hidden="true" />
+              <Check size={14} aria-hidden="true" className="self-center" />
               Confirmed as opened
             </>
           ) : (
             <>
-              <X size={14} aria-hidden="true" />
+              <X size={14} aria-hidden="true" className="self-center" />
               Not confirmed
             </>
           )}

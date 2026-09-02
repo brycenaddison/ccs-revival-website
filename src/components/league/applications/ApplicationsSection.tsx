@@ -53,14 +53,18 @@ import { MarkdownEditor } from "../../content/MarkdownEditor";
 import { SettingsRow } from "../../settings/SettingsSection";
 import { Toast } from "../../Toast";
 import { TeamLink } from "../TeamLink";
-import { ApplicationDetailsBlock, isPlaying, RankChip } from "../../apply/applyUi";
+import {
+  ApplicationDetailsBlock,
+  ApplicationTeamHeader,
+  isPlaying,
+  RankChip,
+} from "../../apply/applyUi";
 import { useAdminAccess } from "../../../lib/adminAccess";
 import { queries, queryRoots } from "../../../lib/queries";
 import { fmtDay, fmtKickoff } from "../../../lib/utils";
 import {
   errorMessage,
   hasScope,
-  hexFromInt,
   publishApplication,
   publishTeams,
   readApplicationDetails,
@@ -87,7 +91,6 @@ const GROUPS: readonly { status: ApplicationStatus; label: string; note?: string
   { status: "rejected", label: "Rejected", note: "The applicant can revise and resubmit while intake is open." },
   { status: "draft", label: "Drafts", note: "Not submitted. Visible here so intake activity is legible; there is nothing to review." },
   { status: "published", label: "Published" },
-  { status: "withdrawn", label: "Withdrawn" },
 ];
 
 export function ApplicationsSection() {
@@ -524,163 +527,128 @@ function ApplicationCard({ conf, application, onSaved }: CardProps) {
   const submitter = application.submittedBy;
 
   return (
-    <div className="bg-bg2 border border-border rounded-lg p-4">
-      <div className="flex flex-wrap items-start gap-3">
-        {application.logo && (
-          <img
-            src={application.logo}
-            alt=""
-            className="w-10 h-10 rounded object-contain bg-bg3 shrink-0"
+    <div className="bg-bg2 border border-border rounded-lg overflow-hidden">
+      {/* The proposed pair, drawn as the Teams tab will draw it. A reviewer judging colors should
+          see them on the surface they will actually be painted on, not as two squares. */}
+      <ApplicationTeamHeader team={application} />
+
+      <div className="p-4">
+        <p className="text-text-dim text-xs">
+          Submitted by{" "}
+          <PlayerLink profileId={application.submittedByProfileId} className="text-brand">
+            {submitter?.name ?? `profile ${application.submittedByProfileId}`}
+          </PlayerLink>
+          {application.submittedAt && ` · ${fmtKickoff(application.submittedAt)}`}
+        </p>
+
+        {application.applicantMessage && (
+          <p className="mt-3 text-sm text-text-secondary whitespace-pre-wrap">
+            {application.applicantMessage}
+          </p>
+        )}
+
+        {/* The supplementary answers, from the same component the applicant sees them in — a reviewer
+            reading something different from what was submitted is how a decision gets argued about.
+            The experience write-up is the substance of a roster review; the rules confirmation is the
+            one field a reviewer should check rather than assume. */}
+        <ApplicationDetailsBlock details={readApplicationDetails(application.applicationMetadata)} />
+
+        {application.decisionMessage && (
+          <p className="mt-3 text-sm text-text-secondary">
+            <span className={LABEL_CLASS}>Your response</span>
+            {application.decisionMessage}
+            {application.reviewedAt && (
+              <span className="text-text-dim text-xs"> · {fmtKickoff(application.reviewedAt)}</span>
+            )}
+          </p>
+        )}
+
+        {/* `undefined` is a deployment too old to serve the roster, which is not the same as a team
+            with nobody on it — and a reviewer needs to know which of the two they are looking at
+            before they approve anything. */}
+        {application.members === undefined ? (
+          <p className="mt-3 text-text-dim text-xs">
+            This deployment isn't serving the roster with the queue. Approving here checks the
+            structural rules the server already enforces, not the people.
+          </p>
+        ) : (
+          <MemberList
+            application={application}
+            onRefresh={() => refresh.mutate()}
+            refreshing={refresh.isPending}
+            refreshError={refresh.isError ? errorMessage(refresh.error) : null}
           />
         )}
-        <div className="min-w-0 flex-1">
-          <p className="font-heading text-base tracking-wider text-text-bright">
-            {application.teamName}
-            <span className="ml-2 font-mono text-xs text-text-secondary">{application.teamCode}</span>
-          </p>
-          <p className="text-text-dim text-xs mt-0.5">
-            Submitted by{" "}
-            <PlayerLink profileId={application.submittedByProfileId} className="text-brand">
-              {submitter?.name ?? `profile ${application.submittedByProfileId}`}
-            </PlayerLink>
-            {application.submittedAt && ` · ${fmtKickoff(application.submittedAt)}`}
-          </p>
-        </div>
-        <ColorSwatches primary={application.color} secondary={application.colorSecondary} />
-      </div>
 
-      {application.applicantMessage && (
-        <p className="mt-3 text-sm text-text-secondary whitespace-pre-wrap">
-          {application.applicantMessage}
-        </p>
-      )}
-
-      {/* The supplementary answers, from the same component the applicant sees them in — a reviewer
-          reading something different from what was submitted is how a decision gets argued about.
-          The experience write-up is the substance of a roster review; the rules confirmation is the
-          one field a reviewer should check rather than assume. */}
-      <ApplicationDetailsBlock details={readApplicationDetails(application.applicationMetadata)} />
-
-      {application.decisionMessage && (
-        <p className="mt-3 text-sm text-text-secondary">
-          <span className={LABEL_CLASS}>Your response</span>
-          {application.decisionMessage}
-          {application.reviewedAt && (
-            <span className="text-text-dim text-xs"> · {fmtKickoff(application.reviewedAt)}</span>
-          )}
-        </p>
-      )}
-
-      {/* `undefined` is a deployment too old to serve the roster, which is not the same as a team
-          with nobody on it — and a reviewer needs to know which of the two they are looking at
-          before they approve anything. */}
-      {application.members === undefined ? (
-        <p className="mt-3 text-text-dim text-xs">
-          This deployment isn't serving the roster with the queue. Approving here checks the
-          structural rules the server already enforces, not the people.
-        </p>
-      ) : (
-        <MemberList
-          application={application}
-          onRefresh={() => refresh.mutate()}
-          refreshing={refresh.isPending}
-          refreshError={refresh.isError ? errorMessage(refresh.error) : null}
-        />
-      )}
-
-      {application.status === "approved" && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <button
-            type="button"
-            disabled={publish.isPending}
-            onClick={() => publish.mutate()}
-            className={ACTION_SM_PRIMARY}
-          >
-            <Rocket size={14} aria-hidden="true" />
-            {publish.isPending ? "Publishing…" : "Publish this team"}
-          </button>
-          <span className="text-text-dim text-xs">
-            Creates the team row. The season stays private.
-          </span>
-          {publishRefusal && (
-            <div role="alert" className="w-full">
-              <p className="text-ccs-red text-sm">{publishRefusal.message}</p>
-              {publishRefusal.issues.length > 0 && (
-                <ul className="mt-1.5 list-disc pl-5 text-ccs-red text-xs">
-                  {publishRefusal.issues.map(issue => (
-                    <li key={issue}>{issue}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-          {publish.isError && !publishRefusal && (
-            <ErrorLine message={errorMessage(publish.error)} />
-          )}
-        </div>
-      )}
-
-      {application.status === "submitted" && (
-        <div className="mt-4 border-t border-border pt-3">
-          <label className={LABEL_CLASS} htmlFor={`decision-${application.id}`}>
-            Response to the applicant (optional)
-          </label>
-          <textarea
-            id={`decision-${application.id}`}
-            value={message}
-            onChange={e => setMessage(e.target.value)}
-            maxLength={APPLICATION_MESSAGE_MAX}
-            rows={2}
-            className={CONTROL_CLASS}
-          />
-          <div className="mt-2 flex gap-2">
+        {application.status === "approved" && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
             <button
               type="button"
-              disabled={review.isPending}
-              onClick={() => review.mutate("approved")}
+              disabled={publish.isPending}
+              onClick={() => publish.mutate()}
               className={ACTION_SM_PRIMARY}
             >
-              <Check size={14} aria-hidden="true" />
-              Approve
+              <Rocket size={14} aria-hidden="true" />
+              {publish.isPending ? "Publishing…" : "Publish this team"}
             </button>
-            <button
-              type="button"
-              disabled={review.isPending}
-              onClick={() => review.mutate("rejected")}
-              className={ACTION_SM_DANGER}
-            >
-              <X size={14} aria-hidden="true" />
-              Reject
-            </button>
+            <span className="text-text-dim text-xs">
+              Creates the team row. The season stays private.
+            </span>
+            {publishRefusal && (
+              <div role="alert" className="w-full">
+                <p className="text-ccs-red text-sm">{publishRefusal.message}</p>
+                {publishRefusal.issues.length > 0 && (
+                  <ul className="mt-1.5 list-disc pl-5 text-ccs-red text-xs">
+                    {publishRefusal.issues.map(issue => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            {publish.isError && !publishRefusal && (
+              <ErrorLine message={errorMessage(publish.error)} />
+            )}
           </div>
-          <ErrorLine message={refusal ? refusal.message : review.isError ? errorMessage(review.error) : null} />
-        </div>
-      )}
-    </div>
-  );
-}
+        )}
 
-/**
- * Both proposed colors, side by side, because a team picks a pair and the pair is what gets judged.
- *
- * An inline `backgroundColor` rather than a utility: this is applicant *data*, not a theme decision,
- * so there is no `@theme` token for it and Tailwind cannot express an arbitrary value from the wire.
- * Same reasoning as `TeamBadge`.
- */
-function ColorSwatches({ primary, secondary }: { primary: number | null; secondary: number | null }) {
-  if (primary === null && secondary === null) return null;
-  return (
-    <div className="flex items-center gap-1.5 shrink-0" aria-label="Proposed colors">
-      {[primary, secondary].map((color, i) =>
-        color === null ? null : (
-          <span
-            key={i}
-            title={hexFromInt(color)}
-            className="w-5 h-5 rounded border border-border3"
-            style={{ backgroundColor: hexFromInt(color) }}
-          />
-        ),
-      )}
+        {application.status === "submitted" && (
+          <div className="mt-4 border-t border-border pt-3">
+            <label className={LABEL_CLASS} htmlFor={`decision-${application.id}`}>
+              Response to the applicant (optional)
+            </label>
+            <textarea
+              id={`decision-${application.id}`}
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              maxLength={APPLICATION_MESSAGE_MAX}
+              rows={2}
+              className={CONTROL_CLASS}
+            />
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                disabled={review.isPending}
+                onClick={() => review.mutate("approved")}
+                className={ACTION_SM_PRIMARY}
+              >
+                <Check size={14} aria-hidden="true" />
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={review.isPending}
+                onClick={() => review.mutate("rejected")}
+                className={ACTION_SM_DANGER}
+              >
+                <X size={14} aria-hidden="true" />
+                Reject
+              </button>
+            </div>
+            <ErrorLine message={refusal ? refusal.message : review.isError ? errorMessage(review.error) : null} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

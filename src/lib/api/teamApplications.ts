@@ -36,15 +36,20 @@ import { ApiError, type RequestOpts } from "./http";
 // ----------------------------------------------------------------- vocabularies
 
 /**
- * An application's lifecycle. Coupled to a CHECK constraint upstream, so an unrecognized member is
- * a deploy skew. `published` and `withdrawn` are terminal.
+ * An application's lifecycle, as it is ever *served*. Coupled to a CHECK constraint upstream, so an
+ * unrecognized member is a deploy skew. `published` is terminal.
+ *
+ * There is no `withdrawn` here. Upstream keeps the word as the name of a transition, but withdrawing
+ * **deletes** the application, its members and their roles in one transaction, so no row ever comes
+ * back carrying it and the client has nothing to label. A row that predates that change and was never
+ * cleared by hand would still arrive with it, so the list reads drop it at the boundary
+ * (`isServed`) rather than letting `mapApplication` read it as a draft.
  */
 export const APPLICATION_STATUSES = [
   "draft",
   "submitted",
   "approved",
   "rejected",
-  "withdrawn",
   "published",
 ] as const;
 
@@ -115,7 +120,13 @@ export const APPLICATION_MESSAGE_MAX = 4000;
 export const APPLICATION_METADATA_MAX_BYTES = 32768;
 /** Both colors are RGB integers in the inclusive range 0..16777215. */
 export const COLOR_MAX = 0xffffff;
-/** Only substitutes take a nonzero ordinal, and it stops at four — five subs, 0..4. */
+/**
+ * Only substitutes take a nonzero ordinal, and it stops at four: five subs, 0..4.
+ *
+ * The ordinal is a bench order and nothing more. Upstream keys a member's roles on `(member, role)`
+ * with no uniqueness on the slot, and `publicationIssues` only counts substitutes, so two subs
+ * sharing an ordinal refuses nothing. The client picks one for the applicant and never shows it.
+ */
 export const SUB_ORDINAL_MAX = 4;
 
 // ------------------------------------------------------------------------ types
@@ -552,6 +563,16 @@ function mapMember(raw: unknown): ApplicationMember | null {
   };
 }
 
+/**
+ * Whether a row from a list read is one the client should see at all.
+ *
+ * Only a leftover `withdrawn` row fails this: upstream deletes on withdrawal now, but a row written
+ * before that change stays in the table until somebody clears it, and every list would otherwise
+ * hand it to `mapApplication`, whose fallback for an unknown status is `draft`. Better to drop the
+ * row than to resurrect a team its captain gave up as a draft on their page.
+ */
+const isServed = (raw: unknown): boolean => asRaw(raw).status !== "withdrawn";
+
 function mapApplication(raw: unknown): TeamApplication {
   const a = asRaw(raw);
   const members = Array.isArray(a.members)
@@ -740,13 +761,20 @@ export function openApplicationSeasons(opts?: RequestOpts): Promise<ApplicationS
 
 /** The caller's own applications in one conference — filtered by profile in the server's query. */
 export function myApplications(conf: string, opts?: RequestOpts): Promise<TeamApplication[]> {
-  return credentialedRequest(forConf(conf), {}, opts).then(raw => list(raw).map(mapApplication));
+  return credentialedRequest(forConf(conf), {}, opts).then(raw =>
+    list(raw).filter(isServed).map(mapApplication),
+  );
 }
 
-/** The caller's invitation inbox. Authoritative even when the Discord DM failed. */
+/**
+ * The caller's invitation inbox. Authoritative even when the Discord DM failed. An invitation whose
+ * application is a leftover `withdrawn` row is dropped for the reason `isServed` gives.
+ */
 export function myInvitations(opts?: RequestOpts): Promise<TeamInvitation[]> {
   return credentialedRequest("/tournaments/invitations", {}, opts).then(raw =>
-    list(raw).map(mapInvitation),
+    list(raw)
+      .filter(i => isServed(asRaw(i).application))
+      .map(mapInvitation),
   );
 }
 
@@ -796,20 +824,21 @@ export function submitApplication(
 }
 
 /**
- * Withdraws an application. **Terminal** — `withdrawn` has no transition out of it, so the applicant
- * starts a fresh application rather than reviving this one. The confirmation this needs is the
- * caller's job.
+ * Withdraws an application, which **deletes it**: the row, its members and their roles are gone in
+ * one transaction, and every pending invitation to it disappears from its invitee's inbox with them.
+ * From `draft` or `rejected` only; a submitted or approved application answers `409`, because at
+ * that point the decision belongs to the reviewer.
+ *
+ * Resolves to nothing rather than to the application, since there is no application left to map.
+ * The caller invalidates `queryRoots.applications` and the card unmounts. The confirmation this needs
+ * is the caller's job.
  */
-export function withdrawApplication(
-  conf: string,
-  id: number,
-  opts?: RequestOpts,
-): Promise<TeamApplication> {
+export function withdrawApplication(conf: string, id: number, opts?: RequestOpts): Promise<void> {
   return credentialedRequest(
     `${forConf(conf)}/${id}/withdraw`,
     { method: "POST", body: {} },
     opts,
-  ).then(mapApplication);
+  ).then(() => undefined);
 }
 
 /**
@@ -902,7 +931,7 @@ export function applicationIntake(conf: string, opts?: RequestOpts): Promise<App
 /** Every application in one conference, oldest submission first. Needs the `roster` scope. */
 export function applicationQueue(conf: string, opts?: RequestOpts): Promise<TeamApplication[]> {
   return credentialedRequest(`${forConf(conf)}/review`, {}, opts).then(raw =>
-    list(raw).map(mapApplication),
+    list(raw).filter(isServed).map(mapApplication),
   );
 }
 

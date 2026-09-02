@@ -68,9 +68,6 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
   const [roles, setRoles] = useState<TeamMemberRole[]>(
     editing ? editing.roles.map(r => r.role) : [],
   );
-  const [subOrdinal, setSubOrdinal] = useState(
-    editing?.roles.find(r => r.role === "sub")?.ordinal ?? 0,
-  );
 
   const query = useDebounced(term, 300).trim();
 
@@ -89,7 +86,8 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
       const assignments: MemberRoleAssignment[] = roles.map(role => ({
         role,
         // Only substitutes take a nonzero ordinal; upstream `400`s on any other role carrying one.
-        ordinal: role === "sub" ? subOrdinal : 0,
+        // The applicant never sees or picks it: see `nextSubOrdinal`.
+        ordinal: role === "sub" ? nextSubOrdinal(members, editing) : 0,
       }));
       // One or the other, never both — see `InvitationInput`.
       return inviteMember(
@@ -256,8 +254,6 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
             current.includes(role) ? current.filter(r => r !== role) : [...current, role],
           )
         }
-        subOrdinal={subOrdinal}
-        onSubOrdinal={setSubOrdinal}
       />
 
       <div className="mt-4 flex gap-2">
@@ -322,11 +318,41 @@ function CandidateFace({ candidate }: { candidate: GuildMemberCandidate }) {
   );
 }
 
+/**
+ * The bench position a substitute is sent with: the one they already hold when their roles are being
+ * edited, otherwise the lowest ordinal no other live substitute on this roster holds.
+ *
+ * Never shown and never asked for. The picker used to offer "Substitute 1" through "Substitute 5"
+ * and warn that two could not share a slot, which made a captain choose a number that meant nothing
+ * to them and was not even true: upstream keys roles on `(member, role)` with no uniqueness on the
+ * slot and only counts substitutes (see `SUB_ORDINAL_MAX`). The ordinal orders the bench for display
+ * and that is all, so spreading live subs across distinct positions is a courtesy to that order, and
+ * when all five are taken the sixth lands on zero and the readiness checklist says "five at most".
+ *
+ * Only `accepted` and `pending` members hold a position. A declined or revoked substitute is history,
+ * and keeping their slot reserved would leave the bench with a hole nobody can see.
+ */
+function nextSubOrdinal(
+  members: readonly ApplicationMember[],
+  editing?: ApplicationMember,
+): number {
+  const own = editing?.roles.find(r => r.role === "sub");
+  if (own) return own.ordinal;
+
+  const taken = new Set(
+    members
+      .filter(m => m.id !== editing?.id && (m.status === "accepted" || m.status === "pending"))
+      .flatMap(m => m.roles.filter(r => r.role === "sub").map(r => r.ordinal)),
+  );
+  for (let ordinal = 0; ordinal <= SUB_ORDINAL_MAX; ordinal++) {
+    if (!taken.has(ordinal)) return ordinal;
+  }
+  return 0;
+}
+
 interface RolePickerProps {
   roles: readonly TeamMemberRole[];
   onToggle: (role: TeamMemberRole) => void;
-  subOrdinal: number;
-  onSubOrdinal: (ordinal: number) => void;
 }
 
 /**
@@ -339,7 +365,7 @@ interface RolePickerProps {
  * Neither administrative role is required and neither confers anything on this page: `owner` is a
  * label for the league's records, and an application is run by whoever created it.
  */
-function RolePicker({ roles, onToggle, subOrdinal, onSubOrdinal }: RolePickerProps) {
+function RolePicker({ roles, onToggle }: RolePickerProps) {
   const playing = roles.find(
     role => role === "sub" || (STARTER_ROLES as readonly string[]).includes(role),
   );
@@ -375,26 +401,7 @@ function RolePicker({ roles, onToggle, subOrdinal, onSubOrdinal }: RolePickerPro
       </div>
 
       {playing === "sub" && (
-        <div className="mt-2 max-w-xs">
-          <label className={LABEL_CLASS} htmlFor="sub-slot">
-            Substitute slot
-          </label>
-          <select
-            id="sub-slot"
-            value={subOrdinal}
-            onChange={e => onSubOrdinal(Number(e.target.value))}
-            className={CONTROL_CLASS}
-          >
-            {Array.from({ length: SUB_ORDINAL_MAX + 1 }, (_, i) => (
-              <option key={i} value={i}>
-                Substitute {i + 1}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1.5 text-xs text-text-dim">
-            Five substitutes at most, and two can't share a slot.
-          </p>
-        </div>
+        <p className="mt-1.5 text-xs text-text-dim">Up to five substitutes.</p>
       )}
 
       <span className={`${LABEL_CLASS} mt-4`}>Also</span>

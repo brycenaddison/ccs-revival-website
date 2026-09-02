@@ -4,6 +4,7 @@ import { useAdminAccess } from "../../lib/adminAccess";
 import { useAuth } from "../../lib/authContext";
 import { CONTENT_ROLE } from "../../lib/api";
 import { queries } from "../../lib/queries";
+import { useHasLiveApplication } from "../../hooks/useMyApplications";
 import { accountMenuEntries, UserMenu } from "./UserMenu";
 
 /**
@@ -66,6 +67,8 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
   const applicationsOpen = isAuthenticated
     ? (openSeasons?.length ?? 0) > 0
     : home?.applicationsOpen === true;
+  // For the drawer's flat copy of the account menu. `UserMenu` reads it itself on desktop.
+  const hasApplication = useHasLiveApplication();
 
   // Render nothing until the first /auth/me settles. A "Log in" button that flips to the
   // user's name a moment later reads as a bug, and the check is fast enough to just wait.
@@ -148,6 +151,7 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
           logout,
           linkRiot,
           canLinkRiot,
+          hasApplication,
           isSiteAdmin,
           canEditContent,
         }).map((entry, i) => {

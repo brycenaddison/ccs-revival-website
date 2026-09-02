@@ -9,10 +9,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, FileText, Inbox, Link2, LogOut, Settings, Shield, UserRound, type LucideIcon } from "lucide-react";
+import { ChevronDown, ClipboardList, FileText, Inbox, Link2, LogOut, Settings, Shield, UserRound, type LucideIcon } from "lucide-react";
 import { useAdminAccess } from "../../lib/adminAccess";
 import { useAuth } from "../../lib/authContext";
 import { CONTENT_ROLE } from "../../lib/api";
+import { useHasLiveApplication } from "../../hooks/useMyApplications";
 import { playerPath } from "../profile/PlayerLink";
 
 export type MenuEntry =
@@ -38,6 +39,12 @@ interface EntryOpts {
   linkRiot: () => Promise<void>;
   /** `useAuth().canLinkRiot` — the local switch and the deployment's RSO configuration, resolved. */
   canLinkRiot: boolean;
+  /**
+   * `useHasLiveApplication()`: whether the member is running a team application in a season that is
+   * still taking them. Offers the way back to it; the Apply Now button beside the menu reads as a way
+   * to start one, and a started application was otherwise hard to find again.
+   */
+  hasApplication: boolean;
   isSiteAdmin: boolean;
   /**
    * Whether to offer the writers' portal. Already OR'd with site admin by the caller, matching the
@@ -65,12 +72,20 @@ export function accountMenuEntries({
   logout,
   linkRiot,
   canLinkRiot,
+  hasApplication,
   isSiteAdmin,
   canEditContent,
   profileId,
 }: EntryOpts): MenuEntry[] {
   return [
     ...(profileId ? [{ kind: "item" as const, label: "View profile", icon: UserRound, to: playerPath(profileId) }] : []),
+    // Only while there is one to return to: the row disappears with the application, or when intake
+    // closes on it. Its own page rather than `/register`: that page is built around starting a team,
+    // and somebody coming back to check on one they already sent wants every league's cards in one
+    // place with no form in the way.
+    ...(hasApplication
+      ? [{ kind: "item" as const, label: "My applications", icon: ClipboardList, to: "/my-applications" }]
+      : []),
     // Unconditional, unlike the Apply Now button beside this menu. An invitation can arrive long
     // after intake closes — staff review takes days — and this is the only page that can answer it,
     // since the Discord DM is best-effort and may never have been delivered.
@@ -107,6 +122,7 @@ const ITEM = `flex w-full items-center gap-2 text-left bg-transparent border-non
 export function UserMenu({ name }: { name: string }) {
   const { logout, linkRiot, canLinkRiot, hasRole, profile } = useAuth();
   const { isSiteAdmin } = useAdminAccess();
+  const hasApplication = useHasLiveApplication();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -137,6 +153,7 @@ export function UserMenu({ name }: { name: string }) {
     logout,
     linkRiot,
     canLinkRiot,
+    hasApplication,
     isSiteAdmin,
     canEditContent: isSiteAdmin || hasRole(CONTENT_ROLE),
   });

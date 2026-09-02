@@ -67,3 +67,13 @@ export function teamGradient(primaryHex: string, accentHex: string): string {
 export function teamGradientFor(team: TeamColors): string {
   return teamGradient(team.colorHex, accentHex(team));
 }
+
+/**
+ * The same gradient for a row that carries the two integer columns and no `colorHex`: a team
+ * application, or the team projection on an invitation. Resolves the hex the way every team mapper
+ * does, fallback included, so a proposed team that chose no colors is the same neutral gray it will
+ * be once it is published.
+ */
+export function teamGradientForInts(color: number | null, colorSecondary?: number | null): string {
+  return teamGradientFor({ color, colorHex: hexFromInt(color), colorSecondary });
+}

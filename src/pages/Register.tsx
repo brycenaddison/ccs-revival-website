@@ -173,13 +173,10 @@ function ConfApplications({ conf, myProfileId, onSaved }: ConfProps) {
   }
 
   // The read returns applications you submitted *or* are a member of, so the two are separated here:
-  // one you run, the other you were invited to and can only read.
-  const mine = applications.filter(a => a.submittedByProfileId === myProfileId);
+  // one you run, the other you were invited to and can only read. Withdrawing deletes, so nothing
+  // here has to hide a finished one; what is served is what is live.
+  const live = applications.filter(a => a.submittedByProfileId === myProfileId);
   const asMember = applications.filter(a => a.submittedByProfileId !== myProfileId);
-
-  // A withdrawn or published application is finished business — it should not stop somebody starting
-  // a new one, which is the whole reason withdrawal exists.
-  const live = mine.filter(a => a.status !== "withdrawn");
 
   return (
     <div className="flex flex-col gap-5">
@@ -207,7 +204,7 @@ function ConfApplications({ conf, myProfileId, onSaved }: ConfProps) {
         </div>
       )}
 
-      {mine.map(application => (
+      {live.map(application => (
         <ApplicationCard
           key={application.id}
           application={application}

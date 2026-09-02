@@ -589,13 +589,21 @@ export const queries = {
       staleTime: 0,
     }),
 
-  /** The caller's own applications in one conference. */
+  /**
+   * The caller's own applications in one conference.
+   *
+   * `LEAGUE_STALE` rather than the `0` of the editors beside it, because the account menu reads this
+   * too: `useHasLiveApplication` runs it for every open season on every page to decide whether to
+   * offer "My applications", and a zero would refetch it on every focus site-wide. Every write on
+   * the applicant page and the inbox invalidates `queryRoots.applications`, so what the applicant
+   * just did shows at once, and a staff decision made elsewhere is a minute away at most.
+   */
   myApplications: (conf: string) =>
     query({
       queryKey: ["applications", "mine", conf] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) => myApplications(conf, { signal }),
       enabled: conf !== "",
-      staleTime: 0,
+      staleTime: LEAGUE_STALE,
     }),
 
   /**

@@ -9,7 +9,8 @@
 import type { ReactNode } from "react";
 import type { Tournament } from "../../lib/api";
 import { teamGradient } from "../../lib/teamStyle";
-import { fmtDay, teamInitial } from "../../lib/utils";
+import { fmtDay } from "../../lib/utils";
+import { TeamStyleHeader } from "../TeamBadge";
 
 const ACTION_BASE =
   "inline-flex items-center gap-2 rounded-md border px-4 py-2 bg-transparent font-heading text-sm tracking-wider uppercase cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
@@ -110,11 +111,11 @@ export function ColorField({
 /**
  * What the two colors will look like on the site, drawn while they are being chosen.
  *
- * It is the header of a team card on the Teams tab, the same markup: the gradient from
- * `lib/teamStyle.ts`, the logo — or the initial, when there is none — on its translucent well inside
+ * It is the header of a team card on the Teams tab, drawn by `TeamStyleHeader`: the gradient from
+ * `lib/teamStyle.ts`, the logo (or the initial, when there is none) on its translucent well inside
  * the gradient, and the name and tag in white beside it. That card is the largest thing the pair is
- * ever painted on, so it is where a bad pairing shows first. Keep this in step with `TeamsView`; a
- * preview that shows something other than what ships is worse than none.
+ * ever painted on, so it is where a bad pairing shows first. A preview that shows something other
+ * than what ships is worse than none, which is why the markup is shared rather than copied.
  *
  * Takes hex strings because it sits beside two `ColorField`s, which speak hex; it never sees the
  * integer column. Shared for the same reason `ColorField` is: two forms set the same pair.
@@ -136,27 +137,14 @@ export function TeamStylePreview({
   const shownCode = code.trim() === "" ? "TAG" : code.trim();
   const logoUrl = logo.trim();
   return (
-    <div
-      className="flex items-center gap-3.5 rounded-lg px-4 py-5"
-      style={{ background: teamGradient(primary, secondary) }}
-      aria-label="Team style preview"
-    >
-      {logoUrl !== "" ? (
-        <img
-          src={logoUrl}
-          alt=""
-          decoding="async"
-          className="h-12 w-12 rounded-lg bg-black/20 object-contain"
-        />
-      ) : (
-        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-black/30 font-heading text-xl font-bold text-white">
-          {teamInitial(shownName)}
-        </div>
-      )}
-      <div className="min-w-0">
-        <div className="truncate font-display text-xl tracking-wider text-white">{shownName}</div>
-        <div className="mt-0.5 font-mono text-[11px] text-white/70">{shownCode}</div>
-      </div>
+    <div className="overflow-hidden rounded-lg">
+      <TeamStyleHeader
+        name={shownName}
+        code={shownCode}
+        logo={logoUrl === "" ? null : logoUrl}
+        background={teamGradient(primary, secondary)}
+        label="Team style preview"
+      />
     </div>
   );
 }

@@ -10,7 +10,13 @@
  * which is exactly why it has to exist rather than being answered by reacting to a bot message.
  *
  * Answered invitations stay in the list. A player who declined wants to see that they did, and a
- * revoked row is how they find out they were taken off a roster.
+ * revoked row is how they find out they were taken off a roster. An invitation to a team the captain
+ * withdrew is not a case: withdrawing deletes the application and its members, so the row is gone
+ * from this read before anybody looks.
+ *
+ * Each card opens with the team drawn as the site will draw it: the gradient, the logo and the name,
+ * through the same `TeamStyleHeader` the Teams tab and the applicant's color preview use. Two color
+ * squares beside a name said less about the team than the team's own card does.
  */
 
 import { useState } from "react";
@@ -22,6 +28,7 @@ import { RequireAuth } from "../components/auth/RequireAuth";
 import { ACTION_SM, ACTION_SM_PRIMARY, ErrorLine } from "../components/admin/adminUi";
 import { LABEL_CLASS } from "../components/stats/FilterBar";
 import { PlayerLink } from "../components/profile/PlayerLink";
+import { TeamStyleHeader } from "../components/TeamBadge";
 import { Toast } from "../components/Toast";
 import {
   ApplicationStatusPill,
@@ -29,13 +36,9 @@ import {
   roleSummary,
 } from "../components/apply/applyUi";
 import { queries, queryRoots } from "../lib/queries";
+import { teamGradientForInts } from "../lib/teamStyle";
 import { fmtKickoff } from "../lib/utils";
-import {
-  errorMessage,
-  hexFromInt,
-  respondToInvitation,
-  type TeamInvitation,
-} from "../lib/api";
+import { errorMessage, respondToInvitation, type TeamInvitation } from "../lib/api";
 
 export default function TeamInvitations() {
   return (
@@ -154,126 +157,95 @@ function InvitationCard({
   });
 
   return (
-    <div className="rounded-lg border border-border bg-bg2 p-4">
-      <div className="flex flex-wrap items-start gap-3">
-        {application?.logo ? (
-          <img
-            src={application.logo}
-            alt=""
-            className="h-11 w-11 shrink-0 rounded bg-bg3 object-contain"
-          />
-        ) : (
-          <div className="h-11 w-11 shrink-0 rounded border border-border bg-bg3" />
+    <div className="overflow-hidden rounded-lg border border-border bg-bg2">
+      {/* A deployment too old to serve `application` gets the neutral gray and the invitation's id
+          for a name, which is why this is not `ApplicationTeamHeader`. */}
+      <TeamStyleHeader
+        name={team ?? `Invitation ${invitation.id}`}
+        code={application?.teamCode ?? ""}
+        logo={application?.logo ?? null}
+        background={teamGradientForInts(
+          application?.color ?? null,
+          application?.colorSecondary ?? null,
         )}
+      />
 
-        <div className="min-w-0 flex-1">
-          <p className="font-heading text-base tracking-wider text-text-bright">
-            {team ?? `Invitation ${invitation.id}`}
-            {application && (
-              <span className="ml-2 font-mono text-xs text-text-secondary">
-                {application.teamCode}
-              </span>
-            )}
-          </p>
-          <p className="mt-0.5 text-sm text-text-secondary">
-            {/* Served flat on the invitation. It has to be: an application only exists while its
-                conference is hidden, so the public tournament list cannot name it. */}
-            {invitation.confName && <>{invitation.confName} · </>}
-            {roles.length > 0 ? (
-              <>
-                as <span className="text-text-bright">{roleSummary(roles)}</span>
-              </>
-            ) : (
-              "role not specified"
-            )}
-          </p>
-          <p className="mt-0.5 text-xs text-text-dim">
-            Invited by{" "}
-            <PlayerLink profileId={invitation.invitedByProfileId} className="text-brand">
-              {invitation.invitedBy?.name ?? "the team's captain"}
-            </PlayerLink>
-            {invitation.invitedAt && ` · ${fmtKickoff(invitation.invitedAt)}`}
-          </p>
-        </div>
+      <div className="p-4">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-text-secondary">
+              {/* Served flat on the invitation. It has to be: an application only exists while its
+                  conference is hidden, so the public tournament list cannot name it. */}
+              {invitation.confName && <>{invitation.confName} · </>}
+              {roles.length > 0 ? (
+                <>
+                  as <span className="text-text-bright">{roleSummary(roles)}</span>
+                </>
+              ) : (
+                "role not specified"
+              )}
+            </p>
+            <p className="mt-0.5 text-xs text-text-dim">
+              Invited by{" "}
+              <PlayerLink profileId={invitation.invitedByProfileId} className="text-brand">
+                {invitation.invitedBy?.name ?? "the team's captain"}
+              </PlayerLink>
+              {invitation.invitedAt && ` · ${fmtKickoff(invitation.invitedAt)}`}
+            </p>
+          </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          {application && (
-            <Swatches
-              primary={application.color}
-              secondary={application.colorSecondary}
-            />
-          )}
           <InvitationStatusPill status={invitation.status} perspective="invitee" />
         </div>
+
+        {pending && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={respond.isPending}
+              onClick={() => respond.mutate("accepted")}
+              className={ACTION_SM_PRIMARY}
+            >
+              <Check size={14} aria-hidden="true" />
+              Accept
+            </button>
+            <button
+              type="button"
+              disabled={respond.isPending}
+              onClick={() => respond.mutate("declined")}
+              className={ACTION_SM}
+            >
+              <X size={14} aria-hidden="true" />
+              Decline
+            </button>
+            {locked && application && (
+              <span className="text-xs text-text-dim">
+                This team is already with the league staff.
+              </span>
+            )}
+          </div>
+        )}
+
+        {!pending && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-dim">
+            {invitation.status === "revoked"
+              ? "The captain took you off this roster."
+              : invitation.respondedAt
+                ? `You answered ${fmtKickoff(invitation.respondedAt)}.`
+                : null}
+            {application && <ApplicationStatusPill status={application.status} />}
+          </div>
+        )}
+
+        {/* Declining is the only way out once answered — upstream lets a captain re-invite somebody
+            who declined, so a change of heart is their side of the transition, not a button here. */}
+        {invitation.status === "declined" && (
+          <p className="mt-2 text-xs text-text-dim">
+            Changed your mind? Ask the captain to invite you again.
+          </p>
+        )}
+
+        <ErrorLine message={respond.isError ? errorMessage(respond.error) : null} />
       </div>
-
-      {pending && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={respond.isPending}
-            onClick={() => respond.mutate("accepted")}
-            className={ACTION_SM_PRIMARY}
-          >
-            <Check size={14} aria-hidden="true" />
-            Accept
-          </button>
-          <button
-            type="button"
-            disabled={respond.isPending}
-            onClick={() => respond.mutate("declined")}
-            className={ACTION_SM}
-          >
-            <X size={14} aria-hidden="true" />
-            Decline
-          </button>
-          {locked && application && (
-            <span className="text-xs text-text-dim">
-              This team is already with the league staff.
-            </span>
-          )}
-        </div>
-      )}
-
-      {!pending && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-dim">
-          {invitation.status === "revoked"
-            ? "The captain took you off this roster."
-            : invitation.respondedAt
-              ? `You answered ${fmtKickoff(invitation.respondedAt)}.`
-              : null}
-          {application && <ApplicationStatusPill status={application.status} />}
-        </div>
-      )}
-
-      {/* Declining is the only way out once answered — upstream lets a captain re-invite somebody who
-          declined, so a change of heart is their side of the transition, not a button here. */}
-      {invitation.status === "declined" && (
-        <p className="mt-2 text-xs text-text-dim">
-          Changed your mind? Ask the captain to invite you again.
-        </p>
-      )}
-
-      <ErrorLine message={respond.isError ? errorMessage(respond.error) : null} />
     </div>
-  );
-}
-
-/** The team's colors, so an invitation is recognizable at a glance. See `ApplicationCard`. */
-function Swatches({ primary, secondary }: { primary: number | null; secondary: number | null }) {
-  if (primary === null && secondary === null) return null;
-  return (
-    <span className="flex items-center gap-1" aria-label="Team colors">
-      {[primary, secondary].map((color, i) =>
-        color === null ? null : (
-          <span
-            key={i}
-            title={hexFromInt(color)}
-            className="h-5 w-5 rounded border border-border3"
-            style={{ backgroundColor: hexFromInt(color) }}
-          />
-        ),
-      )}
-    </span>
   );
 }

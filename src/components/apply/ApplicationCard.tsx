@@ -31,6 +31,7 @@ import { InviteMember } from "./InviteMember";
 import {
   ApplicationDetailsBlock,
   ApplicationStatusPill,
+  ApplicationTeamHeader,
   InvitationStatusPill,
   isPlaying,
   MemberAvatar,
@@ -44,7 +45,6 @@ import { queryRoots } from "../../lib/queries";
 import { fmtKickoff } from "../../lib/utils";
 import {
   errorMessage,
-  hexFromInt,
   readApplicationDetails,
   refreshApplicationAccounts,
   refusalOf,
@@ -77,7 +77,11 @@ export function ApplicationCard({ application, myProfileId, onSaved }: Props) {
   const conf = application.conf;
   const owned = myProfileId !== null && application.submittedByProfileId === myProfileId;
   const editable = owned && EDITABLE.has(application.status);
-  const members = application.members ?? [];
+  // Somebody the captain removed is gone from this page. Upstream keeps serving them, since a
+  // reviewer reads invitation history, but on the applicant's own roster a "Removed" row is clutter
+  // that outlives every refresh, and re-inviting the person is an upsert that works whether or not
+  // the old row is on screen. Declined people stay: that is an answer the captain needs to see.
+  const members = (application.members ?? []).filter(m => m.status !== "revoked");
 
   const submit = useMutation({
     mutationFn: () => submitApplication(conf, application.id),
@@ -110,184 +114,171 @@ export function ApplicationCard({ application, myProfileId, onSaved }: Props) {
   const submitRefusal = submit.isError ? refusalOf(submit.error) : null;
 
   return (
-    <section className="rounded-lg border border-border bg-bg2 p-5">
-      <header className="flex flex-wrap items-start gap-3">
-        {application.logo ? (
-          <img
-            src={application.logo}
-            alt=""
-            className="h-12 w-12 shrink-0 rounded object-contain bg-bg3"
-          />
-        ) : (
-          <div className="h-12 w-12 shrink-0 rounded border border-border bg-bg3" />
-        )}
-        <div className="min-w-0 flex-1">
-          <h2 className="font-display text-[22px] leading-none tracking-widest text-text-bright">
-            {application.teamName.toUpperCase()}
-          </h2>
-          <p className="mt-1 font-mono text-xs text-text-secondary">{application.teamCode}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Swatches primary={application.color} secondary={application.colorSecondary} />
-          <ApplicationStatusPill status={application.status} />
-        </div>
-      </header>
+    <section className="overflow-hidden rounded-lg border border-border bg-bg2">
+      {/* The team as the site will draw it, colors included: the header *is* the color preview. */}
+      <ApplicationTeamHeader team={application} />
 
-      <StatusNote application={application} owned={owned} />
+      <div className="p-5">
+        <StatusNote application={application} owned={owned} />
 
-      {/* Hidden while the form is open, since the form is showing the same answers as inputs. */}
-      {!editing && <ApplicationDetailsBlock details={details} />}
+        {/* Hidden while the form is open, since the form is showing the same answers as inputs. */}
+        {!editing && <ApplicationDetailsBlock details={details} />}
 
-      {editable && (
-        <div className="mt-5">
-          {editing ? (
-            <ApplicationForm
-              conf={conf}
-              application={application}
-              onDone={message => {
-                setEditing(false);
-                onSaved(message);
-              }}
-              onCancel={() => setEditing(false)}
-            />
-          ) : (
-            <button type="button" onClick={() => setEditing(true)} className={ACTION}>
-              <Pencil size={15} aria-hidden="true" />
-              Edit team details
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="mt-6">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-heading text-sm uppercase tracking-wider text-text-bright">Roster</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Ranks come from a cache upstream, never a live lookup, so somebody who linked an
-                account a minute ago sees "Rank pending" until this is pressed. */}
-            <button
-              type="button"
-              onClick={() => refresh.mutate()}
-              disabled={refresh.isPending}
-              className={ACTION}
-            >
-              <RefreshCw size={15} aria-hidden="true" />
-              {refresh.isPending ? "Checking…" : "Refresh ranks"}
-            </button>
-            {editable && inviting === null && (
-              <button type="button" onClick={() => setInviting(true)} className={ACTION}>
-                <UserPlus size={15} aria-hidden="true" />
-                Invite a player
+        {editable && (
+          <div className="mt-5">
+            {editing ? (
+              <ApplicationForm
+                conf={conf}
+                application={application}
+                onDone={message => {
+                  setEditing(false);
+                  onSaved(message);
+                }}
+                onCancel={() => setEditing(false)}
+              />
+            ) : (
+              <button type="button" onClick={() => setEditing(true)} className={ACTION}>
+                <Pencil size={15} aria-hidden="true" />
+                Edit team details
               </button>
             )}
           </div>
-        </div>
-        <ErrorLine message={refresh.isError ? errorMessage(refresh.error) : null} />
-
-        {application.members === undefined ? (
-          <p className="mt-2 text-sm text-text-dim">
-            This deployment isn't serving the roster yet.
-          </p>
-        ) : (
-          <RosterList
-            conf={conf}
-            applicationId={application.id}
-            members={members}
-            editable={editable}
-            myProfileId={myProfileId}
-            onEdit={setInviting}
-            onSaved={onSaved}
-          />
         )}
 
-        {inviting !== null && (
-          <div className="mt-3">
-            <InviteMember
-              // Keyed on the target so switching from one member's editor to another's resets the
-              // role picker to that member rather than carrying the previous selection across.
-              key={inviting === true ? "new" : inviting.id}
+        <div className="mt-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-heading text-sm uppercase tracking-wider text-text-bright">Roster</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Ranks come from a cache upstream, never a live lookup, so somebody who linked an
+                account a minute ago sees "Rank pending" until this is pressed. */}
+              <button
+                type="button"
+                onClick={() => refresh.mutate()}
+                disabled={refresh.isPending}
+                className={ACTION}
+              >
+                <RefreshCw size={15} aria-hidden="true" />
+                {refresh.isPending ? "Checking…" : "Refresh ranks"}
+              </button>
+              {editable && inviting === null && (
+                <button type="button" onClick={() => setInviting(true)} className={ACTION}>
+                  <UserPlus size={15} aria-hidden="true" />
+                  Invite a player
+                </button>
+              )}
+            </div>
+          </div>
+          <ErrorLine message={refresh.isError ? errorMessage(refresh.error) : null} />
+
+          {application.members === undefined ? (
+            <p className="mt-2 text-sm text-text-dim">
+              This deployment isn't serving the roster yet.
+            </p>
+          ) : (
+            <RosterList
               conf={conf}
               applicationId={application.id}
               members={members}
-              editing={inviting === true ? undefined : inviting}
-              onDone={message => {
-                setInviting(null);
-                onSaved(message);
-              }}
-              onCancel={() => setInviting(null)}
+              editable={editable}
+              myProfileId={myProfileId}
+              onEdit={setInviting}
+              onSaved={onSaved}
             />
+          )}
+
+          {inviting !== null && (
+            <div className="mt-3">
+              <InviteMember
+                // Keyed on the target so switching from one member's editor to another's resets the
+                // role picker to that member rather than carrying the previous selection across.
+                key={inviting === true ? "new" : inviting.id}
+                conf={conf}
+                applicationId={application.id}
+                members={members}
+                editing={inviting === true ? undefined : inviting}
+                onDone={message => {
+                  setInviting(null);
+                  onSaved(message);
+                }}
+                onCancel={() => setInviting(null)}
+              />
+            </div>
+          )}
+        </div>
+
+        {editable && (
+          <div className="mt-6 border-t border-border pt-4">
+            {blockers.length > 0 && (
+              <div className="mb-3">
+                <span className={LABEL_CLASS}>Before you can submit</span>
+                <ul className="flex flex-col gap-1">
+                  {blockers.map(blocker => (
+                    <li key={blocker} className="flex items-start gap-2 text-sm text-text-secondary">
+                      <X size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-ccs-orange" />
+                      {blocker}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {blockers.length === 0 && (
+              <p className="mb-3 flex items-center gap-2 text-sm text-ccs-green">
+                <Check size={15} aria-hidden="true" />
+                Your roster is complete.
+              </p>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={submit.isPending || blockers.length > 0}
+                onClick={() => submit.mutate()}
+                className={ACTION_PRIMARY}
+              >
+                <Send size={15} aria-hidden="true" />
+                {submit.isPending ? "Submitting…" : "Submit for review"}
+              </button>
+              <ConfirmButton
+                title={`Withdraw ${application.teamName}?`}
+                description="This deletes the application. There's no reopening it, so getting back in means starting a new one from scratch, and everyone you invited would have to be invited again."
+                confirmLabel="Withdraw"
+                onConfirm={() => withdraw.mutate()}
+                disabled={withdraw.isPending}
+                trigger={
+                  <button type="button" className={ACTION_DANGER}>
+                    <Trash2 size={15} aria-hidden="true" />
+                    Withdraw
+                  </button>
+                }
+              />
+            </div>
+
+            {submitRefusal && (
+              <div role="alert" className="mt-3">
+                <p className="text-sm text-ccs-red">{submitRefusal.message}</p>
+                {submitRefusal.issues.length > 0 && (
+                  <ul className="mt-1.5 list-disc pl-5 text-xs text-ccs-red">
+                    {submitRefusal.issues.map(issue => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            {submit.isError && !submitRefusal && <ErrorLine message={errorMessage(submit.error)} />}
+            <ErrorLine message={withdraw.isError ? errorMessage(withdraw.error) : null} />
           </div>
         )}
       </div>
-
-      {editable && (
-        <div className="mt-6 border-t border-border pt-4">
-          {blockers.length > 0 && (
-            <div className="mb-3">
-              <span className={LABEL_CLASS}>Before you can submit</span>
-              <ul className="flex flex-col gap-1">
-                {blockers.map(blocker => (
-                  <li key={blocker} className="flex items-start gap-2 text-sm text-text-secondary">
-                    <X size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-ccs-orange" />
-                    {blocker}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {blockers.length === 0 && (
-            <p className="mb-3 flex items-center gap-2 text-sm text-ccs-green">
-              <Check size={15} aria-hidden="true" />
-              Your roster is complete.
-            </p>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={submit.isPending || blockers.length > 0}
-              onClick={() => submit.mutate()}
-              className={ACTION_PRIMARY}
-            >
-              <Send size={15} aria-hidden="true" />
-              {submit.isPending ? "Submitting…" : "Submit for review"}
-            </button>
-            <ConfirmButton
-              title={`Withdraw ${application.teamName}?`}
-              description="Withdrawing is final — there's no reopening it, so getting back in means starting a new application from scratch. Everyone you invited would have to be invited again."
-              confirmLabel="Withdraw"
-              onConfirm={() => withdraw.mutate()}
-              disabled={withdraw.isPending}
-              trigger={
-                <button type="button" className={ACTION_DANGER}>
-                  <Trash2 size={15} aria-hidden="true" />
-                  Withdraw
-                </button>
-              }
-            />
-          </div>
-
-          {submitRefusal && (
-            <div role="alert" className="mt-3">
-              <p className="text-sm text-ccs-red">{submitRefusal.message}</p>
-              {submitRefusal.issues.length > 0 && (
-                <ul className="mt-1.5 list-disc pl-5 text-xs text-ccs-red">
-                  {submitRefusal.issues.map(issue => (
-                    <li key={issue}>{issue}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-          {submit.isError && !submitRefusal && <ErrorLine message={errorMessage(submit.error)} />}
-          <ErrorLine message={withdraw.isError ? errorMessage(withdraw.error) : null} />
-        </div>
-      )}
     </section>
   );
 }
 
-/** What this state means for the person reading it, and what to do about it. */
+/**
+ * The status pill and what that state means for the person reading it, and what to do about it.
+ * The pill sits here rather than in the header because the header is now the team's own colors, and
+ * a status chip on a gradient is a chip nobody can read.
+ */
 function StatusNote({ application, owned }: { application: TeamApplication; owned: boolean }) {
   const note = (() => {
     if (!owned) {
@@ -295,23 +286,24 @@ function StatusNote({ application, owned }: { application: TeamApplication; owne
     }
     switch (application.status) {
       case "draft":
-        return "Nobody has seen this yet. Fill in the roster, then submit it for review.";
+        return "This is still a draft. Fill in the roster, then submit it for review once players accept and verify their account.";
       case "submitted":
         return "League staff are reviewing it. You can't change it while they have it.";
       case "approved":
-        return "Approved. Staff will add your team to the league shortly — nothing more to do.";
+        return "Approved. Welcome to the CCS.";
       case "rejected":
         return "Staff sent it back. Fix what they asked for and submit it again; saving any change reopens it as a draft.";
-      case "withdrawn":
-        return "You withdrew this one. Start a new application if you want back in.";
       case "published":
         return "Your team is in the league.";
     }
   })();
 
   return (
-    <div className="mt-3">
-      <p className="text-sm text-text-secondary">{note}</p>
+    <div>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <ApplicationStatusPill status={application.status} />
+        <p className="text-sm text-text-secondary">{note}</p>
+      </div>
       {application.decisionMessage && (
         <div className="mt-2 rounded-md border border-border bg-bg3 p-3">
           <span className={LABEL_CLASS}>From the league staff</span>
@@ -337,11 +329,11 @@ interface RosterProps {
 }
 
 /**
- * Everyone on the application, answered and unanswered alike.
+ * Everyone still on the application, answered and unanswered alike.
  *
- * Declined and revoked people stay in the list rather than disappearing — upstream serves them
- * deliberately, and a captain needs to see that somebody said no rather than wondering whether the
- * invitation ever sent.
+ * Declined people stay in the list rather than disappearing: a captain needs to see that somebody
+ * said no rather than wondering whether the invitation ever sent. Revoked people do not reach this
+ * list at all; the card above filters them out, and the comment there says why.
  */
 function RosterList({ conf, applicationId, members, editable, myProfileId, onEdit, onSaved }: RosterProps) {
   const qc = useQueryClient();
@@ -388,7 +380,7 @@ function RosterList({ conf, applicationId, members, editable, myProfileId, onEdi
             )}
             {/* Both actions include your own row. A captain invites themselves like anybody else, so
                 there is no reason theirs should be the one nobody can fix. */}
-            {editable && member.status !== "revoked" && (
+            {editable && (
               <span className="ml-auto flex gap-2">
                 <button type="button" onClick={() => onEdit(member)} className={ACTION_SM}>
                   <Pencil size={13} aria-hidden="true" />
@@ -399,7 +391,7 @@ function RosterList({ conf, applicationId, members, editable, myProfileId, onEdi
                   description={
                     member.status === "accepted"
                       ? "They've already accepted, so they'll be taken off the roster and told about it on Discord. You can invite them again afterwards."
-                      : "Their invitation is withdrawn. You can invite them again afterwards."
+                      : "Their invitation is canceled. You can invite them again afterwards."
                   }
                   confirmLabel="Remove"
                   onConfirm={() => revoke.mutate(member.id)}
@@ -496,29 +488,4 @@ function readinessBlockers(
   }
 
   return blockers;
-}
-
-/**
- * The team's two colors.
- *
- * An inline `backgroundColor` rather than a utility, for the same reason `TeamBadge` uses one: this
- * is the applicant's own data, so there is no `@theme` token for it and Tailwind cannot express an
- * arbitrary value off the wire.
- */
-function Swatches({ primary, secondary }: { primary: number | null; secondary: number | null }) {
-  if (primary === null && secondary === null) return null;
-  return (
-    <span className="flex items-center gap-1" aria-label="Team colors">
-      {[primary, secondary].map((color, i) =>
-        color === null ? null : (
-          <span
-            key={i}
-            title={hexFromInt(color)}
-            className="h-5 w-5 rounded border border-border3"
-            style={{ backgroundColor: hexFromInt(color) }}
-          />
-        ),
-      )}
-    </span>
-  );
 }

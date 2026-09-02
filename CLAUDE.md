@@ -47,7 +47,7 @@ you find it wrong, fix it in the same change.
 
 Routes: `/` + the non-standalone `TABS` paths → `Home`; `/scores`, `/schedule`, `/stats`, `/info`,
 `/teams/:conf/:code`, `/match/:id`, `/game/:matchId`, `/players/:profileId`, `/register`, `/login`,
-`/setup`, `/team-invitations`, `/settings/:section?`, `/admin/:section?`,
+`/setup`, `/team-invitations`, `/my-applications`, `/settings/:section?`, `/admin/:section?`,
 `/league/:conf/admin/:section?`, `*` →
 `NotFound`. The whole tree sits inside `SetupGate`, which holds a signed-in user with an incomplete
 profile on `/setup` — and, since setup grew a second step, deliberately does **not** evict them the
@@ -66,8 +66,8 @@ Three route groups, and the group is what decides a page's chrome:
   `/info`, `/news`. Adding a public data tab means adding it here; a page never mounts
   `ScoreboardTicker` itself.
 - **`SiteLayout`** — the same chrome without the strip: `/setup`, `/players/:profileId`,
-  `/news/:slug`, `/register`, `/team-invitations`, `/settings`, `/admin`, `/league/:conf/admin`,
-  `/content`, and `*`. `/register` moved here from `BareLayout` when it stopped being a signpost and
+  `/news/:slug`, `/register`, `/team-invitations`, `/my-applications`, `/settings`, `/admin`,
+  `/league/:conf/admin`, `/content`, and `*`. `/register` moved here from `BareLayout` when it stopped being a signpost and
   became the application form: it is reached from a nav button now, and a page you arrive at from the
   nav should not delete the nav.
 - **`BareLayout`** — `/match/:id`, `/game/:matchId`, `/teams/:conf/:code`, `/login`.
@@ -180,6 +180,13 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   rather than grading into a chosen accent. `toBadge` and `toTeamBase` in `lib/leagueAdapters.ts`
   go through it, `TeamStylePreview` draws it in the two color forms, and every team-shaped mapper
   spreads `colorSecondaryOf` so the field rides along (absent, not `null`, on a read that lacks it).
+  `TeamBadge.tsx` also exports `TeamStyleHeader`, the Teams tab's card header as one component (the
+  gradient, the logo or initial on its well, the name and tag in white). It takes the resolved CSS
+  `background` rather than colors so the two-stop rule stays in `teamStyle.ts`; `TeamStylePreview`
+  wraps it for the color forms, and `applyUi.tsx`'s `ApplicationTeamHeader` wraps it over an
+  application's integer columns (through `teamGradientForInts`) for the applicant's card, the review
+  queue and the invitation inbox. Prefer it to a fresh copy of that markup wherever a team is
+  introduced by name; the two-swatch strips it replaced are gone from the application surfaces.
   The stat bars are the one surface with a different fallback: `BarLeaderboardRow.colorEnd` takes
   `secondaryHex` — the chosen secondary only, never the derived stop — so a team without one keeps
   the primary-to-transparent fade it always had, and `StatBars` clears it in `colorBy="value"` mode.
@@ -268,7 +275,12 @@ they are not allowed through. It must not read `/admin/leagues`, which would `40
 the page is for, and it no longer derives the flags from the open-season list or the public tournament
 list. The one control gated
 narrower than the page is the application-notes editor, which writes the Info document and so needs
-conference `admin`.
+conference `admin`. There is **no `withdrawn` state anywhere on the client**: withdrawing deletes the
+application upstream (§19 of `API-GAP-ANALYSIS.md`), so `APPLICATION_STATUSES` omits it and no pill
+or status note exists for it. The one filter left is at the API boundary: the three list reads in
+`teamApplications.ts` drop a leftover row still carrying it (`isServed`) so the mapper's `draft`
+fallback cannot resurrect a team its captain gave up. The Withdraw button stays; what it produces is
+an absence.
 
 It also edits the **application notes** (`applicationBody`) — the "read this before you apply"
 Markdown an applicant sees on `/register` — even though the field is stored on the league's Info
@@ -302,15 +314,30 @@ else would refresh it.
 
 Two pages, and they are two halves of one workflow: `/register` (`pages/Register.tsx`) is where a
 captain builds a team, and `/team-invitations` (`pages/TeamInvitations.tsx`) is where the people they
-invited answer. Neither works without the other, so change them together.
+invited answer. Neither works without the other, so change them together. A third,
+`/my-applications` (`pages/MyApplications.tsx`), is the captain's way back: every team they have
+submitted across every open league, one section per league with the league's application notes and
+rulebook folded into a `<details>` disclosure at the top, and **no form to start a new one**. It
+renders the same `ApplicationCard` as `/register`, so a change to the card is a change to both pages.
+It fans `myApplications` out per open season with `useQueries`, because there is no cross-conference
+read; a league the member has nothing in is left out rather than shown empty.
 
 - `applyUi.tsx` is the vocabulary: `ROLE_LABEL`, `STARTER_ROLES`, `roleSummary`,
-  `ApplicationStatusPill` / `InvitationStatusPill`, `MemberAvatar`, `memberLabel`. **The wording is
+  `ApplicationStatusPill` / `InvitationStatusPill`, `ApplicationTeamHeader` (the card header every
+  application surface opens with; the card needs `overflow-hidden`), `ApplicationDetailsBlock`,
+  `MemberAvatar`, `memberLabel`. Labels that sit beside a value in the details block use its local
+  `INLINE_LABEL`, not `LABEL_CLASS`, whose `block` and bottom margin lift a label above the text it
+  names, and those rows align on `items-baseline`, not `items-center`: a small all-caps label
+  centered against mixed-case text still reads high, and an icon in the row is `self-center` so it
+  does not supply the baseline. **The wording is
   the player's, not the API's** — `sup` is "Support", `submitted` is "Waiting on staff", and
   `rejected` is "Changes needed" because upstream lets a rejected application be edited and
-  resubmitted. Also `useApplicationConfName`, which exists because `profileUi`'s `useConfLabel`
-  resolves against the listed-only tournament list and therefore cannot name the hidden conference
-  somebody is applying to.
+  resubmitted. A substitute is "Substitute", never "Substitute 3": **the sub `ordinal` is invisible
+  to the applicant.** It is a bench order with no uniqueness upstream (roles are keyed on `(member,
+  role)` and `publicationIssues` only counts subs), so `InviteMember`'s `nextSubOrdinal` assigns the
+  lowest one no live sub holds and nothing ever shows or asks for it. Also `useApplicationConfName`,
+  which exists because `profileUi`'s `useConfLabel` resolves against the listed-only tournament list
+  and therefore cannot name the hidden conference somebody is applying to.
 - `ApplicationForm.tsx` is one form for create **and** replace, because upstream takes one strict
   seven-key document for both and `PUT` is a whole-document replacement — anything the form omits is
   erased, which is why `applicationMetadata` is passed straight back through.
@@ -336,15 +363,23 @@ invited answer. Neither works without the other, so change them together.
   player who linked an account a minute ago reads `Rank pending` until somebody presses Refresh
   ranks.
 - `InviteMember.tsx` is guild search plus a role picker. Position is single-choice, matching the
-  server's one-playing-role rule. There is no roles-only edit: the invitation route identifies people
-  by Discord snowflake and a member row carries none, so changing a position means remove-and-reinvite
-  — see §10.8 of `API-GAP-ANALYSIS.md`.
+  server's one-playing-role rule. It is also the roles editor: a member already on the roster is
+  re-sent by `profileId` (§10.8 of `API-GAP-ANALYSIS.md`), which is the one way to change a position.
+- `ApplicationCard.tsx` **hides `revoked` members** from the applicant's roster. Upstream keeps
+  serving them for the reviewer's benefit, but a "Removed" row that outlives every refresh clogged the
+  captain's own page, and re-inviting the person is an upsert that needs no row on screen. Declined
+  members stay, because that is an answer the captain has to see. The review queue still shows both.
 
 The APPLY NOW button lives in `auth/AuthControl.tsx`, in the same slot the signed-out JOIN CCS
 button occupies. It is gated on `isAuthenticated` because `GET /tournaments/applications/open` is
 `401` for anonymous callers — which also means the nav cannot offer it to a signed-out visitor at
 all (§10.10). The account menu's "Team invitations" row is unconditional, because an invitation can
-arrive long after intake closes and the Discord DM is best-effort.
+arrive long after intake closes and the Discord DM is best-effort. Its **"My applications"** row is
+not: `hooks/useMyApplications.ts`'s `useHasLiveApplication` offers it only while the member is
+running an application in a season still taking them, reading `myApplications` once per
+open conference (there is no cross-conference route), and it links to `/my-applications`, not to
+`/register`. That read is `LEAGUE_STALE` rather than `0` for exactly this reason: it runs from the
+nav on every page, and every applicant write invalidates `queryRoots.applications` anyway.
 
 League Admin → Info Page is `src/components/league/info/InfoSection.tsx`. There is exactly one
 document per conf, so it uses a complete-document `PUT`; link order is editor-owned and must never

@@ -47,3 +47,50 @@ export function TeamBadge({ team, size = 24 }: TeamBadgeProps) {
     </div>
   );
 }
+
+/**
+ * A team's card header: its gradient, the logo (or initial) on a translucent well inside it, and the
+ * name and tag in white beside that. The same markup as the Teams tab's card header in
+ * `views/TeamsView.tsx`, which is the largest surface a team's pair is ever painted on.
+ *
+ * Takes the resolved `background` rather than the colors so the rule for which two stops to draw
+ * stays in `lib/teamStyle.ts`: a team already on the wire passes `teamGradientFor`, and the color
+ * forms pass `teamGradient` over the pair being chosen. Shared by `TeamStylePreview` and the
+ * invitation inbox, so a team looks the same to the captain choosing its colors, to the player
+ * deciding whether to join it, and on the Teams tab once it exists.
+ */
+export function TeamStyleHeader({
+  name,
+  code,
+  logo,
+  background,
+  label,
+}: {
+  name: string;
+  code: string;
+  logo: string | null;
+  /** A CSS `background` value from `lib/teamStyle.ts`. */
+  background: string;
+  /** An `aria-label`, for a caller whose header is decorative rather than the card's heading. */
+  label?: string;
+}) {
+  return (
+    <div
+      className="flex items-center gap-3.5 px-4 py-5"
+      style={{ background }}
+      aria-label={label}
+    >
+      {logo ? (
+        <img src={logo} alt="" decoding="async" className="h-12 w-12 rounded-lg bg-black/20 object-contain" />
+      ) : (
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-black/30 font-heading text-xl font-bold text-white">
+          {teamInitial(name)}
+        </div>
+      )}
+      <div className="min-w-0">
+        <div className="truncate font-display text-xl tracking-wider text-white">{name}</div>
+        <div className="mt-0.5 font-mono text-[11px] text-white/70">{code}</div>
+      </div>
+    </div>
+  );
+}
