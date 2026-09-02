@@ -159,7 +159,7 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
 
       <SettingsRow
         label="Logo"
-        hint="A square image works best — it fills your badge on scoreboards and brackets."
+        hint="A square image with transparent background is recommended."
       >
         <ImageUpload
           value={logo}
@@ -178,7 +178,7 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
 
       <SettingsRow
         label="Secondary Color"
-        hint="An accent for your team's primary color. Pick something that reads against the primary rather than beside it. Required."
+        hint="Your team's accent color. Required."
       >
         <ColorField id="secondary-color" value={secondary} onChange={setSecondary} />
       </SettingsRow>
@@ -228,7 +228,7 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
 
       <SettingsRow
         label="Experience and accomplishments"
-        hint="Other leagues you've played, placements, how long the org has been around — whatever helps staff place you. Optional, and a first-time team is not at a disadvantage for leaving it empty."
+        hint="Other leagues you've played, placements, how long the org has been around, etc. Optional."
       >
         <textarea
           value={experience}
@@ -242,7 +242,7 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
 
       <SettingsRow
         label="Note for the league staff"
-        hint="Optional. Anything they should know while reviewing."
+        hint="Anything staff should know while reviewing. Optional."
       >
         <textarea
           value={message}
@@ -367,7 +367,7 @@ function RulesAcknowledgement({
       </label>
       {rulebook === null && !isPending && (
         <p className="mt-1.5 text-xs text-text-dim">
-          This league hasn't linked a rulebook — ask staff on Discord for a copy before you confirm.
+          This league hasn't linked a rulebook. Ask staff on Discord for a copy before you confirm.
         </p>
       )}
     </>
