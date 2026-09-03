@@ -55,7 +55,7 @@ export function GameHeader() {
             {seriesHref ? (
               <Link to={seriesHref} className="text-brand no-underline hover:underline">
                 Game {context.game}
-                {context.bestOf ? ` of ${context.bestOf}` : ""} &rarr;
+                {context.bestOf ? ` (Bo${context.bestOf})` : ""} &rarr;
               </Link>
             ) : (
               <>Game {context.game}</>
