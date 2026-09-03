@@ -24,7 +24,7 @@ export function ChampionSplash({ championId, level, density: d }: { championId: 
     <ChampionSplashArt
       championId={championId}
       fade={false}
-      crop={CROP_RIGHT}
+      cropRight={CROP_RIGHT}
       position="center 25%"
       className="h-full self-stretch border-r border-border"
       style={{ width: Math.round(d.splash * (1 - CROP_RIGHT)) }}

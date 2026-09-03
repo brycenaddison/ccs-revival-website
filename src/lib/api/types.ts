@@ -394,6 +394,10 @@ export interface MatchlistEntry {
   matchId: string;
   conf: string;
   seasonDay: number;
+  /** The exact fixture this game belongs to. Null on legacy rows. */
+  scheduleMatchId: number | null;
+  /** The game's resolved place in the season structure. Null when no published phase covers it. */
+  phase: PhaseRef | null;
   team: string;
   opponent: string;
   /** Game number within the series. */

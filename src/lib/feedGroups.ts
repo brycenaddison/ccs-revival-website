@@ -73,8 +73,9 @@ export function flattenFeedPages(pages: readonly FeedPage[]): FeedMatch[] {
 
   for (const page of pages) {
     for (const match of page.matches) {
-      if (seen.has(match.scheduleMatchId)) continue;
-      seen.add(match.scheduleMatchId);
+      const key = feedMatchKey(match);
+      if (seen.has(key)) continue;
+      seen.add(key);
       out.push(match);
     }
   }
