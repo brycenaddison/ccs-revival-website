@@ -29,6 +29,7 @@ export const EVENT_NAMES: Partial<Record<RiotEventType, string>> = {
   LEVEL_UP: "Level ups",
   WARD_PLACED: "Wards placed",
   WARD_KILL: "Wards killed",
+  PAUSE_START: "Game pauses",
   GAME_END: "Game end",
 };
 

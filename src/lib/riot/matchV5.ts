@@ -347,6 +347,7 @@ export interface RiotDeathRecapSpell {
  * `switch` to its default branch rather than being dropped at the boundary.
  */
 export type RiotTimelineEvent<T extends string = string> = { timestamp: number; type: T } & (
+  | { type: "PAUSE_START"; realTimestamp: number }
   | { type: "PAUSE_END"; realTimestamp: number }
   | { type: "ITEM_PURCHASED"; participantId: number; itemId: number }
   | { type: "ITEM_SOLD"; participantId: number; itemId: number }

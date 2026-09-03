@@ -214,6 +214,8 @@ export function EventText({ event }: { event: ListEvent }): ReactNode {
       return <>The {SIDE[event.teamId]} side claims the {event.name} Soul.</>;
     case "GAME_END":
       return <>The game ends with the {SIDE[event.winningTeam]} side victorious.</>;
+    case "PAUSE_START":
+      return <>The game was paused.</>;
     case "PAUSE_END":
       return <>The game begins.</>;
     case "ITEM_PURCHASED":
