@@ -110,6 +110,7 @@ Import from the barrel: `import { … } from "../lib/api"` (`index.ts` re-export
 | `season.ts` | `GET /:conf/phases` — the season's **structure**, site-admin only. See below. |
 | `schedule.ts` | League-admin schedule surface: matches, forfeits, tournament codes, game linking. |
 | `admin.ts` | Site-admin surface: `/admin/users`, `/admin/leagues`. The clearest small example of the write idiom — read it before adding a new mutating module. `GET /admin/leagues` is the **unfiltered** league list; `LeagueEdit.listed` is typed as the literal `false`, because upstream refuses `true` there. Also the season's two lifecycle switches, **site-admin only**: `setApplicationsOpen` (`PATCH /admin/leagues/:conf/applications`) and `listSeason` (`POST /admin/leagues/:conf/list`). They used to sit on `/tournaments` behind a conference `admin` grant; the old paths answer `404`. Their `409`s use the application surface's envelope, so `refusalOf` reads them. |
+| `adminApplications.ts` | Site Admin → Import Applications: `importApplication` (`POST /admin/leagues/:conf/applications/import`, a draft owned by *another* profile with its roster staged as `pending`, un-DMed invitations), `sendApplicationInvitations` (`POST .../:id/invitations/send`, the DMs as a separate command), `discardApplication` (`DELETE .../:id`, because withdraw is the submitter's alone) and `searchGuild` (`GET /admin/guild/members/search`, the applicant's guild search without an application to scope it to). **None of the four exist upstream yet**; the contract is `admin-application-import-api-spec.md` (§22). Site-admin only, like the intake toggle: acting as somebody else is not one conference's data. People are named the way `InvitationInput` names them, exactly one of `discordUserId` or `profileId`. No read of its own: the list is `applicationQueue`, which a site admin passes. Reuses `mapApplication`, exported from `teamApplications.ts` for it. |
 | `teamAdmin.ts` | League Admin → Teams writes: `POST /tournaments/:conf/teams` and `PATCH .../:id`, `roster` scope. **Neither route exists upstream yet** — the contract is `league-admin-teams-api-spec.md`, and the module is written ahead of it (§17). No read of its own: public `GET /teams/:conf` already carries every editable column, and both writes answer that same shape, so they reuse `mapTeamRecord`. Create is a complete strict document, edit is a partial patch — the two halves of that editor save on different schedules and a `PUT` would let a roster save clobber branding. |
 | `teamApplications.ts` | The upcoming-season workflow: applicant drafts, Discord invitations, roster review, the publication command, and `applicationIntake` — the **`roster`-readable** `GET /tournaments/:conf/applications/intake` (`{conf, applicationsOpen, listed, teamsPublishedAt}`), which exists because the public tournament list cannot describe a hidden season and `/admin/leagues` would `403` a league admin. Everything here is `roster` scope; the intake and listing *switches* are `admin.ts`'s. Exports `refusalOf`, which lifts `issues` off a `409` — every refusal on this surface answers one shape, `{status, error, issues?}`, so `error` rides in `ApiError.detail` and there is nothing left to translate. `InvitationInput` takes **exactly one** of `discordUserId` (a new invitee, guild membership rechecked) or `profileId` (somebody already on the roster — the only way to change their position). `confName` is served flat because an application only exists while its conference is hidden. `ApplicationSeason` carries **`rulebookUrl`** and **`applicationBody`**, both copied off the Info document: the former is where the applicant form links its rules confirmation, the latter is the Markdown `pages/Register.tsx` renders above the form — the public Info read is published-only and intake routinely opens for a league whose Info page is still a draft. |
 | `phaseRef.ts` | `PhaseRef`, its mapper, and `placementLabel` (the one rule for saying where a game sat: round number, then the operator's round name, then "Day n of m", then the week fallback). Its own module because both `profiles.ts` and `client.ts` (the team matchlist) need it and `profiles.ts` already imports `client.ts`. |
@@ -381,6 +382,28 @@ field back exactly as stored, and invalidates `queryRoots.applications` as well 
 because applicants read the copy off `GET /tournaments/applications/open`. The Info editor, in turn,
 carries `applicationBody` through untouched on its own saves — leave either half out and one editor
 erases the other's field.
+
+Site Admin → **Import Applications** is `src/components/admin/applications/ImportApplicationsSection.tsx`,
+and it is **not a second review queue**. It exists because the league ran one season's intake on an
+external form: every applicant route gates on the caller being the submitter, so nobody could enter
+those answers on a captain's behalf. `ImportApplicationForm.tsx` takes the captain, the same strict
+application document `ApplicationForm` writes (same caps, same `ColorField`, `TeamStylePreview` and
+`RolePicker`, the last exported from `apply/InviteMember.tsx` with an `ownerNote` prop because its
+default text speaks to the captain) and the roster in one document, and the result is a **`draft`
+owned by the submitter**: it appears on their `/my-applications`, and only they can edit, submit or
+withdraw it. Two rules the page is built around. **Import and Send invites are separate commands**:
+import stages every member as a `pending` invitation that is visible in their inbox on the site at once
+and has **not** been DMed, and the per-card Send invites button (a `ConfirmButton`, because it messages
+people) reaches only pending members whose `dmStatus` is not `sent`. There is no `staged` invitation
+state anywhere; the trade-off was chosen on 2026-09-03. And **people are picked from two sources under
+one input**, `PersonPicker.tsx`: the site-admin guild search for somebody who has never visited the
+site, and the unfiltered profile search for somebody who has. It carries a `PersonIdentity`
+discriminated union and builds the wire `PersonRef` at send time, so the one-of-two rule is a type,
+not a runtime check. The list under the form is `queries.applicationQueue`, League Admin's own read;
+Delete is offered on `draft` and `rejected` regardless of origin, since an imported application is
+indistinguishable from one a captain started, and the dialog says so. The league picker reads
+`/admin/leagues` like every site-admin picker, defaults to the first hidden season, and warns on a
+listed one, which the import route refuses.
 
 League Admin → **Teams** is `src/components/league/teams/TeamsSection.tsx`, and it is **one section
 where the sidebar used to promise two**: `teams` and `rosters` were separate `ComingSoon` stubs over

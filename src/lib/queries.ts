@@ -46,6 +46,7 @@ import {
   records,
   schedule,
   scheduleFeed,
+  searchGuild,
   searchProfiles,
   searchUsers,
   season,
@@ -60,6 +61,7 @@ import {
   type FeedPage,
   type FeedQuery,
   type ManageQuery,
+  GUILD_SEARCH_MIN,
   PROFILE_SEARCH_MIN,
   type Role,
 } from "./api";
@@ -686,6 +688,24 @@ export const queries = {
       queryFn: ({ signal }: { signal: AbortSignal }) => searchProfiles(q, conf, undefined, { signal }),
       enabled: q.length >= PROFILE_SEARCH_MIN,
       staleTime: MINUTE,
+      placeholderData: keepPreviousData,
+    }),
+
+  /**
+   * The site admin's Discord guild search, for naming a person before any application exists to
+   * search under (the applicant's search is scoped to an application and gated on its creator).
+   *
+   * Under the `admin` prefix rather than `applications`: it is a lookup against Discord, and no
+   * application write changes what it answers. A real staleTime for the same reason `profileSearch`
+   * has one, and disabled below upstream's two-character floor rather than sent, since a shorter
+   * query is a `400` there.
+   */
+  adminGuildSearch: (q: string) =>
+    query({
+      queryKey: ["admin", "guild", "search", q] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => searchGuild(q, { signal }),
+      enabled: q.length >= GUILD_SEARCH_MIN,
+      staleTime: 30_000,
       placeholderData: keepPreviousData,
     }),
 

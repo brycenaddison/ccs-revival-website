@@ -191,6 +191,20 @@ export type {
   TeamMemberRole,
 } from "./teamApplications";
 export {
+  adminApplicationsApi,
+  discardApplication,
+  importApplication,
+  searchGuild,
+  sendApplicationInvitations,
+  GUILD_SEARCH_MIN,
+} from "./adminApplications";
+export type {
+  ApplicationImportInput,
+  ImportedMember,
+  InvitationSendResult,
+  PersonRef,
+} from "./adminApplications";
+export {
   teamAdminApi,
   createTeam,
   updateTeam,

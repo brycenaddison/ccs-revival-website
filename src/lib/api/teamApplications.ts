@@ -573,7 +573,12 @@ function mapMember(raw: unknown): ApplicationMember | null {
  */
 const isServed = (raw: unknown): boolean => asRaw(raw).status !== "withdrawn";
 
-function mapApplication(raw: unknown): TeamApplication {
+/**
+ * Exported for `adminApplications.ts`, whose import and send routes answer this same document. One
+ * mapper for every read of an application, so the site-admin import page and the review queue cannot
+ * disagree about the row they are both looking at.
+ */
+export function mapApplication(raw: unknown): TeamApplication {
   const a = asRaw(raw);
   const members = Array.isArray(a.members)
     ? a.members.map(mapMember).filter((m): m is ApplicationMember => m !== null)
@@ -670,7 +675,8 @@ function mapIntake(raw: unknown): ApplicationIntake {
   };
 }
 
-function mapCandidate(raw: unknown): GuildMemberCandidate | null {
+/** Also the mapper for the site admin's guild search (`adminApplications.ts`): same projection. */
+export function mapGuildCandidate(raw: unknown): GuildMemberCandidate | null {
   const c = asRaw(raw);
   const userId = strOrNull(c.userId);
   if (userId === null) return null;
@@ -857,7 +863,7 @@ export function searchGuildMembers(
 ): Promise<GuildMemberCandidate[]> {
   const search = new URLSearchParams({ q }).toString();
   return credentialedRequest(`${forConf(conf)}/${id}/members/search?${search}`, {}, opts).then(
-    raw => list(raw).map(mapCandidate).filter((c): c is GuildMemberCandidate => c !== null),
+    raw => list(raw).map(mapGuildCandidate).filter((c): c is GuildMemberCandidate => c !== null),
   );
 }
 

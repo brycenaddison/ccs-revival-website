@@ -20,7 +20,7 @@
  * takes one or the other rather than either.
  */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Search, UserPlus, X } from "lucide-react";
 import { ACTION, ACTION_PRIMARY, ACTION_QUIET, ACTION_SM, ErrorLine } from "../admin/adminUi";
@@ -353,7 +353,15 @@ function nextSubOrdinal(
 interface RolePickerProps {
   roles: readonly TeamMemberRole[];
   onToggle: (role: TeamMemberRole) => void;
+  /**
+   * What to say under a ticked Owner. The default is written to the captain ("you started it");
+   * the site admin's import form, which stages roles for somebody else, passes its own or `null`.
+   */
+  ownerNote?: ReactNode;
 }
+
+const CAPTAIN_OWNER_NOTE =
+  "Owner is how the league records who runs the team. You keep control of this application either way, since you started it.";
 
 /**
  * The roles being asked for, in two groups, because the two groups behave differently.
@@ -364,8 +372,12 @@ interface RolePickerProps {
  *
  * Neither administrative role is required and neither confers anything on this page: `owner` is a
  * label for the league's records, and an application is run by whoever created it.
+ *
+ * Exported for the site admin's import form, which stages the same role set for each member of a
+ * roster it is entering on a captain's behalf. One picker, so the two cannot drift on the
+ * one-playing-role rule.
  */
-function RolePicker({ roles, onToggle }: RolePickerProps) {
+export function RolePicker({ roles, onToggle, ownerNote = CAPTAIN_OWNER_NOTE }: RolePickerProps) {
   const playing = roles.find(
     role => role === "sub" || (STARTER_ROLES as readonly string[]).includes(role),
   );
@@ -421,11 +433,8 @@ function RolePicker({ roles, onToggle }: RolePickerProps) {
       {/* Deliberately reassuring rather than a warning. Inviting an owner used to be described as
           handing over the application, which was never true: every write gates on whoever created
           it, so the role records who runs the team for the league and changes nothing here. */}
-      {roles.includes("owner") && (
-        <p className="mt-1.5 text-xs text-text-dim">
-          Owner is how the league records who runs the team. You keep control of this application
-          either way — you started it.
-        </p>
+      {roles.includes("owner") && ownerNote !== null && (
+        <p className="mt-1.5 text-xs text-text-dim">{ownerNote}</p>
       )}
     </div>
   );

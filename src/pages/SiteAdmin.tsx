@@ -1,10 +1,12 @@
 /**
  * Site administration — `/admin/:section?`.
  *
- * Every section here is live against the `/admin` portal. Team applications used to be a placeholder
- * in this list and is now League Admin → Team Applications instead: an application belongs to one
- * conference, review needs that conference's `roster` grant rather than a site role, and a second
- * copy under `/admin` could only ever duplicate it.
+ * Every section here is live against the `/admin` portal. Reviewing team applications is League
+ * Admin → Team Applications, not here: an application belongs to one conference, review needs that
+ * conference's `roster` grant rather than a site role, and a second copy under `/admin` could only
+ * ever duplicate it. What *is* here is Import Applications, which is a different job: creating an
+ * application on a captain's behalf and messaging their players acts as somebody else, and the
+ * routes behind it are site-admin only for the same reason the intake toggle is.
  *
  * `SITE_ADMIN_ROLE` implies league admin everywhere — see `lib/adminAccess.ts`. The gate below is
  * the same answer the API gives: every route under `/admin` is site-admin only, never a league
@@ -12,11 +14,12 @@
  */
 
 import { useParams } from "react-router-dom";
-import { Award, CalendarRange, Megaphone, ShieldCheck, Trophy } from "lucide-react";
+import { Award, CalendarRange, Import, Megaphone, ShieldCheck, Trophy } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
 import { GlobalAccoladesSection } from "../components/admin/accolades/GlobalAccoladesSection";
+import { ImportApplicationsSection } from "../components/admin/applications/ImportApplicationsSection";
 import { AnnouncementsSection } from "../components/admin/AnnouncementsSection";
 import { LeaguesSection } from "../components/admin/LeaguesSection";
 import { RolesSection } from "../components/admin/RolesSection";
@@ -41,6 +44,16 @@ const AREA: SettingsArea = {
       icon: Trophy,
       description: "Create a league, rename it, and set which season is running now.",
       Component: LeaguesSection,
+    },
+    {
+      slug: "applications",
+      label: "Import Applications",
+      icon: Import,
+      // Not a review queue: that is League Admin → Team Applications, behind a `roster` grant. This
+      // creates a draft owned by somebody else and messages their players, which is why its routes
+      // are site-admin only (`lib/api/adminApplications.ts`) and why it sits beside the intake toggle.
+      description: "Enter a team application on a captain's behalf, then message their players when you're ready.",
+      Component: ImportApplicationsSection,
     },
     {
       slug: "season",
