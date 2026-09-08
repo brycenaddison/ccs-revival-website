@@ -74,6 +74,9 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   ten-second cooldown, thirty checks) are held as wall-clock instants, never counters. Riot's copy of
   a profile lags the client by about two minutes, so a `pending` straight after the save is expected —
   the copy tells the player to wait before the first Check, and must keep saying so.
+- `src/lib/riot/verificationIcons.ts`: English client search names for the API's verification icon
+  pool (IDs 0–28), sourced from Community Dragon. Keep in sync with the API's pool; unknown IDs use
+  artwork instructions. Known names remain usable when the verification artwork fails to load.
 
 ## Core conventions
 

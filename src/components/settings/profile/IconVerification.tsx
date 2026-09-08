@@ -52,6 +52,7 @@ import {
 } from "../../../lib/api";
 import { ACTION_SM, ACTION_SM_PRIMARY, ErrorLine } from "../../admin/adminUi";
 import { profileIconUrl } from "../../profile/RiotAccountCards";
+import { verificationIconName } from "../../../lib/riot/verificationIcons";
 
 /** The statuses that end a challenge rather than describing its progress. */
 type DeadStatus = Exclude<IconCheckResult["status"], "verified" | "pending" | "cooldown">;
@@ -101,6 +102,7 @@ export function IconVerification({
   onVerified,
   onClose,
 }: Props) {
+  const iconName = verificationIconName(challenge.targetIconId);
   /** When the next check is allowed — both a `pending` result and a `cooldown` refusal land here. */
   const [readyAt, setReadyAt] = useState(0);
   const [deadStatus, setDeadStatus] = useState<DeadStatus | null>(null);
@@ -109,11 +111,8 @@ export function IconVerification({
    * The artwork didn't load.
    *
    * Worth its own state rather than leaving the browser's broken-image glyph to speak, because the
-   * icon *is* the instruction here: a panel telling someone to pick an icon it cannot show them is
-   * unusable, and silence reads as the challenge having failed rather than the picture. There is no
-   * fallback to fall back *to* — the numeric icon id is a join key between us and Riot and means
-   * nothing to a player — so this says the picture is missing and to try again, which is the only
-   * honest instruction left.
+   * player needs to know that only the picture failed. A known icon name still lets them search;
+   * an unknown icon needs the artwork to load before they can identify it.
    */
   const [artworkFailed, setArtworkFailed] = useState(false);
 
@@ -195,7 +194,7 @@ export function IconVerification({
           ) : (
             <img
               src={profileIconUrl(challenge.targetIconId)}
-              alt="The profile icon to set on this account"
+              alt={iconName ?? "The profile icon to set on this account"}
               width={88}
               height={88}
               decoding="async"
@@ -207,7 +206,13 @@ export function IconVerification({
 
         <ol className="min-w-[240px] flex-1 list-decimal pl-5 text-sm text-text-secondary">
           <li>Open the League client, signed in as this account.</li>
-          <li>Edit your icon, pick the icon shown here, and save.</li>
+          <li>
+            {iconName ? (
+              <>Edit your icon, search for <strong className="select-text font-semibold text-text-bright">{iconName}</strong>, select it, and save.</>
+            ) : (
+              "Edit your icon, pick the icon shown here, and save."
+            )}
+          </li>
           <li>Wait a couple minutes, then press Check. Still showing the old icon? Give it another minute and check again.</li>
           {/* Worth saying: the icon is proof at one moment, not a badge the profile has to keep
               wearing. Without this, the flow reads as a permanent cost and people don't finish it. */}
@@ -244,8 +249,9 @@ export function IconVerification({
 
       {artworkFailed && (
         <p className="mt-2 text-xs text-ccs-red">
-          The icon's picture didn't load, so there's nothing to copy — reload the page and start
-          again.
+          {iconName
+            ? "The icon's picture didn't load. You can still find it by searching for its name above."
+            : "The icon's picture didn't load, so there's nothing to copy — reload the page and start again."}
         </p>
       )}
       {note ? (
