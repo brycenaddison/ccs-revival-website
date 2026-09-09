@@ -9,6 +9,10 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
 
 ## Fast map
 
+- `src/components/Markdown.tsx`: shared renderer for articles, league Info and application notes,
+  including editor previews. Images support `![Description](url "width=256")`: an exact title of
+  `width=N` (1–9999 pixels) sets display width, capped by the container with automatic height.
+  Ordinary titles remain tooltips; raw HTML stays disabled. This changes display size, not file size.
 - `src/main.tsx`: providers and every route. Public player profiles are `/players/:profileId`; first-time
   identity setup is `/setup`. Routes are declared under three layout routes — `SiteLayout ticker`,
   `SiteLayout`, and `BareLayout` for the full-bleed pages (`/match`, `/game`, `/teams`, `/register`,

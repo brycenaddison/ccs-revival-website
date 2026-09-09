@@ -23,6 +23,12 @@ import remarkGfm from "remark-gfm";
 /** Which rhythm a body reads at. See the presets in `index.css`. */
 export type TypesetPreset = "article" | "notes";
 
+/** Reserve an exact image title for display sizing; ordinary titles remain tooltips. */
+function imageWidth(title: string | undefined): number | undefined {
+  const match = /^width=([1-9]\d{0,3})$/.exec(title ?? "");
+  return match ? Number(match[1]) : undefined;
+}
+
 export function Markdown({ body, preset = "notes" }: { body: string; preset?: TypesetPreset }) {
   return (
     <div className={`typeset typeset-${preset}`}>
@@ -34,9 +40,20 @@ export function Markdown({ body, preset = "notes" }: { body: string; preset?: Ty
               {children}
             </a>
           ),
-          img: ({ src, alt }) => (
-            <img src={typeof src === "string" ? src : undefined} alt={alt ?? ""} loading="lazy" decoding="async" />
-          ),
+          img: ({ src, alt, title }) => {
+            const width = imageWidth(title);
+            return (
+              <img
+                src={typeof src === "string" ? src : undefined}
+                alt={alt ?? ""}
+                title={width === undefined ? title : undefined}
+                width={width}
+                className="h-auto max-w-full"
+                loading="lazy"
+                decoding="async"
+              />
+            );
+          },
           table: ({ children }) => (
             // The wrapper takes typeset's flow margin (`mt-[var(--typeset-flow)]`) so the table keeps the
             // body's rhythm, and scrolls itself when a wide table would otherwise squeeze.

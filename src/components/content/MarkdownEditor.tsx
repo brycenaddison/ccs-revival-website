@@ -136,6 +136,9 @@ export function MarkdownEditor({
           </div>
           <p className="mt-1.5 text-xs text-text-dim">
             The image goes in at the cursor. Provide a description of the image between the square brackets.
+            {" Set its display width in pixels with "}
+            <code>{'![Description](image-url "width=256")'}</code>
+            {" (1–9999). Images shrink to fit smaller screens and keep their proportions."}
           </p>
         </>
       )}
