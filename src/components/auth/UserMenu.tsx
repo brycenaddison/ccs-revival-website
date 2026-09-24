@@ -14,6 +14,7 @@ import { useAdminAccess } from "../../lib/adminAccess";
 import { useAuth } from "../../lib/authContext";
 import { CONTENT_ROLE } from "../../lib/api";
 import { useHasLiveApplication } from "../../hooks/useMyApplications";
+import { useHasInvitations } from "../../hooks/useInvitations";
 import { playerPath } from "../profile/PlayerLink";
 
 export type MenuEntry =
@@ -45,6 +46,7 @@ interface EntryOpts {
    * to start one, and a started application was otherwise hard to find again.
    */
   hasApplication: boolean;
+  hasInvitations: boolean;
   isSiteAdmin: boolean;
   /**
    * Whether to offer the writers' portal. Already OR'd with site admin by the caller, matching the
@@ -57,7 +59,7 @@ interface EntryOpts {
 /**
  * The account actions, in display order. Log out stays last; new options go above the divider.
  *
- * Takes an options object rather than positional arguments: the list is now driven by three inputs
+ * Takes an options object rather than positional arguments: the list is driven by several inputs
  * and will keep growing, and `accountMenuEntries(logout, linkRiot, true)` says nothing at the call
  * site about what `true` means.
  *
@@ -73,6 +75,7 @@ export function accountMenuEntries({
   linkRiot,
   canLinkRiot,
   hasApplication,
+  hasInvitations,
   isSiteAdmin,
   canEditContent,
   profileId,
@@ -86,10 +89,10 @@ export function accountMenuEntries({
     ...(hasApplication
       ? [{ kind: "item" as const, label: "My Applications", icon: ClipboardList, to: "/my-applications" }]
       : []),
-    // Unconditional, unlike the Apply Now button beside this menu. An invitation can arrive long
-    // after intake closes — staff review takes days — and this is the only page that can answer it,
-    // since the Discord DM is best-effort and may never have been delivered.
-    { kind: "item", label: "Team Invitations", icon: Inbox, to: "/team-invitations" },
+    // Include answered invitations; the inbox remains useful for reviewing a past response.
+    ...(hasInvitations
+      ? [{ kind: "item" as const, label: "Team Invitations", icon: Inbox, to: "/team-invitations" }]
+      : []),
     { kind: "item", label: "Settings", icon: Settings, to: "/settings" },
     ...(canEditContent
       ? [{ kind: "item" as const, label: "Content", icon: FileText, to: "/content" }]
@@ -123,6 +126,7 @@ export function UserMenu({ name }: { name: string }) {
   const { logout, linkRiot, canLinkRiot, hasRole, profile } = useAuth();
   const { isSiteAdmin } = useAdminAccess();
   const hasApplication = useHasLiveApplication();
+  const hasInvitations = useHasInvitations();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -154,6 +158,7 @@ export function UserMenu({ name }: { name: string }) {
     linkRiot,
     canLinkRiot,
     hasApplication,
+    hasInvitations,
     isSiteAdmin,
     canEditContent: isSiteAdmin || hasRole(CONTENT_ROLE),
   });

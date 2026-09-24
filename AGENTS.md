@@ -34,6 +34,10 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
 - `src/lib/queries.ts`: every query key/options object. Profile documents and account reads share
   `queryRoots.profiles`; the document is fresh for one minute and account cards for ten.
 - `src/lib/authContext.tsx`: cookie-session identity and Discord/Riot OAuth flows.
+- `src/components/auth/UserMenu.tsx` + `AuthControl.tsx`: shared account actions for desktop and
+  mobile. `useHasInvitations` in `src/hooks/useInvitations.ts` shows Team Invitations only when the
+  signed-in profile's inbox is nonempty (answered invitations count). `queries.myInvitations` keys
+  the private inbox by profile ID; the `/team-invitations` route remains available for direct links.
 - `src/components/auth/SetupGate.tsx`: one route-tree hard gate for incomplete signed-in profiles.
 - `src/components/profile/ProfilePresentationForm.tsx`: the only nickname/pronouns/pronunciation
   editor. Setup and Settings both use it; all three fields are website-required even though the API

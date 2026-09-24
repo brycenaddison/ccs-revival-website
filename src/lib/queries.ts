@@ -665,9 +665,10 @@ export const queries = {
    * are invalidated by different writes — responding to an invitation changes this list without
    * changing any queue the responder can read.
    */
-  myInvitations: () =>
+  myInvitations: (profileId: number | null) =>
     query({
-      queryKey: ["invitations"] as const,
+      // Keep private inboxes separate if a different member signs in without a page reload.
+      queryKey: ["invitations", profileId] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) => myInvitations({ signal }),
       staleTime: 0,
     }),

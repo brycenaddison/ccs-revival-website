@@ -39,6 +39,7 @@ import { queries, queryRoots } from "../lib/queries";
 import { teamGradientForInts } from "../lib/teamStyle";
 import { fmtKickoff } from "../lib/utils";
 import { errorMessage, respondToInvitation, type TeamInvitation } from "../lib/api";
+import { useAuth } from "../lib/authContext";
 
 export default function TeamInvitations() {
   return (
@@ -58,9 +59,15 @@ export default function TeamInvitations() {
 
 function Inbox() {
   const [saved, setSaved] = useState<string | null>(null);
-  const { data, isPending, error } = useQuery(queries.myInvitations());
+  const { profile } = useAuth();
+  const profileId = profile?.id ?? null;
+  const { data, isPending, error } = useQuery({
+    ...queries.myInvitations(profileId),
+    enabled: profileId !== null,
+  });
   const invitations = data ?? [];
 
+  if (profileId === null) return <ErrorLine message="Couldn't load your profile." />;
   if (isPending) return <p className="text-text-dim">Loading your invitations…</p>;
   if (error) {
     return <ErrorLine message={`Couldn't load your invitations: ${errorMessage(error)}`} />;
