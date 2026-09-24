@@ -25,6 +25,7 @@ import { BracketSection } from "../components/league/bracket/BracketSection";
 import { InfoSection } from "../components/league/info/InfoSection";
 import { TeamsSection } from "../components/league/teams/TeamsSection";
 import { useAdminAccess } from "../lib/adminAccess";
+import { hasScope, type LeagueScopeName } from "../lib/api";
 import { sectionForSlug, type SettingsArea, type SettingsSection } from "../lib/settingsAreas";
 
 // Named to match the parked tabs in `src/_disabled/admin/`, so reviving one is a swap rather than a
@@ -33,9 +34,12 @@ import { sectionForSlug, type SettingsArea, type SettingsSection } from "../lib/
 // League metadata — name, short name, whether the season is running — is deliberately not here. It
 // is site-admin work and Site Admin → Leagues is where it happens; a tab that could only ever say
 // "coming soon" was a section an admin opened once and learned nothing from.
-const SECTIONS: readonly SettingsSection[] = [
+type LeagueAdminSection = SettingsSection & { scope: LeagueScopeName };
+
+const SECTIONS: readonly LeagueAdminSection[] = [
   {
     slug: "info",
+    scope: "admin",
     label: "Info Page",
     icon: BookOpen,
     description: "Quick links and important information shown on this league's public Info page.",
@@ -43,17 +47,17 @@ const SECTIONS: readonly SettingsSection[] = [
   },
   {
     slug: "applications",
+    scope: "admin",
     label: "Team Applications",
     icon: Inbox,
-    // Reviewing and publishing are both `roster`, the scope this page is gated on. Opening intake and
-    // making the season public are site-admin commands on `/admin/leagues`; the section shows their
-    // state and deliberately never names that portal. Only the application-notes editor is narrower
-    // (conference `admin`, because it writes the Info document), and it hides itself by scope.
+    // The page also edits the Info document, which requires `admin`. Keep the whole section out of
+    // narrower staff menus, including `roster`, until the API and page share one permission policy.
     description: "Teams applying for this season: review them, then publish the approved field.",
     Component: ApplicationsSection,
   },
   {
     slug: "accolades",
+    scope: "admin",
     label: "Accolades",
     icon: Award,
     // Both halves of the accolade surface, because they are one job: which awards this league can
@@ -64,6 +68,7 @@ const SECTIONS: readonly SettingsSection[] = [
   },
   {
     slug: "teams",
+    scope: "roster",
     label: "Teams",
     icon: Users,
     // One section, not two. `teams` and `rosters` were separate tabs over the same row, which is
@@ -71,8 +76,7 @@ const SECTIONS: readonly SettingsSection[] = [
     // person filling one in is the person who just looked at the other. Rosters lead because they
     // move weekly while a name and a tag are chosen once; branding sits behind a button.
     //
-    // Needs the `roster` scope, narrower than this page's own gate, the same way Schedule needs
-    // `schedule`. Without it the rosters still render, read-only.
+    // Team and roster writes both require the `roster` scope.
     description: "Rosters, and the names, tags, logos and colors the teams wear.",
     // Takes more than a column of fields: five starter pickers side by side, and each one opens a
     // search. At the default width they stack into a single column and the page becomes a scroll.
@@ -81,6 +85,7 @@ const SECTIONS: readonly SettingsSection[] = [
   },
   {
     slug: "schedule",
+    scope: "schedule",
     label: "Schedule",
     icon: CalendarDays,
     // Needs the `schedule` scope, which is narrower than this page's own gate — a grant carrying only
@@ -92,6 +97,7 @@ const SECTIONS: readonly SettingsSection[] = [
   },
   {
     slug: "bracket",
+    scope: "schedule",
     label: "Bracket",
     icon: GitFork,
     // The same `PATCH /schedule/:id` the Schedule section already uses, so the same `schedule` scope
@@ -111,20 +117,25 @@ const DEFAULT_WIDTH = 1000;
 
 export default function LeagueAdmin() {
   const { conf = "", section } = useParams();
-  const { leagues, canAdminLeague, ready } = useAdminAccess();
+  const { leagues, isSiteAdmin, canAdminLeague, ready } = useAdminAccess();
+  const league = leagues.find(l => l.conf === conf);
+  const visibleSections = useMemo(
+    () => SECTIONS.filter(s => isSiteAdmin || hasScope(league, s.scope)),
+    [isSiteAdmin, league],
+  );
 
   // Resolved here rather than in the shell, matching `SiteAdmin`: `PageShell` owns the content column
   // and wraps `SettingsShell`, so the width has to be known before the shell renders.
-  const maxWidth = sectionForSlug(SECTIONS, section)?.maxWidth ?? DEFAULT_WIDTH;
+  const maxWidth = sectionForSlug(visibleSections, section)?.maxWidth ?? DEFAULT_WIDTH;
 
   // `basePath` carries the conf, so the area can't be a module constant like the other two.
   const area = useMemo<SettingsArea>(
     () => ({
       title: "League Admin",
       basePath: `/league/${encodeURIComponent(conf)}/admin`,
-      sections: SECTIONS,
+      sections: visibleSections,
     }),
-    [conf],
+    [conf, visibleSections],
   );
 
   return (

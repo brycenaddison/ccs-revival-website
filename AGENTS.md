@@ -39,6 +39,13 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   signed-in profile's inbox is nonempty (answered invitations count). `queries.myInvitations` keys
   the private inbox by profile ID; the `/team-invitations` route remains available for direct links.
 - `src/components/auth/SetupGate.tsx`: one route-tree hard gate for incomplete signed-in profiles.
+- `src/pages/LeagueAdmin.tsx`: filters the League Admin section registry by the selected conf's
+  effective scopes before passing it to `SettingsShell`. Info, Team Applications and Accolades require
+  league `admin`; Teams requires `roster`; Schedule and Bracket require `schedule`. Site admins see all.
+  Direct links to hidden sections redirect through the shell to the first visible section; a grant
+  with no visible section shows a notice. `hasScope` preserves legacy behavior if `/auth/me` has no
+  scope list. The sibling API currently allows `roster` on application review and should be aligned
+  with the intended page permission before treating this UI filter as an authorization boundary.
 - `src/components/profile/ProfilePresentationForm.tsx`: the only nickname/pronouns/pronunciation
   editor. Setup and Settings both use it; all three fields are website-required even though the API
   can represent nullable legacy pronouns/pronunciation.

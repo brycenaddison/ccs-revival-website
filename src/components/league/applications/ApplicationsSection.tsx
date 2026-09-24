@@ -2,9 +2,9 @@
  * League Admin → Team Applications. Roster review and publication, with the season's state beside it.
  *
  * Review and publish sit on one screen because they are one job in two stages, and separating them
- * would hide the ordering that matters: approval writes no team rows, publishing creates them. Both
- * are `roster` calls — the same scope that edits a published team, and the scope this page is gated
- * on — so nothing here is hidden from a reviewer.
+ * would hide the ordering that matters: approval writes no team rows, publishing creates them. The
+ * queue endpoints currently accept `roster`, but League Admin exposes this page only to `admin`
+ * because it also edits the Info document. The API restriction is tracked separately.
  *
  * **Intake and listing are not controls here any more.** Opening or closing applications and making
  * the season public moved upstream to `/admin/leagues`, site-admin only, because each changes what

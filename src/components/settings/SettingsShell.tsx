@@ -38,8 +38,8 @@ export function SettingsShell({ area, slug, sidebarHeader }: Props) {
   const { sections, basePath, title } = area;
   const section = sectionForSlug(sections, slug);
 
-  // Never true for the three areas shipped here, but league admin's list is the kind of thing that
-  // gets filtered by permission later, and an empty grid would render as a blank page.
+  // A league grant can carry a scope with no section (such as `stats`), so an empty section list
+  // needs a useful message rather than a blank page.
   if (sections.length === 0) {
     return <NoticePanel title={title} body="There's nothing to configure here yet." />;
   }
