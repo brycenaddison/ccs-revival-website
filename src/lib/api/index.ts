@@ -208,6 +208,7 @@ export {
   teamAdminApi,
   createTeam,
   updateTeam,
+  resolveRosterPlayer,
   TEAM_CODE_MAX,
   TEAM_LOGO_MAX,
   TEAM_NAME_MAX,

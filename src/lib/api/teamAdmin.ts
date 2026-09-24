@@ -1,11 +1,8 @@
 /**
- * The league-admin team write surface: create a team, edit any attribute of one.
+ * The league-admin team write surface: create a team, edit one, and resolve roster players.
  *
- * **These routes do not exist upstream yet.** The contract below is the one proposed in
- * `league-admin-teams-api-spec.md` (see `C:\Users\baddison\Claude\ccs-revival-website\`), written
- * here first so the editor could be built against something concrete — the same order §14's
- * `rulebookUrl` shipped in. Until the server answers them, League Admin → Teams reads fine and
- * every save returns a `404`. Nothing else on the site imports this module.
+ * Create and edit are live upstream. The Riot ID resolver below is a proposed route, needed for
+ * roster staff to add a player who has no profile yet.
  *
  * There is no read here on purpose. Public `GET /teams/:conf` already serves the whole editable row
  * — id, code, name, logo, both colors, owner, contacts, the five starters and the bench — and a
@@ -13,7 +10,7 @@
  * projection of the same row would be one more thing to keep in step for no answer the public read
  * cannot give. `queries.teamsForConf` is the read; this file is the writes.
  *
- * Both writes answer with the team row in exactly the shape `GET /teams/:conf` serves it, so they
+ * Create and edit answer with the team row in exactly the shape `GET /teams/:conf` serves it, so they
  * go through `mapTeamRecord` rather than a second mapper — an editor that normalized its own
  * response differently from the list it writes into would show the two disagreeing about the row
  * that was just saved.
@@ -28,6 +25,7 @@ import {
   APPLICATION_NAME_MAX,
   SUB_ORDINAL_MAX,
 } from "./teamApplications";
+import type { RiotAccountInput } from "./profiles";
 import type { TeamRecord } from "./types";
 
 // --------------------------------------------------------------- constraints
@@ -95,6 +93,13 @@ export type TeamCreate = TeamBrandingInput & TeamRosterInput;
  */
 export type TeamEdit = Partial<TeamCreate>;
 
+/** The profile returned after Riot confirms an ID, ready for one roster slot. */
+export interface ResolvedRosterPlayer {
+  profileId: number;
+  /** The same display name a team roster read serves, or null for a nameless profile. */
+  name: string | null;
+}
+
 // ----------------------------------------------------------------- endpoints
 
 const forConf = (conf: string): string => `/tournaments/${encodeURIComponent(conf)}/teams`;
@@ -131,5 +136,41 @@ export function updateTeam(
   );
 }
 
+/**
+ * Resolve a Riot ID for roster staff and create its profile when it has never visited the site.
+ *
+ * The sibling API does not expose this route yet. Its proposed contract is a `roster`-scoped
+ * `POST /tournaments/:conf/teams/players/resolve` with `{ gameName, tagLine }`, returning
+ * `{ profileId, name }`. It must use Riot Account-v1 to confirm the account exists, reuse the
+ * profile already holding its PUUID or create one with that PUUID, and return that profile's display
+ * name. A self-reported claim would not make the player eligible for match attribution.
+ */
+export async function resolveRosterPlayer(
+  conf: string,
+  input: RiotAccountInput,
+  opts?: RequestOpts,
+): Promise<ResolvedRosterPlayer> {
+  const raw = await credentialedRequest(
+    `${forConf(conf)}/players/resolve`,
+    { method: "POST", body: input },
+    opts,
+  );
+  const result: Record<string, unknown> =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const name = result.name;
+  if (
+    typeof result.profileId !== "number" ||
+    !Number.isSafeInteger(result.profileId) ||
+    result.profileId <= 0 ||
+    !(name === null || (typeof name === "string" && name.trim() !== ""))
+  ) {
+    throw new Error("Riot account lookup returned an invalid player");
+  }
+  return {
+    profileId: result.profileId,
+    name,
+  };
+}
+
 /** Namespaced for parity with the other modules' aggregates. */
-export const teamAdminApi = { createTeam, updateTeam };
+export const teamAdminApi = { createTeam, updateTeam, resolveRosterPlayer };

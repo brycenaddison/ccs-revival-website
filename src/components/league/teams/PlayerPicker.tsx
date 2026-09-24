@@ -14,18 +14,25 @@
  */
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, UserPlus, X } from "lucide-react";
-import { ACTION_SM, ACTION_SM_DANGER } from "../../admin/adminUi";
+import { ACTION_SM, ACTION_SM_DANGER, ACTION_SM_PRIMARY, ErrorLine } from "../../admin/adminUi";
 import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { useDebounced } from "../../../hooks/useDebounced";
-import { queries } from "../../../lib/queries";
-import { PROFILE_SEARCH_MIN } from "../../../lib/api";
+import { queries, queryRoots } from "../../../lib/queries";
+import {
+  errorMessage,
+  PROFILE_SEARCH_MIN,
+  resolveRosterPlayer,
+  RIOT_GAME_NAME_MAX,
+  RIOT_TAG_LINE_MAX,
+} from "../../../lib/api";
+import { splitRiotId } from "../../../lib/riotId";
 
 /** A person in a slot: the key that is stored, and the label that makes it legible. */
 export interface PickedPlayer {
   profileId: number;
-  /** Riot ID, or `null` when Riot no longer resolves the account — still a valid slot. */
+  /** Profile display name, or `null` when the profile has none — still a valid slot. */
   name: string | null;
 }
 
@@ -50,13 +57,38 @@ interface SearchProps {
  * exactly that moment. The team form is what refuses a genuine double-placement.
  */
 function PlayerSearch({ conf, placed, onPick, onCancel }: SearchProps) {
+  const qc = useQueryClient();
   const [term, setTerm] = useState("");
   const [thisLeagueOnly, setThisLeagueOnly] = useState(false);
 
+  const trimmed = term.trim();
   const query = useDebounced(term, 300).trim();
-  const { data: results, isFetching } = useQuery(
+  const { data: results, isFetching, isPlaceholderData, error: searchError } = useQuery(
     queries.profileSearch(query, thisLeagueOnly ? conf : null),
   );
+  const riotId = splitRiotId(trimmed);
+  const hash = trimmed.indexOf("#");
+  const looksLikeRiotId =
+    hash > 0 &&
+    hash === trimmed.lastIndexOf("#") &&
+    riotId.gameName.length > 0 &&
+    riotId.gameName.length <= RIOT_GAME_NAME_MAX &&
+    riotId.tagLine.length > 0 &&
+    riotId.tagLine.length <= RIOT_TAG_LINE_MAX;
+  const noMatches =
+    query === trimmed &&
+    query.length >= PROFILE_SEARCH_MIN &&
+    !isFetching &&
+    !isPlaceholderData &&
+    !searchError &&
+    results?.length === 0;
+  const resolve = useMutation({
+    mutationFn: () => resolveRosterPlayer(conf, riotId),
+    onSuccess: player => {
+      onPick(player);
+      void qc.invalidateQueries({ queryKey: queryRoots.profiles });
+    },
+  });
 
   return (
     <div className="rounded-md border border-border bg-bg3 p-3">
@@ -68,11 +100,15 @@ function PlayerSearch({ conf, placed, onPick, onCancel }: SearchProps) {
         />
         <input
           value={term}
-          onChange={e => setTerm(e.target.value)}
-          placeholder="Search by name, Discord handle or profile id"
+          onChange={e => {
+            setTerm(e.target.value);
+            resolve.reset();
+          }}
+          placeholder="Search by name, Riot ID, Discord handle or profile ID"
           aria-label="Search players"
           autoComplete="off"
           autoFocus
+          disabled={resolve.isPending}
           className={`${CONTROL_CLASS} pl-8`}
         />
       </div>
@@ -83,11 +119,12 @@ function PlayerSearch({ conf, placed, onPick, onCancel }: SearchProps) {
             type="checkbox"
             checked={thisLeagueOnly}
             onChange={e => setThisLeagueOnly(e.target.checked)}
+            disabled={resolve.isPending}
             className="h-4 w-4 cursor-pointer accent-brand"
           />
           Only players already on a team here
         </label>
-        <button type="button" onClick={onCancel} className={ACTION_SM}>
+        <button type="button" onClick={onCancel} disabled={resolve.isPending} className={ACTION_SM}>
           Cancel
         </button>
       </div>
@@ -98,8 +135,9 @@ function PlayerSearch({ conf, placed, onPick, onCancel }: SearchProps) {
         </p>
       )}
       {isFetching && <p className="mt-1.5 text-xs text-text-dim">Searching…</p>}
+      <ErrorLine message={searchError ? errorMessage(searchError) : null} />
 
-      {results && results.length > 0 && (
+      {query === trimmed && !isPlaceholderData && results && results.length > 0 && (
         <ul className="mt-2 max-h-56 overflow-y-auto rounded-md border border-border">
           {results.map(hit => (
             <li key={hit.profileId}>
@@ -138,13 +176,27 @@ function PlayerSearch({ conf, placed, onPick, onCancel }: SearchProps) {
         </ul>
       )}
 
-      {results && results.length === 0 && query.length >= PROFILE_SEARCH_MIN && !isFetching && (
-        <p className="mt-1.5 text-xs text-text-dim">
-          {thisLeagueOnly
-            ? "Nobody on a published roster in this league matches that. Uncheck the box above to search everyone."
-            : "No profile matches that. Anyone who has signed in or been picked up by a match ingest has a profile; nobody else does."}
-        </p>
+      {noMatches && (
+        <div className="mt-2 space-y-2">
+          <p className="text-xs text-text-dim">
+            {thisLeagueOnly
+              ? "Nobody on a published roster in this league matches that. Uncheck the box above to search everyone."
+              : "No profile matches that."}
+          </p>
+          {!thisLeagueOnly && looksLikeRiotId && (
+            <button
+              type="button"
+              onClick={() => resolve.mutate()}
+              disabled={resolve.isPending}
+              className={ACTION_SM_PRIMARY}
+            >
+              <UserPlus size={13} aria-hidden="true" />
+              {resolve.isPending ? "Checking Riot…" : `Verify and add ${trimmed}`}
+            </button>
+          )}
+        </div>
       )}
+      <ErrorLine message={resolve.isError ? errorMessage(resolve.error) : null} />
     </div>
   );
 }

@@ -73,8 +73,8 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   `POST /tournaments/:conf/teams/players/resolve` API route accepting `{ gameName, tagLine }` and
   returning `{ profileId, name }`. The sibling API does not yet implement it; Riot Account-v1 must
   confirm the ID exists, reuse the profile holding its PUUID or create one with that PUUID, and return
-  Riot's canonical `Name#TAG` before the picker adds it to the roster draft. The API already has
-  `parseProfileAccount` for input, `RiotClient.getAccountByRiotId` for strict lookup,
+  the profile's display name (nullable, as in team reads) before the picker adds it to the roster draft.
+  The API already has `parseProfileAccount` for input and `RiotClient.getAccountByRiotId` for strict lookup,
   `profiles.linkPuuid` for idempotent profile resolution, and `reserveProfileRiotRequests` for budget.
 - `src/components/profile/RiotAccountCards.tsx`: shared Riot identity/rank cards. The highest-ranked
   account (`primaryAccount`) renders tall with a single headline rank block; the rest render as one
