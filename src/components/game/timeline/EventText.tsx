@@ -211,7 +211,9 @@ export function EventText({ event }: { event: ListEvent }): ReactNode {
     case "OBJECTIVE_BOUNTY_FINISH":
       return <>The objective bounty for the {SIDE[event.teamId]} side ends.</>;
     case "DRAGON_SOUL_GIVEN":
-      return <>The {SIDE[event.teamId]} side claims the {event.name} Soul.</>;
+      return event.teamId === 0
+        ? <>The map transforms into the {event.name} Rift.</>
+        : <>The {SIDE[event.teamId]} side claims the {event.name} Soul.</>;
     case "GAME_END":
       return <>The game ends with the {SIDE[event.winningTeam]} side victorious.</>;
     case "PAUSE_START":

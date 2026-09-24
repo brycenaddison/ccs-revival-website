@@ -63,6 +63,19 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
 - `src/lib/gameAssets.ts` + `src/hooks/useGameAssets.ts`: Community Dragon item and spell lookups.
   Deliberately unimported — the build panel they were written for was cut, and they are kept for the
   next surface that shows a build. Not dead code.
+- `src/lib/game/events.ts` + `src/components/game/timeline/EventText.tsx`: Riot emits
+  `DRAGON_SOUL_GIVEN` both when the map becomes an elemental Rift (`teamId: 0`) and when a side
+  claims the Soul (`teamId: 100` or `200`). The Rift event has no associated side.
+- `src/components/league/teams/TeamsSection.tsx` + `PlayerPicker.tsx`: roster editor and its shared
+  player picker. On narrow screens the team logo/name occupy their own header row. The picker searches
+  existing profiles first; an unmatched `Name#TAG` offers Riot verification and selection. That action
+  calls `resolveRosterPlayer` in `src/lib/api/teamAdmin.ts`, which expects a new `roster`-scoped
+  `POST /tournaments/:conf/teams/players/resolve` API route accepting `{ gameName, tagLine }` and
+  returning `{ profileId, name }`. The sibling API does not yet implement it; Riot Account-v1 must
+  confirm the ID exists, reuse the profile holding its PUUID or create one with that PUUID, and return
+  Riot's canonical `Name#TAG` before the picker adds it to the roster draft. The API already has
+  `parseProfileAccount` for input, `RiotClient.getAccountByRiotId` for strict lookup,
+  `profiles.linkPuuid` for idempotent profile resolution, and `reserveProfileRiotRequests` for budget.
 - `src/components/profile/RiotAccountCards.tsx`: shared Riot identity/rank cards. The highest-ranked
   account (`primaryAccount`) renders tall with a single headline rank block; the rest render as one
   compact line each. Riot's ladder has no ordering in its own API — `rankScore` in

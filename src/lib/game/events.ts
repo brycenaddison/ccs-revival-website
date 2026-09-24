@@ -23,7 +23,7 @@ export const EVENT_NAMES: Partial<Record<RiotEventType, string>> = {
   ELITE_MONSTER_KILL: "Epic monster kills",
   BUILDING_KILL: "Building kills",
   TURRET_PLATE_DESTROYED: "Turret plates",
-  DRAGON_SOUL_GIVEN: "Dragon souls",
+  DRAGON_SOUL_GIVEN: "Elemental Rifts and Dragon souls",
   OBJECTIVE_BOUNTY_PRESTART: "Objective bounties starting",
   OBJECTIVE_BOUNTY_FINISH: "Objective bounties ending",
   LEVEL_UP: "Level ups",
@@ -113,6 +113,7 @@ export function associatedTeam(participants: Participants, event: RiotTimelineEv
     case "OBJECTIVE_BOUNTY_FINISH":
     case "OBJECTIVE_BOUNTY_PRESTART":
     case "DRAGON_SOUL_GIVEN":
+      return event.teamId === 0 ? undefined : event.teamId;
     case "FEAT_UPDATE":
       return event.teamId;
     case "WARD_PLACED":

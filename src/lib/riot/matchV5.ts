@@ -434,7 +434,7 @@ export type RiotTimelineEvent<T extends string = string> = { timestamp: number; 
   | { type: "GAME_END"; realTimestamp: number; gameId: number; winningTeam: RiotTeamId }
   | { type: "OBJECTIVE_BOUNTY_PRESTART"; actualStartTime: number; teamId: RiotTeamId }
   | { type: "OBJECTIVE_BOUNTY_FINISH"; teamId: RiotTeamId }
-  | { type: "DRAGON_SOUL_GIVEN"; teamId: RiotTeamId; name: RiotDragonSoul }
+  | { type: "DRAGON_SOUL_GIVEN"; teamId: RiotTeamId | 0; name: RiotDragonSoul }
   | { type: "FEAT_UPDATE"; teamId: RiotTeamId; featType: number; featValue: number }
 );
 
