@@ -12,9 +12,8 @@
  * conference, so there is nothing here a hidden-league read would answer better. See
  * `lib/api/teamAdmin.ts`, which owns the writes and nothing else.
  *
- * **The writes it calls do not exist upstream yet** — `league-admin-teams-api-spec.md` is the
- * proposal. Until they land the page reads correctly and every save returns a `404`, which
- * `ErrorLine` shows verbatim.
+ * Team create and edit are live upstream. Resolving a previously unseen Riot ID from the player
+ * picker still needs the API route described in `lib/api/teamAdmin.ts`.
  *
  * Scope is `roster`, narrower than the page's own gate: a grant carrying only `roster` reaches this
  * section and nothing else, and a viewer without it sees the same rosters read-only rather than a
@@ -247,14 +246,16 @@ function TeamCard({ conf, team, canEdit, onSaved }: CardProps) {
   return (
     <section className="rounded-lg border border-border bg-bg2 p-5">
       <header className="flex flex-wrap items-center gap-3">
-        {team.logo ? (
-          <img src={team.logo} alt="" className="h-10 w-10 shrink-0 rounded bg-bg3 object-contain" />
-        ) : (
-          <div className="h-10 w-10 shrink-0 rounded border border-border bg-bg3" />
-        )}
-        <div className="min-w-0 flex-1">
-          <h3 className="font-display text-[20px] leading-none text-text-bright">{team.name}</h3>
-          <p className="mt-1 font-mono text-xs text-text-secondary">{team.code}</p>
+        <div className="flex min-w-0 basis-full items-center gap-3 md:basis-auto md:flex-1">
+          {team.logo ? (
+            <img src={team.logo} alt="" className="h-10 w-10 shrink-0 rounded bg-bg3 object-contain" />
+          ) : (
+            <div className="h-10 w-10 shrink-0 rounded border border-border bg-bg3" />
+          )}
+          <div className="min-w-0 flex-1">
+            <h3 className="break-words font-display text-[20px] leading-none text-text-bright">{team.name}</h3>
+            <p className="mt-1 font-mono text-xs text-text-secondary">{team.code}</p>
+          </div>
         </div>
         <Swatches primary={team.color} secondary={team.colorSecondary ?? null} />
         <button
