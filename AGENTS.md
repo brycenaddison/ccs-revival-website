@@ -9,17 +9,43 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
 
 ## Fast map
 
+- `components.json`: shadcn/ui CLI configuration (Radix/new-york, Tailwind v4, existing CCS theme).
+  The local `shadcn` dev dependency generates components with `pnpm exec shadcn add <component>`;
+  humans run that command. `@/` resolves to `src/` in TypeScript and Vite, and the shared `cn` helper
+  is `src/lib/cn.ts`. Generated imports must use `@/lib/cn`, never the unrelated npm package `cn`.
+  Preserve the site's theme mappings when adapting generated components.
 - `src/components/ui/color-picker.tsx`: shared shadcn-style color popover, re-exported as
   `ColorField` from `admin/adminUi.tsx` for team create/edit, applications, and admin imports.
   Uses `react-colorful` for the canvas, hue slider, and hex input. Only six-digit opaque hex values
   reach form state; three-digit shorthand expands on blur, and incomplete input resets on blur.
   Keep `intFromHex`'s pure-black nudge in the API layer and the live `TeamStylePreview` in the forms.
-- `src/components/content/MarkdownEditor.tsx`: current shared controlled Markdown textarea for
-  `content/ArticleEditor.tsx` (14 rows, article preview) and
-  `league/applications/ApplicationsSection.tsx` (8 rows, notes preview). Write/Preview switches
-  unmount the textarea; image insertion uses `ImageUploadButton` and the textarea's selection when
-  upload completes. League Info still uses a separate textarea in `league/info/InfoSection.tsx`.
-  The parent forms own saving; previews use the shared `Markdown` renderer.
+- `src/components/content/MarkdownEditor.tsx`: shared CodeMirror editor for article bodies and league
+  Info (`size="document"`, preferred 420 px), and application notes (`size="notes"`, 320 px).
+  It owns Write/Preview, accessible vertical resizing and a Radix full-screen dialog; Split is offered
+  at 960 px of editor width and falls back to Write on narrow screens. Parents still own saving and
+  preview presets (`article` for articles, `notes` for both league fields). No editor save requests.
+- `src/components/content/markdown/useMarkdownSession.ts`: one state/history/selection session across
+  view remounts and mode changes. Parent echoes preserve history; external replacements and explicit
+  `resetKey` changes clear history and insertion bookmarks. Keep record/conference forms keyed.
+  Presentation changes wait for IME composition. Image bookmarks map through intervening edits and
+  collapse when their selected text changes; reset/unmount invalidates late upload completion.
+  Images insert inline without adding whitespace, leaving the caret in the description brackets.
+  Tables and links also use insertion bookmarks; table dimensions count the header as the first row.
+  `ImageUpload.tsx` exports the shared `useImagePicker`; capture `openForInsertion`'s callback before
+  opening the native picker, and keep this hook mounted across editor presentation changes.
+- `src/components/content/markdown/commands.ts`: the single command registry for the toolbar, keyboard
+  shortcuts and context menu. Formatting transactions are isolated undo steps; inline formatting is
+  per paragraph, line commands preserve indentation, and existing code blocks disable formatting.
+  `MarkdownContextMenu.tsx` forwards mouse/keyboard invocation to an inert Radix trigger: never wrap
+  the source in a Radix trigger, whose touch handler suppresses native mobile text selection. Shift +
+  right-click bypasses the custom menu. Use shadcn/ui's `ui/context-menu.tsx` for right-click and
+  `ui/dropdown-menu.tsx` for Heading, Lists and More; menu selection runs after close so focus can
+  return to the source or Link popup. Image opens directly in the user gesture for mobile pickers.
+  `TableSizePicker.tsx` provides the shared 8×8 pointer/keyboard grid inside the shadcn Popover.
+  Table uses that picker from either menu; `commands.ts` owns dimensions and Markdown generation.
+  Other shared Radix wrappers live in `ui/dialog.tsx` and `ui/toolbar.tsx`. CodeMirror styling stays
+  in scoped Tailwind utilities; overrides of its unlayered default styles need the important suffix.
+  Keep editor imports lazy.
 - `src/components/Markdown.tsx`: shared renderer for articles, league Info and application notes,
   including editor previews. Images support `![Description](url "width=256")`: an exact title of
   `width=N` (1–9999 pixels) sets display width, capped by the container with automatic height.
@@ -32,6 +58,8 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   the ticker, nav, footer, mobile bar and the lazy `<Suspense>` boundary, and stays mounted across
   navigations within its group; `PageShell` is the page-side wrapper that publishes the content column
   width and any extra bottom padding to it. A page never mounts `ScoreboardTicker` itself.
+  The content scroller must stay `relative`: hidden absolute inputs and menu triggers otherwise escape
+  its overflow boundary, enlarging the document and adding an outer scrollbar with empty space.
 - `src/lib/api/`: defensive API boundary, exported through `index.ts`. Anonymous reads use `http.ts`;
   credentialed writes use `credentialed.ts`.
 - `src/lib/api/profiles.ts`: profile presentation limits/write, full career profile read, Riot account

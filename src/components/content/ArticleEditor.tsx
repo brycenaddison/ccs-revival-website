@@ -273,6 +273,8 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
             value={body}
             onChange={setBody}
             preset="article"
+            size="document"
+            ariaLabel="Article body"
             placeholder={"## Opening weekend\n\nThe **Ferrets** took it 2-0..."}
           />
         </SettingsRow>

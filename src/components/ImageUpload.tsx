@@ -17,8 +17,8 @@
  *
  *  - `ImageUpload` owns a single URL — a logo, a header image. It shows the current value, replaces
  *    it, and clears it.
- *  - `ImageUploadButton` produces a URL and hands it back without owning anything, for a caller that
- *    is inserting into something else. The Markdown body uses it.
+ *  - `ImageUploadButton` produces a URL and hands it back without owning anything.
+ *    `MarkdownEditor` shares its `useImagePicker` hook to capture the insertion selection earlier.
  */
 
 import { useRef, useState, type ReactNode } from "react";
@@ -50,14 +50,17 @@ function messageFor(error: unknown): string {
 }
 
 /**
- * The picker and its state machine, shared by both public components.
+ * The picker and its state machine, shared by the public components and Markdown editor.
  *
  * A plain `useState` rather than `useMutation`: this fires from a file input's change event, returns
  * one string, and has no cache to invalidate — the URL it produces is stored by whatever form owns
  * it, and until that form saves, nothing about the upload is part of any query's data.
  */
-function usePicker(onUploaded: (url: string) => void) {
+export function useImagePicker(onUploaded: (url: string) => void) {
   const inputRef = useRef<HTMLInputElement>(null);
+  // Editors supply a completion tied to the selection recorded BEFORE the native file picker.
+  // Capture it again when a file is chosen so a later render/open cannot redirect an active upload.
+  const completionRef = useRef<((url: string) => void) | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -75,10 +78,11 @@ function usePicker(onUploaded: (url: string) => void) {
 
   async function choose(file: File | undefined) {
     if (!file) return;
+    const complete = completionRef.current ?? onUploaded;
     setError(null);
     setBusy(true);
     try {
-      onUploaded(await uploadImage(file));
+      complete(await uploadImage(file));
     } catch (e) {
       setError(messageFor(e));
       if (e instanceof UploadRejected && e.status === 503) setUnavailable(true);
@@ -103,7 +107,14 @@ function usePicker(onUploaded: (url: string) => void) {
     />
   );
 
-  return { field, busy, error, setError, unavailable, open: () => inputRef.current?.click() };
+  return {
+    field, busy, error, setError, unavailable,
+    open: () => { completionRef.current = null; inputRef.current?.click(); },
+    openForInsertion: (complete: (url: string) => void) => {
+      completionRef.current = complete;
+      inputRef.current?.click();
+    },
+  };
 }
 
 interface Props {
@@ -126,7 +137,7 @@ export function ImageUpload({
   preview = "square",
   label = "Image",
 }: Props) {
-  const picker = usePicker(onChange);
+  const picker = useImagePicker(onChange);
   const trimmed = value.trim();
 
   const box = preview === "wide" ? "h-14 w-24 object-cover" : "h-14 w-14 object-contain";
@@ -226,7 +237,7 @@ interface ButtonProps {
  * URL into an image tag at the cursor.
  */
 export function ImageUploadButton({ onUploaded, children, className = ACTION }: ButtonProps) {
-  const picker = usePicker(onUploaded);
+  const picker = useImagePicker(onUploaded);
 
   return (
     <>

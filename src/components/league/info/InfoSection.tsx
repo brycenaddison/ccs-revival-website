@@ -33,6 +33,7 @@ import {
   Pill,
 } from "../../admin/adminUi";
 import { SettingsRow } from "../../settings/SettingsSection";
+import { MarkdownEditor } from "../../content/MarkdownEditor";
 import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 
 interface DraftLink extends InfoLink {
@@ -54,6 +55,7 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
   const nextKey = useRef(info?.links.length ?? 0);
   const [title, setTitle] = useState(info?.title ?? "League Information");
   const [body, setBody] = useState(info?.body ?? "");
+  const [editorReset, setEditorReset] = useState(0);
   const [links, setLinks] = useState<DraftLink[]>(
     () => info?.links.map((link, key) => ({ ...link, key })) ?? [],
   );
@@ -268,11 +270,14 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
         label="Page content"
         hint="Markdown is supported. Raw HTML is shown as text and is never executed."
       >
-        <textarea
-          className={`${CONTROL_CLASS} min-h-[320px] resize-y font-mono text-[13px]`}
+        <MarkdownEditor
           value={body}
-          onChange={event => setBody(event.target.value)}
-          placeholder="## Rules\n\nImportant information for this league…"
+          onChange={setBody}
+          resetKey={editorReset}
+          ariaLabel="Page content"
+          preset="notes"
+          size="document"
+          placeholder={"## Rules\n\nImportant information for this league…"}
         />
       </SettingsRow>
 
@@ -321,6 +326,7 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
             onClick={() => {
               setTitle(info.title);
               setBody(info.body ?? "");
+              setEditorReset(value => value + 1);
               setLinks(info.links.map((link, key) => ({ ...link, key })));
               nextKey.current = info.links.length;
               setRulebookUrl(info.rulebookUrl ?? "");

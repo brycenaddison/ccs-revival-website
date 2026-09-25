@@ -91,9 +91,10 @@ export function SiteLayout({ ticker = false }: Props) {
       {ticker && <ScoreboardTicker />}
       <NavBar isMobile={isMobile} />
 
-      {/* `min-h-0` lets the scroller shrink below its content, which a flex item will not do on its own;
-          without it the wrapper grows past the viewport and the document scrolls after all. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {/* `min-h-0` lets the scroller shrink below its content. `relative` also contains absolute
+          descendants such as sr-only file inputs and menu triggers; otherwise their static positions
+          can escape this scroller and create a second scrollbar on the document. */}
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* The compare dock's reserve sits on this wrapper rather than on the scroller: trailing padding
             on a scroll container has a history of being dropped from the scrollable overflow. */}
         <div className="flex flex-1 flex-col" style={{ paddingBottom: extraBottom || undefined }}>

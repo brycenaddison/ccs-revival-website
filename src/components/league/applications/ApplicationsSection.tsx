@@ -251,6 +251,7 @@ function ApplicationCopyPanel({
   const qc = useQueryClient();
   const stored = info?.applicationBody ?? "";
   const [text, setText] = useState(stored);
+  const [editorReset, setEditorReset] = useState(0);
   // Whitespace-only becomes `null` upstream, so a draft of nothing but blank lines is not a change.
   const next = text.trim() === "" ? null : text;
   const dirty = next !== (info?.applicationBody ?? null);
@@ -289,7 +290,9 @@ function ApplicationCopyPanel({
         <MarkdownEditor
           value={text}
           onChange={setText}
-          rows={8}
+          size="notes"
+          preset="notes"
+          resetKey={editorReset}
           placeholder={"## Before you apply\n\nRosters lock on week one…"}
           ariaLabel="Application notes"
         />
@@ -304,7 +307,7 @@ function ApplicationCopyPanel({
             type="button"
             className={ACTION}
             disabled={save.isPending}
-            onClick={() => setText(stored)}
+            onClick={() => { setText(stored); setEditorReset(value => value + 1); }}
           >
             Reset
           </button>
