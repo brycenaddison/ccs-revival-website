@@ -92,7 +92,6 @@ function profileDetail(hit: ProfileSearchResult, mode: "profile" | "riot"): stri
     primary ? `Primary Riot ID: ${primary}` : null,
     matches.length ? `Matched: ${matches.join(", ")}` : null,
     hit.handle ? `@${hit.handle}` : null,
-    mode === "profile" ? `Profile ${hit.profileId}` : null,
   ].filter(Boolean).join(" · ");
 }
 
@@ -247,7 +246,7 @@ function DiscordPicker({ source, ...props }: Callbacks & { source: DiscordPlayer
               : data.profiles.results.length === 0 ? <li className="p-3 text-xs text-text-dim">No website profiles match that.</li>
               : data.profiles.results.map(hit => (
                 <li key={hit.profileId}><PlayerResultRow player={hit}
-                  detail={[hit.handle ? `@${hit.handle}` : null, `Profile ${hit.profileId}`, `Discord ${hit.discordUserId}`].filter(Boolean).join(" · ")}
+                  detail={hit.handle ? `@${hit.handle}` : null}
                   annotation={annotation(hit.profileId)} disabled={resolve.isPending}
                   onSelect={() => resolve.submit({ profileId: hit.profileId })} /></li>
               ))}
@@ -258,7 +257,7 @@ function DiscordPicker({ source, ...props }: Callbacks & { source: DiscordPlayer
               : data.guild.results.map(hit => (
                 <li key={hit.userId}><PlayerResultRow player={hit.profile ?? { profileId: hit.profileId, name: hit.displayName,
                   avatar: discordAvatarUrl(hit.userId, hit.avatar), verified: hit.verified }}
-                  detail={[hit.username ? `@${hit.username}` : null, `Discord ${hit.userId}`].filter(Boolean).join(" · ")}
+                  detail={hit.username ? `@${hit.username}` : null}
                   annotation={annotation(hit.profileId)} disabled={resolve.isPending}
                   onSelect={() => resolve.submit({ discordUserId: hit.userId })} /></li>
               ))}

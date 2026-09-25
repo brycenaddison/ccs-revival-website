@@ -28,6 +28,9 @@ type PlayerSummary = {
 
 `src/lib/api/playerSummary.ts` maps every boundary. Absent presentation metadata
 falls back to null/false for older responses. Only IDs enter roster writes.
+All picker modes hide profile numbers and Discord snowflakes in their displayed
+identity details; Discord context uses @handles. Nameless profiles display
+`Unnamed player`. Internal IDs still identify selections, links, and write payloads.
 The server chooses Discord/default avatars for Discord-linked profiles and a
 cached representative Riot icon otherwise, using batched metadata. The browser
 does not infer verification or fetch accounts for each autocomplete result.

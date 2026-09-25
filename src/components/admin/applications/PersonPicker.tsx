@@ -24,7 +24,7 @@ import { Search, X } from "lucide-react";
 import { ACTION_SM } from "../adminUi";
 import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { discordAvatarUrl } from "../../apply/applyUi";
-import { PlayerIdentity, PlayerResultRow } from "../../players/PlayerIdentity";
+import { PlayerIdentity, PlayerResultRow, playerLabel } from "../../players/PlayerIdentity";
 import { useDebounced } from "../../../hooks/useDebounced";
 import { queries } from "../../../lib/queries";
 import {
@@ -41,7 +41,7 @@ export type PersonIdentity =
 
 export interface PickedPerson {
   identity: PersonIdentity;
-  /** Guild display name, or profile name; falls back to the username or the id. */
+  /** Guild display name or profile name, with a readable fallback rather than an internal ID. */
   name: string;
   /** Discord username, or the profile's cached handle. */
   handle: string | null;
@@ -144,7 +144,7 @@ function PersonSearch({ id, taken, onPick, onCancel }: SearchProps) {
                 <li key={hit.userId}>
                   <PlayerResultRow
                     player={{ profileId: null, name: hit.displayName, avatar: discordAvatarUrl(hit.userId, hit.avatar), verified: false }}
-                    detail={hit.username ? `@${hit.username}` : hit.userId}
+                    detail={hit.username ? `@${hit.username}` : null}
                     annotation={taken.has(identityKey(identity)) ? "already listed" : undefined}
                     onSelect={() =>
                       onPick({
@@ -168,12 +168,12 @@ function PersonSearch({ id, taken, onPick, onCancel }: SearchProps) {
           <ul className="max-h-48 overflow-y-auto rounded-md border border-border">
             {profileHits.map(hit => {
               const identity: PersonIdentity = { kind: "profile", profileId: hit.profileId };
-              const name = hit.name ?? `Profile ${hit.profileId}`;
+              const name = playerLabel(hit);
               return (
                 <li key={hit.profileId}>
                   <PlayerResultRow
                     player={hit}
-                    detail={[hit.handle ? `@${hit.handle}` : null, `Profile ${hit.profileId}`].filter(Boolean).join(" · ")}
+                    detail={hit.handle ? `@${hit.handle}` : null}
                     annotation={taken.has(identityKey(identity)) ? "already listed" : undefined}
                     onSelect={() =>
                       onPick({ identity, name, handle: hit.handle, avatar: hit.avatar, verified: hit.verified })
@@ -230,9 +230,6 @@ export function PersonPicker({ id, value, onChange, taken }: PickerProps) {
         {value.handle && value.handle !== value.name && (
           <span className="ml-2 text-xs text-text-dim">@{value.handle}</span>
         )}
-        <span className="ml-2 font-mono text-[10px] text-text-dim">
-          {value.identity.kind === "discord" ? "Discord" : `profile #${value.identity.profileId}`}
-        </span>
       </span>
       <button type="button" onClick={() => setSearching(true)} className={ACTION_SM}>
         Change

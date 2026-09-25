@@ -682,7 +682,7 @@ export function mapGuildCandidate(raw: unknown): GuildMemberCandidate | null {
   if (userId === null) return null;
   return {
     userId,
-    displayName: str(c.displayName, userId),
+    displayName: strOrNull(c.displayName) ?? strOrNull(c.username) ?? "Unnamed Discord member",
     username: str(c.username),
     avatar: strOrNull(c.avatar),
   };

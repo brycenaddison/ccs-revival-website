@@ -5,8 +5,8 @@ import type { PlayerSummary } from "../../lib/api";
 
 export type PickedPlayer = PlayerSummary;
 
-export function playerLabel(player: Pick<PlayerSummary, "profileId" | "name">): string {
-  return player.name ?? `Profile ${player.profileId}`;
+export function playerLabel(player: Pick<PlayerSummary, "name">): string {
+  return player.name ?? "Unnamed player";
 }
 
 const AVATAR_SIZE = { small: "h-[22px] w-[22px]", normal: "h-7 w-7", large: "h-12 w-12" };
@@ -37,7 +37,7 @@ export function PlayerIdentity({ player, linked = true, small = false }: {
   linked?: boolean;
   small?: boolean;
 }) {
-  const name = player.name ?? `Profile ${player.profileId}`;
+  const name = playerLabel(player);
   return (
     <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 align-middle">
       <PlayerAvatar src={player.avatar} size={small ? "small" : "normal"} />
