@@ -14,6 +14,12 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   Uses `react-colorful` for the canvas, hue slider, and hex input. Only six-digit opaque hex values
   reach form state; three-digit shorthand expands on blur, and incomplete input resets on blur.
   Keep `intFromHex`'s pure-black nudge in the API layer and the live `TeamStylePreview` in the forms.
+- `src/components/content/MarkdownEditor.tsx`: current shared controlled Markdown textarea for
+  `content/ArticleEditor.tsx` (14 rows, article preview) and
+  `league/applications/ApplicationsSection.tsx` (8 rows, notes preview). Write/Preview switches
+  unmount the textarea; image insertion uses `ImageUploadButton` and the textarea's selection when
+  upload completes. League Info still uses a separate textarea in `league/info/InfoSection.tsx`.
+  The parent forms own saving; previews use the shared `Markdown` renderer.
 - `src/components/Markdown.tsx`: shared renderer for articles, league Info and application notes,
   including editor previews. Images support `![Description](url "width=256")`: an exact title of
   `width=N` (1–9999 pixels) sets display width, capped by the container with automatic height.
@@ -90,8 +96,10 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   acceptance requires a fresh preview. Discord mode preserves independent source errors. No league
   membership checkbox/filter; the accolade editor's separate conference filter remains unchanged.
   Riot-mode search rows show the API's `primaryRiotId` beneath the website name and distinguish
-  `matchedRiotIds` for alternate-account matches. They omit the profile number from secondary text;
-  `Profile N` remains the name fallback for nameless profiles. Never treat a match as the primary or load the
+  `matchedRiotIds` for alternate-account matches. All picker modes and the import picker hide profile
+  numbers and Discord snowflakes in results/selected values; Discord context is the @handle only.
+  Nameless profiles use `Unnamed player`, never an ID fallback. `mapGuildCandidate` falls back to the
+  Discord username or `Unnamed Discord member`, never the snowflake. Never treat a match as the primary or load the
   accounts endpoint per search hit. The sibling API serves matched IDs; primary ID enrichment is
   still pending (see `docs/player-picker-api.md`).
 - `src/components/league/teams/TeamsSection.tsx`: starters/subs use Riot mode, owner/contacts use
