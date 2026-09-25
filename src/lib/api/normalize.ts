@@ -80,7 +80,7 @@ export function hexFromInt(color: number | null | undefined, fallback = "#3a3a3a
 }
 
 /**
- * The inverse: a `<input type="color">` value back into the integer column.
+ * The inverse: a six-digit hex color back into the integer column.
  *
  * **Pure black is nudged to `#010101`.** `hexFromInt` reads `0` as unset — it has to, because live
  * data uses it that way — so a team that genuinely picked black would save and come back colorless.

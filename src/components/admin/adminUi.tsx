@@ -76,37 +76,12 @@ export function Pill({ children, muted }: { children: ReactNode; muted?: boolean
 }
 
 /**
- * A team color: the native swatch, with its hex beside it as a caption.
+ * One color control for team creation/editing, applications, and admin imports.
  *
- * Shared rather than local because two forms set the same two columns — the applicant's team
- * details and League Admin → Teams — and a swatch that looked different depending on which side of
- * publication you were on would read as two different fields.
- *
- * Controlled on a `#rrggbb` string, which is what `<input type="color">` speaks. The integer the
- * column holds is `intFromHex`'s job, including the pure-black nudge; nothing here knows about it.
+ * The shadcn popover emits `#rrggbb`. The integer conversion and pure-black nudge remain the
+ * API layer's `intFromHex` responsibility.
  */
-export function ColorField({
-  id,
-  value,
-  onChange,
-}: {
-  id: string;
-  value: string;
-  onChange: (hex: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <input
-        id={id}
-        type="color"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="h-9 w-14 shrink-0 cursor-pointer rounded border border-border bg-bg2"
-      />
-      <span className="font-mono text-xs text-text-secondary">{value}</span>
-    </div>
-  );
-}
+export { ColorPicker as ColorField } from "../ui/color-picker";
 
 /**
  * What the two colors will look like on the site, drawn while they are being chosen.

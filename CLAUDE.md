@@ -203,8 +203,10 @@ cold/direct arrival and Back when it can preserve useful in-app navigation.
   unencoded `#` is a fragment delimiter, so `searchParams` returns the first account and silently
   drops the rest. Adds run sequentially and a failure doesn't abort the batch.
 - `admin/adminUi.tsx` — button class strings (`ACTION`, `ACTION_PRIMARY`, `ACTION_DANGER`,
-  the `_SM` variants, `ACTION_QUIET`), `ErrorLine`, `Pill`, `ColorField` — the swatch shared by
-  the applicant's team form and League Admin → Teams, which set the same two columns — and
+  the `_SM` variants, `ACTION_QUIET`), `ErrorLine`, `Pill`, and `ColorField` (re-exported from
+  `ui/color-picker.tsx`). The shared shadcn-style popover uses `react-colorful` for its canvas,
+  hue slider, and hex input in team create/edit, applications, and admin imports. It emits six-digit
+  opaque hex only; shorthand expands on blur and incomplete input resets. Also
   `TeamStylePreview`, the live preview both of those forms show under the swatches — the Teams tab's
   card header, same markup, logo or initial on its well *inside* the gradient, so keep it in step with
   `views/TeamsView.tsx`. Also `stateNote`, the `· hidden · intake open · live` lifecycle caption every

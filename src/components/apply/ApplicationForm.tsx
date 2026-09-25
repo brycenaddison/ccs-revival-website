@@ -50,10 +50,8 @@ interface Props {
 /*
  * Both colors are required, so there is no clearing and no empty state to represent.
  *
- * That is what removed the "Set" checkbox each one used to carry: `<input type="color">` always
- * reports a value, and the checkbox existed only to distinguish "no color chosen" from "chose
- * black" — a distinction that stops mattering once a team must have both. An application saved
- * before they were required arrives with `null`, which seeds a default rather than an empty control.
+ * The shared picker always reports a valid hex value. An application saved before colors were
+ * required arrives with `null`, which seeds a default rather than an empty control.
  *
  * The hex-to-integer conversion and its pure-black nudge are `intFromHex` in the API layer, beside
  * the `hexFromInt` this form reads with — League Admin → Teams edits the same two columns and the
@@ -173,14 +171,14 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
         label="Primary Color"
         hint="Your team's main color. Required."
       >
-        <ColorField id="primary-color" value={primary} onChange={setPrimary} />
+        <ColorField id="primary-color" label="Primary color" value={primary} onChange={setPrimary} />
       </SettingsRow>
 
       <SettingsRow
         label="Secondary Color"
         hint="Your team's accent color. Required."
       >
-        <ColorField id="secondary-color" value={secondary} onChange={setSecondary} />
+        <ColorField id="secondary-color" label="Secondary color" value={secondary} onChange={setSecondary} />
       </SettingsRow>
 
       {/* Drawn from the same gradient recipe the site uses, so what reads badly here reads badly on

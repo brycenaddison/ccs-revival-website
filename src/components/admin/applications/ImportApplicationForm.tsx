@@ -202,11 +202,16 @@ export function ImportApplicationForm({ conf, onDone }: Props) {
       </SettingsRow>
 
       <SettingsRow label="Primary Color">
-        <ColorField id="import-primary-color" value={primary} onChange={setPrimary} />
+        <ColorField id="import-primary-color" label="Primary color" value={primary} onChange={setPrimary} />
       </SettingsRow>
 
       <SettingsRow label="Secondary Color">
-        <ColorField id="import-secondary-color" value={secondary} onChange={setSecondary} />
+        <ColorField
+          id="import-secondary-color"
+          label="Secondary color"
+          value={secondary}
+          onChange={setSecondary}
+        />
       </SettingsRow>
 
       <SettingsRow label="Preview" hint="How the pair reads on a team card. Updates as you type.">

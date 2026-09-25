@@ -9,6 +9,11 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
 
 ## Fast map
 
+- `src/components/ui/color-picker.tsx`: shared shadcn-style color popover, re-exported as
+  `ColorField` from `admin/adminUi.tsx` for team create/edit, applications, and admin imports.
+  Uses `react-colorful` for the canvas, hue slider, and hex input. Only six-digit opaque hex values
+  reach form state; three-digit shorthand expands on blur, and incomplete input resets on blur.
+  Keep `intFromHex`'s pure-black nudge in the API layer and the live `TeamStylePreview` in the forms.
 - `src/components/Markdown.tsx`: shared renderer for articles, league Info and application notes,
   including editor previews. Images support `![Description](url "width=256")`: an exact title of
   `width=N` (1–9999 pixels) sets display width, capped by the container with automatic height.

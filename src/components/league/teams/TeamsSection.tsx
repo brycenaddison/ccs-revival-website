@@ -534,7 +534,12 @@ function TeamDetailsForm({ conf, team, onDone, onCancel }: DetailsProps) {
         label="Primary Color"
         hint="The team's primary color for content, embeds, and the website."
       >
-        <ColorField id={`primary-${team?.id ?? "new"}`} value={primary} onChange={setPrimary} />
+        <ColorField
+          id={`primary-${team?.id ?? "new"}`}
+          label="Primary color"
+          value={primary}
+          onChange={setPrimary}
+        />
       </SettingsRow>
 
       <SettingsRow
@@ -543,6 +548,7 @@ function TeamDetailsForm({ conf, team, onDone, onCancel }: DetailsProps) {
       >
         <ColorField
           id={`secondary-${team?.id ?? "new"}`}
+          label="Secondary color"
           value={secondary}
           onChange={setSecondary}
         />
