@@ -45,7 +45,7 @@ import { CONTROL_CLASS } from "../stats/FilterBar";
 interface Props {
   /** `null` is the create form. */
   article: ArticleRecord | null;
-  onSaved: (message: string, slug: string) => void;
+  onSaved: (message: string, article: ArticleRecord) => void;
   onDeleted: (message: string) => void;
   onCancel: () => void;
 }
@@ -150,7 +150,7 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
         qc.invalidateQueries({ queryKey: queryRoots.articles }),
         qc.invalidateQueries({ queryKey: queryRoots.home }),
       ]);
-      onSaved(isNew ? `Created "${saved.title}".` : `Saved "${saved.title}".`, saved.slug);
+      onSaved(isNew ? `Created "${saved.title}".` : `Saved "${saved.title}".`, saved);
     },
   });
 

@@ -1,22 +1,22 @@
 /**
- * The writers' article list — `/content/articles`.
+ * The writers' article list at `/content/articles`.
  *
- * Master/detail like `RolesSection`: a filterable list, and the editor for whichever row is
- * selected. The list is the only read on the site that returns **drafts**, which is the whole
- * reason this section exists rather than reusing the public index.
+ * Like Season Structure, the list and editor are separate views. Opening a form replaces the
+ * list so it cannot disappear below a long archive. The list is the only read on the site that
+ * returns **drafts**, which is why this section cannot reuse the public index.
  *
  * Ordered by `updatedAt` upstream rather than by publish date, because a draft has no publish date
  * and "what I was last working on" is the useful order for an editor. Rendered in the order served.
  */
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FilePlus2, ExternalLink } from "lucide-react";
+import { ArrowLeft, FilePlus2, ExternalLink } from "lucide-react";
 import { queries } from "../../lib/queries";
 import { errorMessage, type ArticleRecord } from "../../lib/api";
 import { timeAgo } from "../../lib/utils";
 import { Toast } from "../Toast";
-import { ACTION_QUIET, Pill } from "../admin/adminUi";
+import { ACTION_QUIET, ACTION_SM, Pill } from "../admin/adminUi";
 import { LABEL_CLASS } from "../stats/FilterBar";
 import { ArticleEditor } from "./ArticleEditor";
 
@@ -28,37 +28,77 @@ const STATUSES: readonly { value: Status; label: string }[] = [
   { value: "draft", label: "Drafts" },
 ];
 
-/** `null` = nothing selected, `"new"` = the create form, a string = that slug's editor. */
-type Selection = null | "new" | string;
+/** Keep the open record independent of list filters, including after publishing a draft. */
+type Selection = { article: ArticleRecord | null } | null;
 
 export function ArticlesSection() {
   const [status, setStatus] = useState<Status>("all");
   const [selected, setSelected] = useState<Selection>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const isEditing = selected !== null;
+  const wasEditing = useRef(isEditing);
 
   const { data, isPending, error } = useQuery(queries.manageArticles({ status }));
   const articles = data ?? [];
 
-  // Resolved from the freshly-fetched list rather than held in state, so the form re-initializes
-  // from what the server last said after a save rather than from a copy taken when it was opened.
-  const editing: ArticleRecord | null =
-    selected === null || selected === "new"
-      ? null
-      : (articles.find(a => a.slug === selected) ?? null);
+  useLayoutEffect(() => {
+    if (wasEditing.current === isEditing) return;
+    wasEditing.current = isEditing;
+    // Reveal an offscreen header after opening from deep in the list, but leave a visible
+    // header in place. Aligning the whole form to the top scrolls down unnecessarily.
+    headingRef.current?.focus({ preventScroll: true });
+    headerRef.current?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+  }, [isEditing]);
 
-  // A selected slug that vanished from the list — deleted, or filtered out by a status change.
-  const stale = typeof selected === "string" && selected !== "new" && editing === null;
+  if (selected !== null) {
+    return (
+      <div>
+        {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+
+        <div ref={headerRef} className="flex flex-wrap items-center gap-3 mb-4">
+          <button type="button" onClick={() => setSelected(null)} className={ACTION_SM}>
+            <ArrowLeft size={13} aria-hidden="true" />
+            Back to articles
+          </button>
+          <h3 ref={headingRef} tabIndex={-1} className="font-display text-lg text-text-bright">
+            {selected.article === null ? "New article" : "Edit article"}
+          </h3>
+        </div>
+
+        <ArticleEditor
+          // Creating a saved record resets the form; later saves keep its editor session.
+          key={selected.article === null ? "new" : `edit:${selected.article.slug}`}
+          article={selected.article}
+          onSaved={(message, article) => {
+            setToast(message);
+            // Use the saved record even if its new status removes it from the filtered list.
+            // A save that finishes after Back must not reopen an abandoned editor.
+            setSelected(current => (current === selected ? { article } : current));
+          }}
+          onDeleted={message => {
+            setToast(message);
+            setSelected(current => (current === selected ? null : current));
+          }}
+          onCancel={() => setSelected(null)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
 
-      <div className="flex items-center justify-between mb-3">
-        <label className={LABEL_CLASS}>Articles</label>
+      <div ref={headerRef} className="flex items-center justify-between mb-3">
+        <h3 ref={headingRef} tabIndex={-1} className={LABEL_CLASS}>
+          Articles
+        </h3>
         <button
           type="button"
           className={ACTION_QUIET}
-          onClick={() => setSelected("new")}
+          onClick={() => setSelected({ article: null })}
         >
           <FilePlus2 size={12} />
           New article
@@ -99,11 +139,10 @@ export function ArticlesSection() {
             <button
               key={a.slug}
               type="button"
-              onClick={() => setSelected(a.slug)}
-              aria-current={selected === a.slug ? "true" : undefined}
+              onClick={() => setSelected({ article: a })}
               className={`w-full text-left flex items-center gap-3 px-4 py-3 bg-transparent border-0 cursor-pointer ${
                 i > 0 ? "border-t border-border" : ""
-              } ${selected === a.slug ? "bg-bg-input" : ""}`}
+              }`}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -122,36 +161,6 @@ export function ArticlesSection() {
               <Pill muted={!a.isPublished}>{a.isPublished ? "Live" : "Draft"}</Pill>
             </button>
           ))}
-        </div>
-      )}
-
-      {stale && (
-        <p className="text-text-dim text-sm py-4 text-center">
-          That article is no longer in this list.
-        </p>
-      )}
-
-      {(selected === "new" || editing !== null) && (
-        <div className="border-t border-border pt-5">
-          <h3 className="font-display text-[18px] text-text-bright mb-4">
-            {selected === "new" ? "NEW ARTICLE" : "EDIT ARTICLE"}
-          </h3>
-          <ArticleEditor
-            // Remounts the form when the selection changes, so every field re-initializes from the
-            // newly selected row. Without it the state above would persist across a switch and show
-            // one article's title over another's body.
-            key={selected === "new" ? "new" : editing?.slug}
-            article={editing}
-            onSaved={(message, slug) => {
-              setToast(message);
-              setSelected(slug);
-            }}
-            onDeleted={message => {
-              setToast(message);
-              setSelected(null);
-            }}
-            onCancel={() => setSelected(null)}
-          />
         </div>
       )}
     </div>

@@ -19,11 +19,21 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   Uses `react-colorful` for the canvas, hue slider, and hex input. Only six-digit opaque hex values
   reach form state; three-digit shorthand expands on blur, and incomplete input resets on blur.
   Keep `intFromHex`'s pure-black nudge in the API layer and the live `TeamStylePreview` in the forms.
+- `src/components/content/ArticlesSection.tsx`: Content Admin switches between the filtered article
+  list and `ArticleEditor`, like Season Structure. Opening or leaving a form focuses its heading
+  without scrolling, then reveals only an offscreen header with `block: "nearest"`. Never align the
+  full form to the top: that jumps down when the header is already visible. Back/Cancel preserves
+  the list's status filter.
+  The open record is independent of that list; saves return the API's full record so publishing or
+  unpublishing under a status filter keeps the editor open. Key forms by identity, never list refreshes.
 - `src/components/content/MarkdownEditor.tsx`: shared CodeMirror editor for article bodies and league
   Info (`size="document"`, preferred 420 px), and application notes (`size="notes"`, 320 px).
   It owns Write/Preview, accessible vertical resizing and a Radix full-screen dialog; Split is offered
   at 960 px of editor width and falls back to Write on narrow screens. Parents still own saving and
   preview presets (`article` for articles, `notes` for both league fields). No editor save requests.
+  Article previews share `index.css`'s `--container-article` (760 px) with `pages/Article.tsx` and
+  match SiteLayout's side padding (12 px mobile, 32 px desktop). Cap the entire rendered body,
+  including images and tables, in every preview mode; the paragraph-only 75ch cap is for notes.
 - `src/components/content/markdown/useMarkdownSession.ts`: one state/history/selection session across
   view remounts and mode changes. Parent echoes preserve history; external replacements and explicit
   `resetKey` changes clear history and insertion bookmarks. Keep record/conference forms keyed.
@@ -41,6 +51,9 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   right-click bypasses the custom menu. Use shadcn/ui's `ui/context-menu.tsx` for right-click and
   `ui/dropdown-menu.tsx` for Heading, Lists and More; menu selection runs after close so focus can
   return to the source or Link popup. Image opens directly in the user gesture for mobile pickers.
+  `MarkdownToolbar.tsx` keeps its primary actions visible and wraps on narrow screens. More contains
+  only inline code, block quote, code block, table and horizontal rule; never duplicate toolbar
+  actions there. Heading options use uniform styling in both the dropdown and context menu.
   `TableSizePicker.tsx` provides the shared 8×8 pointer/keyboard grid inside the shadcn Popover.
   Table uses that picker from either menu; `commands.ts` owns dimensions and Markdown generation.
   Other shared Radix wrappers live in `ui/dialog.tsx` and `ui/toolbar.tsx`. CodeMirror styling stays

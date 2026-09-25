@@ -344,6 +344,9 @@ input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
 }
 
 @theme {
+  /* Shared by the public news page and article Markdown previews, including side padding. */
+  --container-article: 760px;
+
   --color-bg: var(--bg);
   --color-bg2: var(--bg2);
   --color-bg3: var(--bg3);

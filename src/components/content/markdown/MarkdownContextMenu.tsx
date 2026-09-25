@@ -36,7 +36,7 @@ export function MarkdownContextMenu({ children, session, state, run, uploading }
         else chosen.current = command.id;
       }}>
       <command.icon size={15} aria-hidden="true" />
-      <span className={command.id === "h2" || command.id === "h3" ? "font-semibold" : undefined}>{command.label}</span>
+      <span>{command.label}</span>
       {command.key && <ContextMenuShortcut>{shortcutLabel(command.key)}</ContextMenuShortcut>}
     </ContextMenuItem>
   );

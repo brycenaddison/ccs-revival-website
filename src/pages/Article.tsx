@@ -44,7 +44,7 @@ export default function Article() {
 
   if (isPending) {
     return (
-      <PageShell maxWidth={760}>
+      <PageShell maxWidth="var(--container-article)">
         <div className="py-16 text-center text-text-subtle">Loading...</div>
       </PageShell>
     );
@@ -52,7 +52,7 @@ export default function Article() {
 
   if (error) {
     return (
-      <PageShell maxWidth={760}>
+      <PageShell maxWidth="var(--container-article)">
         <NoticePanel title="Couldn't load this article" body={errorMessage(error)} />
       </PageShell>
     );
@@ -60,7 +60,7 @@ export default function Article() {
 
   if (!article) {
     return (
-      <PageShell maxWidth={760}>
+      <PageShell maxWidth="var(--container-article)">
         <NoticePanel
           title="Article not found"
           body="This article doesn't exist, or it hasn't been published yet."
@@ -77,7 +77,7 @@ export default function Article() {
   }
 
   return (
-    <PageShell maxWidth={760}>
+    <PageShell maxWidth="var(--container-article)">
       <Link
         to="/news"
         className="inline-flex items-center gap-1.5 font-heading text-[11px] text-text-dim hover:text-text-bright no-underline mb-5"

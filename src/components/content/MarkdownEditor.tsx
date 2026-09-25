@@ -58,8 +58,13 @@ function Preview({ value, preset, label, session }: { value: string; preset: Typ
   }, [session]);
   return (
     <div ref={host} tabIndex={0} aria-label={`${label} preview`} role="region"
-      className="h-full min-h-0 min-w-0 overflow-auto px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 [overflow-wrap:anywhere] [&_.typeset>p]:max-w-[75ch]">
-      {deferred.trim() ? <DeferredMarkdown body={deferred} preset={preset} /> : <p className="text-sm text-text-dim">Nothing to preview yet.</p>}
+      className="h-full min-h-0 min-w-0 overflow-auto py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 [overflow-wrap:anywhere]">
+      {/* Article width includes the same side padding as SiteLayout's public news column. */}
+      <div className={preset === "article"
+        ? "mx-auto w-full max-w-article px-3 md:px-8"
+        : "px-4 [&_.typeset>p]:max-w-[75ch]"}>
+        {deferred.trim() ? <DeferredMarkdown body={deferred} preset={preset} /> : <p className="text-sm text-text-dim">Nothing to preview yet.</p>}
+      </div>
     </div>
   );
 }
@@ -70,7 +75,7 @@ function MarkdownHelp() {
       <PopoverTrigger asChild><button type="button" className={`${TOOLBAR_BUTTON} h-8 text-xs`}>Markdown help</button></PopoverTrigger>
       <PopoverContent align="start" className="max-h-[min(440px,var(--radix-popover-content-available-height))] w-80 max-w-[calc(100vw-24px)] overflow-y-auto text-xs">
         <p className="font-semibold text-text-bright">Write with Markdown</p>
-        <p className="mt-2">Select text, then use the toolbar or right-click to format it. More includes headings, lists, code, tables and image upload. Tab leaves the writing area.</p>
+        <p className="mt-2">Select text, then use the toolbar or right-click to format it. More includes inline code, block quotes, code blocks, tables and horizontal rules. Tab leaves the writing area.</p>
         <p className="mt-2">Use <code>## Heading</code>, <code>**bold**</code>, <code>*italic*</code>, and <code>[label](/path)</code>. Preview shows what readers will see.</p>
         <p className="mt-2">Shift + right-click opens the browser menu. Touch and long-press keep the phone’s text-selection menu.</p>
         <p className="mt-2">Table opens a grid to choose columns and rows, including the header row.</p>
