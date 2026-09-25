@@ -280,6 +280,32 @@ export interface MintedCodes {
   codes: MatchCode[];
 }
 
+export type CodeDeliveryStatus =
+  | "sent" | "already_sent" | "failed" | "in_progress" | "unknown" | "storage_failed" | "no_discord";
+
+export interface CodeDeliveryMatch {
+  scheduleMatchId: number;
+  status: "sent" | "partial" | "failed" | "skipped";
+  reason: string | null;
+  codeCount: number;
+  recipients: { profileId: number; status: CodeDeliveryStatus }[];
+}
+
+/** HTTP 200 reports outcomes, including failures; it does not guarantee every DM was delivered. */
+export interface CodeDeliveryReport {
+  matches: CodeDeliveryMatch[];
+}
+
+export interface CodeDeliveryDayReport extends CodeDeliveryReport {
+  seasonDay: number;
+}
+
+export interface CodeDeliveryIssue {
+  scheduleMatchId: number;
+  profileId: number | null;
+  reason: string;
+}
+
 /**
  * One game Riot reported for a registered code.
  *
@@ -584,7 +610,8 @@ function mapRow(raw: unknown): MatchRow {
  * day. Falling back to the requested id keeps the field honest on both instead of reading `0` on
  * one of them.
  */
-function mapCode(raw: unknown, ownerId: number): MatchCode {
+/** Shared by the staff code list and the eligible viewer's series result. */
+export function mapMatchCode(raw: unknown, ownerId: number): MatchCode {
   const c = asRaw(raw);
   return {
     code: str(c.code),
@@ -822,7 +849,7 @@ export function mintCodes(
       minted: int(body.minted),
       skipped: int(body.skipped),
       // Minted codes span the day, so each row names its own match; 0 is the fallback nothing hits.
-      codes: arr(body.codes).map(c => mapCode(c, 0)),
+      codes: arr(body.codes).map(c => mapMatchCode(c, 0)),
     };
   });
 }
@@ -830,8 +857,83 @@ export function mintCodes(
 /** The codes one match already holds, each with its confirmation and ingest state. */
 export function matchCodes(id: number, opts?: RequestOpts): Promise<MatchCode[]> {
   return credentialedRequest(`${forMatch(id)}/codes`, {}, opts).then(raw =>
-    arr(asRaw(raw).codes).map(c => mapCode(c, id)),
+    arr(asRaw(raw).codes).map(c => mapMatchCode(c, id)),
   );
+}
+
+/** Sends existing confirmed, unplayed codes. The server owns preflight, recipients and deduplication. */
+export function sendDayCodes(
+  conf: string,
+  seasonDay: number,
+  opts?: RequestOpts,
+): Promise<CodeDeliveryDayReport> {
+  return credentialedRequest(
+    `${forConf(conf)}/schedule/${seasonDay}/codes/send`,
+    { method: "POST", body: {} },
+    opts,
+  ).then(raw => ({
+    ...mapDeliveryReport(raw),
+    seasonDay: int(asRaw(raw).seasonDay, seasonDay),
+  }));
+}
+
+export function sendMatchCodes(id: number, opts?: RequestOpts): Promise<CodeDeliveryReport> {
+  return credentialedRequest(
+    `${forMatch(id)}/codes/send`,
+    { method: "POST", body: {} },
+    opts,
+  ).then(mapDeliveryReport);
+}
+
+function mapDeliveryReport(raw: unknown): CodeDeliveryReport {
+  return {
+    matches: arr(asRaw(raw).matches).map((value): CodeDeliveryMatch => {
+      const match = asRaw(value);
+      return {
+        scheduleMatchId: int(match.scheduleMatchId),
+        status: match.status === "sent" || match.status === "partial" || match.status === "skipped"
+          ? match.status : "failed",
+        reason: strOrNull(match.reason),
+        codeCount: int(match.codeCount),
+        recipients: arr(match.recipients).map(value => {
+          const recipient = asRaw(value);
+          return {
+            profileId: int(recipient.profileId),
+            status: deliveryStatus(recipient.status),
+          };
+        }),
+      };
+    }),
+  };
+}
+
+function deliveryStatus(value: unknown): CodeDeliveryStatus {
+  switch (value) {
+    case "sent":
+    case "already_sent":
+    case "failed":
+    case "in_progress":
+    case "storage_failed":
+    case "no_discord":
+      return value;
+    default:
+      return "unknown";
+  }
+}
+
+/** A readiness rejection sends nothing. Preserve every issue, including future reason strings. */
+export function codeDeliveryIssues(error: unknown): CodeDeliveryIssue[] | null {
+  if (!(error instanceof ApiError) || error.status !== 409) return null;
+  const body = asRaw(error.body);
+  if (body.status !== "not_ready" || !Array.isArray(body.issues)) return null;
+  return body.issues.map(value => {
+    const issue = asRaw(value);
+    return {
+      scheduleMatchId: int(issue.scheduleMatchId),
+      profileId: intOrNull(issue.profileId),
+      reason: str(issue.reason, "unknown"),
+    };
+  });
 }
 
 /**
@@ -1122,6 +1224,8 @@ export const scheduleApi = {
   forfeitMatch,
   clearForfeit,
   mintCodes,
+  sendDayCodes,
+  sendMatchCodes,
   matchCodes,
   checkCode,
   confirmCode,

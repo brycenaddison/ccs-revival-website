@@ -5,7 +5,7 @@
  * The counterpart to `./schedule`, and the split is the same one `./seasonView` makes against
  * `./season`. That module is the league admin's surface — `/tournaments/:conf/schedule`, one
  * conference grouped by season day, credentialed, and paired with the writes that edit it. These two
- * are what a viewer sees: cross-conference, flat, resolved, ordered by kickoff, and anonymous.
+ * are what a viewer sees: the cross-conference feed and the resolved series detail.
  *
  * -   `GET /schedule` is the read behind the ticker, `/scores` and `/schedule`. **All three are this
  *     endpoint with a different window**, which is why there is one of it and not three: the status
@@ -15,10 +15,9 @@
  *     `(conf, season_day, teamA, teamB)` and cannot separate a double-header, and this can. Where the
  *     two disagree, this one is right.
  *
- * Both go through `getOne`, uncredentialed, like `./seasonView`. The consequence worth knowing:
- * upstream hides an unpublished phase's fixtures from anyone who cannot edit that conference, and an
- * anonymous request can never be that person. Correct for a public page; a surface that must show
- * unpublished days wants `./schedule` or `./season` instead.
+ * The feed is anonymous. Series detail sends the session so the server can include tournament codes
+ * for eligible viewers and unpublished fixtures for editors. That response must never be cached in
+ * the browser or shared between viewers in React Query.
  */
 
 import { getOne, type RequestOpts } from "./http";
@@ -35,6 +34,7 @@ import {
 import type { MatchKind, PhaseKind } from "./season";
 import type { TeamRecord } from "./types";
 import { mapTeamRecord } from "./client";
+import { mapMatchCode, type MatchCode } from "./schedule";
 
 // ---------------------------------------------------------------- vocabulary
 
@@ -336,6 +336,8 @@ export interface SeriesDetail {
    */
   result: MatchOutcome | null;
   games: SeriesGame[];
+  /** Confirmed codes supplied only to eligible viewers. An omitted wire field normalizes to []. */
+  codes: MatchCode[];
 }
 
 // ----------------------------------------------------------------- normalizing
@@ -544,6 +546,7 @@ function mapDetail(raw: unknown): SeriesDetail | null {
     teamB: body.teamB == null ? null : mapTeamRecord(asRaw(body.teamB)),
     result: mapOutcome(body.result),
     games: arr(body.games).map(mapGame),
+    codes: arr(body.codes).map(code => mapMatchCode(code, scheduleMatchId)),
   };
 }
 
@@ -588,7 +591,11 @@ export async function scheduleFeed(q: FeedQuery = {}, opts?: RequestOpts): Promi
  * param is theirs to check first.
  */
 export function matchResult(id: number, opts?: RequestOpts): Promise<SeriesDetail | null> {
-  return getOne<unknown>(`/tournaments/schedule/${id}/result`, opts).then(raw =>
+  return getOne<unknown>(`/tournaments/schedule/${id}/result`, {
+    ...opts,
+    credentialed: true,
+    noStore: true,
+  }).then(raw =>
     raw === null ? null : mapDetail(raw),
   );
 }

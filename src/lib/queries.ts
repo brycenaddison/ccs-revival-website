@@ -357,14 +357,17 @@ export const queries = {
    * Not `Infinity` like `matchData`, which is a finished game's immutable payload: this one carries a
    * clock-derived `status` and a result that grows as games are ingested, so a page left open on a
    * live series should catch up on focus.
+   * Optional tournament codes are viewer-specific, so the caller supplies the current profile ID.
    */
-  matchResult: (id: number | null) =>
+  matchResult: (id: number | null, viewerId: number | null) =>
     query({
-      queryKey: ["schedule", "result", id] as const,
+      queryKey: ["schedule", "result", id, viewerId] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         id === null ? Promise.resolve(null) : matchResult(id, { signal }),
       enabled: id !== null,
       staleTime: FEED_STALE,
+      // The optional codes belong to this viewer; discard them when the observer leaves.
+      gcTime: 0,
     }),
 
   /**

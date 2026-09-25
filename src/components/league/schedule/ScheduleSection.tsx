@@ -30,6 +30,7 @@ import { Toast } from "../../Toast";
 import { ACTION_SM, ErrorLine, Pill } from "../../admin/adminUi";
 import { MatchEditor } from "./MatchEditor";
 import { MatchCodes } from "./MatchCodes";
+import { CodeDeliveryControl } from "./CodeDeliveryControl";
 import { ForfeitPanel } from "./ForfeitPanel";
 import { LinkingPanel } from "./LinkingPanel";
 import { describeSweep } from "./codeReports";
@@ -144,7 +145,7 @@ function DayList({
         </select>
       </div>
 
-      <DayPanel conf={conf} day={day} teams={teams} onSaved={onSaved} />
+      <DayPanel key={`${conf}-${day.seasonDay}`} conf={conf} day={day} teams={teams} onSaved={onSaved} />
     </div>
   );
 }
@@ -309,6 +310,13 @@ function DayPanel({
       <ErrorLine message={recheck.isError ? errorMessage(recheck.error) : null} />
       <ErrorLine message={propagate.isError ? errorMessage(propagate.error) : null} />
 
+      <CodeDeliveryControl
+        target={{ conf, seasonDay: day.seasonDay }}
+        matches={day.matches}
+        teams={teams}
+        disabled={mint.isPending || recheck.isPending || propagate.isPending}
+      />
+
       {day.matches.length === 0 ? (
         <p className="text-text-dim text-sm">No matches on this day.</p>
       ) : (
@@ -365,7 +373,7 @@ function DayPanel({
                 <ForfeitPanel match={match} teams={teams} onSaved={onSaved} />
               )}
 
-              {showCodes === match.id && <MatchCodes match={match} onSaved={onSaved} />}
+              {showCodes === match.id && <MatchCodes match={match} teams={teams} onSaved={onSaved} />}
             </li>
           ))}
         </ul>

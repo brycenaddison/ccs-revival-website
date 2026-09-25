@@ -33,18 +33,16 @@
  * discarding it is purely local.
  *
  * Codes are shown in full because that is the point of them — anyone holding one can join the lobby, so
- * this is a league-admin surface and nothing here is safe to render publicly. Delivering codes to
- * *players* is a separate piece of work that does not exist yet; until it does, `/code` posting them
- * into Discord is still the only thing that reaches a team on match night.
+ * this is a league-admin surface. Eligible viewers also receive codes on the public match read;
+ * staff can deliver confirmed unplayed codes to team members through the shared delivery control.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ClipboardList, Copy, Plus, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
+import { ClipboardList, Copy, Plus, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
 import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import {
   ACTION_QUIET,
-  ACTION_QUIET_BASE,
   ACTION_SM,
   ACTION_SM_DANGER,
   ACTION_SM_PRIMARY,
@@ -52,6 +50,8 @@ import {
   Pill,
 } from "../../admin/adminUi";
 import { GameSummary, LinkedGameSummary, ResultOnlyCard } from "../../match/GameSummary";
+import { CopyAction } from "../../CopyAction";
+import { CodeDeliveryControl } from "./CodeDeliveryControl";
 import { describeIngest, describeSweep } from "./codeReports";
 import { queries, queryRoots } from "../../../lib/queries";
 import { useAdminAccess } from "../../../lib/adminAccess";
@@ -66,6 +66,7 @@ import {
   type MatchCode,
   type ReportedTeams,
   type ScheduleMatch,
+  type TeamRecord,
 } from "../../../lib/api";
 
 /** Riot tournament codes are always exactly this long, with no whitespace. */
@@ -73,6 +74,7 @@ const CODE_LENGTH = 44;
 
 export function MatchCodes({
   match,
+  teams,
   onSaved,
 }: {
   /**
@@ -80,6 +82,7 @@ export function MatchCodes({
    * what makes a pasted block of codes readable to the people receiving it.
    */
   match: ScheduleMatch;
+  teams: readonly TeamRecord[];
   onSaved: (message: string) => void;
 }) {
   const matchId = match.id;
@@ -272,6 +275,15 @@ export function MatchCodes({
       )}
 
       <ErrorLine message={recheck.isError ? errorMessage(recheck.error) : null} />
+
+      {match.kind !== "bye" && (
+        <CodeDeliveryControl
+          target={{ matchId }}
+          matches={[match]}
+          teams={teams}
+          disabled={busy || recheck.isPending}
+        />
+      )}
 
       {adding && checked === null && (
         <div className="mt-2.5 flex flex-wrap items-end gap-2">
@@ -702,79 +714,6 @@ function Provenance({ staged, matchId }: { staged: CodeCheck; matchId: number })
               : ""}
       </p>
     </div>
-  );
-}
-
-/**
- * A copy button that says it worked, twice.
- *
- * The icon flips to a tick for a moment *and* a toast goes up. Both, because they answer different
- * doubts: the tick confirms the click landed on the control you aimed at, which matters when four
- * rows carry the same icon, and the toast names what was copied, which matters when you are pasting
- * three codes into Discord in a row and cannot tell from the clipboard which one you have.
- *
- * A rejected `writeText` is reported rather than swallowed. It happens — a document without focus, a
- * clipboard permission denied — and a silently unchanged clipboard means pasting whatever was there
- * before, which for this screen is very likely *another team's code*.
- */
-function CopyAction({
-  text,
-  title,
-  message,
-  icon: Icon,
-  label,
-  onReport,
-}: {
-  text: string;
-  title: string;
-  /** What the toast says on success. Name the thing, not the action. */
-  message: string;
-  icon: typeof Copy;
-  /** Absent for the icon-only variant that sits in a code row. */
-  label?: string;
-  onReport: (message: string) => void;
-}) {
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    if (!done) return;
-    const t = setTimeout(() => setDone(false), 1500);
-    return () => clearTimeout(t);
-  }, [done]);
-
-  const run = () => {
-    const clip = navigator.clipboard;
-    if (!clip) {
-      onReport("This browser won't give up the clipboard here — select the text and copy it by hand.");
-      return;
-    }
-    void clip.writeText(text).then(
-      () => {
-        setDone(true);
-        onReport(message);
-      },
-      () => onReport("Couldn't reach the clipboard, so nothing was copied. Select the text by hand."),
-    );
-  };
-
-  const Shown = done ? Check : Icon;
-  const color = done ? "text-ccs-green" : "text-text-dim hover:text-text-bright";
-
-  return (
-    <button
-      type="button"
-      onClick={run}
-      title={title}
-      aria-label={label === undefined ? title : undefined}
-      className={
-        label === undefined
-          ? `inline-flex items-center shrink-0 cursor-pointer transition-colors ${color}`
-          : `${ACTION_QUIET_BASE} transition-colors ${color}`
-      }
-    >
-      <Shown size={label === undefined ? 13 : 12} aria-hidden="true" />
-      {label}
-    </button>
   );
 }
 

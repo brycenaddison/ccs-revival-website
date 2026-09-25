@@ -50,6 +50,18 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   including editor previews. Images support `![Description](url "width=256")`: an exact title of
   `width=N` (1–9999 pixels) sets display width, capped by the container with automatic height.
   Ordinary titles remain tooltips; raw HTML stays disabled. This changes display size, not file size.
+- `src/pages/Article.tsx` + `src/components/news/ArticleLink.tsx`: native articles render public API
+  Markdown at `/news/:slug`; link articles send readers off-site and their local route has no full
+  body. `src/lib/api/articles.ts` owns both reads and content writes; published detail includes
+  title, subtitle, author, image, publishedAt and updatedAt for future shared SEO metadata.
+  `src/pages/News.tsx` currently increases `limit` for Load more, but the API caps it at 50; use
+  offset pagination and crawlable page links when fixing archive discovery.
+- SEO baseline: `index.html` is an empty app shell with one shared title; `src/main.tsx` uses
+  `createRoot`, and `.github/workflows/deploy.yml` publishes static Vite output. No prerendering,
+  shared page metadata, sitemap or robots.txt is generated here. `SetupGate` waits for the session
+  before public pages mount. Only `NotFound.tsx` currently adds `noindex`; missing article slugs
+  render their own notice without it. Any static article generation must refresh on publish,
+  edit, unpublish and delete, and enumerate public posts across conferences with API pagination.
 - `src/main.tsx`: providers and every route. Public player profiles are `/players/:profileId`; first-time
   identity setup is `/setup`. Routes are declared under three layout routes — `SiteLayout ticker`,
   `SiteLayout`, and `BareLayout` for the full-bleed pages (`/match`, `/game`, `/teams`, `/register`,
@@ -62,6 +74,26 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   its overflow boundary, enlarging the document and adding an outer scrollbar with empty space.
 - `src/lib/api/`: defensive API boundary, exported through `index.ts`. Anonymous reads use `http.ts`;
   credentialed writes use `credentialed.ts`.
+- `src/pages/MatchDetail.tsx` + `components/match/TournamentCodes.tsx`: show API-supplied tournament
+  codes prominently below the match header, in served game order. `feed.ts`'s result read sends the
+  session and uses `no-store`; `queries.matchResult` includes the viewer profile ID and has zero
+  retention. The API decides visibility; omitted codes render nothing. `schedule.ts`'s `mapMatchCode`
+  is shared with the admin read, and `components/CopyAction.tsx` owns clipboard feedback for both.
+- `src/components/home/UpcomingSchedule.tsx`: the five upcoming fixtures also supply the signed-in
+  viewer's "Your upcoming match" card above the list. Reuse `queries.teamsForConf` for the feed's conferences,
+  match membership by profile ID and teams by `(conf, code)`, and take the first match in served order.
+  `lib/roster.ts`'s `teamMembers` includes starters, substitutes, contacts and owners; delivery reports
+  reuse it for player labels. Anonymous viewers and viewers without a matching team get no extra card.
+  Remove the featured fixture from Upcoming by `feedMatchKey`; hide the list when none remain.
+  `UpcomingMatchCard.tsx` renders large team badges/names and phase, phase-relative match day and best-of.
+  Only that card reads the viewer-scoped match result to check tournament-code availability.
+  The current match API has no draft-link field; do not infer a draft URL from a tournament code.
+- `src/components/league/schedule/CodeDeliveryControl.tsx`: shared day/match Discord delivery action
+  and recipient report. `sendDayCodes`/`sendMatchCodes` in `lib/api/schedule.ts` POST an empty object;
+  they do not mint codes. A 409 `not_ready` means nothing was sent and lists readiness issues.
+  HTTP 200 can include partial failures: preserve every recipient status. Explicit retries skip
+  successful recipients; `unknown` and `in_progress` require inspection, never automatic retry.
+  Delivery changes no read model. Key `DayPanel` by conference/day so reports cannot follow selection.
 - `src/lib/api/profiles.ts`: profile presentation limits/write, full career profile read, Riot account
   cards and public targeted refresh. Keep `ranked: []` (unranked) distinct from `ranked: null`
   (Riot unavailable). `career.teams` carries full `TeamRecord`s mapped with `client.ts`'s

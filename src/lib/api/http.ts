@@ -54,6 +54,8 @@ export class ApiError extends Error {
 
 export interface RequestOpts {
   signal?: AbortSignal;
+  /** Viewer-specific reads containing tournament codes must bypass the browser cache. */
+  noStore?: boolean;
   /**
    * Force a conditional request instead of letting the browser reuse a cached body.
    *
@@ -91,7 +93,7 @@ const MISSING_ROUTE = Symbol("missing-route");
 async function request(path: string, opts?: RequestOpts): Promise<unknown | typeof MISSING_ROUTE> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Accept: "application/json" },
-    cache: opts?.revalidate ? "no-cache" : "default",
+    cache: opts?.noStore ? "no-store" : opts?.revalidate ? "no-cache" : "default",
     credentials: opts?.credentialed ? "include" : "same-origin",
     signal: opts?.signal,
   });

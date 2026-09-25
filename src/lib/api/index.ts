@@ -435,6 +435,9 @@ export {
   forfeitMatch,
   clearForfeit,
   mintCodes,
+  sendDayCodes,
+  sendMatchCodes,
+  codeDeliveryIssues,
   matchCodes,
   checkCode,
   codeConflict,
@@ -448,6 +451,11 @@ export {
 } from "./schedule";
 export type {
   CodeCheck,
+  CodeDeliveryDayReport,
+  CodeDeliveryIssue,
+  CodeDeliveryMatch,
+  CodeDeliveryReport,
+  CodeDeliveryStatus,
   CodeConflict,
   CodeMeta,
   CodeSweep,

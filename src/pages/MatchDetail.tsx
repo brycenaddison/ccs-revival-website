@@ -26,18 +26,21 @@ import { PageShell } from "../components/layout/PageShell";
 import { errorMessage, type SeriesDetail, type TeamRecord } from "../lib/api";
 import { toBadge } from "../lib/leagueAdapters";
 import { queries } from "../lib/queries";
+import { useAuth } from "../lib/authContext";
 import { fmtKickoff } from "../lib/utils";
 import { TeamBadge } from "../components/TeamBadge";
 import { TeamLink } from "../components/league/TeamLink";
 import { SeriesGameCard } from "../components/match/SeriesGameCard";
 import { SeriesPreview } from "../components/match/SeriesPreview";
 import { SeriesTotals } from "../components/match/SeriesTotals";
+import { TournamentCodes } from "../components/match/TournamentCodes";
 import type { TeamNamer } from "../components/match/TeamNameLink";
 
 type Tab = "preview" | "results";
 
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
+  const { profile, loading } = useAuth();
   const { goBack, isFallback } = useBackNavigation("/");
   const backLabel = isFallback ? "Home" : "Back";
   /**
@@ -53,7 +56,10 @@ export default function MatchDetail() {
     return Number.isInteger(n) && n > 0 ? n : null;
   }, [id]);
 
-  const { data, error, isPending } = useQuery(queries.matchResult(matchId));
+  const { data, error, isPending } = useQuery({
+    ...queries.matchResult(matchId, profile?.id ?? null),
+    enabled: matchId !== null && !loading,
+  });
 
   if (matchId === null) {
     return <Missing message="That match link isn't valid." onBack={goBack} backLabel={backLabel} />;
@@ -79,6 +85,7 @@ export default function MatchDetail() {
       <BackLink onBack={goBack} backLabel={backLabel} />
       <div>
         <SeriesHeader match={data} />
+        <TournamentCodes key={`${matchId}-${profile?.id ?? "guest"}`} codes={data.codes} />
 
         {/*
           Only the undated case is worth saying. "No games recorded yet" on a fixture whose kickoff is in

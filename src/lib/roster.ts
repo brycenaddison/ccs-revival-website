@@ -13,7 +13,13 @@
  * would misreport both.
  */
 
-import { sortByRole, type PlayerStats, type Role, type RoleKey, type TeamRoster } from "./api";
+import { sortByRole, type PlayerStats, type Role, type RoleKey, type RosterSlot, type TeamRecord, type TeamRoster } from "./api";
+
+/** Every declared team member, including non-playing contacts and owners. Identity is profileId. */
+export function teamMembers(team: TeamRecord): RosterSlot[] {
+  return [team.top, team.jg, team.mid, team.bot, team.sup, ...team.subs, team.owner, ...(team.contacts ?? [])]
+    .filter((person): person is RosterSlot => person != null);
+}
 
 /** Starting slots in roster order, with the role each one plays. */
 const SLOTS: readonly { key: RoleKey; role: Role }[] = [
