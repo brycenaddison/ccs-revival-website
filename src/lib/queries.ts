@@ -48,6 +48,8 @@ import {
   scheduleFeed,
   searchGuild,
   searchProfiles,
+  searchRosterDiscord,
+  previewRosterPlayer,
   searchUsers,
   season,
   standings,
@@ -64,6 +66,8 @@ import {
   GUILD_SEARCH_MIN,
   PROFILE_SEARCH_MIN,
   type Role,
+  type ProfileSearchIdentity,
+  type RiotAccountInput,
 } from "./api";
 
 const MINUTE = 60_000;
@@ -683,13 +687,38 @@ export const queries = {
    * A real staleTime despite backing a form: this is a *lookup*, not a document being edited, and a
    * profile's display name does not move while somebody is choosing from a list of them.
    */
-  profileSearch: (q: string, conf: string | null) =>
+  profileSearch: (q: string, conf: string | null = null, identity?: ProfileSearchIdentity) =>
     query({
-      queryKey: ["profiles", "search", q, conf ?? "all"] as const,
-      queryFn: ({ signal }: { signal: AbortSignal }) => searchProfiles(q, conf, undefined, { signal }),
+      queryKey: ["profiles", "search", q, conf ?? "all", identity ?? "all"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => searchProfiles(q, conf, undefined, { signal }, identity),
       enabled: q.length >= PROFILE_SEARCH_MIN,
       staleTime: MINUTE,
       placeholderData: keepPreviousData,
+    }),
+
+  /** No previous private data across term, conference, or session changes. */
+  rosterDiscordSearch: (conf: string, viewerId: number | null, q: string) =>
+    query({
+      queryKey: ["rosterPlayers", conf, viewerId, "discord", q] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => searchRosterDiscord(conf, q, { signal }),
+      enabled: conf !== "" && viewerId !== null && q.length >= PROFILE_SEARCH_MIN,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+      refetchOnWindowFocus: false,
+    }),
+
+  /** Explicitly requested POST preview; no automatic provider retries or background refreshes. */
+  rosterRiotPreview: (conf: string, viewerId: number | null, input: RiotAccountInput) =>
+    query({
+      queryKey: ["rosterPlayers", conf, viewerId, "riotPreview", input.gameName, input.tagLine] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => previewRosterPlayer(conf, input, { signal }),
+      enabled: conf !== "" && viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     }),
 
   /**
@@ -744,6 +773,7 @@ export const queries = {
 
 /** Key prefixes, for invalidating a whole family on refresh. */
 export const queryRoots = {
+  rosterPlayers: ["rosterPlayers"] as const,
   teams: ["teams"] as const,
   /**
    * The home payload and the Twitch check.

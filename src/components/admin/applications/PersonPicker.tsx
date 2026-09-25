@@ -24,6 +24,7 @@ import { Search, X } from "lucide-react";
 import { ACTION_SM } from "../adminUi";
 import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { discordAvatarUrl } from "../../apply/applyUi";
+import { PlayerIdentity, PlayerResultRow } from "../../players/PlayerIdentity";
 import { useDebounced } from "../../../hooks/useDebounced";
 import { queries } from "../../../lib/queries";
 import {
@@ -46,6 +47,7 @@ export interface PickedPerson {
   handle: string | null;
   /** A finished image url, or null for a profile with no avatar. */
   avatar: string | null;
+  verified?: boolean;
 }
 
 /** The wire shape: exactly one of `discordUserId` or `profileId`. */
@@ -81,13 +83,11 @@ function PersonSearch({ id, taken, onPick, onCancel }: SearchProps) {
   const profiles = useQuery(queries.profileSearch(query, null));
 
   const searching = guild.isFetching || profiles.isFetching;
-  const guildHits = guild.data ?? [];
-  const profileHits = profiles.data ?? [];
+  const current = query === term.trim();
+  const guildHits = current && !guild.isPlaceholderData && !guild.error ? guild.data ?? [] : [];
+  const profileHits = current && !profiles.isPlaceholderData && !profiles.error ? profiles.data ?? [] : [];
   const settled = query.length >= SEARCH_MIN && !searching;
-  const nothing = settled && guildHits.length === 0 && profileHits.length === 0;
-
-  const row =
-    "flex w-full cursor-pointer items-center gap-2.5 border-none bg-transparent px-3 py-1.5 text-left text-sm text-text hover:bg-bg-input";
+  const nothing = current && settled && !guild.error && !profiles.error && guildHits.length === 0 && profileHits.length === 0;
 
   return (
     <div className="rounded-md border border-border bg-bg3 p-3">
@@ -142,10 +142,11 @@ function PersonSearch({ id, taken, onPick, onCancel }: SearchProps) {
               const identity: PersonIdentity = { kind: "discord", userId: hit.userId };
               return (
                 <li key={hit.userId}>
-                  <button
-                    type="button"
-                    className={row}
-                    onClick={() =>
+                  <PlayerResultRow
+                    player={{ profileId: null, name: hit.displayName, avatar: discordAvatarUrl(hit.userId, hit.avatar), verified: false }}
+                    detail={hit.username ? `@${hit.username}` : hit.userId}
+                    annotation={taken.has(identityKey(identity)) ? "already listed" : undefined}
+                    onSelect={() =>
                       onPick({
                         identity,
                         name: hit.displayName,
@@ -153,18 +154,7 @@ function PersonSearch({ id, taken, onPick, onCancel }: SearchProps) {
                         avatar: discordAvatarUrl(hit.userId, hit.avatar),
                       })
                     }
-                  >
-                    <Face src={discordAvatarUrl(hit.userId, hit.avatar)} name={hit.displayName} />
-                    <span className="min-w-0 flex-1 truncate">
-                      {hit.displayName}
-                      {hit.username && (
-                        <span className="ml-2 text-xs text-text-dim">@{hit.username}</span>
-                      )}
-                    </span>
-                    {taken.has(identityKey(identity)) && (
-                      <span className="shrink-0 text-[10px] text-text-dim">already listed</span>
-                    )}
-                  </button>
+                  />
                 </li>
               );
             })}
@@ -178,30 +168,17 @@ function PersonSearch({ id, taken, onPick, onCancel }: SearchProps) {
           <ul className="max-h-48 overflow-y-auto rounded-md border border-border">
             {profileHits.map(hit => {
               const identity: PersonIdentity = { kind: "profile", profileId: hit.profileId };
-              const name = hit.name ?? hit.handle ?? `Profile ${hit.profileId}`;
+              const name = hit.name ?? `Profile ${hit.profileId}`;
               return (
                 <li key={hit.profileId}>
-                  <button
-                    type="button"
-                    className={row}
-                    onClick={() =>
-                      onPick({ identity, name, handle: hit.handle, avatar: hit.avatar })
+                  <PlayerResultRow
+                    player={hit}
+                    detail={[hit.handle ? `@${hit.handle}` : null, `Profile ${hit.profileId}`].filter(Boolean).join(" · ")}
+                    annotation={taken.has(identityKey(identity)) ? "already listed" : undefined}
+                    onSelect={() =>
+                      onPick({ identity, name, handle: hit.handle, avatar: hit.avatar, verified: hit.verified })
                     }
-                  >
-                    <Face src={hit.avatar} name={name} />
-                    <span className="min-w-0 flex-1 truncate">
-                      {name}
-                      {hit.handle && hit.handle !== hit.name && (
-                        <span className="ml-2 text-xs text-text-dim">@{hit.handle}</span>
-                      )}
-                    </span>
-                    <span className="shrink-0 font-mono text-[10px] text-text-dim">
-                      #{hit.profileId}
-                    </span>
-                    {taken.has(identityKey(identity)) && (
-                      <span className="shrink-0 text-[10px] text-text-dim">already listed</span>
-                    )}
-                  </button>
+                  />
                 </li>
               );
             })}
@@ -247,9 +224,9 @@ export function PersonPicker({ id, value, onChange, taken }: PickerProps) {
 
   return (
     <div className="flex items-center gap-2.5 rounded-md border border-brand/50 bg-bg2 px-3 py-2">
-      <Face src={value.avatar} name={value.name} />
       <span className="min-w-0 flex-1 truncate text-sm text-text-bright">
-        {value.name}
+        <PlayerIdentity player={{ profileId: value.identity.kind === "profile" ? value.identity.profileId : null,
+          name: value.name, avatar: value.avatar, verified: value.verified === true }} />
         {value.handle && value.handle !== value.name && (
           <span className="ml-2 text-xs text-text-dim">@{value.handle}</span>
         )}
@@ -269,35 +246,5 @@ export function PersonPicker({ id, value, onChange, taken }: PickerProps) {
         <X size={13} aria-hidden="true" />
       </button>
     </div>
-  );
-}
-
-/**
- * A face, or an initial when there is none or the CDN no longer serves it. The guild hit's url is
- * built client-side (`discordAvatarUrl`) and can go stale between the search and the render, which is
- * what the fallback is for; a profile hit's null avatar is the ordinary case for a Riot-only profile.
- */
-function Face({ src, name }: { src: string | null; name: string }) {
-  const [failed, setFailed] = useState(false);
-
-  if (!src || failed) {
-    return (
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg3 font-heading text-[11px] text-text-secondary">
-        {name.slice(0, 1)}
-      </span>
-    );
-  }
-
-  return (
-    <img
-      src={src}
-      alt=""
-      width={28}
-      height={28}
-      loading="lazy"
-      decoding="async"
-      onError={() => setFailed(true)}
-      className="h-7 w-7 shrink-0 rounded-full border border-border"
-    />
   );
 }

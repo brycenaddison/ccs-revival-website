@@ -11,6 +11,7 @@
 import { getList, getOne, isAbort, post, type RequestOpts } from "./http";
 import { isNoBanChampion, NO_BAN_CHAMPION } from "../championData";
 import { mapPhaseRef } from "./phaseRef";
+import { mapPlayerSummary } from "./playerSummary";
 import {
   colorSecondaryOf,
   hexFromInt,
@@ -107,11 +108,7 @@ const ROLE_KEYS: readonly RoleKey[] = ["top", "jg", "mid", "bot", "sup"];
  * joins to anything, so a slot without one cannot be rendered or looked up.
  */
 function mapRosterSlot(raw: unknown): RosterSlot | null {
-  if (!raw || typeof raw !== "object") return null;
-  const s = asRaw(raw);
-  const profileId = numOrNull(s.profileId as Numeric);
-  if (profileId === null) return null;
-  return { profileId, name: strOrNull(s.name) };
+  return mapPlayerSummary(raw);
 }
 
 function mapRoster(raw: Raw): TeamRoster {

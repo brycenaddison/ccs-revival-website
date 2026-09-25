@@ -36,6 +36,7 @@ import {
   type UnverifiedAccount,
 } from "../../lib/api";
 import { metricText, winRateTone } from "./profileUi";
+import { PlayerAvatar } from "../players/PlayerIdentity";
 
 const QUEUE_LABEL: Record<AccountRank["queue"], string> = { solo: "Solo/Duo", flex: "Flex" };
 
@@ -107,9 +108,9 @@ function PrimaryCard({ account }: { account: LinkedAccount }) {
         <AccountIcon url={profileIconUrl} size={48} />
         <div className="min-w-0 flex-1">
           <RiotId riotId={riotId} />
-          {summonerLevel !== null && (
-            <p className="mt-0.5 truncate text-xs text-text-secondary">Level {summonerLevel}</p>
-          )}
+          <p className="mt-0.5 truncate text-xs text-text-secondary">
+            {summonerLevel === null ? "Level unavailable" : `Level ${summonerLevel}`}
+          </p>
         </div>
       </div>
 
@@ -185,7 +186,7 @@ function CompactCard({ account }: { account: LinkedAccount }) {
   const winRate = rank ? rankWinRate(rank) : null;
 
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-bg3 px-2 py-1.5">
+    <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-border bg-bg3 px-2 py-1.5">
       <AccountIcon url={profileIconUrl} size={22} />
       <span className="min-w-0 flex-1">
         <RiotId riotId={riotId} compact />
@@ -264,27 +265,8 @@ export function UnverifiedAccountRow({
 export const profileIconUrl = (iconId: number): string =>
   `https://cdn.communitydragon.org/latest/profile-icon/${iconId}`;
 
-function AccountIcon({ url, size }: { url: string | null; size: number }) {
-  if (!url) {
-    return (
-      <div
-        className="shrink-0 rounded-md border border-border bg-bg"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-  return (
-    <img
-      src={url}
-      alt=""
-      width={size}
-      height={size}
-      loading="lazy"
-      decoding="async"
-      className="shrink-0 rounded-md"
-      style={{ width: size, height: size }}
-    />
-  );
+function AccountIcon({ url, size }: { url: string | null; size: 22 | 48 }) {
+  return <PlayerAvatar src={url} size={size === 48 ? "large" : "small"} square />;
 }
 
 /**

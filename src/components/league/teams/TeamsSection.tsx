@@ -12,8 +12,8 @@
  * conference, so there is nothing here a hidden-league read would answer better. See
  * `lib/api/teamAdmin.ts`, which owns the writes and nothing else.
  *
- * Team create and edit are live upstream. Resolving a previously unseen Riot ID from the player
- * picker still needs the API route described in `lib/api/teamAdmin.ts`.
+ * Playing positions use Riot preview/acceptance; owner and contacts use Discord resolution.
+ * The roster's profile IDs are saved separately from these identity lookups.
  *
  * Scope is `roster`, narrower than the page's own gate: a grant carrying only `roster` reaches this
  * section and nothing else, and a viewer without it sees the same rosters read-only rather than a
@@ -41,7 +41,10 @@ import { SettingsRow } from "../../settings/SettingsSection";
 import { ImageUpload } from "../../ImageUpload";
 import { Toast } from "../../Toast";
 import { ROLE_LABEL, STARTER_ROLES } from "../../apply/applyUi";
-import { PlayerList, PlayerSlot, playerLabel, type PickedPlayer } from "./PlayerPicker";
+import { PlayerList } from "../../players/PlayerList";
+import { PlayerSlot } from "../../players/PlayerSlot";
+import { PlayerIdentity, playerLabel, type PickedPlayer } from "../../players/PlayerIdentity";
+import { useRosterPlayerSources } from "./useRosterPlayerSources";
 import { useAdminAccess } from "../../../lib/adminAccess";
 import { queries, queryRoots } from "../../../lib/queries";
 import {
@@ -79,6 +82,7 @@ export function TeamsSection() {
   const teams = data ?? [];
 
   const canEdit = isSiteAdmin || hasScope(leagues.find(l => l.conf === conf), "roster");
+  const sources = useRosterPlayerSources(conf, canEdit);
 
   if (isPending) return <p className="text-text-dim">Loading teams…</p>;
 
@@ -128,10 +132,11 @@ export function TeamsSection() {
       ) : (
         teams.map(team => (
           <TeamCard
-            key={team.id}
+            key={`${conf}:${team.id}:${sources.riot.contextKey}`}
             conf={conf}
             team={team}
             canEdit={canEdit}
+            sources={sources}
             onSaved={setSaved}
           />
         ))
@@ -149,6 +154,7 @@ interface CardProps {
   team: TeamRecord;
   canEdit: boolean;
   onSaved: (message: string) => void;
+  sources: ReturnType<typeof useRosterPlayerSources>;
 }
 
 /** Every roster position a team has, as people rather than as ids. */
@@ -206,11 +212,35 @@ function playingSlots(draft: RosterDraft): PickedPlayer[] {
   );
 }
 
-function TeamCard({ conf, team, canEdit, onSaved }: CardProps) {
+/** Refresh display fields by identity, never replace an unsaved selection or reorder a list. */
+function refreshDraftPresentation(draft: RosterDraft, server: RosterDraft): RosterDraft {
+  const summaries = new Map(
+    [...playingSlots(server), ...(server.owner ? [server.owner] : []), ...server.contacts]
+      .map(player => [player.profileId, player] as const),
+  );
+  const refresh = (player: PickedPlayer | null) => player ? summaries.get(player.profileId) ?? player : null;
+  return {
+    owner: refresh(draft.owner),
+    contacts: draft.contacts.map(player => refresh(player)!),
+    top: refresh(draft.top), jg: refresh(draft.jg), mid: refresh(draft.mid),
+    bot: refresh(draft.bot), sup: refresh(draft.sup),
+    subs: draft.subs.map(player => refresh(player)!),
+  };
+}
+
+function TeamCard({ conf, team, canEdit, onSaved, sources }: CardProps) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
   const [draft, setDraft] = useState<RosterDraft>(() => draftFrom(team));
+  const [previousTeam, setPreviousTeam] = useState(team);
+  const [pickerRevision, setPickerRevision] = useState(0);
+
+  if (team !== previousTeam) {
+    const wasClean = JSON.stringify(rosterInput(draft)) === JSON.stringify(rosterInput(draftFrom(previousTeam)));
+    setPreviousTeam(team);
+    setDraft(wasClean ? draftFrom(team) : refreshDraftPresentation(draft, draftFrom(team)));
+  }
 
   const server = draftFrom(team);
   const dirty = JSON.stringify(rosterInput(draft)) !== JSON.stringify(rosterInput(server));
@@ -233,6 +263,7 @@ function TeamCard({ conf, team, canEdit, onSaved }: CardProps) {
   const save = useMutation({
     mutationFn: () => updateTeam(conf, team.id, rosterInput(draft)),
     onSuccess: async (result: TeamRecord) => {
+      setDraft(draftFrom(result));
       // `standings` as well as `teams`: the standings table carries each team's name and code, so a
       // rename that refreshed only this list would leave the public table showing the old one.
       await Promise.all([
@@ -301,46 +332,54 @@ function TeamCard({ conf, team, canEdit, onSaved }: CardProps) {
       )}
 
       {open && (
-        <div className="mt-5 flex flex-col gap-4">
+        <div key={pickerRevision} className="mt-5 flex flex-col gap-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {STARTERS.map(role => (
               <PlayerSlot
                 key={role}
-                conf={conf}
+                mode="riot"
+                source={sources.riot}
                 label={ROLE_LABEL[role]}
                 value={draft[role]}
                 placed={placed}
-                editable={canEdit}
+                placedText="on this team"
+                editable={canEdit && !save.isPending}
                 onChange={player => setDraft(d => ({ ...d, [role]: player }))}
               />
             ))}
           </div>
 
           <PlayerList
-            conf={conf}
+            mode="riot"
+            source={sources.riot}
             label="Substitutes"
             values={draft.subs}
             placed={placed}
-            editable={canEdit}
+            placedText="on this team"
+            editable={canEdit && !save.isPending}
             max={TEAM_SUBS_MAX}
             onChange={subs => setDraft(d => ({ ...d, subs }))}
           />
 
           <div className="grid gap-3 sm:grid-cols-2">
             <PlayerSlot
-              conf={conf}
+              mode="discord"
+              source={sources.discord}
               label="Owner"
               value={draft.owner}
               placed={placed}
-              editable={canEdit}
+              placedText="on this team"
+              editable={canEdit && !save.isPending}
               onChange={owner => setDraft(d => ({ ...d, owner }))}
             />
             <PlayerList
-              conf={conf}
+              mode="discord"
+              source={sources.discord}
               label="Contacts"
               values={draft.contacts}
               placed={placed}
-              editable={canEdit}
+              placedText="on this team"
+              editable={canEdit && !save.isPending}
               hint="Who the league writes to. Usually the owner, and often more than one person."
               onChange={contacts => setDraft(d => ({ ...d, contacts }))}
             />
@@ -367,7 +406,7 @@ function TeamCard({ conf, team, canEdit, onSaved }: CardProps) {
               <button
                 type="button"
                 disabled={!dirty || save.isPending}
-                onClick={() => setDraft(draftFrom(team))}
+                onClick={() => { setDraft(draftFrom(team)); setPickerRevision(value => value + 1); }}
                 className={ACTION}
               >
                 <X size={15} aria-hidden="true" />
@@ -395,9 +434,9 @@ function RosterLine({ draft }: { draft: RosterDraft }) {
         STARTERS.map(role => {
           const player = draft[role];
           return (
-            <span key={role} className="mr-3 inline-block whitespace-nowrap">
+            <span key={role} className="mr-3 inline-flex max-w-full items-center gap-1.5">
               <span className="text-text-dim">{ROLE_LABEL[role]} </span>
-              {player ? playerLabel(player) : <span className="text-ccs-orange">empty</span>}
+              {player ? <PlayerIdentity player={player} small /> : <span className="text-ccs-orange">empty</span>}
             </span>
           );
         })

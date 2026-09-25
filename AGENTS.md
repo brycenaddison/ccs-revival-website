@@ -82,22 +82,52 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
 - `src/lib/game/events.ts` + `src/components/game/timeline/EventText.tsx`: Riot emits
   `DRAGON_SOUL_GIVEN` both when the map becomes an elemental Rift (`teamId: 0`) and when a side
   claims the Soul (`teamId: 100` or `200`). The Rift event has no associated side.
-- `src/components/league/teams/TeamsSection.tsx` + `PlayerPicker.tsx`: roster editor and its shared
-  player picker. On narrow screens the team logo/name occupy their own header row. The picker searches
-  existing profiles first; an unmatched `Name#TAG` offers Riot verification and selection. That action
-  calls `resolveRosterPlayer` in `src/lib/api/teamAdmin.ts`, which expects a new `roster`-scoped
-  `POST /tournaments/:conf/teams/players/resolve` API route accepting `{ gameName, tagLine }` and
-  returning `{ profileId, name }`. The sibling API does not yet implement it; Riot Account-v1 must
-  confirm the ID exists, reuse the profile holding its PUUID or create one with that PUUID, and return
-  the profile's display name (nullable, as in team reads) before the picker adds it to the roster draft.
-  The API already has `parseProfileAccount` for input and `RiotClient.getAccountByRiotId` for strict lookup,
-  `profiles.linkPuuid` for idempotent profile resolution, and `reserveProfileRiotRequests` for budget.
+- `src/components/players/`: reusable `PlayerPicker`, `PlayerSlot`, and `PlayerList` with required
+  `profile`/`riot`/`discord` mode. External modes require typed adapters from `pickerTypes.ts`.
+  `PlayerIdentity.tsx` owns player labels, API-served badges, avatar fallbacks and result rows; selected
+  names use `PlayerLink`, while result buttons never nest links. Riot mode previews verified accounts
+  before acceptance; complete IDs always offer explicit lookup alongside profile matches. Failed
+  acceptance requires a fresh preview. Discord mode preserves independent source errors. No league
+  membership checkbox/filter; the accolade editor's separate conference filter remains unchanged.
+  Riot-mode search rows show the API's `primaryRiotId` beneath the website name and distinguish
+  `matchedRiotIds` for alternate-account matches. They omit the profile number from secondary text;
+  `Profile N` remains the name fallback for nameless profiles. Never treat a match as the primary or load the
+  accounts endpoint per search hit. The sibling API serves matched IDs; primary ID enrichment is
+  still pending (see `docs/player-picker-api.md`).
+- `src/components/league/teams/TeamsSection.tsx`: starters/subs use Riot mode, owner/contacts use
+  Discord. `useRosterPlayerSources.ts` owns conference/session authorization, private query cleanup
+  and resolver invalidation. `rosterInput` stays ID-only for writes and dirty checks; refreshed server
+  summaries update presentation by matching ID without replacing unsaved identities/order. Existing
+  legacy selections remain visible. On narrow screens the team logo/name have their own header row.
+- `src/lib/api/teamAdmin.ts`: team writes and roster identity adapters. The sibling API now implements
+  create/edit, Riot preview/acceptance (`routes/tournaments/teamPlayers.ts`), Discord lookup/resolution
+  (`teamDiscord.ts`), and summary/search enrichment. Deployment remains unverified. Discord search's
+  wire `website` group maps to frontend `profiles`; guild hits carry a nested `profile` for saved
+  presentation. Contracts and remaining primary-Riot-ID enrichment are in `docs/player-picker-api.md`. Never fall back to
+  expectation-free Riot resolution. Private lookups use no-store transport, viewer/conf query keys,
+  zero retention and no automatic retry. Public profile-search keys include the identity filter.
+- `src/components/admin/applications/PersonPicker.tsx`: application import's combined global profile
+  and Discord guild search. It carries `PersonIdentity` until submission; import resolves snowflakes
+  to profiles. Its site-admin guild route cannot serve league staff with only `roster` scope, and its
+  profile results can include people without Discord. It shares identity/result UI with the roster
+  picker, but still defers profile creation until import. Public search exposes no snowflake; a
+  missing cached handle does not establish missing Discord.
+- `../tournament-bot/docs/API.md` now links to `docs/api/reference/index.md` and feature references;
+  follow those for current contracts rather than searching the former single-file reference.
 - `src/components/profile/RiotAccountCards.tsx`: shared Riot identity/rank cards. The highest-ranked
   account (`primaryAccount`) renders tall with a single headline rank block; the rest render as one
   compact line each. Riot's ladder has no ordering in its own API — `rankScore` in
   `lib/api/profiles.ts` is where the tier list lives, and `tierLabel` drops the meaningless `I` Riot
   sends for the apex tiers. **Peak rank is not available** — Riot serves only current standing and
   nothing stores history; see §9.4 of the gap analysis.
+  `RiotAccountCard` is exported for single-account metadata displays (Riot ID, icon, level, ranks).
+  `queries.profileAccounts` separates verified `accounts` from self-reported `unverifiedAccounts`;
+  claims cannot establish roster identity or verification. `lib/api/playerSummary.ts` shares
+  `PlayerSummary` and its mapper across profile search, resolution and `client.ts`'s `mapRosterSlot`.
+  API-selected avatar/source and verification survive save/reload; absent metadata maps to null/false,
+  never an inferred badge. `profiles.ts` exports its account-detail mapper for Riot previews. The sibling API's
+  `database/profiles/riotAccounts.ts` has `getSavedAccountDetailsMany()` for batched cached icons
+  and ranks; avoid fetching live Riot details for every autocomplete result.
 - `src/pages/Setup.tsx`: first-time public presentation setup.
 - `src/components/settings/profile/AccountSection.tsx`: later edits to the same public presentation
   document plus read-only Discord identity.

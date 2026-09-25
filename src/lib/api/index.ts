@@ -5,6 +5,7 @@ export type { PhaseRef } from "./phaseRef";
 export type { GameContext, GameContextParticipant } from "./game";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
 export type { RequestOpts } from "./http";
+export type { PlayerSummary } from "./playerSummary";
 export {
   infoApi,
   leagueInfo,
@@ -119,6 +120,7 @@ export type {
   ProfilePresentationInput,
   ProfileRoleBreakdown,
   ProfileSearchResult,
+  ProfileSearchIdentity,
   ProfileTeamBreakdown,
   RankedQueue,
   RiotAccountInput,
@@ -209,6 +211,9 @@ export {
   createTeam,
   updateTeam,
   resolveRosterPlayer,
+  previewRosterPlayer,
+  searchRosterDiscord,
+  resolveRosterDiscord,
   TEAM_CODE_MAX,
   TEAM_LOGO_MAX,
   TEAM_NAME_MAX,
@@ -219,6 +224,13 @@ export type {
   TeamCreate,
   TeamEdit,
   TeamRosterInput,
+  RosterRiotAcceptance,
+  RosterRiotPreview,
+  RosterDiscordAcceptance,
+  RosterDiscordSearch,
+  RosterDiscordProfile,
+  RosterDiscordMember,
+  PlayerSearchSource,
 } from "./teamAdmin";
 export {
   accoladesApi,

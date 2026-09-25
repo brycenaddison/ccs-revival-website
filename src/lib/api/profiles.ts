@@ -63,6 +63,7 @@
  */
 
 import { mapTeamRecord } from "./client";
+import { mapPlayerSummary, type PlayerSummary } from "./playerSummary";
 import { mapPhaseRef, type PhaseRef } from "./phaseRef";
 import { credentialedRequest } from "./credentialed";
 import { ApiError, getList, getOne, post, type RequestOpts } from "./http";
@@ -592,7 +593,7 @@ function mapRank(value: unknown): AccountRank[] {
   ];
 }
 
-function mapAccount(value: unknown): LinkedAccount[] {
+export function mapAccount(value: unknown): LinkedAccount[] {
   const r = asRaw(value);
   const puuid = strOrNull(r.puuid);
   if (!puuid) return [];
@@ -1136,16 +1137,18 @@ export async function refreshProfileAccounts(profileId: number): Promise<Profile
  * One hit from the profile autocomplete.
  *
  * `profileId` rather than the wire's `id`, matching every other person reference in this client —
- * `RosterSlot`, `ProfileRef`, `ApplicationMember`. `avatar` is a finished Discord CDN url; `handle`
- * is the cached Discord username and is often null, because it has only been recorded at login since
- * the column existed.
+ * `RosterSlot`, `ProfileRef`, `ApplicationMember`. The shared summary carries an API-selected
+ * Discord or Riot avatar. `handle` is a cached Discord username, not evidence of an association.
  */
-export interface ProfileSearchResult {
-  profileId: number;
-  name: string | null;
+export interface ProfileSearchResult extends PlayerSummary {
   handle: string | null;
-  avatar: string | null;
+  /** API-selected primary verified account, independent of which account matched the query. */
+  primaryRiotId: string | null;
+  /** Matching cached verified-account IDs in server order; these may be alternate accounts. */
+  matchedRiotIds: string[];
 }
+
+export type ProfileSearchIdentity = "riot" | "discord";
 
 /** Upstream's own floor. A shorter query is a `400`, not an empty result — so callers must gate. */
 export const PROFILE_SEARCH_MIN = 2;
@@ -1158,6 +1161,8 @@ export const PROFILE_SEARCH_MAX = 25;
  *
  * Matches display names and cached Discord handles case-insensitively; an all-digit query also
  * matches that exact profile id, which is what makes it a superset of pasting an id in by hand.
+ * `identity` asks the server to filter associations before limiting; Riot mode also matches
+ * cached linked Riot IDs. The picker never passes `conf`, which remains for accolade filtering.
  *
  * `conf` narrows to profiles a **published** team in that conference references — starters, subs,
  * owner or contacts. That is a genuinely different question from "everyone", not a nicety: with the
@@ -1172,22 +1177,27 @@ export function searchProfiles(
   conf?: string | null,
   limit?: number,
   opts?: RequestOpts,
+  identity?: ProfileSearchIdentity,
 ): Promise<ProfileSearchResult[]> {
   const params = new URLSearchParams({ q });
   if (conf) params.set("conf", conf);
   if (limit !== undefined) params.set("limit", String(limit));
+  if (identity) params.set("identity", identity);
 
   return getList<Raw>(`/profiles/search?${params.toString()}`, opts).then(rows =>
     rows.flatMap(raw => {
       const r = asRaw(raw);
-      const profileId = intOrNull(r.id ?? r.profileId);
-      if (profileId === null) return [];
+      const summary = mapPlayerSummary(r);
+      if (!summary) return [];
+      const legacyRiotId = strOrNull(r.riotId);
       return [
         {
-          profileId,
-          name: strOrNull(r.name),
+          ...summary,
           handle: strOrNull(r.handle),
-          avatar: strOrNull(r.avatar),
+          primaryRiotId: strOrNull(r.primaryRiotId),
+          matchedRiotIds: Array.isArray(r.matchedRiotIds)
+            ? strings(r.matchedRiotIds)
+            : legacyRiotId ? [legacyRiotId] : [],
         },
       ];
     }),

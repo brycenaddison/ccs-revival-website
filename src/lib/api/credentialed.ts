@@ -129,6 +129,8 @@ function toIssues(raw: unknown): ValidationIssue[] {
 
 export interface Init {
   method?: string;
+  /** Private directory lookups must never reuse the browser's HTTP cache. */
+  cache?: "no-store";
   /** Omit entirely for a GET or DELETE — presence is what adds the content type. */
   body?: unknown;
 }
@@ -142,6 +144,7 @@ export async function credentialedRequest(
   const res = await fetch(`${API_BASE}${path}`, {
     method: init.method ?? "GET",
     credentials: "include",
+    cache: init.cache,
     headers: {
       Accept: "application/json",
       ...(hasBody ? { "Content-Type": "application/json" } : {}),

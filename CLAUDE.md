@@ -111,7 +111,8 @@ Import from the barrel: `import { … } from "../lib/api"` (`index.ts` re-export
 | `schedule.ts` | League-admin schedule surface: matches, forfeits, tournament codes, game linking. |
 | `admin.ts` | Site-admin surface: `/admin/users`, `/admin/leagues`. The clearest small example of the write idiom — read it before adding a new mutating module. `GET /admin/leagues` is the **unfiltered** league list; `LeagueEdit.listed` is typed as the literal `false`, because upstream refuses `true` there. Also the season's two lifecycle switches, **site-admin only**: `setApplicationsOpen` (`PATCH /admin/leagues/:conf/applications`) and `listSeason` (`POST /admin/leagues/:conf/list`). They used to sit on `/tournaments` behind a conference `admin` grant; the old paths answer `404`. Their `409`s use the application surface's envelope, so `refusalOf` reads them. |
 | `adminApplications.ts` | Site Admin → Import Applications: `importApplication` (`POST /admin/leagues/:conf/applications/import`, a draft owned by *another* profile with its roster staged as `pending`, un-DMed invitations), `sendApplicationInvitations` (`POST .../:id/invitations/send`, the DMs as a separate command), `discardApplication` (`DELETE .../:id`, because withdraw is the submitter's alone) and `searchGuild` (`GET /admin/guild/members/search`, the applicant's guild search without an application to scope it to). **None of the four exist upstream yet**; the contract is `admin-application-import-api-spec.md` (§22). Site-admin only, like the intake toggle: acting as somebody else is not one conference's data. People are named the way `InvitationInput` names them, exactly one of `discordUserId` or `profileId`. No read of its own: the list is `applicationQueue`, which a site admin passes. Reuses `mapApplication`, exported from `teamApplications.ts` for it. |
-| `teamAdmin.ts` | League Admin → Teams writes: `POST /tournaments/:conf/teams` and `PATCH .../:id`, `roster` scope. **Neither route exists upstream yet** — the contract is `league-admin-teams-api-spec.md`, and the module is written ahead of it (§17). No read of its own: public `GET /teams/:conf` already carries every editable column, and both writes answer that same shape, so they reuse `mapTeamRecord`. Create is a complete strict document, edit is a partial patch — the two halves of that editor save on different schedules and a `PUT` would let a roster save clobber branding. |
+| `teamAdmin.ts` | League Admin → Teams writes and roster identity lookups, `roster` scope. The sibling API implements team create/edit, Riot preview/acceptance, and Discord search/resolution; deployment remains unverified. `docs/player-picker-api.md` records contracts and the pending `primaryRiotId` search enrichment. Discord wire `website` maps to frontend `profiles`; guild hits carry nested profile presentation. Team reads and writes reuse `mapTeamRecord`; player responses reuse `playerSummary.ts`. Private lookups use no-store transport. |
+| `playerSummary.ts` | Shared `PlayerSummary` and mapper for profile search, roster resolution, and hydrated roster slots: saved name, API-selected avatar/source, and API-provided verification. Missing legacy metadata maps to null/false. The browser never infers verification from an avatar, handle, or Riot lookup. |
 | `teamApplications.ts` | The upcoming-season workflow: applicant drafts, Discord invitations, roster review, the publication command, and `applicationIntake` — the **`roster`-readable** `GET /tournaments/:conf/applications/intake` (`{conf, applicationsOpen, listed, teamsPublishedAt}`), which exists because the public tournament list cannot describe a hidden season and `/admin/leagues` would `403` a league admin. Everything here is `roster` scope; the intake and listing *switches* are `admin.ts`'s. Exports `refusalOf`, which lifts `issues` off a `409` — every refusal on this surface answers one shape, `{status, error, issues?}`, so `error` rides in `ApiError.detail` and there is nothing left to translate. `InvitationInput` takes **exactly one** of `discordUserId` (a new invitee, guild membership rechecked) or `profileId` (somebody already on the roster — the only way to change their position). `confName` is served flat because an application only exists while its conference is hidden. `ApplicationSeason` carries **`rulebookUrl`** and **`applicationBody`**, both copied off the Info document: the former is where the applicant form links its rules confirmation, the latter is the Markdown `pages/Register.tsx` renders above the form — the public Info read is published-only and intake routinely opens for a league whose Info page is still a draft. |
 | `phaseRef.ts` | `PhaseRef`, its mapper, and `placementLabel` (the one rule for saying where a game sat: round number, then the operator's round name, then "Day n of m", then the week fallback). Its own module because both `profiles.ts` and `client.ts` (the team matchlist) need it and `profiles.ts` already imports `client.ts`. |
 | `accolades.ts` | Reusable accolade definitions (site-wide or conf-owned) and the occurrences issued under them. Both write documents are exact-key, so there is no partial patch. A **team** award sends no profile list — the server expands that team's current roster. |
@@ -411,12 +412,25 @@ League Admin → **Teams** is `src/components/league/teams/TeamsSection.tsx`, an
 where the sidebar used to promise two**: `teams` and `rosters` were separate `ComingSoon` stubs over
 the same database row, and a roster slot *is* a team column. Rosters lead and branding sits behind a
 button, because a roster moves weekly while a name and a tag are chosen once a season. It reads the
-public `GET /teams/:conf` — that read already carries every editable column, and a team only exists
-after publication — and writes through `lib/api/teamAdmin.ts`, **whose two routes do not exist
-upstream yet**; until they do, every save answers `404`. Scope is `roster`, narrower than the page's
-own gate, so a viewer without it sees the same rosters read-only. `PlayerPicker.tsx` beside it is
-the profile autocomplete, **unfiltered by default** — `?conf=` narrows to players a published team
-already references, which excludes the new signing a roster editor is usually looking for.
+public `GET /teams/:conf` — that read already carries every editable column, including teams created
+directly by roster staff before publication — and writes through `lib/api/teamAdmin.ts`. Create,
+edit, and Riot resolution routes are implemented in the sibling API's `routes/tournaments/teams.ts`.
+Scope is `roster`; a viewer without it sees the same rosters read-only. The reusable picker now lives
+in `src/components/players/`, with required `profile`, `riot`, or `discord` mode and typed external
+data-source adapters. Team starters/subs use Riot, owner/contacts use Discord. There is no league
+membership filter. `useRosterPlayerSources.ts` owns conference/session context and invalidation;
+every query key stays in `lib/queries.ts`, including the identity-qualified public search and private
+lookups keyed by conference/viewer with zero retention. `docs/player-picker-api.md` records the new
+frontend wire contracts; the routes now exist in sibling source but deployment remains unverified.
+Riot search shows the served `primaryRiotId` (still a pending API addition) separately from
+`matchedRiotIds`, which may be alternate accounts. New Riot picks always
+preview before accepting, with identity expectations on exact-ID resolution and no legacy fallback.
+Verified account collections alone provide eligibility; claims never do. Existing saved entries
+remain visible regardless of current eligibility. `rosterInput` compares/saves IDs only, and refreshed
+presentation merges by ID without overwriting dirty selections or order. `PlayerIdentity.tsx` shares
+badges, avatar fallbacks and result rows with the import picker, whose `PersonIdentity`/`PersonRef`
+semantics remain deferred until import. Public search does not expose Discord snowflakes. The
+sibling `docs/API.md` is an index into `docs/api/reference/` for current operation contracts.
 
 Accolades are two sections over one shared document: Site Admin → Accolades
 (`src/components/admin/accolades/GlobalAccoladesSection.tsx`) owns the site-wide definitions, and

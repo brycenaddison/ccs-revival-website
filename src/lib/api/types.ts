@@ -70,15 +70,7 @@ export type RoleKey = "top" | "jg" | "mid" | "bot" | "sup";
  * name themselves. That stopped being possible when Riot removed summoner-v4 `by-name`, so
  * rosters now key on profiles and the API serves the name it already knows.
  */
-export interface RosterSlot {
-  profileId: number;
-  /**
-   * Riot ID (`gameName#tagLine`), or `null` when Riot will not resolve the account — banned
-   * and deleted accounts stop resolving. That is normal rather than an error: `profileId` is
-   * still valid and still joins to stats, so render a fallback instead of dropping the slot.
-   */
-  name: string | null;
-}
+export type RosterSlot = import("./playerSummary").PlayerSummary;
 
 /**
  * A team's declared roster.

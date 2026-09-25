@@ -1,8 +1,8 @@
 /**
  * The league-admin team write surface: create a team, edit one, and resolve roster players.
  *
- * Create and edit are live upstream. The Riot ID resolver below is a proposed route, needed for
- * roster staff to add a player who has no profile yet.
+ * The sibling API implements create/edit, Riot preview/acceptance and Discord selection.
+ * Frontend contracts and remaining metadata requirements are in docs/player-picker-api.md.
  *
  * There is no read here on purpose. Public `GET /teams/:conf` already serves the whole editable row
  * — id, code, name, logo, both colors, owner, contacts, the five starters and the bench — and a
@@ -25,7 +25,9 @@ import {
   APPLICATION_NAME_MAX,
   SUB_ORDINAL_MAX,
 } from "./teamApplications";
-import type { RiotAccountInput } from "./profiles";
+import { mapAccount, type LinkedAccount, type RiotAccountInput } from "./profiles";
+import { mapPlayerSummary, type PlayerSummary } from "./playerSummary";
+import { mapGuildCandidate, type GuildMemberCandidate } from "./teamApplications";
 import type { TeamRecord } from "./types";
 
 // --------------------------------------------------------------- constraints
@@ -94,10 +96,34 @@ export type TeamCreate = TeamBrandingInput & TeamRosterInput;
 export type TeamEdit = Partial<TeamCreate>;
 
 /** The profile returned after Riot confirms an ID, ready for one roster slot. */
-export interface ResolvedRosterPlayer {
-  profileId: number;
-  /** The same display name a team roster read serves, or null for a nameless profile. */
-  name: string | null;
+export type ResolvedRosterPlayer = PlayerSummary;
+
+/** New pickers always accept either a profile or a preview with explicit identity expectations. */
+export type RosterRiotAcceptance =
+  | { profileId: number }
+  | (RiotAccountInput & { expectedPuuid: string; expectedProfileId: number | null });
+
+export interface RosterRiotPreview {
+  account: LinkedAccount;
+  profile: PlayerSummary | null;
+}
+
+export type RosterDiscordAcceptance = { profileId: number } | { discordUserId: string };
+export interface RosterDiscordProfile extends PlayerSummary {
+  discordUserId: string;
+  handle: string | null;
+}
+export interface RosterDiscordMember extends GuildMemberCandidate {
+  profileId: number | null;
+  profile: PlayerSummary | null;
+  verified: boolean;
+}
+export type PlayerSearchSource<T> =
+  | { status: "ok"; results: T[] }
+  | { status: "unavailable"; error: string };
+export interface RosterDiscordSearch {
+  profiles: PlayerSearchSource<RosterDiscordProfile>;
+  guild: PlayerSearchSource<RosterDiscordMember>;
 }
 
 // ----------------------------------------------------------------- endpoints
@@ -139,38 +165,104 @@ export function updateTeam(
 /**
  * Resolve a Riot ID for roster staff and create its profile when it has never visited the site.
  *
- * The sibling API does not expose this route yet. Its proposed contract is a `roster`-scoped
- * `POST /tournaments/:conf/teams/players/resolve` with `{ gameName, tagLine }`, returning
- * `{ profileId, name }`. It must use Riot Account-v1 to confirm the account exists, reuse the
- * profile already holding its PUUID or create one with that PUUID, and return that profile's display
- * name. A self-reported claim would not make the player eligible for match attribution.
+ * The legacy ID-only request exists upstream. New callers supply the preview expectations;
+ * there is deliberately no fallback to the legacy request if the server rejects that shape.
  */
 export async function resolveRosterPlayer(
   conf: string,
-  input: RiotAccountInput,
+  input: RosterRiotAcceptance | RiotAccountInput,
   opts?: RequestOpts,
 ): Promise<ResolvedRosterPlayer> {
   const raw = await credentialedRequest(
     `${forConf(conf)}/players/resolve`,
-    { method: "POST", body: input },
+    { method: "POST", body: input, cache: "no-store" },
     opts,
   );
-  const result: Record<string, unknown> =
-    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const name = result.name;
-  if (
-    typeof result.profileId !== "number" ||
-    !Number.isSafeInteger(result.profileId) ||
-    result.profileId <= 0 ||
-    !(name === null || (typeof name === "string" && name.trim() !== ""))
-  ) {
-    throw new Error("Riot account lookup returned an invalid player");
+  const player = requirePlayer(raw);
+  const expected = "profileId" in input ? input.profileId
+    : "expectedProfileId" in input ? input.expectedProfileId : null;
+  if (expected !== null && player.profileId !== expected) {
+    throw new Error("The profile changed after preview. Preview the player again.");
   }
+  return player;
+}
+
+function requirePlayer(raw: unknown): PlayerSummary {
+  const player = mapPlayerSummary(raw);
+  if (!player) throw new Error("Player lookup returned an invalid profile");
+  return player;
+}
+
+const object = (raw: unknown): Record<string, unknown> =>
+  raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+
+/** Read-only identity preview: this may refresh metadata, but never creates an attribution profile. */
+export async function previewRosterPlayer(
+  conf: string, input: RiotAccountInput, opts?: RequestOpts,
+): Promise<RosterRiotPreview> {
+  const raw = object(await credentialedRequest(
+    `${forConf(conf)}/players/preview`, { method: "POST", body: input, cache: "no-store" }, opts,
+  ));
+  const account = mapAccount(raw.account)[0];
+  if (!account?.riotId || !(raw.profile === null || mapPlayerSummary(raw.profile))) {
+    throw new Error("Riot account preview returned an invalid identity");
+  }
+  return { account, profile: raw.profile === null ? null : requirePlayer(raw.profile) };
+}
+
+function searchSource<T>(raw: unknown, map: (row: unknown) => T | null): PlayerSearchSource<T> {
+  const source = object(raw);
+  if (source.status === "unavailable" && typeof source.error === "string") {
+    return { status: "unavailable", error: source.error };
+  }
+  if (source.status !== "ok" || !Array.isArray(source.results)) {
+    return { status: "unavailable", error: "Player search returned an invalid response" };
+  }
+  return { status: "ok", results: source.results.map(map).filter((row): row is T => row !== null) };
+}
+
+/** Private, server-filtered and server-deduplicated sources. Snowflakes never become numbers. */
+export async function searchRosterDiscord(
+  conf: string, q: string, opts?: RequestOpts,
+): Promise<RosterDiscordSearch> {
+  const raw = object(await credentialedRequest(
+    `${forConf(conf)}/discord/search?${new URLSearchParams({ q })}`, { cache: "no-store" }, opts,
+  ));
   return {
-    profileId: result.profileId,
-    name,
+    profiles: searchSource(raw.website ?? raw.profiles, value => {
+      const row = object(value);
+      const player = mapPlayerSummary(row);
+      if (!player || typeof row.discordUserId !== "string" || !/^\d+$/.test(row.discordUserId)) return null;
+      return { ...player, discordUserId: row.discordUserId, handle: typeof row.handle === "string" ? row.handle : null };
+    }),
+    guild: searchSource(raw.guild, value => {
+      const row = object(value);
+      const member = mapGuildCandidate(row);
+      if (!member || row.bot === true || !/^\d+$/.test(member.userId)) return null;
+      const profile = mapPlayerSummary(row.profile);
+      return {
+        ...member,
+        profileId: profile?.profileId ?? mapPlayerSummary(row)?.profileId ?? null,
+        profile,
+        verified: profile?.verified ?? row.verified === true,
+      };
+    }),
   };
 }
 
+export async function resolveRosterDiscord(
+  conf: string, input: RosterDiscordAcceptance, opts?: RequestOpts,
+): Promise<PlayerSummary> {
+  const player = requirePlayer(await credentialedRequest(
+    `${forConf(conf)}/discord/resolve`, { method: "POST", body: input, cache: "no-store" }, opts,
+  ));
+  if ("profileId" in input && input.profileId !== player.profileId) {
+    throw new Error("The Discord profile changed. Search for the player again.");
+  }
+  return player;
+}
+
 /** Namespaced for parity with the other modules' aggregates. */
-export const teamAdminApi = { createTeam, updateTeam, resolveRosterPlayer };
+export const teamAdminApi = {
+  createTeam, updateTeam, resolveRosterPlayer, previewRosterPlayer, searchRosterDiscord, resolveRosterDiscord,
+};
