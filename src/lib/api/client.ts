@@ -607,6 +607,7 @@ export function tournaments(opts?: RequestOpts): Promise<Tournament[]> {
  *
  * Anonymous callers are unaffected: there is no cookie to send, and the whole-site list simply
  * omits what they may not see.
+ * Public discovery explicitly sets `anonymous`, which overrides session inclusion in the transport.
  *
  * `/standings/:conf`, `/matches/:conf` and the conf-scoped `/stats` routes are gated the same way
  * upstream but stay anonymous here, because nothing asks them for a hidden conference —

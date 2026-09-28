@@ -1,16 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
-import { ShoppingCart } from "lucide-react";
+import { Search } from "lucide-react";
 import { useLeague, useSeasonLink } from "../../lib/leagueContext";
 import { TABS, tabForPathname, visibleTabs } from "../../lib/tabs";
-
-const MERCH = { label: "Merch", icon: ShoppingCart, href: "https://classicchampionshipseries.itemorder.com/shop/sale/" };
+import { SiteSearchTrigger } from "../search/SiteSearch";
 
 const ITEM = "bg-transparent border-none cursor-pointer flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] no-underline transition-colors hover:text-text-bright";
 const LABEL = "font-heading text-[9px] tracking-wide ";
 
 /**
- * The bottom bar carries a subset of the nav — see `inBottomBar` — plus the merch link, which is
- * external and so stays an ordinary anchor. Like the nav, the current entry comes from the URL.
+ * The bottom bar carries a subset of the nav — see `inBottomBar` — plus the shared Search trigger.
+ * Like the nav, the current page entry comes from the URL.
  *
  * Icons are lucide components drawn in `currentColor`, so the active state is a color change on
  * both icon and label. The emoji this replaced could only be dimmed with a grayscale filter, which
@@ -45,10 +44,10 @@ export function MobileBottomBar() {
           </Link>
         );
       })}
-      <a href={MERCH.href} target="_blank" rel="noopener noreferrer" className={`${ITEM} text-text-muted`}>
-        <MERCH.icon size={19} strokeWidth={2} aria-hidden="true" />
-        <span className={`${LABEL} font-normal`}>{MERCH.label}</span>
-      </a>
+      <SiteSearchTrigger className={`${ITEM} text-text-muted`}>
+        <Search size={19} strokeWidth={2} aria-hidden="true" />
+        <span className={`${LABEL} font-normal`}>Search</span>
+      </SiteSearchTrigger>
     </div>
   );
 }

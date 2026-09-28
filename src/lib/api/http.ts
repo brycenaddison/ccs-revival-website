@@ -54,6 +54,8 @@ export class ApiError extends Error {
 
 export interface RequestOpts {
   signal?: AbortSignal;
+  /** Public discovery must omit cookies even when the API shares the site's origin. */
+  anonymous?: boolean;
   /** Viewer-specific reads containing tournament codes must bypass the browser cache. */
   noStore?: boolean;
   /**
@@ -94,7 +96,7 @@ async function request(path: string, opts?: RequestOpts): Promise<unknown | type
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Accept: "application/json" },
     cache: opts?.noStore ? "no-store" : opts?.revalidate ? "no-cache" : "default",
-    credentials: opts?.credentialed ? "include" : "same-origin",
+    credentials: opts?.anonymous ? "omit" : opts?.credentialed ? "include" : "same-origin",
     signal: opts?.signal,
   });
 

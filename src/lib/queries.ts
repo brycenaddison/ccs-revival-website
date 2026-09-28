@@ -56,6 +56,7 @@ import {
   statTotals,
   teamDetail,
   teamStats,
+  teams,
   teamsForConf,
   tournaments,
   unscheduledGames,
@@ -141,6 +142,14 @@ export const queries = {
     query({
       queryKey: ["teams", conf] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) => teamsForConf(conf, { signal }),
+      staleTime: LEAGUE_STALE,
+    }),
+
+  /** Public discovery across all listed seasons, isolated from credentialed team reads. */
+  publicTeams: () =>
+    query({
+      queryKey: ["teams", "public", "all"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => teams({ signal, anonymous: true }),
       staleTime: LEAGUE_STALE,
     }),
 
@@ -697,6 +706,16 @@ export const queries = {
       enabled: q.length >= PROFILE_SEARCH_MIN,
       staleTime: MINUTE,
       placeholderData: keepPreviousData,
+    }),
+
+  /** Global discovery never reuses editor lookups or shows a previous term's results. */
+  publicPlayerSearch: (q: string, identity?: ProfileSearchIdentity) =>
+    query({
+      queryKey: ["profiles", "public-search", q, identity ?? "all"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        searchProfiles(q, null, undefined, { signal, anonymous: true }, identity),
+      enabled: q.length >= PROFILE_SEARCH_MIN,
+      staleTime: MINUTE,
     }),
 
   /** No previous private data across term, conference, or session changes. */

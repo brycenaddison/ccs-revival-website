@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import type { CSSProperties, ReactNode } from "react";
+import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import { parseTeamKey } from "../../lib/leagueAdapters";
 import { useSeasonLink } from "../../lib/leagueContext";
 import type { Team } from "../../types/league";
@@ -9,7 +9,7 @@ export function teamPath(conf: string, code: string): string {
   return `/teams/${encodeURIComponent(conf)}/${encodeURIComponent(code)}`;
 }
 
-interface Props {
+interface Props extends Omit<ComponentProps<typeof Link>, "to" | "children"> {
   /** A view-model team, whose `id` already encodes conf and code. */
   team?: Pick<Team, "id"> | null;
   /** Or an explicit conf + code, for API rows that only carry a team code. */
@@ -32,7 +32,7 @@ interface Props {
  * Renders children unwrapped when it can't resolve a target, so call sites don't need to
  * branch on partial data — a team with no conf simply isn't a link.
  */
-export function TeamLink({ team, conf, code, className, style, title, stopPropagation, children }: Props) {
+export function TeamLink({ team, conf, code, className, style, title, stopPropagation, children, onClick, ...props }: Props) {
   // The team page reads its conf from the path, so it doesn't need the season itself — but its
   // "back to CCS" link does, and it can only carry what arrived in the URL.
   const seasonLink = useSeasonLink();
@@ -47,11 +47,15 @@ export function TeamLink({ team, conf, code, className, style, title, stopPropag
 
   return (
     <Link
+      {...props}
       to={seasonLink(teamPath(resolved.conf, resolved.code))}
       className={className}
       style={style}
       title={title}
-      onClick={stopPropagation ? e => e.stopPropagation() : undefined}
+      onClick={event => {
+        if (stopPropagation) event.stopPropagation();
+        onClick?.(event);
+      }}
     >
       {children}
     </Link>

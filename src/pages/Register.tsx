@@ -1,8 +1,7 @@
 /**
  * Team registration — `/register`. The applicant side of the team-application workflow.
  *
- * This is where the nav's APPLY NOW and JOIN CCS buttons land, which is why the path is unchanged
- * even though the page is now a form rather than a signpost.
+ * This is where the nav's APPLY NOW button lands. JOIN CCS opens the configured Discord invite.
  *
  * The season being applied to comes from `GET /tournaments/applications/open`, **not** from the
  * site's `?conf=` selection. Those are different questions: the selector names the season you are

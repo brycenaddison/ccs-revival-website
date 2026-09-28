@@ -3,7 +3,7 @@
  *
  * chart.js paints with color values, not classes, and the site's rule is that no component carries a
  * raw hex. So the charts read the same custom properties the utilities resolve to, off
- * `documentElement`, and re-read them when `ThemeToggle` flips `data-theme`. That is what keeps a gold
+ * `documentElement`, and re-read them when `toggleTheme` flips `data-theme`. That is what keeps a gold
  * graph on the tokens and correct in both themes without a second palette.
  *
  * A `MutationObserver` on the attribute rather than a theme context, because the toggle writes the

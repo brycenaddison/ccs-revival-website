@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { Search } from "lucide-react";
 import ccsLogo from "../../assets/ccs-logo.png";
-import { ThemeToggle } from "../ThemeToggle";
 import { AuthControl } from "../auth/AuthControl";
 import { SeasonPicker } from "../league/SeasonPicker";
 import { useAdminAccess } from "../../lib/adminAccess";
 import { useLeague, useSeasonLink } from "../../lib/leagueContext";
 import { TABS, tabForPathname, visibleTabs } from "../../lib/tabs";
+import { SiteSearchTrigger, useSiteSearch } from "../search/SiteSearch";
 
 interface Props {
   isMobile: boolean;
@@ -53,6 +54,9 @@ const SEASONLESS_PREFIXES = ["/settings", "/setup", "/players/", "/admin", "/lea
  */
 export function NavBar({ isMobile }: Props) {
   const [open, setOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const { open: searchOpen } = useSiteSearch();
+  useEffect(() => { if (searchOpen) setOpen(false); }, [searchOpen]);
   const { pathname } = useLocation();
   const active = tabForPathname(pathname);
   // Tabs change only the section, so they keep the season being viewed.
@@ -97,7 +101,7 @@ export function NavBar({ isMobile }: Props) {
               select inside is `w-full` so it actually follows; `body` carries the floor below which
               the page scrolls sideways instead. */}
           {season && <div className="min-w-0 text-[10px]">{season}</div>}
-          <button onClick={() => setOpen(!open)} className="bg-transparent border-none cursor-pointer p-2 flex flex-col gap-1 shrink-0">
+          <button ref={menuButton} aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} onClick={() => setOpen(!open)} className="bg-transparent border-none cursor-pointer p-2 flex flex-col gap-1 shrink-0">
             {[0, 1, 2].map(idx => (
               <span
                 key={idx}
@@ -119,6 +123,13 @@ export function NavBar({ isMobile }: Props) {
           // sits above this in the stacking order and would otherwise cover the last entries.
           // `overscroll-contain` stops a flick at the end of the list scrolling the page behind it.
           <div className="absolute top-full left-0 right-0 max-h-[calc(100dvh-3.5rem-var(--bottom-nav-h))] overflow-y-auto overscroll-contain bg-bg2 border-b-2 border-brand z-[100] shadow-popover">
+            <SiteSearchTrigger
+              returnFocusRef={menuButton}
+              className="flex w-full cursor-pointer items-center gap-2 border-none border-l-[3px] border-l-transparent bg-transparent px-5 py-3.5 text-left font-display text-[15px] font-medium text-text transition-colors hover:bg-bg-input hover:text-text-bright"
+            >
+              <Search size={18} aria-hidden="true" />
+              <span>Search</span>
+            </SiteSearchTrigger>
             {tabs.map(t => (
               <Link
                 key={t.path}
@@ -154,9 +165,6 @@ export function NavBar({ isMobile }: Props) {
               </Link>
             )}
             <AuthControl variant="menu" onNavigate={() => setOpen(false)} />
-            <div className="px-5 py-2.5 border-t border-border">
-              <ThemeToggle />
-            </div>
           </div>
         )}
       </nav>
@@ -252,8 +260,8 @@ export function NavBar({ isMobile }: Props) {
         </div>
       </div>
       <div className="order-2 nav:order-3 flex flex-1 basis-0 min-w-fit items-center justify-end gap-3">
+        <SiteSearchTrigger />
         <AuthControl />
-        <ThemeToggle />
       </div>
     </nav>
   );

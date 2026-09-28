@@ -14,6 +14,33 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   humans run that command. `@/` resolves to `src/` in TypeScript and Vite, and the shared `cn` helper
   is `src/lib/cn.ts`. Generated imports must use `@/lib/cn`, never the unrelated npm package `cn`.
   Preserve the site's theme mappings when adapting generated components.
+- `src/components/search/SiteSearch.tsx`: one dialog/provider and Ctrl/Cmd+K handler per `SiteLayout`,
+  with lazy `SearchResults.tsx` inside the shared Radix dialog. `SiteSearchTrigger` serves desktop nav,
+  mobile bottom bar (replacing Merch), and the hamburger dropdown; mobile's top row has no search.
+  Search closes the hamburger menu; its dropdown trigger restores focus to the hamburger button.
+  Keep the dialog outside the dropdown so unmounting that menu cannot dismiss search. Bottom-bar
+  trigger spacing matches the other tabs, preserving `--bottom-nav-h`. Editable fields and other
+  dialogs retain their keyboard shortcuts. `ui/command.tsx` wraps cmdk with CCS theme tokens.
+  Keep the generated command exports/data slots, but use `@/lib/cn`; remove any generated direct
+  `cn` dependency. Shared `DialogContent` leaves geometry and close controls to its caller and keeps
+  the CCS 300/301 overlay/content layers. `CommandDialog` supplies its own centered panel geometry.
+  `CommandLinkItem.tsx` activates real `Link`/`PlayerLink`/`TeamLink` anchors for Enter; those shared
+  links forward anchor props and refs. Keep click propagation stopped so keyboard activation cannot recurse.
+  Page shortcuts reuse `TABS`, season links, and `accountMenuEntries` for permission-aware links.
+  `SearchResults.tsx`'s `SHORTCUT_LABELS` supplies command-menu labels by path: League Info and
+  Content Management. These labels and group names drive shortcut filtering. Public links are under
+  Pages; account links (including View Profile and Settings) are under Your Pages; Content Management,
+  Site Admin and League Admin are under Admin, using the existing permission gates. Hide empty groups.
+  Appearance contains Toggle Dark Mode for all visitors; there is no nav theme button. `lib/theme.ts`
+  owns the toggle, saved preference and iframe notifications; `useThemeColors` observes `data-theme`.
+  The search menu omits Join CCS / Apply. In `auth/AuthControl.tsx`, Join CCS opens the shared
+  `DISCORD_INVITE` from `lib/siteLinks.ts`; Apply Now links to `/register` while applications are open.
+  `queries.publicTeams` searches `/teams` across listed seasons; `publicPlayerSearch` combines
+  ordinary and Riot-mode search by profile ID, without a conference filter or roster-derived IDs.
+  These public query keys are separate from editor lookups and use `RequestOpts.anonymous` to omit
+  cookies even on the same origin (it takes precedence over credentialed team reads). Search waits
+  for two characters and debounces players; never display an earlier term's player results or
+  locally re-filter server identity matches. Preserve API order and show when results hit a cap.
 - `src/components/ui/color-picker.tsx`: shared shadcn-style color popover, re-exported as
   `ColorField` from `admin/adminUi.tsx` for team create/edit, applications, and admin imports.
   Uses `react-colorful` for the canvas, hue slider, and hex input. Only six-digit opaque hex values
@@ -75,6 +102,22 @@ manager. After edits, you can ask the human to run `pnpm build` and paste the ou
   before public pages mount. Only `NotFound.tsx` currently adds `noindex`; missing article slugs
   render their own notice without it. Any static article generation must refresh on publish,
   edit, unpublish and delete, and enumerate public posts across conferences with API pagination.
+  Omitting `conf` from `/articles` returns all published conferences; list cards omit body and
+  updatedAt, so body-only change detection requires detail reads. Generation needs strict reads:
+  `http.ts`'s `getList` maps missing routes, null and non-array payloads to an empty list.
+  For future prerendering, `useWindowSize` and `useThemeColors` access browser globals during render;
+  `PageShell` sets layout width in an effect, and news cards render time-relative dates.
+  `Home.tsx` shares the Home/Standings/Teams views and gates its main content on league/team data;
+  a permanent homepage introduction must live outside that gate. It currently has no brand h1.
+  A generated homepage will need a separate SPA fallback template so other routes do not receive
+  its canonical, body and hydration payload.
+  Public profile reads return presentation/accounts/career data but the inspected API contract has
+  no complete public profile inventory; roster IDs alone cannot cover every shareable profile.
+  `ProfileHeader.tsx` chooses its icon with `primaryAccount(accounts)?.profileIconUrl`, using verified
+  accounts. Team metadata reads must be anonymous: sessions can expose unpublished teams.
+  Planned SEO rollout has two steps: client metadata/branding, pagination, generic Open Graph and
+  a build/manual-deploy sitemap first; rendering/hydration, automatic content refresh, staged releases
+  and the proposed metadata service are deferred. Do not pull that infrastructure into the first step.
 - `src/main.tsx`: providers and every route. Public player profiles are `/players/:profileId`; first-time
   identity setup is `/setup`. Routes are declared under three layout routes — `SiteLayout ticker`,
   `SiteLayout`, and `BareLayout` for the full-bleed pages (`/match`, `/game`, `/teams`, `/register`,

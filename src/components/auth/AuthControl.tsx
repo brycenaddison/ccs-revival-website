@@ -4,12 +4,13 @@ import { useAdminAccess } from "../../lib/adminAccess";
 import { useAuth } from "../../lib/authContext";
 import { CONTENT_ROLE } from "../../lib/api";
 import { queries } from "../../lib/queries";
+import { DISCORD_INVITE } from "../../lib/siteLinks";
 import { useHasLiveApplication } from "../../hooks/useMyApplications";
 import { useHasInvitations } from "../../hooks/useInvitations";
 import { accountMenuEntries, UserMenu } from "./UserMenu";
 
 /**
- * `nav` matches the desktop bar's right-hand cluster (alongside ThemeToggle); `menu` matches
+ * `nav` matches the desktop bar's right-hand cluster (alongside search); `menu` matches
  * the full-width rows of the mobile drop-down.
  */
 type Variant = "nav" | "menu";
@@ -40,6 +41,22 @@ interface Props {
    * `menu`-variant link would otherwise leave the drawer open on top of the page it just opened.
    */
   onNavigate?: () => void;
+}
+
+/** The label and destination stay paired in both navigation layouts. */
+function JoinOrApplyLink({ applicationsOpen, className, onNavigate }: {
+  applicationsOpen: boolean;
+  className: string;
+  onNavigate?: () => void;
+}) {
+  if (applicationsOpen) {
+    return <Link to="/register" className={className} onClick={onNavigate}>Apply Now</Link>;
+  }
+  return DISCORD_INVITE ? (
+    <a href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer" className={className} onClick={onNavigate}>
+      Join CCS
+    </a>
+  ) : null;
 }
 
 export function AuthControl({ variant = "nav", onNavigate }: Props) {
@@ -92,13 +109,11 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
         <>
           {/* `border-t-border` rather than `border-border`: the shorthand would also repaint the
               accent left rule, since it sets all four sides and wins on generated-CSS order. */}
-          <Link
-            to="/register"
-            onClick={onNavigate}
+          <JoinOrApplyLink
+            applicationsOpen={applicationsOpen}
+            onNavigate={onNavigate}
             className={`block w-full text-left cursor-pointer py-3.5 px-5 border-t border-t-border border-l-[3px] border-l-brand text-brand no-underline ${LABEL}`}
-          >
-            {applicationsOpen ? "Apply Now" : "Join CCS"}
-          </Link>
+          />
           <button
             onClick={login}
             className={`block w-full text-left bg-transparent border-none cursor-pointer py-3.5 px-5 border-l-[3px] border-l-transparent text-text-secondary ${LABEL}`}
@@ -111,14 +126,7 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
 
     return (
       <div className="flex items-center gap-2">
-        <Link
-          to="/register"
-          className={CTA}
-        >
-          {/* "Apply Now" when a league is recruiting, "Join CCS" otherwise — same slot, same fill,
-              and the signed-in branch below reuses both. */}
-          {applicationsOpen ? "Apply Now" : "Join CCS"}
-        </Link>
+        <JoinOrApplyLink applicationsOpen={applicationsOpen} className={CTA} />
         <button
           onClick={login}
           className={`bg-transparent border border-border rounded-md px-3 py-1 cursor-pointer text-text-secondary ${LABEL}`}

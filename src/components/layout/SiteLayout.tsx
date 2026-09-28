@@ -35,7 +35,13 @@ import { useWindowSize } from "../../hooks/useWindowSize";
 import { NavBar } from "../home/NavBar";
 import { MobileBottomBar } from "../home/MobileBottomBar";
 import { ScoreboardTicker } from "../home/ScoreboardTicker";
-import { DEFAULT_COLUMN, PageColumnContext, type PageColumn } from "./PageShell";
+import {
+  DEFAULT_COLUMN,
+  PageColumnContext,
+  type PageColumn,
+} from "./PageShell";
+import { DISCORD_INVITE } from "@/lib/siteLinks";
+import { SiteSearch } from "../search/SiteSearch";
 
 interface Props {
   /**
@@ -47,7 +53,11 @@ interface Props {
   ticker?: boolean;
 }
 
-export function SiteLayout({ ticker = false }: Props) {
+export function SiteLayout(props: Props) {
+  return <SiteSearch><SiteChrome {...props} /></SiteSearch>;
+}
+
+function SiteChrome({ ticker = false }: Props) {
   const isMobile = useWindowSize() < 768;
   const { pathname } = useLocation();
 
@@ -57,8 +67,10 @@ export function SiteLayout({ ticker = false }: Props) {
   // equal values don't re-render the chrome — most navigations keep the same column width, and the
   // ticker has no reason to re-render because the page under it changed.
   const publishColumn = useCallback((next: PageColumn) => {
-    setColumn(prev =>
-      prev.maxWidth === next.maxWidth && prev.extraBottom === next.extraBottom ? prev : next,
+    setColumn((prev) =>
+      prev.maxWidth === next.maxWidth && prev.extraBottom === next.extraBottom
+        ? prev
+        : next,
     );
   }, []);
 
@@ -97,17 +109,29 @@ export function SiteLayout({ ticker = false }: Props) {
       <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* The compare dock's reserve sits on this wrapper rather than on the scroller: trailing padding
             on a scroll container has a history of being dropped from the scrollable overflow. */}
-        <div className="flex flex-1 flex-col" style={{ paddingBottom: extraBottom || undefined }}>
+        <div
+          className="flex flex-1 flex-col"
+          style={{ paddingBottom: extraBottom || undefined }}
+        >
           {/* `flex-1` lives on this wrapper rather than the content column, which has to keep `mx-auto`
               and a max width to stay centered and capped. */}
           <main className="flex-1">
-            <div className="mx-auto" style={{ maxWidth, padding: isMobile ? 12 : "24px 32px" }}>
+            <div
+              className="mx-auto"
+              style={{ maxWidth, padding: isMobile ? 12 : "24px 32px" }}
+            >
               <PageColumnContext.Provider value={publishColumn}>
                 {/* The boundary wraps the Suspense, since a lazy chunk that fails to load is thrown to
                     the nearest error boundary once its promise rejects. Keyed on the path so the next
                     navigation gets a clean try rather than the previous page's failure. */}
                 <RouteErrorBoundary key={pathname}>
-                  <Suspense fallback={<div className="py-16 text-center text-text-subtle">Loading…</div>}>
+                  <Suspense
+                    fallback={
+                      <div className="py-16 text-center text-text-subtle">
+                        Loading…
+                      </div>
+                    }
+                  >
                     <Outlet />
                   </Suspense>
                 </RouteErrorBoundary>
@@ -119,8 +143,26 @@ export function SiteLayout({ ticker = false }: Props) {
             className="border-t border-bg3 text-center mt-10"
             style={{ padding: isMobile ? "20px 12px" : "24px 20px" }}
           >
-            <span className="font-display text-lg text-text-subtle ">CCS</span>
-            <div className="text-[10px] text-text-subtle mt-2">Amateur Esports · Community Driven · Website built by gl4cial and dribb</div>
+            <span className="font-display text-lg text-text-subtle ">
+              CCS | Classic Championship Series
+            </span>
+            <div className="text-[10px] text-text-subtle mt-2">
+              Amateur Esports · Community Driven · Website built by gl4cial and
+              dribb{" "}
+              {DISCORD_INVITE && (
+                <>
+                  ·{" "}
+                  <a
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-text-muted"
+                    href={DISCORD_INVITE}
+                  >
+                    Join our Discord
+                  </a>
+                </>
+              )}
+            </div>
           </footer>
         </div>
       </div>
