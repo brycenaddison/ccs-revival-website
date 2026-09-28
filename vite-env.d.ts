@@ -1,13 +1,10 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  /** The canonical production origin; Vite supplies the shared CCS default when unset. */
+  readonly VITE_SITE_ORIGIN: string;
   /** Base URL of the tournament-bot HTTP API. */
   readonly VITE_API_BASE_URL?: string;
-  /**
-   * Comma-separated conf ids to treat as the current league, e.g. "4" or "wed,thu".
-   * Takes precedence over the `active` flag on /tournaments (which does not exist yet).
-   */
-  readonly VITE_ACTIVE_CONFS?: string;
   /**
    * Invite URL for the CCS Discord, e.g. "https://discord.gg/ccslol".
    *

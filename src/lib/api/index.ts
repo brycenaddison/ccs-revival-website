@@ -5,6 +5,8 @@ export type { PhaseRef } from "./phaseRef";
 export type { GameContext, GameContextParticipant } from "./game";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
 export type { RequestOpts } from "./http";
+export { readArticleInventory, validateInventoryPage } from "./publicArticleInventory";
+export type { ArticleInventoryRow } from "./publicArticleInventory";
 export type { PlayerSummary } from "./playerSummary";
 export {
   infoApi,

@@ -5,7 +5,7 @@
  * the wrong one to read: a hundred rows with a timestamp each is a wall. Both `/scores` and `/schedule`
  * break it into date sections instead, so this is shared rather than written twice.
  *
- * **Sections come from the date, never from `seasonDay`.** That number is a join key — see `CLAUDE.md`
+ * **Sections come from the date, never from `seasonDay`.** That number is a join key — see `AGENTS.md`
  * — and it is not the number a viewer would recognize anyway.
  */
 

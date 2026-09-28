@@ -22,7 +22,7 @@ import {
   type ArticleKind,
   type ArticleType,
 } from "./home";
-import { getList, getOne, type RequestOpts } from "./http";
+import { getList, getStrictList, getOne, type RequestOpts } from "./http";
 
 // ---------------------------------------------------------------------- types
 
@@ -157,7 +157,7 @@ function search(params: Record<string, string | number | undefined>): string {
 
 /** Published articles, newest first. Ordering is the server's; never re-sort it. */
 export function articles(query: ArticleQuery = {}, opts?: RequestOpts): Promise<ArticleCard[]> {
-  return getList<Raw>(`/articles${search({ ...query })}`, opts).then(rows =>
+  return getStrictList<Raw>(`/articles${search({ ...query })}`, { ...opts, anonymous: true }).then(rows =>
     rows.map(mapArticleCard),
   );
 }
@@ -170,7 +170,7 @@ export function articles(query: ArticleQuery = {}, opts?: RequestOpts): Promise<
  * "no such article" here, which is the honest thing for the page to say.
  */
 export function article(slug: string, opts?: RequestOpts): Promise<ArticleRecord | null> {
-  return getOne<Raw>(`/articles/${encodeURIComponent(slug)}`, opts).then(raw =>
+  return getOne<Raw>(`/articles/${encodeURIComponent(slug)}`, { ...opts, anonymous: true }).then(raw =>
     raw === null ? null : mapRecord(raw),
   );
 }

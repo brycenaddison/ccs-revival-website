@@ -77,7 +77,7 @@ export function SiteSearch({ children }: { children: ReactNode }) {
           <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-3 pb-2">
             <div>
               <DialogTitle className="font-heading text-sm font-semibold text-text-bright">Search CCS</DialogTitle>
-              <DialogDescription className="mt-0.5 text-xs text-text-secondary">Search all seasons, jump to a page, or run a command.</DialogDescription>
+              <DialogDescription className="mt-0.5 text-xs text-text-secondary">Jump to a page or search all teams and players.</DialogDescription>
             </div>
             <DialogClose className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-text-secondary hover:bg-bg-input hover:text-text-bright focus-visible:outline-2 focus-visible:outline-brand" aria-label="Close search">
               <X size={18} aria-hidden="true" />

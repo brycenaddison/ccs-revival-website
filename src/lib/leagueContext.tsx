@@ -151,7 +151,8 @@ export function useSeasonLink(): (pathname: string) => { pathname: string; searc
   return useCallback(
     (pathname: string) => ({
       pathname,
-      search: selection === CURRENT ? "" : `?${CONF_PARAM}=${encodeURIComponent(selection)}`,
+      search: selection === CURRENT || pathname === "/news" || pathname.startsWith("/news/")
+        ? "" : `?${CONF_PARAM}=${encodeURIComponent(selection)}`,
     }),
     [selection],
   );

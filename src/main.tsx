@@ -7,6 +7,7 @@ import Home from './pages/Home'
 import { LeagueProvider } from './lib/leagueContext'
 import { AuthProvider } from './lib/authContext'
 import { SetupGate } from './components/auth/SetupGate'
+import { MetadataProvider } from './components/seo/MetadataProvider'
 import { BareLayout, SiteLayout } from './components/layout/SiteLayout'
 import { TABS } from './lib/tabs'
 import { installStaleChunkReload } from './lib/staleChunk'
@@ -58,17 +59,15 @@ const queryClient = new QueryClient({
   },
 })
 
-// The settings areas (`/settings`, `/admin`, `/league/:conf/admin`) all render the same shell from a
-// section registry — see `lib/settingsAreas.ts`. The shell, the routing and the permission gates are
-// live; most *sections* are placeholders, because the CCS API is read-only and the admin CRUD
-// surface doesn't exist yet. The Supabase-era dashboard those sections replace is preserved in
-// src/_disabled/ — see the gap analysis for the endpoints each one needs.
+// Settings areas (`/settings`, `/admin`, `/league/:conf/admin`) share a shell built from section
+// registries. `lib/settingsAreas.ts` keeps their navigation consistent across entry points.
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
           <LeagueProvider>
+            <MetadataProvider>
             <SetupGate>
               <Routes>
                 {/* Three layout routes, and the split is which chrome the group wears: the public
@@ -93,6 +92,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   {/* News is a tab (see `lib/tabs.ts`) but standalone, because it reads `/articles`
                       alone and none of the league data `Home` loads. */}
                   <Route path="/news" element={<News />} />
+                  <Route path="/news/page/:page" element={<News />} />
                 </Route>
 
                 <Route element={<SiteLayout />}>
@@ -148,6 +148,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 </Route>
               </Routes>
             </SetupGate>
+            </MetadataProvider>
           </LeagueProvider>
         </AuthProvider>
       </BrowserRouter>

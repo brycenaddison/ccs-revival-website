@@ -43,6 +43,7 @@ import { GameTabs } from "../components/game/GameTabs";
 import { GameViewProvider, type GameView, type ScoreboardSize } from "../components/game/GameView";
 import { ScoreboardTab } from "../components/game/scoreboard/ScoreboardTab";
 import { TooltipProvider } from "../components/ui/tooltip";
+import { usePageMetadata } from "../components/seo/MetadataProvider";
 
 // The three tabs that carry their own weight: chart.js in two of them, the event templates in the
 // third. The scoreboard is the landing tab and stays in the page's own chunk.
@@ -76,6 +77,13 @@ export default function GameDetail() {
     () => (renderable ? buildParticipants(renderable, context.data ?? null) : null),
     [renderable, context.data],
   );
+  const teamNames = Object.values(context.data?.teams ?? {}).map(team => team.name).filter(Boolean);
+  const gameTitle = teamNames.length === 2 ? `${teamNames.join(" vs ")} — Game${context.data?.game ? ` ${context.data.game}` : ""}` : "Game statistics";
+  usePageMetadata({
+    title: `${gameTitle} | CCS`,
+    description: `Explore ${gameTitle.toLowerCase()}${context.data?.league ? ` in ${context.data.league}` : " in CCS"}, including the scoreboard, builds and timeline.`,
+    noindex: !enabled || !!match.error || (!match.isPending && !renderable),
+  });
 
   if (!enabled) {
     return <Frame onBack={goBack} backLabel={backLabel}><Notice>No game specified.</Notice></Frame>;

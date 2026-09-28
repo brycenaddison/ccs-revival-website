@@ -342,7 +342,7 @@ const RECENT = 12;
  * **Games, not series** — `matchlist` is one row per game, so a 2-1 contributes three rows, and calling
  * this "recent matches" would misreport a team's run. Sorted here rather than taken in served order: the
  * endpoint's direction isn't part of its contract and "recent" needs one. Dates, not season days — see
- * `CLAUDE.md`.
+ * `AGENTS.md`.
  *
  * The champions are the point of showing a dozen rather than a handful: five icons a row is a read on what
  * a team actually plays, which three rows of it isn't. They come off `roles`, which carries a champion

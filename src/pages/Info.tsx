@@ -14,6 +14,9 @@ import { PageShell } from "../components/layout/PageShell";
 import { errorMessage, type InfoLink, type LeagueInfo } from "../lib/api";
 import { useLeague } from "../lib/leagueContext";
 import { queries } from "../lib/queries";
+import { DISCORD_INVITE } from "../lib/siteLinks";
+import { usePageMetadata } from "../components/seo/MetadataProvider";
+import { articleExcerpt } from "../lib/seo/articleMetadata";
 
 function QuickLink({ link }: { link: InfoLink }) {
   const classes =
@@ -84,6 +87,11 @@ export default function Info() {
     queries: selectedConfs.map(conf => queries.leagueInfo(conf)),
   });
   const leagueNames = new Map(tournaments.map(t => [t.conf, t.name]));
+  const documents = results.flatMap(result => result.data ? [result.data] : []);
+  usePageMetadata(documents.length === 1 ? {
+    title: `${documents[0].title || "League Info"} | CCS`,
+    description: articleExcerpt(documents[0].body ?? "") || "Read CCS league information, rules and participation details.",
+  } : {});
 
   return (
     <PageShell maxWidth={900}>
@@ -127,6 +135,26 @@ export default function Info() {
           })}
         </div>
       )}
+      <section className="mt-10 border-t border-border pt-6" aria-labelledby="participation-heading">
+        <h2 id="participation-heading" className="font-display text-[22px] text-text-bright mb-3">
+          Taking part in CCS
+        </h2>
+        <div className="space-y-3 text-sm leading-relaxed text-text-secondary">
+          <p>
+            CCS runs amateur League of Legends competition in North America. Teams register together;
+            players without a team need to form or join one before applying.
+          </p>
+          <p>
+            Eligibility, rank limits, schedules and fees vary by league and season. Review the league
+            information and rulebook with your teammates before applying. When registration is open,
+            sign in to submit a team application.
+          </p>
+        </div>
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <QuickLink link={{ label: "Team applications", url: "/register" }} />
+          {DISCORD_INVITE && <QuickLink link={{ label: "CCS Discord", url: DISCORD_INVITE }} />}
+        </div>
+      </section>
     </PageShell>
   );
 }

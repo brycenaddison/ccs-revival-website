@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:production": "pnpm run build && pnpm run seo:generate",
+    "seo:check": "node scripts/check-seo.ts",
+    "seo:generate": "node scripts/generate-sitemap.ts",
     "preview": "vite preview"
   },
   "dependencies": {

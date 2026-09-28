@@ -15,30 +15,14 @@
  * this page has no news to carry; the nav and the signposts below are the way out of here.
  */
 
-import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { PageShell } from "../components/layout/PageShell";
+import { usePageMetadata } from "../components/seo/MetadataProvider";
 
-/**
- * Ask crawlers not to keep this URL, for as long as this page is the one mounted.
- *
- * Removed on unmount rather than left in place: this is one document for the whole session, so a tag
- * added here and forgotten would go on to tell a crawler that Standings is `noindex` too, the moment a
- * visitor clicked through from a 404.
- */
-function useNoIndex() {
-  useEffect(() => {
-    const tag = document.createElement("meta");
-    tag.name = "robots";
-    tag.content = "noindex";
-    document.head.appendChild(tag);
-    return () => tag.remove();
-  }, []);
-}
-
+/** The shared head writer clears this route's noindex when the visitor navigates away. */
 export default function NotFound() {
   const { pathname } = useLocation();
-  useNoIndex();
+  usePageMetadata({ title: "Page not found | CCS", noindex: true });
 
   return (
     <PageShell maxWidth={720}>

@@ -16,6 +16,12 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RotateCw } from "lucide-react";
 import { ACTION } from "../admin/adminUi";
+import { usePageMetadata } from "../seo/MetadataProvider";
+
+function ErrorMetadata() {
+  usePageMetadata({ title: "Page unavailable | CCS", noindex: true });
+  return null;
+}
 
 interface Props {
   children: ReactNode;
@@ -43,6 +49,7 @@ export class RouteErrorBoundary extends Component<Props, State> {
 
     return (
       <div role="alert" className="mx-auto max-w-md py-16 text-center">
+        <ErrorMetadata />
         <h2 className="font-display text-[22px] text-text-bright">
           THIS PAGE DIDN'T LOAD
         </h2>

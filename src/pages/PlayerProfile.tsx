@@ -20,6 +20,9 @@
 import { useMemo } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { usePageMetadata } from "../components/seo/MetadataProvider";
+import { primaryAccount } from "../lib/api";
+import { useLeague } from "../lib/leagueContext";
 import {
   errorMessage,
   type PlayerProfile as PlayerProfileData,
@@ -45,6 +48,16 @@ export default function PlayerProfile() {
   const [search, setSearch] = useSearchParams();
   const conf = search.get("conf")?.trim() || null;
   const query = useQuery(queries.playerProfile(profileId, conf));
+  const { tournaments } = useLeague();
+  const name = query.data?.profile.nickname || "Unnamed player";
+  const league = tournaments.find(t => t.conf === conf)?.name;
+  const icon = primaryAccount(query.data?.accounts ?? [])?.profileIconUrl;
+  usePageMetadata({
+    title: query.data ? `${name} — Player profile | CCS` : "Player profile | CCS",
+    description: query.data ? `Explore ${name}'s CCS player profile, match history, and statistics${league ? ` in ${league}` : ""}.` : "Explore CCS player profiles, match history, and statistics.",
+    image: icon ? { url: icon, alt: `${name}'s profile icon` } : undefined,
+    noindex: profileId === null || !!query.error || (!query.isPending && !query.data),
+  });
 
   // The league selector is the URL, so it survives a reload and a shared link. Replacing rather
   // than pushing keeps Back going where the reader came from instead of walking the selector.

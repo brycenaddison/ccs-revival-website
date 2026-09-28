@@ -1,8 +1,8 @@
 /**
  * Resolving which tournament(s) are "now".
  *
- * The API returns tournaments unordered and has no notion of a current season, so both
- * ordering and active-league selection are derived here. `activeConfs` is deliberately a
+ * The API returns tournaments unordered, with active flags set by league administration.
+ * Ordering and the fallback when no season is flagged live here. `activeConfs` is deliberately a
  * *set*: the league expects to run more than one division concurrently, and modelling that
  * in the data layer now means adding multi-league UI later is a presentation change only.
  */
@@ -40,23 +40,16 @@ export function sortByRecency(list: readonly Tournament[]): Tournament[] {
   return [...list].sort((a, b) => recencyKey(b) - recencyKey(a) || a.conf.localeCompare(b.conf));
 }
 
-function confsFromEnv(): string[] {
-  return (import.meta.env.VITE_ACTIVE_CONFS ?? "")
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean);
-}
-
 /**
- * How the current league was decided — which of the three rules in `resolveActive` answered.
+ * How the current league was decided — which of the two rules in `resolveActive` answered.
  *
  * It matters because the server has only one of them. `GET /schedule` defaults to every conf with
- * `tournaments.active`, and nothing else: it knows no env pin and does not fall back to the newest
+ * `tournaments.active`, and nothing else: it does not fall back to the newest
  * season. So the feed can lean on the server's default exactly when `flagged` answered here, and has
  * to name the confs itself otherwise — or the ticker, Scores and Schedule stay empty while every
  * other tab shows the season the picker says is selected.
  */
-export type ActiveSource = "pinned" | "flagged" | "newest";
+export type ActiveSource = "flagged" | "newest";
 
 export interface ActiveResolution {
   confs: string[];
@@ -68,17 +61,10 @@ export interface ActiveResolution {
  * Which confs make up the current league.
  *
  * Resolution order:
- *   1. `VITE_ACTIVE_CONFS` — an explicit pin, which still wins so a deployment can override the
- *      flag without a database write.
- *   2. `tournaments.active` — set from the site admin's league editor.
- *   3. The most recent tournament by `recencyKey`, for a deployment with neither.
+ *   1. `tournaments.active` — set from the site admin's league editor.
+ *   2. The most recent tournament by `recencyKey`, when none is flagged.
  */
 export function resolveActive(list: readonly Tournament[]): ActiveResolution {
-  const known = new Set(list.map(t => t.conf));
-
-  const pinned = confsFromEnv().filter(c => known.has(c));
-  if (pinned.length > 0) return { confs: pinned, source: "pinned" };
-
   const flagged = list.filter(t => t.active === true).map(t => t.conf);
   if (flagged.length > 0) return { confs: flagged, source: "flagged" };
 

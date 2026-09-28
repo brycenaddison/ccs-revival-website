@@ -73,8 +73,7 @@ export function ReadOnlyValue({ children, mono }: { children: ReactNode; mono?: 
  * A section whose UI is waiting on an endpoint.
  *
  * `needs` is required rather than optional: a placeholder that doesn't say what unblocks it is
- * indistinguishable from a page that's broken, and this shell ships with more of these than real
- * sections. See `API-GAP-ANALYSIS.md` for the full surface.
+ * indistinguishable from a page that's broken.
  */
 export function ComingSoon({ needs }: { needs: string }) {
   return (

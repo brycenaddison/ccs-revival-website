@@ -10,8 +10,8 @@
  * season was decided (`activeSource`): if `tournaments.active` flagged it, nothing is sent and the
  * endpoint's own default — every league with that flag — decides, so a flag flipped mid-session is
  * picked up on the next poll rather than pinned to what this client saw at load. But that flag is the
- * only rule the server knows. When the client resolved the current season from the `VITE_ACTIVE_CONFS`
- * pin or fell back to the newest season because nothing is flagged, the server's default would answer
+ * only rule the server knows. When the client fell back to the newest season because nothing is
+ * flagged, the server's default would answer
  * a different set — usually an empty one — and the confs have to be named. Leaving them off is how the
  * picker, Home, Standings and Stats all showed the newest season while the ticker, Scores and Schedule
  * sat empty.

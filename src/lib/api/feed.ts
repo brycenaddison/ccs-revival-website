@@ -107,7 +107,7 @@ export interface MatchOutcome {
  * read for editing.
  *
  * `seasonDay` is here because the payload carries it, and it is a **join key, not a label**: never
- * render it. See `CLAUDE.md`. `matchDay` is the day within its own phase, which is what a bracket
+ * render it. See `AGENTS.md`. `matchDay` is the day within its own phase, which is what a bracket
  * round is called on screen.
  */
 export interface FeedMatch {
@@ -306,7 +306,7 @@ export interface SeriesDetail {
   /** `tournaments.name`. */
   league: string;
   phase: { id: number; name: string; kind: PhaseKind; matchDay: number };
-  /** A join key, not a label. Never render it — see `CLAUDE.md`. */
+  /** A join key, not a label. Never render it — see `AGENTS.md`. */
   seasonDay: number;
   kind: MatchKind;
   bestOf: number;

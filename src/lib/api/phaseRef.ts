@@ -1,8 +1,8 @@
 /**
  * One game's place in the season structure, and its mapper.
  *
- * Shared by the profile read (every game, series and personal best carries one) and, once
- * `API-GAP-ANALYSIS.md` §21 lands, by the team matchlist. It lives in its own module because
+ * Shared by the profile read (every game, series and personal best carries one) and the team
+ * matchlist. It lives in its own module because
  * `profiles.ts` imports `client.ts` for `mapTeamRecord`, and `client.ts` needing this back would have
  * been a cycle.
  *
@@ -73,7 +73,7 @@ export function mapPhaseRef(value: unknown): PhaseRef | null {
  * Where in the season a series sat, in one line.
  *
  * Prefers the **phase**, which is what a player actually says, over `seasonDay`, which is a join key
- * first (`CLAUDE.md`). Within a bracket the round number leads; the operator's `roundName` is the
+ * first (`AGENTS.md`). Within a bracket the round number leads; the operator's `roundName` is the
  * fallback, never a name invented from depth. The week is the fallback for a legacy conference with
  * no phase at all, where the alternative is saying nothing.
  */

@@ -15,8 +15,8 @@ includes what's reachable from `src/main.tsx`. Expect the imports in these files
 | `RegisterForm.tsx` | Public team application form + logo upload | `POST /applications`, upload endpoint, transactional approval |
 | `DraftBoard.tsx` | Public draft-board listings (read + write) | Draft listing endpoints, plus resolving the two conflicting column shapes it and the admin tab used |
 
-See `C:\Users\baddison\Claude\ccs-revival-website\API-GAP-ANALYSIS.md` for the endpoints,
-schema changes, and auth design needed to bring these back.
+Before reusing this code, compare its data and authorization assumptions with the current API
+contract and the active components that replaced it.
 
 **Note:** the Supabase project's anon key was previously hardcoded in `public/stats.html`, a
 publicly served asset. That file has been deleted, but the key should be rotated and the

@@ -34,16 +34,17 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # `pnpm run build` is `tsc --noEmit && vite build`, so this is the typecheck too.
-      # Both VITE_ vars are baked into the public bundle, so they are repo *variables*,
-      # not secrets. Either may be unset: the API base falls back to the hardcoded
-      # default in src/lib/api/http.ts, and an empty conf pin falls through to the
-      # server-resolved list in src/lib/api/league.ts.
-      - name: Build
+      - name: Validate SEO with offline fixtures
+        run: pnpm run seo:check
+
+      # Generate only public XML/text after the ordinary SPA build. Any inventory failure
+      # stops the job before SSH/rsync, preserving the deployed sitemap.
+      # A manual run on live refreshes article membership without a source-code change.
+      - name: Build and generate sitemap
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
-          VITE_ACTIVE_CONFS: ${{ vars.VITE_ACTIVE_CONFS }}
-        run: pnpm run build
+          VITE_SITE_ORIGIN: ${{ vars.VITE_SITE_ORIGIN }}
+        run: pnpm run build:production
 
       - name: Set up SSH
         env:

@@ -20,10 +20,17 @@ import { Markdown } from "../components/Markdown";
 import { queries } from "../lib/queries";
 import { bumpArticleView, errorMessage } from "../lib/api";
 import { fmtDay } from "../lib/utils";
+import { usePageMetadata } from "../components/seo/MetadataProvider";
+import { articleMetadata, articleModifiedAt } from "../lib/seo/articleMetadata";
+import { siteOrigin } from "../lib/seo/site";
 
 export default function Article() {
   const { slug } = useParams();
   const { data: article, isPending, error } = useQuery(queries.article(slug ?? null));
+  usePageMetadata(article && !error ? articleMetadata(article, siteOrigin(import.meta.env.VITE_SITE_ORIGIN)) : {
+    title: error ? "Article unavailable | CCS" : isPending ? "Article | CCS" : "Article not found | CCS",
+    noindex: !!error || (!isPending && !article),
+  });
 
   /**
    * The view counter, bumped once per mount.
@@ -117,8 +124,11 @@ export default function Article() {
         <div className="flex items-center gap-2 text-text-muted text-xs">
           {article.author && <span className="font-heading ">{article.author}</span>}
           {article.author && article.publishedAt && <span>·</span>}
-          {article.publishedAt && <span>{fmtDay(article.publishedAt)}</span>}
+          {article.publishedAt && <time dateTime={article.publishedAt}>{fmtDay(article.publishedAt)}</time>}
         </div>
+        {articleModifiedAt(article) && (
+          <p className="mt-2 text-xs text-text-muted">Updated <time dateTime={articleModifiedAt(article)}>{fmtDay(article.updatedAt)}</time></p>
+        )}
       </header>
 
       {article.kind === "link" ? (

@@ -75,6 +75,7 @@ export const TABS: readonly SiteTab[] = [
 export function tabForPathname(pathname: string): string | null {
   const slug = pathname.replace(/\/+$/, "").toLowerCase();
   if (slug === "") return "Home";
+  if (slug.startsWith("/news/")) return "News";
   return TABS.find(t => t.path !== "/" && t.path === slug)?.label ?? null;
 }
 

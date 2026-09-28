@@ -345,7 +345,7 @@ export interface ProfileBestGame {
    * Season-wide ordinal for the day this was played — day 1 through day 16 of the season.
    *
    * **A join key first and a label second**, and the repo's rule is to prefer the date; see the
-   * "Season day is internal" section of `CLAUDE.md`. It is mapped here because a series card wants
+   * "Season day is internal" section of `AGENTS.md`. It is mapped here because a series card wants
    * to say which week of the season a match belongs to, which a date alone cannot answer for a
    * reader who thinks in weeks — the same reason the records boards already render `W{seasonDay}`.
    * Never put it beside a bracket round number, where "Round 4" and "Week 14" contradict each other.
@@ -508,7 +508,7 @@ export interface ProfileMatch {
    * covers. Served on every game, series and personal best, and the mapper has always read it —
    * the field was just missing from this type, which made a series card the one place that had to
    * fall back to `Week {seasonDay}` even when the phase was right there. Prefer it to `seasonDay`
-   * for anything a reader sees; see "Season day is internal" in `CLAUDE.md`.
+   * for anything a reader sees; see "Season day is internal" in `AGENTS.md`.
    */
   phase: PhaseRef | null;
   team: string;

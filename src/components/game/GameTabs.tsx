@@ -3,7 +3,7 @@
  *
  * The same visual language as `MatchDetail`'s Preview / Results strip (underline rail, the selected
  * tab filled), but built from `<Link>`s with `aria-current` rather than buttons and state, because
- * each tab is a URL (`lib/game/tabs.ts`). Real navigation uses `<Link>`, per `CLAUDE.md`.
+ * each tab is a URL (`lib/game/tabs.ts`). Real navigation uses `<Link>`, per `AGENTS.md`.
  */
 
 import { Link } from "react-router-dom";

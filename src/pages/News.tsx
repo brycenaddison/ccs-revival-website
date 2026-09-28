@@ -1,86 +1,63 @@
-/**
- * `/news` — every published article, newest first.
- *
- * Paged by `offset` rather than the window-as-cursor trick `/scores` uses: the articles endpoint
- * has a real `offset`, so a page is addressable directly and there is no overlap to dedupe.
- *
- * Scoped to the selected conf, which **widens** rather than narrows — `?conf=wed` returns that
- * league's posts plus every site-wide one. That is the right default for a news index: most posts
- * belong to no single league, and a reader who has picked a season still wants them.
- */
-
-import { useEffect, useState } from "react";
+/** The all-seasons archive. A one-row lookahead avoids linking to an empty final page. */
+import { Link, Navigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { PageShell } from "../components/layout/PageShell";
 import { ArticleCardTile } from "../components/news/ArticleCardTile";
-import { useWindowSize } from "../hooks/useWindowSize";
-import { useLeague } from "../lib/leagueContext";
+import { usePageMetadata } from "../components/seo/MetadataProvider";
 import { queries } from "../lib/queries";
-import { errorMessage, MAX_LIMIT } from "../lib/api";
+import { errorMessage } from "../lib/api";
+import { NEWS_PAGE_SIZE, newsPagePath, parseNewsPage } from "../lib/seo/site";
 
-/** Under `MAX_LIMIT` (50), so the server never clamps and a short page reliably means the last one. */
-const PAGE_SIZE = 24;
+const PAGE_LINK = "rounded-md border border-border px-3 py-2 font-heading text-sm text-text-bright hover:border-brand";
 
 export default function News() {
-  const isMobile = useWindowSize() < 768;
-  const { selectedConfs } = useLeague();
-  const conf = selectedConfs[0];
-
-  // Rows accumulate across pages, so "Load more" appends rather than replacing. Reset whenever the
-  // conf changes — the previous league's posts are not the tail of this one's list.
-  const [limit, setLimit] = useState(PAGE_SIZE);
-  useEffect(() => setLimit(PAGE_SIZE), [conf]);
-
-  const { data, isPending, error, isPlaceholderData } = useQuery(
-    queries.articles({ conf, limit }),
-  );
-
-  const articles = data ?? [];
-  // A short page is the last one. `limit` is the total asked for, not a page size, so this compares
-  // against what was requested rather than tracking a cursor.
-  const hasMore = articles.length >= limit;
+  const { page: rawPage } = useParams();
+  const page = parseNewsPage(rawPage);
+  const { data, isPending, error } = useQuery({
+    ...queries.articles({ limit: NEWS_PAGE_SIZE + 1, offset: ((page ?? 1) - 1) * NEWS_PAGE_SIZE }),
+    enabled: page !== null,
+  });
+  const missing = page === null || (page > 1 && !isPending && !error && !data?.length);
+  usePageMetadata({
+    title: missing ? "News page not found | CCS" : `News${page && page > 1 ? ` — Page ${page}` : ""} | CCS`,
+    description: "Recaps, roster moves and announcements from every CCS season.",
+    path: page ? newsPagePath(page) : undefined,
+    noindex: missing || !!error,
+  });
+  if (rawPage === "1") return <Navigate to="/news" replace />;
+  const articles = (data ?? []).slice(0, NEWS_PAGE_SIZE);
+  const hasNext = (data?.length ?? 0) > NEWS_PAGE_SIZE;
+  const pages = page ? [...new Set([1, ...(page > 1 ? [page - 1] : []), page, ...(hasNext ? [page + 1] : [])])] : [];
 
   return (
     <PageShell maxWidth={1100}>
-      <div className="mb-6">
-        <h1 className="font-display text-[22px] text-text-bright ">News</h1>
-        <p className="text-text-secondary text-sm">
-          Recaps, roster moves and announcements from across the league.
-        </p>
-      </div>
-
-      {error ? (
-        <div className="py-16 text-center">
-          <p className="text-text-secondary text-sm">{errorMessage(error)}</p>
+      <header className="mb-6">
+        <h1 className="font-display text-[22px] text-text-bright">{missing ? "News page not found" : "News"}</h1>
+        <p className="text-text-secondary text-sm">Recaps, roster moves and announcements from every CCS season.</p>
+      </header>
+      {missing ? (
+        <div className="py-16 text-center text-text-secondary">
+          <p>This archive page doesn&apos;t exist.</p>
+          <Link to="/news" className="mt-4 inline-block text-brand hover:underline">Back to all news</Link>
         </div>
+      ) : error ? (
+        <p className="py-16 text-center text-sm text-text-secondary">{errorMessage(error)}</p>
       ) : isPending ? (
         <div className="py-16 text-center text-text-subtle">Loading...</div>
-      ) : articles.length === 0 ? (
-        <div className="py-16 text-center text-text-dim text-[13px]">
-          Nothing published yet.
-        </div>
+      ) : !articles.length ? (
+        <div className="py-16 text-center text-text-dim text-sm">Nothing published yet.</div>
       ) : (
         <>
-          <div
-            className="grid gap-5"
-            style={{ gridTemplateColumns: `repeat(${isMobile ? 1 : 3}, minmax(0, 1fr))` }}
-          >
-            {articles.map(a => (
-              <ArticleCardTile key={a.slug} article={a} />
-            ))}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            {articles.map(article => <ArticleCardTile key={article.slug} article={article} />)}
           </div>
-
-          {hasMore && (
-            <div className="flex justify-center mt-8">
-              <button
-                onClick={() => setLimit(l => l + PAGE_SIZE)}
-                disabled={isPlaceholderData}
-                className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 bg-transparent font-heading text-sm cursor-pointer text-text-bright hover:border-brand disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isPlaceholderData ? "Loading..." : "Load more"}
-              </button>
-            </div>
-          )}
+          <nav aria-label="News pagination" className="mt-8 flex flex-wrap items-center justify-center gap-2">
+            {page! > 1 && <Link to={newsPagePath(page! - 1)} rel="prev" className={PAGE_LINK}>Previous</Link>}
+            {pages.map(number => number === page ? (
+              <span key={number} aria-current="page" className="rounded-md border border-brand px-3 py-2 font-heading text-sm text-text-bright">{number}</span>
+            ) : <Link key={number} to={newsPagePath(number)} aria-label={`News page ${number}`} className={PAGE_LINK}>{number}</Link>)}
+            {hasNext && <Link to={newsPagePath(page! + 1)} rel="next" className={PAGE_LINK}>Next</Link>}
+          </nav>
         </>
       )}
     </PageShell>

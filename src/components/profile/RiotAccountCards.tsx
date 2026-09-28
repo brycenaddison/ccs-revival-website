@@ -9,7 +9,7 @@
  * Which account is primary is `primaryAccount()`'s call, not this file's: the API models a profile
  * as an unordered bag of PUUIDs with no primary flag, so highest **current** rank is the proxy.
  * Peak rank would be the better one and does not exist — Riot serves only the current standing and
- * nothing stores history, so there is no peak to read. See §9.4 of the gap analysis.
+ * nothing stores history, so there is no peak to read.
  *
  * `ranked: null` and `ranked: []` stay distinct all the way down here — "Riot didn't answer" and
  * "unranked" are different sentences, and collapsing them puts Unranked on a Challenger player.

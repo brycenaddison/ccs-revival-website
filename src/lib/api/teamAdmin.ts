@@ -2,7 +2,8 @@
  * The league-admin team write surface: create a team, edit one, and resolve roster players.
  *
  * The sibling API implements create/edit, Riot preview/acceptance and Discord selection.
- * Frontend contracts and remaining metadata requirements are in docs/player-picker-api.md.
+ * Player presentation is normalized by playerSummary.ts; search's primary Riot ID enrichment
+ * remains pending upstream.
  *
  * There is no read here on purpose. Public `GET /teams/:conf` already serves the whole editable row
  * — id, code, name, logo, both colors, owner, contacts, the five starters and the bench — and a

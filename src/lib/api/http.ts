@@ -124,6 +124,13 @@ export async function getList<T>(path: string, opts?: RequestOpts): Promise<T[]>
   return Array.isArray(data) ? (data as T[]) : [];
 }
 
+/** A public archive must not turn an unavailable route or malformed payload into an empty page. */
+export async function getStrictList<T>(path: string, opts?: RequestOpts): Promise<T[]> {
+  const data = await request(path, opts);
+  if (!Array.isArray(data)) throw new Error("Could not read the article archive: expected a list.");
+  return data as T[];
+}
+
 /** Fetch a single resource, `null` when absent. */
 export async function getOne<T>(path: string, opts?: RequestOpts): Promise<T | null> {
   const data = await request(path, opts);

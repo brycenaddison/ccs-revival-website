@@ -17,12 +17,15 @@ import { ChampionIcon } from "../ChampionIcon";
 import { TeamLink } from "../league/TeamLink";
 import { TeamMatchHistory } from "../match/TeamMatchHistory";
 import { PlayerLink } from "../profile/PlayerLink";
+import { usePageMetadata } from "../seo/MetadataProvider";
+import { useLeague } from "../../lib/leagueContext";
 
 interface Props {
   conf: string;
   code: string;
   /** Omit when the panel is a whole page and the page provides its own navigation. */
   onBack?: () => void;
+  publicPage?: boolean;
 }
 
 function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -185,10 +188,18 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
   );
 }
 
-export function TeamDetailPanel({ conf, code, onBack }: Props) {
+export function TeamDetailPanel({ conf, code, onBack, publicPage = false }: Props) {
   // Fans out to `/teams/:c/:t` plus the conf listing for the roster and record — and that listing
   // is the same query the league loader uses, so arriving from the Teams tab reuses it.
-  const { data: team, isPending, error } = useQuery(queries.teamDetail(conf, code));
+  const { data: team, isPending, error } = useQuery<TeamDetail | null>(publicPage ? queries.publicTeamDetail(conf, code) : queries.teamDetail(conf, code));
+  const { tournaments } = useLeague();
+  const league = tournaments.find(t => t.conf === conf)?.name;
+  usePageMetadata({
+    title: team ? `${team.name} | CCS` : "Team | CCS",
+    description: team ? `Explore ${team.name}'s roster and results${league ? ` in ${league}` : " in CCS"}.` : "Explore CCS team rosters and results.",
+    image: team?.logo ? { url: team.logo, alt: `${team.name} logo` } : undefined,
+    noindex: !!error || (!isPending && !team),
+  }, publicPage);
 
   if (isPending) return <div className="text-center py-10 text-text-subtle">Loading team...</div>;
   if (error) return <div className="text-center py-10 text-ccs-red">{errorMessage(error)}</div>;
@@ -292,7 +303,7 @@ export function TeamDetailPanel({ conf, code, onBack }: Props) {
               series cards and the Scores feed both lead with the latest result. Sorted here rather
               than taken in served order because the endpoint's direction isn't part of its contract;
               `SeriesPreview.RecentGames` makes the same choice for the same reason. Dates, not season
-              days — see `CLAUDE.md`. */}
+              days — see `AGENTS.md`. */}
           <div>
             <h3 className="mb-3 font-display text-[22px] text-text-bright">Match history</h3>
             <TeamMatchHistory matches={team.matchlist} conf={conf} />

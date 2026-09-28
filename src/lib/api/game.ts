@@ -13,11 +13,9 @@
  *    aged out has one row and not the other.
  *  - `GET /m/:matchId/context` is **ours**, and it is what makes a Riot payload a league game: the
  *    conference, the fixture, the two teams' metadata, and which profile each puuid belongs to.
- *    Nothing else reachable from a bare match id says any of that (`API-GAP-ANALYSIS.md` §20). It is
- *    mapped defensively like every other read of our own server, and **it does not exist upstream
- *    yet**: the route answers `404` today, which `getOne` resolves to `null`, so the viewer renders
- *    Riot IDs and "Blue side" / "Red side" and links nothing until it lands. No client change when it
- *    does.
+ *    Nothing else reachable from a bare match id says any of that. It is mapped defensively like
+ *    every other read of our own server. When a deployment lacks this route, `getOne` resolves its
+ *    `404` to `null`, so the viewer falls back to Riot IDs and "Blue side" / "Red side" without links.
  *
  * `matchData` lived in `client.ts` before the timeline read existed and moved here to sit beside it;
  * the barrel exports it under the same name.

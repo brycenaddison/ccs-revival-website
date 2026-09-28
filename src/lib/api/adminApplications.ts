@@ -32,9 +32,7 @@
  * applicant's search lives under an application id and is gated on its creator, and here the search
  * happens before the application exists. The second is the public `GET /profiles/search`.
  *
- * **None of these routes exist upstream yet.** The contract is `admin-application-import-api-spec.md`
- * in the deliverables folder (`API-GAP-ANALYSIS.md` §22); until they land every write here answers
- * `404`, shown verbatim.
+ * An API deployment without these routes returns `404`, shown verbatim like other write errors.
  *
  * Every response that carries an application goes through `teamApplications.ts`'s `mapApplication`,
  * so the import page and the review queue cannot disagree about a row.

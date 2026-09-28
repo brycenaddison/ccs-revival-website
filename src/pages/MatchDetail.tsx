@@ -27,6 +27,7 @@ import { errorMessage, type SeriesDetail, type TeamRecord } from "../lib/api";
 import { toBadge } from "../lib/leagueAdapters";
 import { queries } from "../lib/queries";
 import { useAuth } from "../lib/authContext";
+import { usePageMetadata } from "../components/seo/MetadataProvider";
 import { fmtKickoff } from "../lib/utils";
 import { TeamBadge } from "../components/TeamBadge";
 import { TeamLink } from "../components/league/TeamLink";
@@ -59,6 +60,12 @@ export default function MatchDetail() {
   const { data, error, isPending } = useQuery({
     ...queries.matchResult(matchId, profile?.id ?? null),
     enabled: matchId !== null && !loading,
+  });
+  const matchup = data ? `${data.teamA?.name || "TBD"} vs ${data.teamB?.name || "TBD"}` : "Match";
+  usePageMetadata({
+    title: `${matchup} | CCS`,
+    description: data ? `Follow ${matchup} in ${data.league || "CCS"}, with match results and game statistics.` : "Follow CCS match results and game statistics.",
+    noindex: matchId === null || !!error || (!isPending && !data),
   });
 
   if (matchId === null) {
@@ -224,7 +231,7 @@ function SeriesHeader({ match }: { match: SeriesDetail }) {
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-heading text-[11px] text-text-muted">
         <Caption>{match.league}</Caption>
         {/* `matchDay` is the day within its own phase, which is what a bracket round is called on
-            screen. `seasonDay` is a join key and is never rendered — see `CLAUDE.md`. */}
+            screen. `seasonDay` is a join key and is never rendered — see `AGENTS.md`. */}
         <Caption>
           {match.phase.kind === "bracket" ? `${match.phase.name} · Round ${match.phase.matchDay}` : match.phase.name}
         </Caption>

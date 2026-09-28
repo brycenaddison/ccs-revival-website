@@ -1,290 +1,359 @@
 # Working in this repo
 
-The CCS website: Vite + React 19 + TypeScript, TanStack Query v5, React Router v6 and Tailwind v4
-(CSS-first theme in `src/index.css`). The API is the read-only sibling repo `../tournament-bot`; its
-`docs/API.md` is the contract. Do not derive data the API already answers.
+This is the shared instruction source for all coding agents. `CLAUDE.md` imports this file with
+`@AGENTS.md`; keep project guidance here rather than maintaining duplicate instructions.
 
-Do not run `pnpm`, `npm`, `node`, `npx` or `ts-node`. Humans run the toolchain — pnpm is the package
-manager. After edits, you can ask the human to run `pnpm build` and paste the output. There is no test framework.
+The CCS website uses Vite, React 19, TypeScript, TanStack Query v5, React Router v6 and Tailwind v4.
+The CSS-first theme is in `src/index.css`. The API is the read-only sibling repo
+`../tournament-bot`; start with its `docs/API.md` index and follow the feature references.
+Do not edit that repository or derive data the API already answers.
 
-## Fast map
+## Workflow
 
-- `components.json`: shadcn/ui CLI configuration (Radix/new-york, Tailwind v4, existing CCS theme).
-  The local `shadcn` dev dependency generates components with `pnpm exec shadcn add <component>`;
-  humans run that command. `@/` resolves to `src/` in TypeScript and Vite, and the shared `cn` helper
-  is `src/lib/cn.ts`. Generated imports must use `@/lib/cn`, never the unrelated npm package `cn`.
-  Preserve the site's theme mappings when adapting generated components.
-- `src/components/search/SiteSearch.tsx`: one dialog/provider and Ctrl/Cmd+K handler per `SiteLayout`,
-  with lazy `SearchResults.tsx` inside the shared Radix dialog. `SiteSearchTrigger` serves desktop nav,
-  mobile bottom bar (replacing Merch), and the hamburger dropdown; mobile's top row has no search.
-  Search closes the hamburger menu; its dropdown trigger restores focus to the hamburger button.
-  Keep the dialog outside the dropdown so unmounting that menu cannot dismiss search. Bottom-bar
-  trigger spacing matches the other tabs, preserving `--bottom-nav-h`. Editable fields and other
-  dialogs retain their keyboard shortcuts. `ui/command.tsx` wraps cmdk with CCS theme tokens.
-  Keep the generated command exports/data slots, but use `@/lib/cn`; remove any generated direct
-  `cn` dependency. Shared `DialogContent` leaves geometry and close controls to its caller and keeps
-  the CCS 300/301 overlay/content layers. `CommandDialog` supplies its own centered panel geometry.
-  `CommandLinkItem.tsx` activates real `Link`/`PlayerLink`/`TeamLink` anchors for Enter; those shared
-  links forward anchor props and refs. Keep click propagation stopped so keyboard activation cannot recurse.
-  Page shortcuts reuse `TABS`, season links, and `accountMenuEntries` for permission-aware links.
-  `SearchResults.tsx`'s `SHORTCUT_LABELS` supplies command-menu labels by path: League Info and
-  Content Management. These labels and group names drive shortcut filtering. Public links are under
-  Pages; account links (including View Profile and Settings) are under Your Pages; Content Management,
-  Site Admin and League Admin are under Admin, using the existing permission gates. Hide empty groups.
-  Appearance contains Toggle Dark Mode for all visitors; there is no nav theme button. `lib/theme.ts`
-  owns the toggle, saved preference and iframe notifications; `useThemeColors` observes `data-theme`.
-  The search menu omits Join CCS / Apply. In `auth/AuthControl.tsx`, Join CCS opens the shared
-  `DISCORD_INVITE` from `lib/siteLinks.ts`; Apply Now links to `/register` while applications are open.
-  `queries.publicTeams` searches `/teams` across listed seasons; `publicPlayerSearch` combines
-  ordinary and Riot-mode search by profile ID, without a conference filter or roster-derived IDs.
-  These public query keys are separate from editor lookups and use `RequestOpts.anonymous` to omit
-  cookies even on the same origin (it takes precedence over credentialed team reads). Search waits
-  for two characters and debounces players; never display an earlier term's player results or
-  locally re-filter server identity matches. Preserve API order and show when results hit a cap.
-- `src/components/ui/color-picker.tsx`: shared shadcn-style color popover, re-exported as
-  `ColorField` from `admin/adminUi.tsx` for team create/edit, applications, and admin imports.
-  Uses `react-colorful` for the canvas, hue slider, and hex input. Only six-digit opaque hex values
-  reach form state; three-digit shorthand expands on blur, and incomplete input resets on blur.
-  Keep `intFromHex`'s pure-black nudge in the API layer and the live `TeamStylePreview` in the forms.
-- `src/components/content/ArticlesSection.tsx`: Content Admin switches between the filtered article
-  list and `ArticleEditor`, like Season Structure. Opening or leaving a form focuses its heading
-  without scrolling, then reveals only an offscreen header with `block: "nearest"`. Never align the
-  full form to the top: that jumps down when the header is already visible. Back/Cancel preserves
-  the list's status filter.
-  The open record is independent of that list; saves return the API's full record so publishing or
-  unpublishing under a status filter keeps the editor open. Key forms by identity, never list refreshes.
-- `src/components/content/MarkdownEditor.tsx`: shared CodeMirror editor for article bodies and league
-  Info (`size="document"`, preferred 420 px), and application notes (`size="notes"`, 320 px).
-  It owns Write/Preview, accessible vertical resizing and a Radix full-screen dialog; Split is offered
-  at 960 px of editor width and falls back to Write on narrow screens. Parents still own saving and
-  preview presets (`article` for articles, `notes` for both league fields). No editor save requests.
-  Article previews share `index.css`'s `--container-article` (760 px) with `pages/Article.tsx` and
-  match SiteLayout's side padding (12 px mobile, 32 px desktop). Cap the entire rendered body,
-  including images and tables, in every preview mode; the paragraph-only 75ch cap is for notes.
-- `src/components/content/markdown/useMarkdownSession.ts`: one state/history/selection session across
-  view remounts and mode changes. Parent echoes preserve history; external replacements and explicit
-  `resetKey` changes clear history and insertion bookmarks. Keep record/conference forms keyed.
-  Presentation changes wait for IME composition. Image bookmarks map through intervening edits and
-  collapse when their selected text changes; reset/unmount invalidates late upload completion.
-  Images insert inline without adding whitespace, leaving the caret in the description brackets.
-  Tables and links also use insertion bookmarks; table dimensions count the header as the first row.
-  `ImageUpload.tsx` exports the shared `useImagePicker`; capture `openForInsertion`'s callback before
-  opening the native picker, and keep this hook mounted across editor presentation changes.
-- `src/components/content/markdown/commands.ts`: the single command registry for the toolbar, keyboard
-  shortcuts and context menu. Formatting transactions are isolated undo steps; inline formatting is
-  per paragraph, line commands preserve indentation, and existing code blocks disable formatting.
-  `MarkdownContextMenu.tsx` forwards mouse/keyboard invocation to an inert Radix trigger: never wrap
-  the source in a Radix trigger, whose touch handler suppresses native mobile text selection. Shift +
-  right-click bypasses the custom menu. Use shadcn/ui's `ui/context-menu.tsx` for right-click and
-  `ui/dropdown-menu.tsx` for Heading, Lists and More; menu selection runs after close so focus can
-  return to the source or Link popup. Image opens directly in the user gesture for mobile pickers.
-  `MarkdownToolbar.tsx` keeps its primary actions visible and wraps on narrow screens. More contains
-  only inline code, block quote, code block, table and horizontal rule; never duplicate toolbar
-  actions there. Heading options use uniform styling in both the dropdown and context menu.
-  `TableSizePicker.tsx` provides the shared 8×8 pointer/keyboard grid inside the shadcn Popover.
-  Table uses that picker from either menu; `commands.ts` owns dimensions and Markdown generation.
-  Other shared Radix wrappers live in `ui/dialog.tsx` and `ui/toolbar.tsx`. CodeMirror styling stays
-  in scoped Tailwind utilities; overrides of its unlayered default styles need the important suffix.
-  Keep editor imports lazy.
-- `src/components/Markdown.tsx`: shared renderer for articles, league Info and application notes,
-  including editor previews. Images support `![Description](url "width=256")`: an exact title of
-  `width=N` (1–9999 pixels) sets display width, capped by the container with automatic height.
-  Ordinary titles remain tooltips; raw HTML stays disabled. This changes display size, not file size.
-- `src/pages/Article.tsx` + `src/components/news/ArticleLink.tsx`: native articles render public API
-  Markdown at `/news/:slug`; link articles send readers off-site and their local route has no full
-  body. `src/lib/api/articles.ts` owns both reads and content writes; published detail includes
-  title, subtitle, author, image, publishedAt and updatedAt for future shared SEO metadata.
-  `src/pages/News.tsx` currently increases `limit` for Load more, but the API caps it at 50; use
-  offset pagination and crawlable page links when fixing archive discovery.
-- SEO baseline: `index.html` is an empty app shell with one shared title; `src/main.tsx` uses
-  `createRoot`, and `.github/workflows/deploy.yml` publishes static Vite output. No prerendering,
-  shared page metadata, sitemap or robots.txt is generated here. `SetupGate` waits for the session
-  before public pages mount. Only `NotFound.tsx` currently adds `noindex`; missing article slugs
-  render their own notice without it. Any static article generation must refresh on publish,
-  edit, unpublish and delete, and enumerate public posts across conferences with API pagination.
-  Omitting `conf` from `/articles` returns all published conferences; list cards omit body and
-  updatedAt, so body-only change detection requires detail reads. Generation needs strict reads:
-  `http.ts`'s `getList` maps missing routes, null and non-array payloads to an empty list.
-  For future prerendering, `useWindowSize` and `useThemeColors` access browser globals during render;
-  `PageShell` sets layout width in an effect, and news cards render time-relative dates.
-  `Home.tsx` shares the Home/Standings/Teams views and gates its main content on league/team data;
-  a permanent homepage introduction must live outside that gate. It currently has no brand h1.
-  A generated homepage will need a separate SPA fallback template so other routes do not receive
-  its canonical, body and hydration payload.
-  Public profile reads return presentation/accounts/career data but the inspected API contract has
-  no complete public profile inventory; roster IDs alone cannot cover every shareable profile.
-  `ProfileHeader.tsx` chooses its icon with `primaryAccount(accounts)?.profileIconUrl`, using verified
-  accounts. Team metadata reads must be anonymous: sessions can expose unpublished teams.
-  Planned SEO rollout has two steps: client metadata/branding, pagination, generic Open Graph and
-  a build/manual-deploy sitemap first; rendering/hydration, automatic content refresh, staged releases
-  and the proposed metadata service are deferred. Do not pull that infrastructure into the first step.
-- `src/main.tsx`: providers and every route. Public player profiles are `/players/:profileId`; first-time
-  identity setup is `/setup`. Routes are declared under three layout routes — `SiteLayout ticker`,
-  `SiteLayout`, and `BareLayout` for the full-bleed pages (`/match`, `/game`, `/teams`, `/register`,
-  `/login`) that draw no nav or footer. Every page but `Home` is a `lazy()` chunk.
-- `src/components/layout/SiteLayout.tsx` + `PageShell.tsx`: the chrome, split in two. The layout owns
-  the ticker, nav, footer, mobile bar and the lazy `<Suspense>` boundary, and stays mounted across
-  navigations within its group; `PageShell` is the page-side wrapper that publishes the content column
-  width and any extra bottom padding to it. A page never mounts `ScoreboardTicker` itself.
-  The content scroller must stay `relative`: hidden absolute inputs and menu triggers otherwise escape
-  its overflow boundary, enlarging the document and adding an outer scrollbar with empty space.
-- `src/lib/api/`: defensive API boundary, exported through `index.ts`. Anonymous reads use `http.ts`;
-  credentialed writes use `credentialed.ts`.
-- `src/pages/MatchDetail.tsx` + `components/match/TournamentCodes.tsx`: show API-supplied tournament
-  codes prominently below the match header, in served game order. `feed.ts`'s result read sends the
-  session and uses `no-store`; `queries.matchResult` includes the viewer profile ID and has zero
-  retention. The API decides visibility; omitted codes render nothing. `schedule.ts`'s `mapMatchCode`
-  is shared with the admin read, and `components/CopyAction.tsx` owns clipboard feedback for both.
-- `src/components/home/UpcomingSchedule.tsx`: the five upcoming fixtures also supply the signed-in
-  viewer's "Your upcoming match" card above the list. Reuse `queries.teamsForConf` for the feed's conferences,
-  match membership by profile ID and teams by `(conf, code)`, and take the first match in served order.
-  `lib/roster.ts`'s `teamMembers` includes starters, substitutes, contacts and owners; delivery reports
-  reuse it for player labels. Anonymous viewers and viewers without a matching team get no extra card.
-  Remove the featured fixture from Upcoming by `feedMatchKey`; hide the list when none remain.
-  `UpcomingMatchCard.tsx` renders large team badges/names and phase, phase-relative match day and best-of.
-  Only that card reads the viewer-scoped match result to check tournament-code availability.
-  The current match API has no draft-link field; do not infer a draft URL from a tournament code.
-- `src/components/league/schedule/CodeDeliveryControl.tsx`: shared day/match Discord delivery action
-  and recipient report. `sendDayCodes`/`sendMatchCodes` in `lib/api/schedule.ts` POST an empty object;
-  they do not mint codes. A 409 `not_ready` means nothing was sent and lists readiness issues.
-  HTTP 200 can include partial failures: preserve every recipient status. Explicit retries skip
-  successful recipients; `unknown` and `in_progress` require inspection, never automatic retry.
-  Delivery changes no read model. Key `DayPanel` by conference/day so reports cannot follow selection.
-- `src/lib/api/profiles.ts`: profile presentation limits/write, full career profile read, Riot account
-  cards and public targeted refresh. Keep `ranked: []` (unranked) distinct from `ranked: null`
-  (Riot unavailable). `career.teams` carries full `TeamRecord`s mapped with `client.ts`'s
-  `mapTeamRecord`, while opponents carry compact `TeamMetadata`; `opponent` is the object and
-  `opponentCode` the string; `career.laneMatchups` is per conference and never merged, keyed
-  `(conf, profileId)`; `accolades` is career-wide even when `?conf=` scopes the statistics.
-- `src/lib/api/auth.ts`: `/auth/me` identity including nickname, pronouns, pronunciation and
-  `setupRequired`.
-- `src/lib/queries.ts`: every query key/options object. Profile documents and account reads share
-  `queryRoots.profiles`; the document is fresh for one minute and account cards for ten.
-- `src/lib/authContext.tsx`: cookie-session identity and Discord/Riot OAuth flows.
-- `src/components/auth/UserMenu.tsx` + `AuthControl.tsx`: shared account actions for desktop and
-  mobile. `useHasInvitations` in `src/hooks/useInvitations.ts` shows Team Invitations only when the
-  signed-in profile's inbox is nonempty (answered invitations count). `queries.myInvitations` keys
-  the private inbox by profile ID; the `/team-invitations` route remains available for direct links.
-- `src/components/auth/SetupGate.tsx`: one route-tree hard gate for incomplete signed-in profiles.
-- `src/pages/LeagueAdmin.tsx`: filters the League Admin section registry by the selected conf's
-  effective scopes before passing it to `SettingsShell`. Info, Team Applications and Accolades require
-  league `admin`; Teams requires `roster`; Schedule and Bracket require `schedule`. Site admins see all.
-  Direct links to hidden sections redirect through the shell to the first visible section; a grant
-  with no visible section shows a notice. `hasScope` preserves legacy behavior if `/auth/me` has no
-  scope list. The sibling API currently allows `roster` on application review and should be aligned
-  with the intended page permission before treating this UI filter as an authorization boundary.
-- `src/components/profile/ProfilePresentationForm.tsx`: the only nickname/pronouns/pronunciation
-  editor. Setup and Settings both use it; all three fields are website-required even though the API
-  can represent nullable legacy pronouns/pronunciation.
-- `src/components/profile/PlayerLink.tsx`: the only way to render a player name when a `profileId`
-  exists. It owns `/players/` paths and falls back to plain content when identity is absent.
-- `src/pages/PlayerProfile.tsx`: public cross-season profile — a rail (accounts, roles, champion
-  pool, lane matchups, teams) beside a wide column (career tiles, personal bests, match history). It
-  renders API-owned totals, bests, breakdowns, games and series in served order; `?conf=` scopes it.
-  One request answers the page; the joins are map lookups over that payload, never extra fetches.
-  Both grid columns carry `min-w-0`: the game grid is deliberately wider than a phone, and without
-  it that width escapes to the document and horizontally scrolls the whole page out from under the
-  sticky nav. Wide content scrolls inside its own `overflow-x-auto`, never at page level.
-  Career tiles omit games/record/win-rate/KDA because the identity header already carries them.
-- `src/components/profile/profileUi.tsx`: the profile's shared vocabulary — `RailCard`,
-  `ProfileSection`, `TeamLogo`/`TeamChip`, `useConfLabel()` (conf slugs are never shown to readers),
-  `metricText`, `kdaText` (KDA's `Infinity` reads "Perfect"), `avgKdaText`, and the
-  `winRateTone`/`kdaTone` colour scales — the only colour-coded stats on the page. Every KDA goes
-  through `kdaText`. Win/loss row tints match `MatchResultList`'s `/20` and `hover:/30`.
-- `src/components/profile/MatchupCard.tsx`: lane opponents. Merges the API's per-conference rows by
-  opponent — counts sum exactly, but `gd14` is an average with an unserved denominator and is shown
-  only when one league contributed it.
-- `src/components/profile/MatchHistory.tsx`: series and games as one list, joined through
-  `matches[].gameIds`. Series order is the API's; games sort G1-first within a series. The series
-  header is three separate targets (both teams, the score) rather than one wrapping link — team
-  chips are `w-fit` so their hitboxes hug the name.
-- `src/lib/gameAssets.ts` + `src/hooks/useGameAssets.ts`: Community Dragon item and spell lookups.
-  Deliberately unimported — the build panel they were written for was cut, and they are kept for the
-  next surface that shows a build. Not dead code.
-- `src/lib/game/events.ts` + `src/components/game/timeline/EventText.tsx`: Riot emits
-  `DRAGON_SOUL_GIVEN` both when the map becomes an elemental Rift (`teamId: 0`) and when a side
-  claims the Soul (`teamId: 100` or `200`). The Rift event has no associated side.
-- `src/components/players/`: reusable `PlayerPicker`, `PlayerSlot`, and `PlayerList` with required
-  `profile`/`riot`/`discord` mode. External modes require typed adapters from `pickerTypes.ts`.
-  `PlayerIdentity.tsx` owns player labels, API-served badges, avatar fallbacks and result rows; selected
-  names use `PlayerLink`, while result buttons never nest links. Riot mode previews verified accounts
-  before acceptance; complete IDs always offer explicit lookup alongside profile matches. Failed
-  acceptance requires a fresh preview. Discord mode preserves independent source errors. No league
-  membership checkbox/filter; the accolade editor's separate conference filter remains unchanged.
-  Riot-mode search rows show the API's `primaryRiotId` beneath the website name and distinguish
-  `matchedRiotIds` for alternate-account matches. All picker modes and the import picker hide profile
-  numbers and Discord snowflakes in results/selected values; Discord context is the @handle only.
-  Nameless profiles use `Unnamed player`, never an ID fallback. `mapGuildCandidate` falls back to the
-  Discord username or `Unnamed Discord member`, never the snowflake. Never treat a match as the primary or load the
-  accounts endpoint per search hit. The sibling API serves matched IDs; primary ID enrichment is
-  still pending (see `docs/player-picker-api.md`).
-- `src/components/league/teams/TeamsSection.tsx`: starters/subs use Riot mode, owner/contacts use
-  Discord. `useRosterPlayerSources.ts` owns conference/session authorization, private query cleanup
-  and resolver invalidation. `rosterInput` stays ID-only for writes and dirty checks; refreshed server
-  summaries update presentation by matching ID without replacing unsaved identities/order. Existing
-  legacy selections remain visible. On narrow screens the team logo/name have their own header row.
-- `src/lib/api/teamAdmin.ts`: team writes and roster identity adapters. The sibling API now implements
-  create/edit, Riot preview/acceptance (`routes/tournaments/teamPlayers.ts`), Discord lookup/resolution
-  (`teamDiscord.ts`), and summary/search enrichment. Deployment remains unverified. Discord search's
-  wire `website` group maps to frontend `profiles`; guild hits carry a nested `profile` for saved
-  presentation. Contracts and remaining primary-Riot-ID enrichment are in `docs/player-picker-api.md`. Never fall back to
-  expectation-free Riot resolution. Private lookups use no-store transport, viewer/conf query keys,
-  zero retention and no automatic retry. Public profile-search keys include the identity filter.
-- `src/components/admin/applications/PersonPicker.tsx`: application import's combined global profile
-  and Discord guild search. It carries `PersonIdentity` until submission; import resolves snowflakes
-  to profiles. Its site-admin guild route cannot serve league staff with only `roster` scope, and its
-  profile results can include people without Discord. It shares identity/result UI with the roster
-  picker, but still defers profile creation until import. Public search exposes no snowflake; a
-  missing cached handle does not establish missing Discord.
-- `../tournament-bot/docs/API.md` now links to `docs/api/reference/index.md` and feature references;
-  follow those for current contracts rather than searching the former single-file reference.
-- `src/components/profile/RiotAccountCards.tsx`: shared Riot identity/rank cards. The highest-ranked
-  account (`primaryAccount`) renders tall with a single headline rank block; the rest render as one
-  compact line each. Riot's ladder has no ordering in its own API — `rankScore` in
-  `lib/api/profiles.ts` is where the tier list lives, and `tierLabel` drops the meaningless `I` Riot
-  sends for the apex tiers. **Peak rank is not available** — Riot serves only current standing and
-  nothing stores history; see §9.4 of the gap analysis.
-  `RiotAccountCard` is exported for single-account metadata displays (Riot ID, icon, level, ranks).
-  `queries.profileAccounts` separates verified `accounts` from self-reported `unverifiedAccounts`;
-  claims cannot establish roster identity or verification. `lib/api/playerSummary.ts` shares
-  `PlayerSummary` and its mapper across profile search, resolution and `client.ts`'s `mapRosterSlot`.
-  API-selected avatar/source and verification survive save/reload; absent metadata maps to null/false,
-  never an inferred badge. `profiles.ts` exports its account-detail mapper for Riot previews. The sibling API's
-  `database/profiles/riotAccounts.ts` has `getSavedAccountDetailsMany()` for batched cached icons
-  and ranks; avoid fetching live Riot details for every autocomplete result.
-- `src/pages/Setup.tsx`: first-time public presentation setup.
-- `src/components/settings/profile/AccountSection.tsx`: later edits to the same public presentation
-  document plus read-only Discord identity.
-- `src/components/settings/profile/ConnectionsSection.tsx`: signed-in linked Riot accounts.
-- `src/components/settings/profile/UnverifiedAccounts.tsx` + `IconVerification.tsx`: claim a Riot
-  account, then prove it by profile icon. Upstream's three limits (fifteen-minute challenge,
-  ten-second cooldown, thirty checks) are held as wall-clock instants, never counters. Riot's copy of
-  a profile lags the client by about two minutes, so a `pending` straight after the save is expected —
-  the copy tells the player to wait before the first Check, and must keep saying so.
-- `src/lib/riot/verificationIcons.ts`: English client search names for the API's verification icon
-  pool (IDs 0–28), sourced from Community Dragon. Keep in sync with the API's pool; unknown IDs use
-  artwork instructions. Known names remain usable when the verification artwork fails to load.
+- Do not run `pnpm`, `npm`, `node`, `npx` or `ts-node`, including scripts wrapping them.
+  Humans run the toolchain. Give exact commands such as `! pnpm build` when validation is needed.
+  pnpm is the package manager, pinned in `package.json`; this is a single package.
+  There is no general test framework; the SEO scripts have an offline fixture check.
+- Start with this map and use targeted searches. Do not spawn subagents or explore `/test/`.
+- Do not create a `docs/` directory here. Do not put personal filesystem paths or references
+  to standalone deliverables anywhere in the repository, including agent instructions.
+- Edit Markdown surgically. Never bulk-format it unless the user explicitly requests that.
+- Update this file in the same change when routes, API modules, query families, shared components
+  or non-obvious behavior change. Keep the map concise and reuse existing components and helpers.
 
 ## Core conventions
 
-- Import API values from `src/lib/api/index.ts`; one module per API area.
-- Dates stay ISO strings through the API layer. Parse only at the render point.
-- Render served row order unless a documented interactive table explicitly owns sorting.
-- Every query key lives in `src/lib/queries.ts`. Mutations invalidate the owning root.
-- Never call `fetch` from a component.
-- A `profileId` is durable player identity. Names are presentation and must never be used as join keys.
-  Any player name with a usable profile id uses `PlayerLink`; surfaces lacking the id remain plain text.
-- Reuse `PageShell`, settings primitives, `ACTION*`, `LABEL_CLASS`/`CONTROL_CLASS`, `TeamLink`,
-  `PlayerLink`, `ChampionIcon`, and the shared profile/account components before writing local copies.
-- Tailwind utilities only, using theme tokens. No raw colors or inline color styles except data-driven
-  branding/stat visualization values already established by the code.
-- API errors render verbatim via `errorMessage`/`ErrorLine`.
-- Real navigation uses `Link`; internal ordinals such as `seasonDay` are never reader-facing labels.
-- Public profile account refresh keeps cached data visible, distinguishes every refresh status, and
-  never converts unavailable rank into unranked.
+- Use US English for prose, comments and identifiers. Never change a wire value or third-party
+  vocabulary just to change spelling. Do not introduce em dashes in new text.
+- Import API values from `src/lib/api/index.ts`, with one module per area. Module headers explain
+  upstream behavior and workarounds. Public reads use `http.ts`; signed-in operations use
+  `credentialedRequest`. Map responses defensively, keep absent values null and drop unknown
+  enum values rather than repairing them. Mirror API constraints as constants beside the types.
+  Ordinary `getList`/`getOne` treat missing routes or null as absence; article archive and sitemap
+  inventory reads deliberately validate strictly. Never call `fetch` from a component.
+- Dates stay ISO strings until rendering. Preserve served row order unless a documented interactive
+  table owns sorting. Do not recalculate rankings or use names as join keys.
+- `profileId` is durable identity. Any player name with a usable ID uses `PlayerLink`;
+  otherwise render plain content. Reuse `TeamLink`, `ChampionIcon` and profile/account components.
+- Every query key/options object lives in `src/lib/queries.ts`. Explain staleness choices and reuse
+  owning roots. Mutations invalidate their root; await invalidation when the next step reads it.
+  Never mutate in a mount effect: StrictMode can detach the mutation observer and strand pending UI.
+  Start mutations from user events in a component that outlives the request; mount-time reads use queries.
+- API errors render verbatim through `errorMessage`/`ErrorLine`. Gate league controls with
+  `hasScope`; preserve its legacy behavior when the API supplies no effective scope list.
+- Reuse `PageShell`, `SectionFrame`, `SettingsRow`, `ACTION*`, `LABEL_CLASS` and `CONTROL_CLASS`.
+  Prefer shadcn/ui primitives for controls, adapting them through tokens and preserving their upstream
+  structure. Modal, layered and focus-trapped UI uses shared Radix wrappers, never handmade overlays,
+  `window.confirm` or `window.alert`. Destructive confirmation uses `ConfirmButton`.
+- Tailwind utilities use theme tokens; raw colors and inline color styles are only for established
+  data-driven branding/stat visualizations. CCS `brand` is red; shadcn `accent` is the hover
+  surface. `primary`/`destructive` share a hue, so distinguish actions by treatment, not hue alone.
+  Map sides use `side-blue`/`side-red`. Support both themes.
+- Geist and Geist Mono are self-hosted. Use role tokens `font-display`, `font-heading`, `font-body`
+  and `font-mono`, never family names or `font-variation-settings` in components.
+  Section headings use `font-display text-[22px] text-text-bright`; nav/captions use
+  `font-heading text-sm`. Roles own tracking. Use sentence case, no uppercase treatment or
+  `.toUpperCase()` except actual acronyms. A canvas reads fonts through `useThemeColors`.
+- Real navigation uses `Link` and `aria-current`, not tablist semantics. Use the JS mobile
+  breakpoint from `useWindowSize` when layouts truly differ. The `nav:` breakpoint belongs
+  only to navigation, not content.
+- Images use `components/ImageUpload.tsx` and its picker hook/button. Store URLs; the shared
+  `api/uploads.ts` boundary owns file types, the 5 MB limit and upload errors. Markdown body
+  fields use `content/MarkdownEditor.tsx`, not a separate textarea or file picker.
+- Comment why a workaround or invariant exists, not what the adjacent code does.
+  Placeholders use `ComingSoon({ needs })` and name the missing endpoint.
 
-## Maintaining this file
+## Routes, navigation and layout
 
-When code changes add or move a route, API module, query family, shared component, or non-obvious
-behavioral rule, update this map in the same change. Prefer centralized components and helpers over
-duplicating frontend behavior.
+- `src/main.tsx` owns providers and routes. Public data tabs use `SiteLayout ticker`; ordinary
+  pages, including teams, match, game and register, use `SiteLayout`. Only login uses
+  `BareLayout`. Home is eager; other pages are lazy. Profiles are `/players/:profileId`;
+  first-time identity setup is `/setup`.
+- `components/layout/SiteLayout.tsx` owns ticker, nav, footer, mobile bar and Suspense.
+  `PageShell.tsx` publishes page width/extra bottom padding; pages never mount the ticker.
+  The inner content scroller must stay `relative` so hidden absolute inputs/menu triggers cannot
+  escape its overflow boundary. Keep flex/grid children shrinkable and overflow inside the page.
+  Scroll the actual content container, not the window. `FullBleedScroller` uses the nearest
+  scrolling ancestor's client width; `ScrollRail` supplies shared horizontal scrolling.
+- `RouteErrorBoundary.tsx` resets by pathname; stale chunk recovery reloads once. The deployment
+  retains old hashed assets for seven days so open tabs survive a release.
+- `lib/tabs.ts` and season-link helpers own navigation. NavBar's desktop/mobile CCS logo links
+  Home with the current season and closes the mobile menu. News is seasonless; its links
+  drop conf and its nav hides the season picker.
+- `components/auth/SetupGate.tsx` is the route-tree hard gate for incomplete signed-in profiles.
+  Keep the setup flow mounted through its second step until explicit navigation.
+  `lib/authContext.tsx` owns cookie identity/OAuth; `api/auth.ts` maps `/auth/me`,
+  including nickname, pronouns, pronunciation and `setupRequired`.
+- `auth/UserMenu.tsx` + `AuthControl.tsx` share desktop/mobile account actions. Join CCS uses
+  `DISCORD_INVITE` from `lib/siteLinks.ts`; Apply Now links to `/register` while
+  applications are open (public home flag for anonymous visitors, open-seasons read when signed in).
+  `useHasInvitations` offers Team Invitations for a nonempty inbox,
+  including answered invitations; the private query is keyed by viewer profile ID. Keep the
+  bot-linked `/team-invitations` route stable. `useHasLiveApplication` gates My Applications.
+
+## Search and shared controls
+
+- `components.json` configures shadcn (Radix/new-york, Tailwind v4). Humans add primitives
+  with `pnpm exec shadcn add <component>`. `@/` resolves to `src/`; generated imports use
+  `@/lib/cn`, never the unrelated npm `cn` package. Preserve CCS theme mappings.
+- `components/search/SiteSearch.tsx` mounts one provider/dialog and Ctrl/Cmd+K handler per
+  SiteLayout, with lazy `SearchResults.tsx`. Triggers serve desktop, mobile bottom bar and
+  hamburger dropdown; mobile's top row has no search. Opening search closes the hamburger, and its
+  dropdown trigger restores focus to the hamburger button. Keep the dialog outside that dropdown.
+  Preserve bottom-bar spacing/`--bottom-nav-h`; editable fields and other dialogs retain shortcuts.
+- `ui/command.tsx` wraps cmdk with theme tokens and keeps generated exports/data slots.
+  Shared `DialogContent` leaves geometry and close controls to callers and uses CCS 300/301 layers;
+  `CommandDialog` adds its centered geometry. `CommandLinkItem.tsx` activates real
+  Link/PlayerLink/TeamLink anchors on Enter. Those links forward props/refs; stop click propagation
+  so keyboard activation cannot recurse.
+- Search shortcuts reuse `TABS`, season links and `accountMenuEntries` with existing permissions.
+  `SHORTCUT_LABELS` supplies League Info/Content Management labels and filtering vocabulary.
+  Public links are under Pages, account links under Your Pages, privileged links under Admin; hide
+  empty groups. Appearance offers Toggle Dark Mode. Search omits Join CCS/Apply.
+  `lib/theme.ts` owns preference/toggling/iframe notifications; `useThemeColors` observes
+  `data-theme`. There is no separate nav theme button.
+- `queries.publicTeams` searches across listed seasons. `publicPlayerSearch` merges ordinary
+  and Riot-mode search by profile ID without conf or roster-derived IDs. Public keys are separate
+  from editor lookups; `RequestOpts.anonymous` omits cookies even on same-origin credentialed
+  team reads. Wait for two characters, debounce players, never show an earlier term's results or
+  locally re-filter server identity matches. Preserve order and disclose result caps.
+- `ui/color-picker.tsx` is re-exported as `ColorField` from `admin/adminUi.tsx`.
+  Its react-colorful canvas/hue/hex controls commit only opaque six-digit hex. Expand three-digit
+  shorthand on blur and reset incomplete input. Keep the API's pure-black `intFromHex` nudge
+  and forms' live `TeamStylePreview`.
+
+## Articles and Markdown
+
+- `components/content/ArticlesSection.tsx` switches between filtered list and ArticleEditor.
+  Focus the entered heading without scrolling, then reveal it with `block: "nearest"` only if
+  offscreen. Never align the whole form to the top. Back/Cancel preserves the list filter.
+  The open record is independent of the filtered list; saves return the full record and forms are
+  keyed by identity so publish/unpublish/list refresh does not close or reset an editor.
+- `content/MarkdownEditor.tsx` is shared CodeMirror: document size (preferred 420 px) for
+  article/Info, notes size (320 px) for application notes. It owns Write/Preview, vertical resizing
+  and Radix fullscreen. Split requires 960 px of editor width, otherwise falls back to Write.
+  Parents own saves and presets; keep editor imports lazy.
+- `content/markdown/useMarkdownSession.ts` preserves state/history/selection across remounts,
+  view changes and parent echoes. External replacements/`resetKey` clear history and insertion
+  bookmarks. Key forms by record/conf; presentation changes wait for IME composition.
+  Image/link/table bookmarks map through intervening edits and collapse when selected text changes.
+  Reset/unmount invalidates late upload completion. Images insert inline without extra whitespace,
+  with the caret in description brackets. Capture `openForInsertion`'s callback before opening the
+  native picker; keep `useImagePicker` mounted across presentation changes.
+- `content/markdown/commands.ts` is the toolbar/shortcut/context-menu command registry.
+  Formatting has isolated undo steps; inline formatting is per paragraph, line operations preserve
+  indentation, existing code blocks disable formatting. `MarkdownContextMenu.tsx` forwards to an
+  inert Radix trigger; wrapping the source suppresses native touch selection. Shift+right-click
+  bypasses it. Menu commands run after close for focus restoration, except Image opens in the
+  direct user gesture. Primary toolbar controls stay visible and wrap; More contains only inline
+  code, block quote, code block, table and horizontal rule. Heading options share styling.
+  `TableSizePicker.tsx` shares an 8x8 pointer/keyboard grid in a Popover; dimensions include the
+  header row. CodeMirror styling is scoped Tailwind; overriding unlayered defaults needs importance.
+- `components/Markdown.tsx` is the sole renderer for articles, Info, application notes and
+  previews. Raw HTML stays disabled. Exact image title `width=N` (1–9999) sets display width,
+  capped by container with automatic height; other titles remain tooltips.
+  `src/typeset.css` is imported unedited. Rhythm belongs in `index.css` presets, not individual
+  rendered elements. Only Markdown output gets `.typeset`. Article output/previews cap the entire
+  body, including tables/images, at `--container-article` (760 px), with SiteLayout padding
+  (12 px mobile/32 px desktop). Notes use a paragraph-only 75ch cap.
+- `pages/Article.tsx` + `news/ArticleLink.tsx`: native articles render public Markdown at
+  `/news/:slug`; link articles send readers off-site and have no full local body.
+  `api/articles.ts` owns reads/writes; published detail supplies title, subtitle, author,
+  image and timestamps. Author names imply no profile ID. Show updated dates when later than publication.
+- `pages/News.tsx` is an all-seasons archive at `/news` and `/news/page/:page`.
+  Show 24 articles in served order; request 25 at offset `(page - 1) * 24` for lookahead.
+  Use crawlable previous/next links and no previous-page placeholder data. Redirect page 1 to
+  `/news`; invalid or empty later pages use noindex.
+
+## SEO
+
+- `src/lib/seo/` owns URL policy, metadata, excerpts/JSON-LD and sitemap output.
+  `components/seo/MetadataProvider.tsx` is the only client head writer, outside SetupGate/lazy
+  routes. Overrides are keyed by navigation identity; navigation clears stale tags, dates, image
+  dimensions and JSON-LD. Private/unknown routes and content error states use client noindex.
+- Season/profile canonicals retain conf; news ignores it and tracking. `VITE_SITE_ORIGIN` is
+  validated HTTPS with the public CCS origin as fallback, never the browser host.
+  Vite fills the shell's CCS_METADATA marker with generic Open Graph/Twitter tags and the 512 px
+  CCS logo. The shared shell has no canonical, og:url, noindex or homepage JSON-LD.
+- `queries.publicTeamDetail` is anonymous and separate under the teams root; TeamPage uses it
+  for public body/metadata while staff panels retain their read. Sessions may expose unpublished
+  teams, so public metadata must omit cookies. Player artwork uses ProfileHeader's primary verified
+  account. Tournament codes never enter metadata.
+- `scripts/generate-sitemap.ts` imports pure `api/publicArticleInventory.ts` directly to
+  avoid browser API initialization. Strict anonymous 50-row reads omit conf and require two
+  matching complete inventories. HTTP/shape/duplicate/order/unstable-inventory failures abort before
+  deployment. Only native articles, archive pages and explicit landing pages enter the sitemap.
+  No body reads, lastmod, priority or changefreq.
+- Humans run `pnpm seo:check` (offline fixtures, Node 24), `pnpm build`, and
+  `pnpm build:production` for live generation. CI is offline; production generates XML/text
+  before rsync. Sitemap freshness depends on deployment; there is no content scheduler.
+- `Home.tsx` leads with news and competition, without a promotional introduction. Participation
+  guidance lives below the league-specific documents on `Info.tsx`, outside their loading/error
+  branches: North America, teams register together, and eligibility, schedules and fees vary by
+  league/season. Reuse its quick links for applications and the optional Discord invite.
+- Rendering/hydration, automatic refresh, staged releases and request-time metadata are deferred.
+  `createRoot` and SetupGate remain. Future prerendering must handle browser globals in
+  `useWindowSize`/`useThemeColors`, PageShell's layout effect and relative dates. A generated
+  homepage needs a separate SPA fallback to avoid leaking its canonical/body/hydration to other
+  routes. The API has no complete public profile inventory; roster IDs are not a substitute.
+
+## Seasons and league administration
+
+- `api/league.ts` selects current conferences from active flags, then the newest listed
+  tournament only if none is flagged. There is no environment pin. `activeSource` stays
+  `flagged`/`newest`; schedule feeds send explicit conf only for the client fallback.
+- Concurrent divisions use `codename`, not shared season `shortname`. `lib/leagueAdapters.ts`
+  owns `groupLabels` (codename, full name, conf fallback); feed labels use codename/shortname/league.
+  Historical profile labels use full names.
+- `listed` controls public discovery, `applicationsOpen` intake, and `active` default feeds.
+  Public `GET /tournaments` is listed-only. Admin pickers use `queries.adminLeagues` so
+  hidden drafts remain editable. Session-scoped reads can reveal unpublished data; never mix their
+  cache with anonymous public reads.
+- Publishing approved application rosters creates teams/updates timestamps, not public flags; it
+  can repeat while intake continues. Site-admin listing requires teams, sets listed/active and
+  closes intake. Only the list command makes a season public; edits permit `listed: false` to
+  hide it. Intake toggling is site-admin only. League roster staff read `applicationIntake`
+  for listed/applicationsOpen/teamsPublishedAt and cannot change them or infer them from public lists.
+- `api/seasonView.ts` reads public resolved `GET /:conf/season`, excluding unpublished phases.
+  `api/season.ts` reads site-admin structure `GET /:conf/phases`, preserving nulls meaning
+  inherit. They are not interchangeable: an editor using resolved values turns inheritance into overrides.
+- `pages/LeagueAdmin.tsx` filters section registries before SettingsShell. Info, Applications and
+  Accolades need league admin; Teams needs roster; Schedule/Bracket need schedule; site admins see all.
+  Hidden direct links redirect to the first allowed section; no allowed sections shows a notice.
+  The API permits roster on application review, while this UI requires admin; UI filtering is not
+  an authorization boundary. Do not link ordinary league staff to inaccessible site-admin controls.
+- `SettingsShell` renders section registries for profile, site and league areas; add sections
+  through their registry. Shared area links live in `lib/settingsAreas.ts`.
+  `RequireAuth` treats `allow: null` as loading, not denied.
+- `league/info/InfoSection.tsx` edits a whole Info document. Preserve `applicationBody` on
+  Info saves, and preserve other fields when application notes save; invalidate both relevant roots.
+  `rulebookUrl` is required and prepended as the first public quick link, keeping remaining link
+  order. The open-seasons endpoint supplies rulebook/applicationBody before Info publication.
+  `pages/Info.tsx` renders selected conferences but never applicationBody.
+- Accolade definition forms are shared by global site-admin management and league issuance.
+  Writes invalidate accolades and profile roots.
+
+## Team applications and roster identities
+
+- `components/apply/` is the shared applicant UI. Register starts applications; My Applications
+  resumes existing ones across open seasons using per-conf queries, omitting empty sections.
+  Both reuse `ApplicationCard`. Team Invitations is the other half of the workflow.
+- Authority follows `submittedByProfileId`, not the owner role. Readiness has no owner blocker:
+  require two contacts and verified Riot accounts for every starter/sub, not nonplaying contacts/owners.
+  The local checklist is guidance; the API's submit 409 is authoritative.
+  `rulesAcknowledged`/`ticketOpened` in applicationMetadata are client confirmations;
+  nothing on the site verifies a Discord ticket.
+- `ApplicationForm.tsx` shares create/replace and preserves the strict seven-key document and
+  applicationMetadata on whole-document PUT. Withdraw deletes an application; there is no withdrawn
+  UI state, and the mapper filters legacy withdrawn rows.
+- `applyUi.tsx` owns labels/statuses, details, headers and `RankChip`. Keep Unverified,
+  Rank pending, Unranked and rank distinct; chips are cached, not live Riot lookups.
+  Substitute ordinals are internal, position is single-choice, and re-inviting by profileId updates
+  roles. Hide revoked members from applicants, retain declined members; reviewers see both.
+  `useApplicationConfName` uses application payload names because public league lists omit drafts.
+- `admin/applications/ImportApplicationsSection.tsx` uses site-admin import routes to create a
+  submitter-owned draft. Pending invitations appear immediately in inboxes without sending DMs.
+  Sending invitations is a separate explicit confirmation; do not invent a staged status or second
+  review queue. `api/adminApplications.ts` shares `mapApplication` with applicant/reviewer reads.
+- `admin/applications/PersonPicker.tsx` combines public profiles and site-admin guild search,
+  carrying PersonIdentity until import resolves Discord IDs. Profile results can lack Discord;
+  missing cached handles prove nothing. Its guild route cannot serve league staff with roster-only
+  grants. Shared result UI does not change import's deferred profile creation.
+- `components/players/` owns PlayerPicker/PlayerSlot/PlayerList with required profile/riot/discord
+  modes and typed external adapters. `PlayerIdentity.tsx` owns labels, badges, avatar fallbacks
+  and result rows. Selected names use PlayerLink; result buttons never nest links. Hide profile
+  numbers and snowflakes; Discord context is @handle. Nameless fallbacks are Unnamed player or
+  Unnamed Discord member, never IDs.
+- Riot mode previews verified accounts; complete Riot IDs always offer explicit lookup alongside
+  profile matches. Failed acceptance requires fresh preview; never fall back to expectation-free
+  resolution. Display primaryRiotId separately from matchedRiotIds and never assume a match is primary
+  or load accounts per result. Discord mode preserves independent source errors. There is no picker
+  league-membership checkbox; the accolade conference filter is separate.
+- `league/teams/TeamsSection.tsx` uses Riot mode for starters/subs and Discord for owner/contacts.
+  `useRosterPlayerSources.ts` owns authorization, private query cleanup and resolver invalidation.
+  `rosterInput` is ID-only for writes/dirty checks; refreshed summaries update presentation by ID
+  without replacing unsaved identities/order. Retain legacy selections; mobile logo/name has its own row.
+- `api/teamAdmin.ts` owns team writes and roster adapters. Private lookups are no-store,
+  viewer/conf keyed, zero retention and no automatic retry. Public profile-search keys include mode.
+  Discord wire group website maps to profiles; guild results carry nested profile presentation.
+  The sibling API implements create/edit, Riot preview/acceptance and Discord resolution; deployment
+  must be verified, and primary-Riot-ID enrichment is not assumed available.
+- `api/playerSummary.ts` shares PlayerSummary mapping across search, resolution and roster
+  slots. Preserve API-selected avatars/sources/verification; missing fields become null/false.
+  `profiles.ts` exports account mapping for previews. Upstream
+  `database/profiles/riotAccounts.ts` has batched cached details; never call live Riot per search hit.
+
+## Profiles and account settings
+
+- `api/profiles.ts` owns presentation constraints/writes, career/account reads and targeted
+  refresh. `ranked: []` means unranked; `ranked: null` means unavailable. Refresh keeps cached
+  data visible and distinguishes every status. Profile documents/accounts share queryRoots.profiles,
+  with one-minute document and ten-minute account freshness.
+- Career teams use full TeamRecord/mapTeamRecord; opponents use compact TeamMetadata plus
+  opponentCode. Lane matchups stay per-conf in the API mapper and are keyed by conf/profileId.
+  Accolades remain career-wide even when conf scopes statistics.
+- `pages/PlayerProfile.tsx` renders the public cross-season profile from one payload and map
+  lookups, never extra join fetches. Preserve served totals/bests/breakdowns/order.
+  Both rail/wide columns need min-w-0; game-grid overflow stays inside its scroller, never the
+  document. Career tiles do not repeat header games/record/win rate/KDA.
+- `profile/profileUi.tsx` owns RailCard/ProfileSection, TeamLogo/TeamChip, useConfLabel and
+  numeric helpers. All KDA goes through kdaText (Infinity means Perfect). Only win rate/KDA use
+  stat color scales; win/loss row tints match MatchResultList.
+  `MatchupCard.tsx` may sum opponent counts across conferences but shows gd14 only for a single
+  contributing league, since its averaging denominator is not served.
+- `profile/MatchHistory.tsx` joins games through matches[].gameIds. Keep API series order and
+  G1-first games. Both teams and score are separate link targets; team chip hitboxes hug names.
+- `profile/RiotAccountCards.tsx` renders the highest-ranked verified account tall, others compact.
+  `primaryAccount`/`rankScore` own ranking; tierLabel hides meaningless apex I. Peak rank is not
+  available because no history is stored. ProfileHeader uses the primary verified account's icon.
+  Exported RiotAccountCard also serves single-account previews. Claims in unverifiedAccounts cannot
+  establish roster identity or verification.
+- `profile/ProfilePresentationForm.tsx` is the only nickname/pronouns/pronunciation editor,
+  shared by Setup and Settings. All three are required despite nullable legacy API values.
+  `settings/profile/AccountSection.tsx` adds read-only Discord identity;
+  `ConnectionsSection.tsx` owns linked Riot accounts.
+- `settings/profile/UnverifiedAccounts.tsx` + `IconVerification.tsx` implement claims and icon
+  proof. Store the 15-minute challenge, 10-second cooldown and 30-check limit as wall-clock state.
+  Riot's copy can lag about two minutes; pending after a save is expected and copy must keep saying
+  to wait. Preserve an unexpired challenge, including exhausted state, rather than silently restarting.
+  `lib/riot/verificationIcons.ts` supplies English client names for IDs 0–28 from Community
+  Dragon; unknown IDs fall back to artwork, and known names survive artwork load failures.
+
+## Matches, schedules and games
+
+- `pages/MatchDetail.tsx` + `match/TournamentCodes.tsx` render API tournament codes below the
+  header in served game order. `api/feed.ts` result reads send the session with no-store;
+  queries.matchResult is keyed by viewer ID with zero retention. Omitted codes render nothing.
+  `api/schedule.ts` shares mapMatchCode with admin reads; `CopyAction.tsx` owns copy feedback.
+- `home/UpcomingSchedule.tsx` takes the first viewer fixture from the five served upcoming
+  matches. Reuse queries.teamsForConf and join teams by conf/code; `lib/roster.ts`'s teamMembers
+  includes starters, subs, contacts and owners and is also used by delivery reports.
+  Anonymous/nonmember viewers get no extra card. Remove the featured fixture by feedMatchKey and
+  hide an empty remainder. UpcomingMatchCard shows team badges/names, phase, relative match day and
+  best-of; only that card checks viewer-scoped tournament-code availability. No draft URL is served;
+  never infer one from a code.
+- `league/schedule/CodeDeliveryControl.tsx` shares day/match Discord actions and reports.
+  sendDayCodes/sendMatchCodes POST an empty object and do not mint codes. A 409 not_ready means
+  nothing sent; show readiness issues. HTTP 200 may have partial failures, so retain every recipient
+  status. Explicit retries skip successes; unknown/in_progress need inspection, not automatic retry.
+  Delivery changes no read model. Key DayPanel by conf/day so reports cannot follow another selection.
+- `match/TeamMatchHistory.tsx` uses served scheduleMatchId/phase without an extra schedule read;
+  legacy matching falls back to seasonDay/opponent. Match result rows keep a consistent grid and
+  contained overflow. SeriesTotals computes rates from totals, not averages of rates.
+  BanIcons preserves -1 as no ban and passes ChampionIcon both ID and source; SeriesGameCard labels
+  each team's Victory/Defeat.
+- `pages/GameDetail.tsx` and `components/game/` render the match/timeline/context reads.
+  Shared RiotIcons/ChampionIcon handle assets; RiotText tokenizes supported markup rather than
+  injecting HTML. Scoreboard density templates use subgrid, responsive name columns and inner
+  scrolling floors; preserve shared timeline selection state.
+  `lib/gameAssets.ts`/`hooks/useGameAssets.ts` supply Community Dragon item/spell lookups.
+- `lib/game/events.ts` + `game/timeline/EventText.tsx`: DRAGON_SOUL_GIVEN with teamId 0 means
+  the map became an elemental Rift and has no side. TeamId 100/200 means that side claimed the Soul.
+
+## Season day is internal
+
+`seasonDay` is a join key, never a new reader-facing label. Use served `PhaseRef` and
+`api/phaseRef.ts`'s `placementLabel`: bracket round number first, then served round name;
+matchDay is relative to its phase. Otherwise use the kickoff date. Do not infer phases, semifinal
+labels or bracket depth. Keep existing explicit legacy/admin/stat-column exceptions confined to
+their current callers; never extend them to new public surfaces.

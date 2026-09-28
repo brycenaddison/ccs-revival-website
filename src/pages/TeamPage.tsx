@@ -33,7 +33,7 @@ export default function TeamPage() {
         &larr; Back
       </button>
       {conf && code ? (
-        <TeamDetailPanel conf={conf} code={code} />
+        <TeamDetailPanel conf={conf} code={code} publicPage />
       ) : (
         <div className="py-10 text-center text-text-dim">No team specified.</div>
       )}

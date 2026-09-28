@@ -266,6 +266,14 @@ export const queries = {
       staleTime: LEAGUE_STALE,
     }),
 
+  /** Public team pages and their metadata never reuse a staff-visible team response. */
+  publicTeamDetail: (conf: string, code: string) =>
+    query({
+      queryKey: ["teams", "public-detail", conf, code] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => teamDetail(conf, code, { signal, anonymous: true }),
+      staleTime: LEAGUE_STALE,
+    }),
+
   /**
    * A finished game's Riot payload. Never revalidated: the match is over, and the stored jsonb
    * will not change.
@@ -418,7 +426,6 @@ export const queries = {
       queryKey: ["articles", "list", q] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) => articles(q, { signal }),
       staleTime: HOME_STALE,
-      placeholderData: keepPreviousData,
     }),
 
   /** One published article, for `/news/:slug`. `null` for a draft or an unknown slug alike. */

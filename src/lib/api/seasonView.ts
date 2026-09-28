@@ -183,7 +183,7 @@ export interface SeasonRound {
    * The same day counted from the start of the *season*.
    *
    * A join key, not a label: it is what `series` groups on and what a tournament code is minted
-   * against. **Never render it on a public surface** — see `CLAUDE.md`. Show the kickoff date.
+   * against. **Never render it on a public surface** — see `AGENTS.md`. Show the kickoff date.
    */
   seasonDay: number;
   matches: SeasonBracketMatch[];

@@ -13,7 +13,7 @@
  *    because a writer who tiered everything `news` meant it.
  *
  * Rows arrive `publishedAt DESC` and are **not re-sorted here** — the ordering is the server's, per
- * the rule in CLAUDE.md. Everything below is a stable partition of that order.
+ * the rule in AGENTS.md. Everything below is a stable partition of that order.
  */
 
 import type { ArticleCard } from "./api";

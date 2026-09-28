@@ -19,11 +19,12 @@ const EXTERNAL_LINKS = [{ label: "Merch", href: "https://classicchampionshipseri
  * The mark alone. The wordmark that sat beside it said what the image already says, so it went; the
  * `alt` now carries the name, since the image is the only thing left that does.
  */
-function CcsBrand({ compact = false }: { compact?: boolean }) {
+function CcsBrand({ compact = false, onNavigate }: { compact?: boolean; onNavigate?: () => void }) {
+  const seasonLink = useSeasonLink();
   return (
-    <div className="flex items-center">
-      <img src={ccsLogo} alt="CCS" className={`${compact ? "h-7" : "h-8"} w-auto shrink-0 object-contain`} />
-    </div>
+    <Link to={seasonLink("/")} onClick={onNavigate} aria-label="Classic Championship Series home" className="flex items-center rounded-sm focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4">
+      <img src={ccsLogo} alt="Classic Championship Series" className={`${compact ? "h-7" : "h-8"} w-auto shrink-0 object-contain`} />
+    </Link>
   );
 }
 
@@ -34,7 +35,7 @@ function CcsBrand({ compact = false }: { compact?: boolean }) {
  * you're editing, and a second one in the nav — meaning what the *public* views show — reads as the
  * same control twice.
  */
-const SEASONLESS_PREFIXES = ["/settings", "/setup", "/players/", "/admin", "/league/"];
+const SEASONLESS_PREFIXES = ["/settings", "/setup", "/players/", "/admin", "/league/", "/news"];
 
 /**
  * Tabs are real links, so they can be opened in a new tab, bookmarked and shared. Which one is
@@ -94,7 +95,7 @@ export function NavBar({ isMobile }: Props) {
       <nav className="bg-bg2 border-b-2 border-brand sticky top-0 z-[150]">
         <div className="flex items-center justify-between gap-2 px-4">
           <div className="py-2.5 shrink-0">
-            <CcsBrand compact />
+            <CcsBrand compact onNavigate={() => setOpen(false)} />
           </div>
           {/* Between the mark and the hamburger, so which season you're viewing stays visible
               without opening the menu. `min-w-0` lets it give up space before the logo does, and the

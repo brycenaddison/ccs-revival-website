@@ -12,7 +12,7 @@
  *
  * Everything league-shaped comes off `GET /m/:matchId/context` and degrades when that is absent: a
  * side with no team shows its result word alone, and the caption row shrinks to date, patch and id.
- * `seasonDay` is never shown (`CLAUDE.md`); the phase label follows the rule the profile's match
+ * `seasonDay` is never shown (`AGENTS.md`); the phase label follows the rule the profile's match
  * history uses, round number first, then the operator's round name, then "Day n of m".
  */
 
