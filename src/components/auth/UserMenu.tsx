@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, ClipboardList, FileText, Inbox, Link2, LogOut, Settings, Shield, UserRound, type LucideIcon } from "lucide-react";
+import { ChevronDown, ClipboardList, Coins, FileText, Inbox, Link2, LogOut, Settings, Shield, UserRound, type LucideIcon } from "lucide-react";
 import { useAdminAccess } from "../../lib/adminAccess";
 import { useAuth } from "../../lib/authContext";
 import { CONTENT_ROLE } from "../../lib/api";
@@ -93,6 +93,7 @@ export function accountMenuEntries({
     ...(hasInvitations
       ? [{ kind: "item" as const, label: "Team Invitations", icon: Inbox, to: "/team-invitations" }]
       : []),
+    { kind: "item", label: "My Predictions", icon: Coins, to: "/my-predictions" },
     { kind: "item", label: "Settings", icon: Settings, to: "/settings" },
     ...(canEditContent
       ? [{ kind: "item" as const, label: "Content", icon: FileText, to: "/content" }]

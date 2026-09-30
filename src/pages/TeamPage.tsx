@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { PageShell } from "../components/layout/PageShell";
 import { TeamDetailPanel } from "../components/stats/TeamDetailPanel";
-import { useGoBack } from "../hooks/useGoBack";
+import { BackLink } from "../components/BackLink";
 import { useSeasonLink } from "../lib/leagueContext";
 
 /**
@@ -21,17 +21,10 @@ export default function TeamPage() {
   const { conf, code } = useParams<{ conf: string; code: string }>();
   // The fallback shouldn't reset which season the visitor was browsing.
   const seasonLink = useSeasonLink();
-  const goBack = useGoBack(seasonLink("/"));
 
   return (
     <PageShell maxWidth={1200}>
-      <button
-        type="button"
-        onClick={goBack}
-        className="mb-4 cursor-pointer border-none bg-transparent p-0 font-heading text-xs text-text-secondary hover:text-brand hover:underline"
-      >
-        &larr; Back
-      </button>
+      <BackLink fallback={seasonLink("/")} />
       {conf && code ? (
         <TeamDetailPanel conf={conf} code={code} publicPage />
       ) : (

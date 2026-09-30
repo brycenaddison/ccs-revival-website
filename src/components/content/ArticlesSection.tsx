@@ -11,12 +11,12 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, FilePlus2, ExternalLink } from "lucide-react";
+import { FilePlus2, ExternalLink } from "lucide-react";
 import { queries } from "../../lib/queries";
 import { errorMessage, type ArticleRecord } from "../../lib/api";
 import { timeAgo } from "../../lib/utils";
 import { Toast } from "../Toast";
-import { ACTION_QUIET, ACTION_SM, Pill } from "../admin/adminUi";
+import { ACTION_QUIET, BackButton, Pill } from "../admin/adminUi";
 import { LABEL_CLASS } from "../stats/FilterBar";
 import { ArticleEditor } from "./ArticleEditor";
 
@@ -58,10 +58,7 @@ export function ArticlesSection() {
         {toast && <Toast message={toast} onClose={() => setToast(null)} />}
 
         <div ref={headerRef} className="flex flex-wrap items-center gap-3 mb-4">
-          <button type="button" onClick={() => setSelected(null)} className={ACTION_SM}>
-            <ArrowLeft size={13} aria-hidden="true" />
-            Back to articles
-          </button>
+          <BackButton onClick={() => setSelected(null)}>Back to articles</BackButton>
           <h3 ref={headingRef} tabIndex={-1} className="font-display text-lg text-text-bright">
             {selected.article === null ? "New article" : "Edit article"}
           </h3>

@@ -27,6 +27,7 @@ import { useParams } from "react-router-dom";
 import { CalendarDays, Flag, KeyRound, Link2, Pencil, RefreshCw } from "lucide-react";
 import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { Toast } from "../../Toast";
+import { PillTabs, type PillTab } from "../../PillTabs";
 import { ACTION_SM, ErrorLine, Pill } from "../../admin/adminUi";
 import { MatchEditor } from "./MatchEditor";
 import { MatchCodes } from "./MatchCodes";
@@ -60,24 +61,7 @@ export function ScheduleSection() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex gap-1.5">
-        <button
-          type="button"
-          onClick={() => setTab("days")}
-          className={tab === "days" ? "border-brand " + TAB : TAB}
-        >
-          <CalendarDays size={13} aria-hidden="true" />
-          Match days
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("linking")}
-          className={tab === "linking" ? "border-brand " + TAB : TAB}
-        >
-          <Link2 size={13} aria-hidden="true" />
-          Link past games
-        </button>
-      </div>
+      <PillTabs tabs={TABS} selected={tab} onSelect={setTab} />
 
       {schedule.isError && (
         <ErrorLine message={`Couldn't load the schedule: ${errorMessage(schedule.error)}`} />
@@ -103,8 +87,10 @@ export function ScheduleSection() {
   );
 }
 
-const TAB =
-  "inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 bg-transparent font-heading text-xs text-text-bright cursor-pointer";
+const TABS: readonly PillTab<Tab>[] = [
+  { key: "days", label: "Match days", icon: CalendarDays },
+  { key: "linking", label: "Link past games", icon: Link2 },
+];
 
 function DayList({
   conf,

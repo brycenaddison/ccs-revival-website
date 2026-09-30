@@ -14,7 +14,7 @@
  */
 
 import { useParams } from "react-router-dom";
-import { Award, CalendarRange, Import, Megaphone, ShieldCheck, Trophy } from "lucide-react";
+import { Award, CalendarRange, Coins, Import, Megaphone, ShieldCheck, Trophy } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
@@ -24,6 +24,7 @@ import { AnnouncementsSection } from "../components/admin/AnnouncementsSection";
 import { LeaguesSection } from "../components/admin/LeaguesSection";
 import { RolesSection } from "../components/admin/RolesSection";
 import { SeasonStructureSection } from "../components/admin/season/SeasonStructureSection";
+import { PredictionsSettingsSection } from "../components/admin/PredictionsSettingsSection";
 import { SITE_ADMIN_ROLE } from "../lib/api";
 import { sectionForSlug, type SettingsArea } from "../lib/settingsAreas";
 
@@ -89,6 +90,13 @@ const AREA: SettingsArea = {
       // concluding the feature was dropped.
       description: "The banner on the home page. Articles live in the content portal at /content.",
       Component: AnnouncementsSection,
+    },
+    {
+      slug: "predictions",
+      label: "Predictions",
+      icon: Coins,
+      description: "Pause or resume prediction operations, set the site timezone, and choose which leagues have predictions.",
+      Component: PredictionsSettingsSection,
     },
   ],
 };

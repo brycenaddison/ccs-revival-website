@@ -41,6 +41,18 @@ import {
   phaseDocument,
   phaseList,
   playerStats,
+  predictions,
+  prediction,
+  predictionSummary,
+  predictionPositions,
+  myPredictions,
+  previewPrediction,
+  predictionHistory,
+  predictionLeaderboard,
+  publicPredictionSiteSettings,
+  managePredictions,
+  predictionSiteSettings,
+  predictionLeagueRules,
   playerProfile,
   profileAccounts,
   records,
@@ -61,6 +73,8 @@ import {
   tournaments,
   unscheduledGames,
   type ArticleQuery,
+  type PredictionFilters,
+  CLOSED_PREDICTION_STATES,
   type FeedPage,
   type FeedQuery,
   type ManageQuery,
@@ -128,7 +142,154 @@ const ACCOUNTS_STALE = MINUTE;
  */
 const query = <T extends { queryKey: readonly unknown[] }>(o: T): T => o;
 
+const OPEN_PREDICTION_STATES = ["open"] as const;
+
+/**
+ * Polling that stops at the first failure. A failed read renders its error once and stays failed
+ * until the reader navigates or reloads: no interval, focus or remount refetch re-sends a request
+ * the API has already refused.
+ */
+type QueryStatus = { state: { status: string } };
+const holdOnError = (interval: number | false = false) => ({
+  refetchInterval: (query: QueryStatus) => (query.state.status === "error" ? false : interval),
+  refetchOnWindowFocus: (query: QueryStatus) => query.state.status !== "error",
+  retryOnMount: false,
+});
+
+/**
+ * The public prediction list, keyed by every filter. Callers go through the named families below,
+ * which spell filters out in full (a null cursor included), so two callers asking the same question
+ * always build the same key.
+ */
+const predictionList = (filters: PredictionFilters) =>
+  query({
+    queryKey: ["predictions", "public", "list", filters] as const,
+    queryFn: ({ signal }: { signal: AbortSignal }) => predictions(filters, { signal }),
+    staleTime: 15_000,
+    ...holdOnError(30_000),
+  });
+
 export const queries = {
+  /**
+   * Predictions. Everything sits under `queryRoots.predictions`, so a placed prediction, a claim or a
+   * staff action invalidates one root. Second segments are load-bearing: `AuthProvider` removes
+   * `private`, `manage` and `settings` entries keyed by another viewer when the session changes.
+   *
+   * Public reads never carry a session. Pools move until kickoff, so lists and details refresh every
+   * 30 seconds, until a read fails (`holdOnError`).
+   */
+  predictionSiteCalendar: () =>
+    query({
+      queryKey: ["predictions", "calendar"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => publicPredictionSiteSettings({ signal }),
+      staleTime: MINUTE,
+      ...holdOnError(MINUTE),
+    }),
+  /**
+   * One conf's open events, next kickoff first. The Matches tab and Home share this key, so
+   * whichever loads second reuses the first's request.
+   */
+  openPredictions: (conf: string, cursor: string | null = null) =>
+    predictionList({ conf, status: OPEN_PREDICTION_STATES, sort: "closesAt", cursor }),
+  /** One conf's closed events, newest kickoff first. */
+  predictionResults: (conf: string, cursor: string | null = null) =>
+    predictionList({ conf, status: CLOSED_PREDICTION_STATES, sort: "-closesAt", cursor }),
+  /** A fixture's prediction for the match page. Zero or one event in practice. */
+  predictionForMatch: (scheduleMatchId: number) =>
+    predictionList({ scheduleMatchId, cursor: null }),
+  prediction: (eventId: number | null) =>
+    query({
+      queryKey: ["predictions", "public", "event", eventId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        eventId === null ? Promise.resolve(null) : prediction(eventId, { signal }),
+      enabled: eventId !== null,
+      staleTime: 15_000,
+      ...holdOnError(30_000),
+    }),
+  predictionLeaderboard: (cursor?: string | null) =>
+    query({
+      queryKey: ["predictions", "leaderboard", cursor ?? "first"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => predictionLeaderboard(cursor, { signal }),
+      staleTime: 30_000,
+      ...holdOnError(),
+    }),
+  /**
+   * Private reads are keyed by viewer with zero retention, so a previous viewer's balance can never
+   * paint under a new session. The summary is the hub header's only read, so the Matches and
+   * Leaderboard tabs never load holdings.
+   */
+  predictionSummary: (viewerId: number | null) =>
+    query({
+      queryKey: ["predictions", "private", viewerId, "summary"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => predictionSummary({ signal }),
+      enabled: viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+      ...holdOnError(MINUTE),
+    }),
+  /** Requested per visible page of cards, at most `PREDICTION_POSITIONS_MAX` IDs. */
+  predictionPositions: (viewerId: number | null, eventIds: readonly number[]) =>
+    query({
+      queryKey: ["predictions", "private", viewerId, "positions", eventIds] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => predictionPositions(eventIds, { signal }),
+      enabled: viewerId !== null && eventIds.length > 0,
+      staleTime: 0,
+      gcTime: 0,
+    }),
+  myPredictions: (viewerId: number | null) =>
+    query({
+      queryKey: ["predictions", "private", viewerId, "portfolio"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => myPredictions({ signal }),
+      enabled: viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+    }),
+  predictionHistory: (viewerId: number | null, cursor?: string | null) =>
+    query({
+      queryKey: ["predictions", "private", viewerId, "history", cursor ?? "first"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => predictionHistory(cursor, { signal }),
+      enabled: viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+    }),
+  /**
+   * The payout estimate. Upstream it is a POST, but it reserves nothing and has no side effects, so
+   * it is a read keyed by its inputs; callers debounce the amount. No retry: a 409 (closed, paused,
+   * short of points) is an answer to show, not a blip.
+   */
+  predictionEstimate: (viewerId: number | null, eventId: number, teamId: number | null, amountMinor: string | null) =>
+    query({
+      queryKey: ["predictions", "private", viewerId, "estimate", eventId, teamId, amountMinor] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => previewPrediction(eventId, teamId!, amountMinor!, { signal }),
+      enabled: viewerId !== null && teamId !== null && amountMinor !== null,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+    }),
+  predictionManage: (conf: string, weekStart: string, viewerId: number | null) =>
+    query({
+      queryKey: ["predictions", "manage", viewerId, conf, weekStart] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => managePredictions(conf, weekStart, { signal }),
+      enabled: viewerId !== null && !!conf && !!weekStart,
+      staleTime: 0,
+      gcTime: 0,
+    }),
+  predictionSiteSettings: (viewerId: number | null) =>
+    query({
+      queryKey: ["predictions", "settings", viewerId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => predictionSiteSettings({ signal }),
+      enabled: viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+    }),
+  predictionLeagueRules: (viewerId: number | null) =>
+    query({
+      queryKey: ["predictions", "settings", viewerId, "leagues"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => predictionLeagueRules({ signal }),
+      enabled: viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+    }),
   /** Season metadata. Changes when a split is created, so effectively static within a visit. */
   tournaments: () =>
     query({
@@ -802,6 +963,7 @@ export const queries = {
 
 /** Key prefixes, for invalidating a whole family on refresh. */
 export const queryRoots = {
+  predictions: ["predictions"] as const,
   rosterPlayers: ["rosterPlayers"] as const,
   teams: ["teams"] as const,
   /**

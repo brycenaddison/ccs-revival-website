@@ -4,6 +4,30 @@ export { mapPhaseRef, placementLabel } from "./phaseRef";
 export type { PhaseRef } from "./phaseRef";
 export type { GameContext, GameContextParticipant } from "./game";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
+export {
+  predictions, prediction, predictionSummary, enrollPredictions, claimPredictionReward,
+  predictionPositions, myPredictions, previewPrediction, placePrediction,
+  predictionHistory, predictionLeaderboard, managePredictions, publishPredictions,
+  predictionAction, reconcilePredictions, previewPredictionCorrection, applyPredictionCorrection,
+  publicPredictionSiteSettings, predictionSiteSettings,
+  previewPredictionSiteTimeZone, savePredictionSiteTimeZone, savePredictionSiteSwitch,
+  predictionLeagueRules, savePredictionLeagueRule, predictionErrorReason,
+  PREDICTION_STATES, CLOSED_PREDICTION_STATES, PREDICTION_SORTS, PREDICTION_REVIEW_REASONS,
+  PREDICTION_SKIP_REASONS, PREDICTION_LEDGER_KINDS, PREDICTION_SWITCHES, NO_WINNING_POOL,
+  PREDICTION_PAGE_SIZE, PREDICTION_POSITIONS_MAX, PREDICTION_HOLDINGS_MAX, PREDICTION_BATCH_MAX,
+  PREDICTION_REASON_MAX,
+} from "./predictions";
+export type {
+  PredictionEvent, PredictionOutcome, PredictionResult, PredictionScore, PredictionPage,
+  PredictionFilters, PredictionSort, PredictionState, PredictionReviewReason, PredictionSkipReason,
+  PredictionLedgerKind, PredictionRewards, PredictionStanding, PredictionSummary, PredictionPick,
+  PredictionPosition, PredictionHolding, PredictionPortfolio, PredictionEstimate,
+  PredictionHistoryEvent, PredictionHistoryEntry, PredictionLeader, PredictionCandidate,
+  PredictionWorker, PredictionManage, PublicationSelection, PredictionEventAction,
+  PredictionCorrectionKind, PredictionCorrectionAffected, PredictionCorrectionPreview,
+  PublicPredictionCalendar, PredictionSwitch, PredictionSiteSettings, CalendarPreview,
+  PredictionLeagueRule,
+} from "./predictions";
 export type { RequestOpts } from "./http";
 export { readArticleInventory, validateInventoryPage } from "./publicArticleInventory";
 export type { ArticleInventoryRow } from "./publicArticleInventory";

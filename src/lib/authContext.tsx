@@ -14,8 +14,10 @@
  * Sign On is not a login: it only attaches an account to an already-signed-in profile.
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Toast } from "../components/Toast";
+import { queryRoots } from "./queries";
 import {
   ANONYMOUS,
   auth,
@@ -118,10 +120,21 @@ interface Notice {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [identity, setIdentity] = useState<Identity>(ANONYMOUS);
+  const lastProfileId = useRef<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
+
+  useEffect(() => {
+    const profileId = identity.profile?.id ?? null;
+    if (lastProfileId.current !== profileId) {
+      queryClient.removeQueries({ predicate: query => query.queryKey[0] === "predictions" &&
+        ["private", "manage", "settings"].includes(String(query.queryKey[1])) && query.queryKey[2] !== profileId });
+      lastProfileId.current = profileId;
+    }
+  }, [identity.profile?.id, queryClient]);
 
   const read = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -189,11 +202,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (result.ok) {
       // The new puuid is already in `/auth/me`, so re-read it rather than trusting the payload.
       await read();
+      // A verified-account transfer can merge prediction wallets into the surviving profile.
+      await queryClient.invalidateQueries({ queryKey: queryRoots.predictions });
       setNotice({ text: successText(result), tone: "success" });
       return;
     }
     setNotice({ text: FAILURE_TEXT[result.status] ?? "Couldn't link that Riot account.", tone: "error" });
-  }, [read, canLinkRiot]);
+  }, [read, canLinkRiot, queryClient]);
 
   const clear = useCallback(async (end: () => Promise<void>) => {
     // Swallow the failure deliberately: the cookie may already be gone, and leaving the UI

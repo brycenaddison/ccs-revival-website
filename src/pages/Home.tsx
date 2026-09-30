@@ -13,6 +13,7 @@ import { AnnouncementCard } from "../components/home/AnnouncementCard";
 import { StandingsWidget } from "../components/home/StandingsWidget";
 import { PlayerLeaders } from "../components/home/PlayerLeaders";
 import { UpcomingSchedule } from "../components/home/UpcomingSchedule";
+import { OpenPredictions } from "../components/home/OpenPredictions";
 import { SocialFeed } from "../components/home/SocialFeed";
 import { VideoGrid } from "../components/home/VideoGrid";
 import { TwitchStreams } from "../components/home/TwitchStreams";
@@ -158,6 +159,7 @@ export default function Home() {
                 />
                 <TwitchStreams parentDomain={parentDomain} />
                 <UpcomingSchedule isMobile={isMobile} />
+                <OpenPredictions />
                 <VideoGrid videos={videos} isMobile={isMobile} />
               </div>
 

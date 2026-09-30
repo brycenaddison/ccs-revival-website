@@ -41,10 +41,21 @@ Do not edit that repository or derive data the API already answers.
   Start mutations from user events in a component that outlives the request; mount-time reads use queries.
 - API errors render verbatim through `errorMessage`/`ErrorLine`. Gate league controls with
   `hasScope`; preserve its legacy behavior when the API supplies no effective scope list.
+- Anything that could be a shared component should be one. Search for an existing component before
+  writing markup; never copy a pattern into a second file. When a second caller appears, move the
+  first copy into a shared module and migrate every caller in the same change.
 - Reuse `PageShell`, `SectionFrame`, `SettingsRow`, `ACTION*`, `LABEL_CLASS` and `CONTROL_CLASS`.
   Prefer shadcn/ui primitives for controls, adapting them through tokens and preserving their upstream
   structure. Modal, layered and focus-trapped UI uses shared Radix wrappers, never handmade overlays,
-  `window.confirm` or `window.alert`. Destructive confirmation uses `ConfirmButton`.
+  `window.confirm` or `window.alert`. Destructive confirmation uses `ConfirmButton`; confirmations
+  that need input first use `FormDialog`.
+- Shared page pieces: `BackLink` is every page-level back link (history-aware `fallback`, or an
+  explicit `to` + label); in-panel back buttons use `BackButton` from `admin/adminUi.tsx`.
+  `UnderlineTabs` is the brand-underlined strip (Link mode for URLs, button mode for local state;
+  hidden under two tabs); `PillTabs` is the bordered switch inside admin sections.
+  `match/MatchupHeader.tsx` is the two-team header card. `CursorPager`/`ShowMore` page cursor lists
+  on `hooks/useCursorPage.ts`. `stats/StatTile.tsx` is the headline-number tile. `TimeZonePicker`
+  is the searchable IANA zone picker.
 - Tailwind utilities use theme tokens; raw colors and inline color styles are only for established
   data-driven branding/stat visualizations. CCS `brand` is red; shadcn `accent` is the hover
   surface. `primary`/`destructive` share a hue, so distinguish actions by treatment, not hue alone.
@@ -68,7 +79,9 @@ Do not edit that repository or derive data the API already answers.
 - `src/main.tsx` owns providers and routes. Public data tabs use `SiteLayout ticker`; ordinary
   pages, including teams, match, game and register, use `SiteLayout`. Only login uses
   `BareLayout`. Home is eager; other pages are lazy. Profiles are `/players/:profileId`;
-  first-time identity setup is `/setup`.
+  first-time identity setup is `/setup`. The predictions hub (`/predictions`,
+  `/predictions/leaderboard`, `/my-predictions`) is one `PredictionsHub` layout route inside the
+  ticker group, with its own Suspense around the outlet.
 - `components/layout/SiteLayout.tsx` owns ticker, nav, footer, mobile bar and Suspense.
   `PageShell.tsx` publishes page width/extra bottom padding; pages never mount the ticker.
   The inner content scroller must stay `relative` so hidden absolute inputs/menu triggers cannot
@@ -187,15 +200,34 @@ Do not edit that repository or derive data the API already answers.
 - Humans run `pnpm seo:check` (offline fixtures, Node 24), `pnpm build`, and
   `pnpm build:production` for live generation. CI is offline; production generates XML/text
   before rsync. Sitemap freshness depends on deployment; there is no content scheduler.
+- `.github/workflows/deploy.yml` deploys static build output and prunes old assets; it does not
+  manage nginx configuration. Hostname and page trailing-slash redirects belong in the hosting
+  configuration, which is not stored in this repository; canonical metadata does not enforce them.
+  Hosting redirects should match the configured HTTPS/www origin, preserve query strings and
+  encoded paths, and leave `/assets/` outside page slash normalization. Use a file-only SPA
+  fallback (`try_files $uri /index.html`) to avoid conflicting directory slash redirects.
+  Search Console sitemap submissions must use the final HTTPS/www `/sitemap.xml` URL without
+  a trailing slash. Diagnose fetch failures with its live URL test and hosting access logs;
+  successful local requests, including a Googlebot user-agent, do not prove Google can fetch it.
 - `Home.tsx` leads with news and competition, without a promotional introduction. Participation
   guidance lives below the league-specific documents on `Info.tsx`, outside their loading/error
   branches: North America, teams register together, and eligibility, schedules and fees vary by
   league/season. Reuse its quick links for applications and the optional Discord invite.
+- Participation details are still being decided. Defer Info expansion and direct visitors to
+  the existing Discord invite for updates; do not publish unconfirmed rules, fees or schedules.
+  SEO baseline collection can begin alongside implementation and is not a prerequisite.
 - Rendering/hydration, automatic refresh, staged releases and request-time metadata are deferred.
   `createRoot` and SetupGate remain. Future prerendering must handle browser globals in
   `useWindowSize`/`useThemeColors`, PageShell's layout effect and relative dates. A generated
   homepage needs a separate SPA fallback to avoid leaking its canonical/body/hydration to other
   routes. The API has no complete public profile inventory; roster IDs are not a substitute.
+- The Open Graph plan assigns entity metadata and later sitemap generation to the existing
+  Express backend; this migration is not implemented. Keep the SPA and homepage layout. The
+  website should consume additive metadata fields through its sole head writer once available.
+  Initial article/player/team tags should use anonymous public reads.
+  Player artwork must use cached verified-account data, not live Riot enrichment or the
+  Discord-first profile-summary avatar. Team previews must enforce listed-season visibility
+  even when the visitor has a staff session.
 
 ## Seasons and league administration
 
@@ -218,7 +250,8 @@ Do not edit that repository or derive data the API already answers.
   `api/season.ts` reads site-admin structure `GET /:conf/phases`, preserving nulls meaning
   inherit. They are not interchangeable: an editor using resolved values turns inheritance into overrides.
 - `pages/LeagueAdmin.tsx` filters section registries before SettingsShell. Info, Applications and
-  Accolades need league admin; Teams needs roster; Schedule/Bracket need schedule; site admins see all.
+  Accolades need league admin; Teams needs roster; Schedule/Bracket/Predictions need schedule; site
+  admins see all.
   Hidden direct links redirect to the first allowed section; no allowed sections shows a notice.
   The API permits roster on application review, while this UI requires admin; UI filtering is not
   an authorization boundary. Do not link ordinary league staff to inaccessible site-admin controls.
@@ -319,10 +352,47 @@ Do not edit that repository or derive data the API already answers.
   `lib/riot/verificationIcons.ts` supplies English client names for IDs 0–28 from Community
   Dragon; unknown IDs fall back to artwork, and known names survive artwork load failures.
 
+## Predictions
+
+- `api/predictions.ts` maps the documented sibling API prediction, rule and calendar schemas.
+  Event pools and wallet amounts are `{ minor, display }`; use `minor` as a string and keep
+  display/input logic and quick-amount presets in `lib/predictionPoints.ts`. Never calculate
+  payouts; pool shares are display only.
+  `outcomes[0]`/`result.score.teamA` are team A. Review, skip and ledger-kind values are enums and
+  unknown values drop; a candidate with any served skip reason stays unavailable. Read camelCase
+  result/worker fields. `components/predictions/predictionLabels.ts` owns every label.
+- The hub (`pages/PredictionsHub.tsx`) renders `PredictionsHeader` (wallet chip, Link tabs) over
+  Matches (`Predictions.tsx`), `PredictionLeaderboard.tsx` and `MyPredictions.tsx`; tabs read the
+  wallet through `usePredictionsHub`. `usePredictionWallet` reads only `me/summary` and owns
+  enroll/claim. Matches follows the nav season picker: per conf, open by `sort=closesAt`, then
+  closed states by `sort=-closesAt` with Show more; division headings only with several confs.
+  "Your pick" comes from `me/positions` per loaded page (`usePredictionPositions`), never public
+  reads. My predictions lists `/me` holdings with picks from positions, then the ledger; settled
+  events live in Matches' Results. Detail, leaderboard and My predictions are seasonless in the nav.
+- `PredictionDetail.tsx` uses `MatchupHeader`, `PredictPanel` (the only place that places a
+  prediction; the estimate is the debounced read-only `queries.predictionEstimate`) and
+  `PositionBreakdown`. Uncertain stake, claim, publish, action and correction failures keep their
+  request ID for an identical retry; 4xx answers drop it. `PredictionCard` (full/compact),
+  `PoolBar` and `PredictionStatusChip` are shared by the hub, Home's `home/OpenPredictions.tsx`
+  (same `queries.openPredictions` keys, hidden when empty or failing) and admin rows.
+  `MatchPredictionPanel` shows a fixture's prediction on the match Preview tab via the anonymous
+  `queries.predictionForMatch`. All keys are under `queryRoots.predictions`; private keys include the
+  viewer ID and auth changes remove old private prediction caches.
+- `league/predictions/PredictionsSection.tsx` is a shell over `WeekNavigator`, `PublishPanel` and
+  `EventsPanel` (with `EventActionDialog`/`CorrectionDialog`). `lib/predictionWeek.ts` derives
+  Monday labels from public `/settings`; the API owns exact week instants. Publication sends only
+  `scheduleMatchId` and the candidate's `expectedRevision`; `publication_preview_changed` clears
+  the selection and reloads. Site admins get a link to the switch; league staff do not. The API lets
+  `schedule` staff read the week and publish; retrying processing and event actions need `admin`,
+  so the section hides those controls unless `hasScope(league, "admin")` or a site admin.
+  `admin/PredictionsSettingsSection.tsx` is Site Admin > Predictions: operation switches, previewed
+  timezone changes and a table of `GET /admin/predictions/leagues` rules, all version-checked.
+
 ## Matches, schedules and games
 
 - `pages/MatchDetail.tsx` + `match/TournamentCodes.tsx` render API tournament codes below the
-  header in served game order. `api/feed.ts` result reads send the session with no-store;
+  header (`match/MatchupHeader.tsx`) in served game order. The Preview tab adds the fixture's
+  prediction panel when one is published. `api/feed.ts` result reads send the session with no-store;
   queries.matchResult is keyed by viewer ID with zero retention. Omitted codes render nothing.
   `api/schedule.ts` shares mapMatchCode with admin reads; `CopyAction.tsx` owns copy feedback.
 - `home/UpcomingSchedule.tsx` takes the first viewer fixture from the five served upcoming

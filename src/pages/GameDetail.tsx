@@ -24,7 +24,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { errorMessage } from "../lib/api";
 import { queries } from "../lib/queries";
-import { useBackNavigation } from "../hooks/useGoBack";
+import { BackLink } from "../components/BackLink";
 import { useChampions } from "../hooks/useChampions";
 import { useGameAssets } from "../hooks/useGameAssets";
 import { useRunes } from "../hooks/useRunes";
@@ -57,8 +57,6 @@ const COLUMN_WIDTH = 1240;
 export default function GameDetail() {
   const { matchId = "", tab: tabParam } = useParams<{ matchId: string; tab?: string }>();
   const tab = gameTabOf(tabParam);
-  const { goBack, isFallback } = useBackNavigation("/");
-  const backLabel = isFallback ? "Home" : "Back";
 
   const enabled = matchId !== "";
   const match = useQuery({ ...queries.matchData(matchId), enabled });
@@ -86,21 +84,21 @@ export default function GameDetail() {
   });
 
   if (!enabled) {
-    return <Frame onBack={goBack} backLabel={backLabel}><Notice>No game specified.</Notice></Frame>;
+    return <Frame><Notice>No game specified.</Notice></Frame>;
   }
   if (match.isPending) {
-    return <Frame onBack={goBack} backLabel={backLabel}><Notice>Loading match…</Notice></Frame>;
+    return <Frame><Notice>Loading match…</Notice></Frame>;
   }
   if (match.error) {
     return (
-      <Frame onBack={goBack} backLabel={backLabel}>
+      <Frame>
         <Notice tone="error">{errorMessage(match.error)}</Notice>
       </Frame>
     );
   }
   if (!match.data) {
     return (
-      <Frame onBack={goBack} backLabel={backLabel}>
+      <Frame>
         <ResultOnlyCard
           matchId={matchId}
           label="no data"
@@ -112,7 +110,7 @@ export default function GameDetail() {
   }
   if (!renderable || !participants) {
     return (
-      <Frame onBack={goBack} backLabel={backLabel}>
+      <Frame>
         <ResultOnlyCard
           matchId={matchId}
           label="unreadable"
@@ -140,7 +138,7 @@ export default function GameDetail() {
   };
 
   return (
-    <Frame onBack={goBack} backLabel={backLabel}>
+    <Frame>
       <TooltipProvider delayDuration={200}>
         <GameViewProvider value={view}>
           <GameHeader />
@@ -173,24 +171,10 @@ function TabBody({ tab }: { tab: GameTab }) {
  * because a reader who opened the viewer from a series page or a profile row expects one press to
  * return them there, and the tab links use `replace` so that press never lands on another tab.
  */
-function Frame({
-  onBack,
-  backLabel,
-  children,
-}: {
-  onBack: () => void;
-  backLabel: "Back" | "Home";
-  children: ReactNode;
-}) {
+function Frame({ children }: { children: ReactNode }) {
   return (
     <PageShell maxWidth={COLUMN_WIDTH}>
-      <button
-        type="button"
-        onClick={onBack}
-        className="mb-4 cursor-pointer border-none bg-transparent p-0 font-heading text-xs text-text-secondary hover:text-brand hover:underline"
-      >
-        &larr; {backLabel}
-      </button>
+      <BackLink fallback="/" fallbackLabel="Home" />
       {children}
     </PageShell>
   );

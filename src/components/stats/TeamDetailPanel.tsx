@@ -23,8 +23,6 @@ import { useLeague } from "../../lib/leagueContext";
 interface Props {
   conf: string;
   code: string;
-  /** Omit when the panel is a whole page and the page provides its own navigation. */
-  onBack?: () => void;
   publicPage?: boolean;
 }
 
@@ -188,7 +186,7 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
   );
 }
 
-export function TeamDetailPanel({ conf, code, onBack, publicPage = false }: Props) {
+export function TeamDetailPanel({ conf, code, publicPage = false }: Props) {
   // Fans out to `/teams/:c/:t` plus the conf listing for the roster and record — and that listing
   // is the same query the league loader uses, so arriving from the Teams tab reuses it.
   const { data: team, isPending, error } = useQuery<TeamDetail | null>(publicPage ? queries.publicTeamDetail(conf, code) : queries.teamDetail(conf, code));
@@ -209,12 +207,6 @@ export function TeamDetailPanel({ conf, code, onBack, publicPage = false }: Prop
 
   return (
     <div>
-      {onBack && (
-        <button onClick={onBack} className="mb-4 text-xs text-text-secondary hover:text-brand font-heading ">
-          ← Back
-        </button>
-      )}
-
       {/* Header, in the team's own gradient. The name sits at the left where the primary holds. */}
       <div className="rounded-lg overflow-hidden mb-5" style={{ background: teamGradientFor(team) }}>
         <div className="flex items-center gap-4 p-5">

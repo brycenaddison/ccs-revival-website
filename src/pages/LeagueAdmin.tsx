@@ -13,7 +13,7 @@
 
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Award, BookOpen, CalendarDays, GitFork, Inbox, Users } from "lucide-react";
+import { Award, BookOpen, CalendarDays, Coins, GitFork, Inbox, Users } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
@@ -24,6 +24,7 @@ import { ScheduleSection } from "../components/league/schedule/ScheduleSection";
 import { BracketSection } from "../components/league/bracket/BracketSection";
 import { InfoSection } from "../components/league/info/InfoSection";
 import { TeamsSection } from "../components/league/teams/TeamsSection";
+import { PredictionsSection } from "../components/league/predictions/PredictionsSection";
 import { useAdminAccess } from "../lib/adminAccess";
 import { hasScope, type LeagueScopeName } from "../lib/api";
 import { sectionForSlug, type SettingsArea, type SettingsSection } from "../lib/settingsAreas";
@@ -94,6 +95,15 @@ const SECTIONS: readonly LeagueAdminSection[] = [
     // lives in Site Admin.
     description: "Match times, line-ups, best-of and tournament codes, day by day.",
     Component: ScheduleSection,
+  },
+  {
+    slug: "predictions",
+    // Admin-only controls inside are gated by the section itself.
+    scope: "schedule",
+    label: "Predictions",
+    icon: Coins,
+    description: "Preview and publish weekly matches, then review prediction processing.",
+    Component: PredictionsSection,
   },
   {
     slug: "bracket",

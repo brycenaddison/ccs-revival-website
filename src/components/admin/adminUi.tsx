@@ -7,6 +7,7 @@
  */
 
 import type { ReactNode } from "react";
+import { ArrowLeft } from "lucide-react";
 import type { Tournament } from "../../lib/api";
 import { teamGradient } from "../../lib/teamStyle";
 import { fmtDay } from "../../lib/utils";
@@ -45,6 +46,21 @@ export const ACTION_QUIET_BASE =
   "inline-flex items-center gap-1.5 bg-transparent border-none p-0 font-heading font-medium text-[10px] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
 
 export const ACTION_QUIET = `${ACTION_QUIET_BASE} text-text-dim hover:text-text-bright`;
+
+/**
+ * Back out of a drilled-in view inside a panel (an article editor, one phase of a season).
+ *
+ * A bordered `ACTION_SM` rather than the page-level `BackLink`: it closes local state within the
+ * section instead of leaving the page, and it sits in a heading row beside what it closes.
+ */
+export function BackButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className={ACTION_SM}>
+      <ArrowLeft size={13} aria-hidden="true" />
+      {children}
+    </button>
+  );
+}
 
 /**
  * A failed write, shown where the action was rather than as a toast.

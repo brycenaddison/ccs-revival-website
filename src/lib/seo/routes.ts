@@ -9,6 +9,8 @@ const publicPages: Record<string, [string, string]> = {
   "/schedule": ["Schedule", "Find upcoming CCS League of Legends matches."],
   "/scores": ["Scores", "Explore recent CCS matches and results."],
   "/stats": ["Statistics", "Explore player, team and champion statistics from CCS competition."],
+  "/predictions": ["Predictions", "Browse published CCS series winner predictions and point pools."],
+  "/predictions/leaderboard": ["Prediction leaderboard", "See server-ranked CCS prediction participants."],
 };
 
 export function routeMetadata(pathname: string, search: string, origin: string): PageMetadata {
@@ -22,7 +24,8 @@ export function routeMetadata(pathname: string, search: string, origin: string):
   if (page) return { title: `${page[0]} | CCS`, description: page[1], path };
   const family = /^\/news\/page\/[^/]+$/.test(clean) ? "News" : /^\/news\/[^/]+$/.test(clean) ? "Article"
     : /^\/players\/[^/]+$/.test(clean) ? "Player profile" : /^\/teams\/[^/]+\/[^/]+$/.test(clean) ? "Team"
-    : /^\/match\/[^/]+$/.test(clean) ? "Match" : /^\/game\/[^/]+(?:\/[^/]+)?$/.test(clean) ? "Game" : null;
+    : /^\/match\/[^/]+$/.test(clean) ? "Match" : /^\/game\/[^/]+(?:\/[^/]+)?$/.test(clean) ? "Game"
+    : /^\/predictions\/[^/]+$/.test(clean) ? "Prediction" : null;
   if (family) return { title: `${family} | CCS`, description: defaultMetadata().description, path };
   // A public allowlist keeps every account/admin route and unknown route out of the index.
   return { title: SITE_NAME, description: defaultMetadata().description, noindex: true };

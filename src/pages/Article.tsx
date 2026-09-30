@@ -13,8 +13,9 @@
 import { useEffect, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
+import { BackLink } from "../components/BackLink";
 import { NoticePanel } from "../components/auth/RequireAuth";
 import { Markdown } from "../components/Markdown";
 import { queries } from "../lib/queries";
@@ -85,13 +86,9 @@ export default function Article() {
 
   return (
     <PageShell maxWidth="var(--container-article)">
-      <Link
-        to="/news"
-        className="inline-flex items-center gap-1.5 font-heading text-[11px] text-text-dim hover:text-text-bright no-underline mb-5"
-      >
-        <ArrowLeft size={13} />
-        All news
-      </Link>
+      {/* A destination rather than a history step, so a reader arriving from search still lands on
+          the archive. */}
+      <BackLink to="/news" label="All news" />
 
       {article.imageUrl && (
         <div className="w-full rounded-lg overflow-hidden mb-6" style={{ maxHeight: 380 }}>

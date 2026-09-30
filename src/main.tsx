@@ -40,6 +40,11 @@ const Setup = lazy(() => import('./pages/Setup'))
 const TeamInvitations = lazy(() => import('./pages/TeamInvitations'))
 const MyApplications = lazy(() => import('./pages/MyApplications'))
 const PlayerProfile = lazy(() => import('./pages/PlayerProfile'))
+const PredictionsHub = lazy(() => import('./pages/PredictionsHub'))
+const Predictions = lazy(() => import('./pages/Predictions'))
+const PredictionDetail = lazy(() => import('./pages/PredictionDetail'))
+const PredictionLeaderboard = lazy(() => import('./pages/PredictionLeaderboard'))
+const MyPredictions = lazy(() => import('./pages/MyPredictions'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 /**
@@ -92,6 +97,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   {/* News is a tab (see `lib/tabs.ts`) but standalone, because it reads `/articles`
                       alone and none of the league data `Home` loads. */}
                   <Route path="/news" element={<News />} />
+                  {/* The predictions hub's three tabs share one layout, so its header and points stay
+                      mounted across them. My predictions is signed-in only but still a hub tab. */}
+                  <Route element={<PredictionsHub />}>
+                    <Route path="/predictions" element={<Predictions />} />
+                    <Route path="/predictions/leaderboard" element={<PredictionLeaderboard />} />
+                    <Route path="/my-predictions" element={<MyPredictions />} />
+                  </Route>
                   <Route path="/news/page/:page" element={<News />} />
                 </Route>
 
@@ -112,6 +124,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   {/* The account menu's "My applications": every team the member has submitted, across
                       every open league, with nowhere to start a new one. Starting stays on `/register`. */}
                   <Route path="/my-applications" element={<MyApplications />} />
+                  <Route path="/predictions/:eventId" element={<PredictionDetail />} />
                   {/* Each settings area is two routes rather than one optional `:section?` segment.
                       The no-slug form is a real state — it's the mobile section list, and on desktop it
                       redirects to the first section — so spelling both out keeps that explicit. */}

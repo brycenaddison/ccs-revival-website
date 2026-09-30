@@ -16,10 +16,9 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { Toast } from "../../Toast";
-import { ACTION_SM, ErrorLine, Pill, stateNote } from "../adminUi";
+import { BackButton, ErrorLine, Pill, stateNote } from "../adminUi";
 import { PhaseListEditor } from "./PhaseListEditor";
 import { GroupPhaseEditor } from "./GroupPhaseEditor";
 import { BracketPhaseEditor } from "./BracketPhaseEditor";
@@ -162,10 +161,7 @@ function PhasePage({
 
   const header = (
     <div className="flex items-center gap-3">
-      <button type="button" onClick={onBack} className={ACTION_SM}>
-        <ArrowLeft size={13} aria-hidden="true" />
-        Season
-      </button>
+      <BackButton onClick={onBack}>Season</BackButton>
       {doc.data && (
         <>
           <h3 className="font-display text-lg text-text-bright ">{doc.data.phase.name}</h3>

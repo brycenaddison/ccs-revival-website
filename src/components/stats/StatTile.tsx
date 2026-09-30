@@ -22,9 +22,11 @@ interface Props {
    * team's own color is unset often enough that it resolves to a near-invisible dark gray.
    */
   subjectColor?: string;
+  /** A short line under the label, for a number that needs its definition beside it. */
+  hint?: string;
 }
 
-export function StatTile({ value, label, color, subject, subjectLogo, subjectColor }: Props) {
+export function StatTile({ value, label, color, subject, subjectLogo, subjectColor, hint }: Props) {
   if (!subject) {
     return (
       // `h-full` plus centring, because this sits in a grid row alongside the taller subject variant
@@ -34,6 +36,7 @@ export function StatTile({ value, label, color, subject, subjectLogo, subjectCol
         <div className="text-[9px] text-text-muted font-heading mt-1.5 truncate"title={label}>
           {label}
         </div>
+        {hint && <div className="mt-1 text-[10px] text-text-dim">{hint}</div>}
       </div>
     );
   }

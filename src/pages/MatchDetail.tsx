@@ -21,16 +21,22 @@
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useBackNavigation } from "../hooks/useGoBack";
 import { PageShell } from "../components/layout/PageShell";
-import { errorMessage, type SeriesDetail, type TeamRecord } from "../lib/api";
-import { toBadge } from "../lib/leagueAdapters";
+import { BackLink } from "../components/BackLink";
+import { UnderlineTabs } from "../components/UnderlineTabs";
+import { errorMessage, type SeriesDetail } from "../lib/api";
 import { queries } from "../lib/queries";
 import { useAuth } from "../lib/authContext";
 import { usePageMetadata } from "../components/seo/MetadataProvider";
 import { fmtKickoff } from "../lib/utils";
-import { TeamBadge } from "../components/TeamBadge";
-import { TeamLink } from "../components/league/TeamLink";
+import {
+  MATCHUP_CAPTION_LINK,
+  MatchupCaption,
+  MatchupHeader,
+  MatchupScore,
+  MatchupVs,
+} from "../components/match/MatchupHeader";
+import { MatchPredictionPanel } from "../components/predictions/MatchPredictionPanel";
 import { SeriesGameCard } from "../components/match/SeriesGameCard";
 import { SeriesPreview } from "../components/match/SeriesPreview";
 import { SeriesTotals } from "../components/match/SeriesTotals";
@@ -42,8 +48,6 @@ type Tab = "preview" | "results";
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
   const { profile, loading } = useAuth();
-  const { goBack, isFallback } = useBackNavigation("/");
-  const backLabel = isFallback ? "Home" : "Back";
   /**
    * Null until the reader picks one, so the default can follow the data without an effect: the fixture
    * hasn't loaded on the first render, and seeding state from it would need a second pass to correct.
@@ -69,7 +73,7 @@ export default function MatchDetail() {
   });
 
   if (matchId === null) {
-    return <Missing message="That match link isn't valid." onBack={goBack} backLabel={backLabel} />;
+    return <Missing message="That match link isn't valid." />;
   }
   if (isPending) {
     return (
@@ -78,9 +82,9 @@ export default function MatchDetail() {
       </PageShell>
     );
   }
-  if (error) return <Missing message={errorMessage(error)} onBack={goBack} backLabel={backLabel} />;
+  if (error) return <Missing message={errorMessage(error)} />;
   if (!data) {
-    return <Missing message="That match doesn't exist." onBack={goBack} backLabel={backLabel} />;
+    return <Missing message="That match doesn't exist." />;
   }
 
   // With no games there is only one tab, so nothing the reader picked can apply.
@@ -89,7 +93,7 @@ export default function MatchDetail() {
 
   return (
     <PageShell maxWidth={1100}>
-      <BackLink onBack={goBack} backLabel={backLabel} />
+      <BackLink fallback="/" fallbackLabel="Home" />
       <div>
         <SeriesHeader match={data} />
         <TournamentCodes key={`${matchId}-${profile?.id ?? "guest"}`} codes={data.codes} />
@@ -105,90 +109,40 @@ export default function MatchDetail() {
           </p>
         )}
 
-        <Tabs tab={tab} hasResults={hasResults} onSelect={setPicked} />
+        <UnderlineTabs
+          tabs={hasResults ? RESULT_TABS : PREVIEW_TABS}
+          selected={tab}
+          onSelect={setPicked}
+        />
 
         {tab === "results" ? (
           <Results match={data} />
         ) : (
-          <SeriesPreview
-            conf={data.conf}
-            codeA={data.teamA?.code ?? null}
-            codeB={data.teamB?.code ?? null}
-          />
+          <>
+            {/* Settled predictions stay here too: the Results tab is about the games. */}
+            <MatchPredictionPanel scheduleMatchId={matchId} />
+            <SeriesPreview
+              conf={data.conf}
+              codeA={data.teamA?.code ?? null}
+              codeB={data.teamB?.code ?? null}
+            />
+          </>
         )}
       </div>
     </PageShell>
   );
 }
 
-/** The history-aware back link every state of the page carries above its content. */
-function BackLink({ onBack, backLabel }: { onBack: () => void; backLabel: "Back" | "Home" }) {
-  return (
-    <button
-      type="button"
-      onClick={onBack}
-      className="mb-4 cursor-pointer border-none bg-transparent p-0 font-heading text-xs text-text-secondary hover:text-brand hover:underline"
-    >
-      &larr; {backLabel}
-    </button>
-  );
-}
+const RESULT_TABS = [
+  { key: "results", label: "Results" },
+  { key: "preview", label: "Preview" },
+] as const satisfies readonly { key: Tab; label: string }[];
+const PREVIEW_TABS = [{ key: "preview", label: "Preview" }] as const satisfies readonly { key: Tab; label: string }[];
 
-/**
- * Preview / Results.
- *
- * Same visual language as `PhaseTabs` — underline strip, the selected tab filled — but not that
- * component, which is typed to a season's phases. Two hard-coded tabs don't want a registry.
- */
-function Tabs({
-  tab,
-  hasResults,
-  onSelect,
-}: {
-  tab: Tab;
-  hasResults: boolean;
-  onSelect: (t: Tab) => void;
-}) {
-  const entries: [Tab, string][] = hasResults
-    ? [["results", "Results"], ["preview", "Preview"]]
-    : [["preview", "Preview"]];
-
-  // A strip with one tab is noise — the same rule `PhaseTabs` applies to a single-phase season.
-  if (entries.length < 2) return null;
-
-  return (
-    <div className="mb-4 flex flex-nowrap overflow-x-auto overflow-y-hidden border-b-2 border-brand">
-      {entries.map(([key, label]) => (
-        <button
-          key={key}
-          type="button"
-          onClick={() => onSelect(key)}
-          aria-current={tab === key ? "true" : undefined}
-          className={`shrink-0 cursor-pointer border-none bg-transparent px-4 py-2.5 font-heading text-[13px] ${
-            tab === key
-              ? "border-b-2 border-b-brand bg-bg-input text-text-bright"
-              : "border-b-2 border-b-transparent text-text-muted"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Missing({
-  message,
-  onBack,
-  backLabel,
-}: {
-  message: string;
-  onBack: () => void;
-  backLabel: "Back" | "Home";
-}) {
+function Missing({ message }: { message: string }) {
   return (
     <PageShell maxWidth={1100}>
-      <BackLink onBack={onBack} backLabel={backLabel} />
+      <BackLink fallback="/" fallbackLabel="Home" />
       <div className="py-16 text-center font-heading text-sm text-text-muted">{message}</div>
     </PageShell>
   );
@@ -198,76 +152,52 @@ function Missing({
 
 function SeriesHeader({ match }: { match: SeriesDetail }) {
   const { conf, result, teamA, teamB } = match;
-  const winsA = result?.winsA ?? 0;
-  const winsB = result?.winsB ?? 0;
+  // `record` is the season record, forfeits included, and it comes on the same row as the team, so
+  // it costs nothing here. Absent only on an API too old to serve it, where `0-0` would be a lie.
+  const recordOf = (team: SeriesDetail["teamA"]) =>
+    team?.record ? `${team.record.seriesWins}-${team.record.seriesLosses}` : null;
 
   return (
-    <div className="mb-6 rounded-lg border border-border bg-bg2 p-6">
-      <div className="flex items-center justify-center gap-6 md:gap-10">
-        <TeamColumn team={teamA} conf={conf} side="left" won={result !== null && result.winner === teamA?.code} />
-
-        <div className="flex min-w-[90px] shrink-0 flex-col items-center gap-1">
-          {result === null ? (
-            <span className="rounded bg-bg-input px-3 py-1 font-display text-base text-text-dim">
-              vs
-            </span>
-          ) : (
-            <div className="flex items-center gap-3">
-              <span className={`font-display text-3xl md:text-4xl ${winsA >= winsB ? "text-text-bright" : "text-text-muted"}`}>
-                {winsA}
-              </span>
-              <span className="font-display text-lg text-text-subtle">-</span>
-              <span className={`font-display text-3xl md:text-4xl ${winsB >= winsA ? "text-text-bright" : "text-text-muted"}`}>
-                {winsB}
-              </span>
-            </div>
-          )}
+    <MatchupHeader
+      conf={conf}
+      teamA={teamA}
+      teamB={teamB}
+      wonA={result !== null && result.winner === teamA?.code}
+      wonB={result !== null && result.winner === teamB?.code}
+      recordA={recordOf(teamA)}
+      recordB={recordOf(teamB)}
+      center={
+        <>
+          {result === null ? <MatchupVs /> : <MatchupScore a={result.winsA} b={result.winsB} />}
           <StatusChip match={match} />
-        </div>
-
-        <TeamColumn team={teamB} conf={conf} side="right" won={result !== null && result.winner === teamB?.code} />
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-heading text-[11px] text-text-muted">
-        <Caption>{match.league}</Caption>
-        {/* `matchDay` is the day within its own phase, which is what a bracket round is called on
-            screen. `seasonDay` is a join key and is never rendered — see `AGENTS.md`. */}
-        <Caption>
-          {match.phase.kind === "bracket" ? `${match.phase.name} · Round ${match.phase.matchDay}` : match.phase.name}
-        </Caption>
-        <Caption>Bo{match.bestOf}</Caption>
-        {/* A date keeps its own case: "SAT, SEP 6" reads as shouting. */}
-        {match.scheduledAt !== null && (
-          <Caption>
-            <span className="normal-case">{fmtKickoff(match.scheduledAt)}</span>
-          </Caption>
-        )}
-        {result?.hasForfeit && <Caption>Decided in part by forfeit</Caption>}
-        {match.streamUrl && (
-          <>
-            <span className="text-text-subtle">·</span>
-            <a
-              href={match.streamUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-brand no-underline hover:underline"
-            >
-              Watch
-            </a>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** Caption items are separated by a dot, and the separator belongs to the item that follows one. */
-function Caption({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <span className="text-text-subtle first:hidden">·</span>
-      <span>{children}</span>
-    </>
+        </>
+      }
+      caption={
+        <>
+          <MatchupCaption>{match.league}</MatchupCaption>
+          {/* `matchDay` is the day within its own phase, which is what a bracket round is called on
+              screen. `seasonDay` is a join key and is never rendered — see `AGENTS.md`. */}
+          <MatchupCaption>
+            {match.phase.kind === "bracket" ? `${match.phase.name} · Round ${match.phase.matchDay}` : match.phase.name}
+          </MatchupCaption>
+          <MatchupCaption>Bo{match.bestOf}</MatchupCaption>
+          {/* A date keeps its own case: "SAT, SEP 6" reads as shouting. */}
+          {match.scheduledAt !== null && (
+            <MatchupCaption>
+              <span className="normal-case">{fmtKickoff(match.scheduledAt)}</span>
+            </MatchupCaption>
+          )}
+          {result?.hasForfeit && <MatchupCaption>Decided in part by forfeit</MatchupCaption>}
+          {match.streamUrl && (
+            <MatchupCaption>
+              <a href={match.streamUrl} target="_blank" rel="noreferrer" className={MATCHUP_CAPTION_LINK}>
+                Watch
+              </a>
+            </MatchupCaption>
+          )}
+        </>
+      }
+    />
   );
 }
 
@@ -297,68 +227,6 @@ function StatusChip({ match }: { match: SeriesDetail }) {
         : "To be confirmed";
 
   return <span className="font-display text-[10px] text-text-dim">{label}</span>;
-}
-
-function TeamColumn({
-  team,
-  conf,
-  side,
-  won,
-}: {
-  team: TeamRecord | null;
-  conf: string;
-  side: "left" | "right";
-  won: boolean;
-}) {
-  if (team === null) {
-    return (
-      <div className={`flex min-w-0 flex-1 items-center ${side === "left" ? "justify-end" : ""}`}>
-        <span className="font-heading text-base italic text-text-dim md:text-lg">TBD</span>
-      </div>
-    );
-  }
-
-  const badge = <TeamBadge team={toBadge(team)} size={44} />;
-  const name = (
-    <span
-      className={`truncate font-heading text-base font-medium group-hover:text-brand md:text-lg ${
-        won ? "font-bold text-text-bright" : "text-text-muted"
-      }`}
-    >
-      <span className="hidden md:inline">{team.name}</span>
-      <span className="md:hidden">{team.code}</span>
-    </span>
-  );
-
-  return (
-    <TeamLink
-      conf={conf}
-      code={team.code}
-      className={`group flex min-w-0 flex-1 flex-col gap-1 no-underline ${side === "left" ? "items-end" : ""}`}
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        {side === "left" ? (
-          <>
-            {name}
-            {badge}
-          </>
-        ) : (
-          <>
-            {badge}
-            {name}
-          </>
-        )}
-      </div>
-      {/* `record` is the season record, forfeits included, and it comes on the same row as the team —
-          so it costs nothing here. Absent only on an API too old to serve it, where `0-0` would be a
-          lie rather than a default. */}
-      {team.record && (
-        <span className="font-mono text-[11px] text-text-dim">
-          {team.record.seriesWins}-{team.record.seriesLosses}
-        </span>
-      )}
-    </TeamLink>
-  );
 }
 
 // ------------------------------------------------------------------- results
