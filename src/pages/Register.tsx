@@ -24,12 +24,13 @@ import { ApplicationForm } from "../components/apply/ApplicationForm";
 import { ApplicationStatusPill } from "../components/apply/applyUi";
 import { ErrorLine } from "../components/admin/adminUi";
 import { Markdown } from "../components/Markdown";
-import { CONTROL_CLASS, LABEL_CLASS } from "../components/stats/FilterBar";
-import { Toast } from "../components/Toast";
+import { toast } from "sonner";
 import { useAuth } from "../lib/authContext";
 import { queries } from "../lib/queries";
 import { errorMessage } from "../lib/api";
 import { DISCORD_INVITE } from "../lib/siteLinks";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Label } from "@/components/ui/label";
 
 export default function Register() {
   return (
@@ -49,7 +50,6 @@ export default function Register() {
 
 function ApplyPanel() {
   const { profile } = useAuth();
-  const [saved, setSaved] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
 
   const { data: seasons, isPending, error } = useQuery(queries.openApplicationSeasons());
@@ -101,21 +101,20 @@ function ApplyPanel() {
     <div className="flex flex-col gap-6">
       {open.length > 1 && (
         <div className="max-w-sm">
-          <label className={LABEL_CLASS} htmlFor="apply-conf">
+          <Label className="mb-1" htmlFor="apply-conf">
             Applying to
-          </label>
-          <select
+          </Label>
+          <NativeSelect
             id="apply-conf"
             value={conf}
             onChange={e => setChosen(e.target.value)}
-            className={CONTROL_CLASS}
           >
             {open.map(season => (
-              <option key={season.conf} value={season.conf}>
+              <NativeSelectOption key={season.conf} value={season.conf}>
                 {season.name}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       )}
       {open.length === 1 && (
@@ -139,7 +138,7 @@ function ApplyPanel() {
         </section>
       )}
 
-      <ConfApplications conf={conf} myProfileId={profile?.id ?? null} onSaved={setSaved} />
+      <ConfApplications conf={conf} myProfileId={profile?.id ?? null} onSaved={toast.success} />
 
       <p className="flex items-center gap-2 text-sm text-text-dim">
         <Inbox size={15} aria-hidden="true" />
@@ -148,8 +147,6 @@ function ApplyPanel() {
           Check your invitations
         </Link>
       </p>
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
 }

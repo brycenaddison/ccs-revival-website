@@ -1,5 +1,8 @@
+import { useId } from "react";
 import { CURRENT } from "../../lib/leagueContext";
 import type { Tournament } from "../../lib/api";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 interface Props {
   tournaments: Tournament[];
@@ -17,6 +20,7 @@ interface Props {
  * browsed through the same views as the current one.
  */
 export function SeasonPicker({ tournaments, selection, onChange, activeConfs, compact = false, label = "Season" }: Props) {
+  const id = useId();
   if (tournaments.length === 0) return null;
 
   const soleActive =
@@ -34,12 +38,12 @@ export function SeasonPicker({ tournaments, selection, onChange, activeConfs, co
   const options = (
     <>
       {activeConfs.length > 0 && (
-        <option value={CURRENT}>{soleActive ? soleActive.name : "Current season"}</option>
+        <NativeSelectOption value={CURRENT}>{soleActive ? soleActive.name : "Current season"}</NativeSelectOption>
       )}
       {listed.map(t => (
-        <option key={t.conf} value={t.conf}>
+        <NativeSelectOption key={t.conf} value={t.conf}>
           {t.name}
-        </option>
+        </NativeSelectOption>
       ))}
     </>
   );
@@ -57,29 +61,30 @@ export function SeasonPicker({ tournaments, selection, onChange, activeConfs, co
       // its widest option regardless of the room around it, and on a phone that width was painted
       // straight over the hamburger. The wrapper in `NavBar` is the flex item that gives up space,
       // and this makes the control shrink with it — the browser clips the name rather than the layout.
-      <select
+      // Chromeless and at the nav's own type size, so it reads as part of the strip, not a form field.
+      <NativeSelect
         value={selection}
         onChange={e => onChange(e.target.value)}
         aria-label={label}
-        title={label}
-        className="season-select w-full max-w-[15rem] bg-transparent border-none text-text-secondary font-heading cursor-pointer outline-none hover:text-text-bright"
-        style={{ fontSize: "inherit" }}
+        containerClassName="max-w-[15rem]"
+        className="h-auto truncate border-none bg-transparent py-0 pl-0 pr-7 font-heading text-[length:inherit] text-text-secondary hover:text-text-bright md:text-[length:inherit]"
       >
         {options}
-      </select>
+      </NativeSelect>
     );
   }
 
   return (
     <div className="flex items-center gap-3 mb-5">
-      <label className="font-heading text-xs text-text-secondary ">{label}</label>
-      <select
+      <Label htmlFor={id} className="text-xs">{label}</Label>
+      <NativeSelect
+        id={id}
         value={selection}
         onChange={e => onChange(e.target.value)}
-        className="season-select bg-bg2 border border-border rounded-md text-text font-body text-sm py-2 px-3 min-w-[280px] focus:outline-none focus:border-brand"
+        containerClassName="w-auto min-w-[280px]"
       >
         {options}
-      </select>
+      </NativeSelect>
     </div>
   );
 }

@@ -1,8 +1,15 @@
-"use client"
+/**
+ * shadcn's Toggle Group, on the CCS palette: a set of `ui/toggle.tsx` items with one value
+ * (`type="single"`) or several (`type="multiple"`), with arrow-key roving focus.
+ *
+ * For local view and filter state. A view that has its own URL is a link strip with
+ * `aria-current`, not this. `spacing` above zero separates the items; zero joins them into one
+ * segmented control.
+ */
 
 import * as React from "react"
 import { type VariantProps } from "class-variance-authority"
-import { cn } from "cn"
+import { cn } from "@/lib/cn"
 import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui"
 
 import { toggleVariants } from "@/components/ui/toggle"
@@ -36,7 +43,7 @@ function ToggleGroup({
       data-spacing={spacing}
       style={{ "--gap": spacing } as React.CSSProperties}
       className={cn(
-        "group/toggle-group flex w-fit items-center gap-[--spacing(var(--gap))] rounded-md data-[spacing=default]:data-[variant=outline]:shadow-xs",
+        "group/toggle-group flex w-fit items-center gap-[--spacing(var(--gap))] rounded-md",
         className
       )}
       {...props}

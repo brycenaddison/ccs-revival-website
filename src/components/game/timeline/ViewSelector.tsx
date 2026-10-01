@@ -1,6 +1,6 @@
 /** Which graph (advantage, team totals, per champion) and which stat the chart draws. */
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTimelineView } from "./TimelineTab";
 
 export const GRAPH_OPTIONS = ["Team advantage", "Team total", "Champion total"] as const;

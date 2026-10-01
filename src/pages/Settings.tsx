@@ -51,7 +51,7 @@ export default function Settings() {
   const { section } = useParams();
 
   return (
-    <PageShell maxWidth={1000}>
+    <PageShell maxWidth="100%">
       <RequireAuth>
         <SettingsShell area={AREA} slug={section} />
       </RequireAuth>

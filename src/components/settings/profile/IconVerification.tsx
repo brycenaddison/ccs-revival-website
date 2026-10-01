@@ -50,9 +50,10 @@ import {
   type IconCheckResult,
   type UnverifiedAccount,
 } from "../../../lib/api";
-import { ACTION_SM, ACTION_SM_PRIMARY, ErrorLine } from "../../admin/adminUi";
+import { ErrorLine } from "../../admin/adminUi";
 import { profileIconUrl } from "../../profile/RiotAccountCards";
 import { verificationIconName } from "../../../lib/riot/verificationIcons";
+import { Button } from "@/components/ui/button";
 
 /** The statuses that end a challenge rather than describing its progress. */
 type DeadStatus = Exclude<IconCheckResult["status"], "verified" | "pending" | "cooldown">;
@@ -174,9 +175,9 @@ export function IconVerification({
             Verify your account by setting this account's profile icon to the one below.
           </p>
         </div>
-        <button type="button" onClick={onClose} className={ACTION_SM} aria-label="Close verification">
+        <Button variant="outline" size="sm" type="button" onClick={onClose} aria-label="Close verification">
           <X size={13} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -222,20 +223,20 @@ export function IconVerification({
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border pt-3">
         {canCheck ? (
-          <button
+          <Button
+            size="sm"
             type="button"
             onClick={() => check.mutate()}
             disabled={check.isPending || cooldown > 0}
-            className={ACTION_SM_PRIMARY}
           >
             <ShieldCheck size={13} aria-hidden="true" />
             {check.isPending ? "Checking…" : cooldown > 0 ? `Check in ${cooldown}s` : "Check"}
-          </button>
+          </Button>
         ) : canRestart ? (
-          <button type="button" onClick={onRestart} disabled={restarting} className={ACTION_SM_PRIMARY}>
+          <Button size="sm" type="button" onClick={onRestart} disabled={restarting}>
             <RefreshCw size={13} aria-hidden="true" className={restarting ? "animate-spin" : ""} />
             {restarting ? "Starting…" : "Start again"}
-          </button>
+          </Button>
         ) : null}
 
         {/* The clock is the reason a button is missing or disabled, so it stays on screen for every

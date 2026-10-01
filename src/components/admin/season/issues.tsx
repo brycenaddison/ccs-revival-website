@@ -16,6 +16,7 @@
  */
 
 import { AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { ValidationIssue } from "../../../lib/api";
 
 /**
@@ -40,9 +41,13 @@ export function issueFor(
   return issues.filter(i => i.subjects?.some(s => ids.includes(s)));
 }
 
-/** Border class for a control the server complained about. Empty string when it is fine. */
-export function fieldError(issues: readonly ValidationIssue[], path: string): string {
-  return issueAt(issues, path).length > 0 ? "border-ccs-red" : "";
+/**
+ * `aria-invalid` for a control the server complained about, or undefined when it is fine. The shared
+ * inputs and selects draw their red border from the attribute, so assistive technology hears the same
+ * thing the border shows.
+ */
+export function invalidAt(issues: readonly ValidationIssue[], path: string): true | undefined {
+  return issueAt(issues, path).length > 0 ? true : undefined;
 }
 
 /**
@@ -63,23 +68,25 @@ export function IssueList({
   if (issues.length === 0) return null;
 
   return (
-    <div role="alert" className="border border-ccs-red/40 rounded-md p-3.5 bg-ccs-red/5">
-      <p className="flex items-center gap-2 font-heading text-xs text-ccs-red">
-        <AlertTriangle size={14} aria-hidden="true" />
+    <Alert variant="destructive" className="bg-ccs-red/5">
+      <AlertTriangle aria-hidden="true" />
+      <AlertTitle className="text-xs text-ccs-red">
         {issues.length === 1 ? "Save refused" : `Save refused — ${issues.length} problems`}
-      </p>
-      <ul className="mt-2.5 flex flex-col gap-1.5">
-        {issues.map((issue, index) => {
-          const named = label?.(issue.path) ?? null;
-          return (
-            <li key={`${issue.path}:${index}`} className="text-sm text-text">
-              {named && <span className="text-text-secondary">{named}: </span>}
-              {issue.message}
-            </li>
-          );
-        })}
-      </ul>
-      <p className="text-text-dim text-xs mt-2.5">Nothing was saved.</p>
-    </div>
+      </AlertTitle>
+      <AlertDescription className="text-text">
+        <ul className="mt-1.5 flex flex-col gap-1.5">
+          {issues.map((issue, index) => {
+            const named = label?.(issue.path) ?? null;
+            return (
+              <li key={`${issue.path}:${index}`} className="text-sm text-text">
+                {named && <span className="text-text-secondary">{named}: </span>}
+                {issue.message}
+              </li>
+            );
+          })}
+        </ul>
+        <p className="text-text-dim text-xs mt-1">Nothing was saved.</p>
+      </AlertDescription>
+    </Alert>
   );
 }

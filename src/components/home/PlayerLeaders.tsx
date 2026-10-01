@@ -4,6 +4,7 @@ import { teamGradient } from "../../lib/teamStyle";
 import { teamInitial } from "../../lib/utils";
 import { TeamLink } from "../league/TeamLink";
 import { PlayerLink } from "../profile/PlayerLink";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import type { Player } from "../../hooks/useLeagueData";
 
 interface Props {
@@ -55,13 +56,16 @@ export function PlayerLeaders({ players, isMobile }: Props) {
           Stat Leaders
           {gated && <span className="ml-2 font-heading text-[10px] tracking-normal text-text-muted">min {MIN_GAMES} games</span>}
         </span>
-        <select
+        <NativeSelect
+          size="sm"
           value={stat}
           onChange={e => setStat(e.target.value as StatKey)}
-          className="bg-bg-input border border-text-subtle text-text px-2.5 py-1.5 rounded text-xs font-heading cursor-pointer"
+          aria-label="Stat"
+          containerClassName="w-auto"
+          className="bg-bg-input font-heading"
         >
-          {Object.entries(LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
+          {Object.entries(LABELS).map(([k, v]) => <NativeSelectOption key={k} value={k}>{v}</NativeSelectOption>)}
+        </NativeSelect>
       </div>
       {!sorted.length && (
         <div className="px-4 py-6 text-center text-xs text-text-muted">

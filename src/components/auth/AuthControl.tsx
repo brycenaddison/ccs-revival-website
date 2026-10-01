@@ -7,6 +7,7 @@ import { queries } from "../../lib/queries";
 import { DISCORD_INVITE } from "../../lib/siteLinks";
 import { useHasLiveApplication } from "../../hooks/useMyApplications";
 import { useHasInvitations } from "../../hooks/useInvitations";
+import { PlayerAvatar } from "../players/PlayerIdentity";
 import { accountMenuEntries, UserMenu } from "./UserMenu";
 
 /**
@@ -153,8 +154,9 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
             Apply Now
           </Link>
         )}
-        <div className="px-5 py-3 border-t border-border">
-          <span className={`${LABEL} text-text-bright truncate`}>{name}</span>
+        <div className="flex items-center gap-2 px-5 py-3 border-t border-border">
+          <PlayerAvatar src={profile?.avatar ?? null} size="small" />
+          <span className={`${LABEL} min-w-0 text-text-bright truncate`}>{name}</span>
         </div>
         {accountMenuEntries({
           profileId: profile?.id ?? null,
@@ -218,7 +220,7 @@ export function AuthControl({ variant = "nav", onNavigate }: Props) {
           Apply Now
         </Link>
       )}
-      <UserMenu name={name} />
+      <UserMenu name={name} avatar={profile?.avatar ?? null} />
     </div>
   );
 }

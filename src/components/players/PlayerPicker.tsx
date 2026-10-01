@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ACTION_SM, ACTION_SM_PRIMARY, ErrorLine } from "../admin/adminUi";
+import { ErrorLine } from "../admin/adminUi";
 import { RiotAccountCard, RiotAccountCards } from "../profile/RiotAccountCards";
 import { discordAvatarUrl } from "../apply/applyUi";
 import { useDebounced } from "../../hooks/useDebounced";
@@ -17,6 +17,7 @@ import {
   pickerContext, type PlayerPickerMode, type PlayerPickerOptions, type PickerQueryOptions,
   type RiotPlayerSource, type DiscordPlayerSource,
 } from "./pickerTypes";
+import { Button } from "@/components/ui/button";
 
 interface Callbacks extends PlayerPickerOptions {
   onPick: (player: PlayerSummary) => void;
@@ -129,8 +130,8 @@ function RiotPicker({ source, ...props }: Callbacks & { source: RiotPlayerSource
       <ProfileResults {...props} term={term} query={query} options={source.searchOptions(query)} mode="riot"
         onPick={player => setTarget({ kind: "profile", player })} />
       {complete && (
-        <button type="button" className={`${ACTION_SM_PRIMARY} mt-3`}
-          onClick={() => setTarget({ kind: "account", input })}>Look up Riot account</button>
+        <Button size="sm" type="button" className="mt-3"
+          onClick={() => setTarget({ kind: "account", input })}>Look up Riot account</Button>
       )}
       {term.includes("#") && !complete && (
         <SearchStatus>Enter GameName#TAG (up to {RIOT_GAME_NAME_MAX} name and {RIOT_TAG_LINE_MAX} tag characters).</SearchStatus>
@@ -197,16 +198,16 @@ function RiotPreview({ source, onPick, onBack, player, accounts, exact, loading,
       <ErrorLine message={resolve.error ? errorMessage(resolve.error) : null} />
       <div className="flex flex-wrap gap-2">
         {failed ? (
-          <button type="button" className={ACTION_SM_PRIMARY} disabled={loading || resolve.isPending}
-            onClick={() => { resolve.reset(); onRetry(); }}>Retry preview</button>
+          <Button size="sm" type="button" disabled={loading || resolve.isPending}
+            onClick={() => { resolve.reset(); onRetry(); }}>Retry preview</Button>
         ) : (
-          <button type="button" className={ACTION_SM_PRIMARY}
+          <Button size="sm" type="button"
             disabled={loading || resolve.isPending || !acceptance || !accounts.length}
             onClick={() => { if (acceptance) resolve.submit(acceptance); }}>
             {resolve.isPending ? "Selecting…" : "Use this player"}
-          </button>
+          </Button>
         )}
-        <button type="button" className={ACTION_SM} disabled={resolve.isPending} onClick={onBack}>Back</button>
+        <Button variant="outline" size="sm" type="button" disabled={resolve.isPending} onClick={onBack}>Back</Button>
       </div>
       {resolve.isPending && <SearchStatus>Selecting player…</SearchStatus>}
     </div>
@@ -234,8 +235,8 @@ function DiscordPicker({ source, ...props }: Callbacks & { source: DiscordPlayer
   return (
     <PlayerSearchPanel label="Website name, Discord name or user ID" term={term} busy={resolve.isPending}
       onTerm={next => { setTerm(next); setExactLookup(null); resolve.reset(); }} onCancel={props.onCancel}>
-      {isSnowflake && <button type="button" className={`${ACTION_SM} mt-2`} disabled={resolve.isPending || result.isFetching}
-        onClick={() => { setExactLookup(term.trim()); if (requested && current) void result.refetch(); }}>Look up Discord user ID</button>}
+      {isSnowflake && <Button variant="outline" size="sm" type="button" className="mt-2" disabled={resolve.isPending || result.isFetching}
+        onClick={() => { setExactLookup(term.trim()); if (requested && current) void result.refetch(); }}>Look up Discord user ID</Button>}
       {term.trim() && term.trim().length < PROFILE_SEARCH_MIN && <SearchStatus>Keep typing — {PROFILE_SEARCH_MIN} characters minimum.</SearchStatus>}
       {requested && searchTerm.length >= PROFILE_SEARCH_MIN && (!current || result.isFetching) && <SearchStatus>Searching…</SearchStatus>}
       {current && <ErrorLine message={result.error ? errorMessage(result.error) : null} />}

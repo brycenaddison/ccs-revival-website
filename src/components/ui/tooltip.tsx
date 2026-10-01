@@ -6,14 +6,14 @@
  * `overflow-hidden` scoreboard row is not clipped by the row; and it is announced through
  * `aria-describedby`. The `title` attribute does none of that and cannot hold formatted text.
  *
- * One `TooltipProvider` wraps the page that uses these (the match viewer), so the open delay is shared
- * and moving between two icons does not re-wait it. Copy-paste from shadcn's docs works against this
- * file; the parts are named as theirs are.
+ * One `TooltipProvider` in `main.tsx` wraps the app, so the open delay is shared and moving between
+ * two icons does not re-wait it; a dense surface (the match viewer) may nest its own for a shorter
+ * delay. Copy-paste from shadcn's docs works against this file; the parts are named as theirs are.
  */
 
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import type { ComponentProps } from "react";
-import { cn } from "../../lib/cn";
+import { cn } from "@/lib/cn";
 
 export const TooltipProvider = TooltipPrimitive.Provider;
 export const Tooltip = TooltipPrimitive.Root;

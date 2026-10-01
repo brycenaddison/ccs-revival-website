@@ -3,9 +3,10 @@
 import type { LinkedAccount, ProfileAccolade, ProfileMetrics, ProfilePresentation } from "../../lib/api";
 import { fmtPct, primaryAccount } from "../../lib/api";
 import { int } from "../../lib/statFormat";
-import { CONTROL_CLASS } from "../stats/FilterBar";
 import { AccoladeStrip } from "./AccoladeStrip";
 import { kdaText, metricText, useConfLabel, useSortedConfs } from "./profileUi";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { PlayerAvatar } from "../players/PlayerIdentity";
 
 interface Props {
   profile: ProfilePresentation;
@@ -37,19 +38,7 @@ export function ProfileHeader({
     <header className="mb-7 rounded-lg border border-border bg-bg2 p-5 sm:p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 gap-4">
-          {avatar ? (
-            <img
-              src={avatar}
-              alt=""
-              width={64}
-              height={64}
-              loading="lazy"
-              decoding="async"
-              className="h-16 w-16 shrink-0 rounded-lg border border-border"
-            />
-          ) : (
-            <div className="h-16 w-16 shrink-0 rounded-lg border border-border bg-bg3" />
-          )}
+          <PlayerAvatar src={avatar} size="xl" square />
 
           <div className="min-w-0">
             <h1 className="mt-0.5 truncate font-display text-[34px] leading-none text-text-bright">
@@ -67,16 +56,16 @@ export function ProfileHeader({
             under it, which is what pushed the trophies down to a row of their own — see below. */}
         <label className="shrink-0 font-heading text-xs text-text-secondary lg:w-[220px]">
           League
-          <select
+          <NativeSelect
             value={conf ?? ""}
             onChange={event => onConfChange(event.target.value)}
-            className={`${CONTROL_CLASS} mt-1.5`}
+            containerClassName="mt-1.5"
           >
-            <option value="">All leagues</option>
+            <NativeSelectOption value="">All leagues</NativeSelectOption>
             {sortConfs(availableConferences).map(option => (
-              <option key={option} value={option}>{confLabel(option).name}</option>
+              <NativeSelectOption key={option} value={option}>{confLabel(option).name}</NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </label>
       </div>
 

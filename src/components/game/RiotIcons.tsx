@@ -26,7 +26,7 @@ import { roleLabel } from "../../lib/api";
 import { CDRAGON_STATIC_BASE } from "../../lib/riot/cdragon";
 import { cn } from "../../lib/cn";
 import { tileClass } from "../../lib/tile";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RiotText } from "./RiotText";
 
 

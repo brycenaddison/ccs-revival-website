@@ -1,6 +1,16 @@
+/**
+ * shadcn's Field, on the CCS palette: the label, control, description and error of one setting.
+ *
+ * Spacing follows the site's settings rows rather than shadcn's looser defaults: a caption-size
+ * label directly over the control, a dim one-line description under it, and a field group's rows a
+ * step apart. A horizontal Field (a checkbox, radio or switch beside its label) sets the label as
+ * body text instead of a caption. `settings/SettingsSection.tsx`'s `SettingsRow` composes these
+ * with the id wiring most forms need.
+ */
+
 import { useMemo } from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "cn"
+import { cn } from "@/lib/cn"
 
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -29,9 +39,9 @@ function FieldLegend({
       data-slot="field-legend"
       data-variant={variant}
       className={cn(
-        "mb-3 font-medium",
-        "data-[variant=legend]:text-base",
-        "data-[variant=label]:text-sm",
+        "mb-3 font-heading text-text-bright",
+        "data-[variant=legend]:text-sm",
+        "data-[variant=label]:text-[10px] data-[variant=label]:text-text-secondary",
         className
       )}
       {...props}
@@ -44,7 +54,7 @@ function FieldGroup({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="field-group"
       className={cn(
-        "group/field-group @container/field-group flex w-full flex-col gap-7 data-[slot=checkbox-group]:gap-3 [&>[data-slot=field-group]]:gap-4",
+        "group/field-group @container/field-group flex w-full flex-col gap-5 data-[slot=checkbox-group]:gap-3 [&>[data-slot=field-group]]:gap-4",
         className
       )}
       {...props}
@@ -53,13 +63,13 @@ function FieldGroup({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 const fieldVariants = cva(
-  "group/field flex w-full gap-3 data-[invalid=true]:text-destructive",
+  "group/field flex w-full min-w-0 gap-1.5 data-[invalid=true]:text-destructive",
   {
     variants: {
       orientation: {
         vertical: ["flex-col [&>*]:w-full [&>.sr-only]:w-auto"],
         horizontal: [
-          "flex-row items-center",
+          "flex-row items-center gap-2 [&>[data-slot=field-label]]:font-body [&>[data-slot=field-label]]:text-sm [&>[data-slot=field-label]]:text-text",
           "[&>[data-slot=field-label]]:flex-auto",
           "has-[>[data-slot=field-content]]:items-start has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px",
         ],
@@ -113,9 +123,9 @@ function FieldLabel({
     <Label
       data-slot="field-label"
       className={cn(
-        "group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50",
-        "has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col has-[>[data-slot=field]]:rounded-md has-[>[data-slot=field]]:border [&>*]:data-[slot=field]:p-4",
-        "has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5 dark:has-data-[state=checked]:bg-primary/10",
+        "group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-40",
+        "has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col has-[>[data-slot=field]]:rounded-md has-[>[data-slot=field]]:border has-[>[data-slot=field]]:border-border [&>*]:data-[slot=field]:p-4",
+        "has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5",
         className
       )}
       {...props}
@@ -128,7 +138,7 @@ function FieldTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="field-label"
       className={cn(
-        "flex w-fit items-center gap-2 text-sm leading-snug font-medium group-data-[disabled=true]/field:opacity-50",
+        "flex w-fit items-center gap-2 font-heading text-sm leading-snug text-text-bright group-data-[disabled=true]/field:opacity-40",
         className
       )}
       {...props}
@@ -141,9 +151,9 @@ function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="field-description"
       className={cn(
-        "text-sm leading-normal font-normal text-muted-foreground group-has-[[data-orientation=horizontal]]/field:text-balance",
+        "text-xs leading-normal font-normal text-text-dim group-has-[[data-orientation=horizontal]]/field:text-balance",
         "last:mt-0 nth-last-2:-mt-1 [[data-variant=legend]+&]:-mt-1.5",
-        "[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        "[&>a]:text-brand [&>a]:underline [&>a]:underline-offset-4",
         className
       )}
       {...props}
@@ -171,7 +181,7 @@ function FieldSeparator({
       <Separator className="absolute inset-0 top-1/2" />
       {children && (
         <span
-          className="relative mx-auto block w-fit bg-background px-2 text-muted-foreground"
+          className="relative mx-auto block w-fit bg-bg2 px-2 text-text-dim"
           data-slot="field-separator-content"
         >
           {children}
@@ -224,7 +234,7 @@ function FieldError({
     <div
       role="alert"
       data-slot="field-error"
-      className={cn("text-sm font-normal text-destructive", className)}
+      className={cn("text-sm font-normal text-ccs-red", className)}
       {...props}
     >
       {content}

@@ -1,5 +1,10 @@
+/**
+ * shadcn's Button Group: adjacent related actions joined into one control. Only for actions that
+ * genuinely belong together; a form's Save and Cancel stay separate buttons.
+ */
+
 import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "cn"
+import { cn } from "@/lib/cn"
 import { Slot } from "radix-ui"
 
 import { Separator } from "@/components/ui/separator"
@@ -49,7 +54,7 @@ function ButtonGroupText({
   return (
     <Comp
       className={cn(
-        "flex items-center gap-2 rounded-md border bg-muted px-4 text-sm font-medium shadow-xs [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+        "flex items-center gap-2 rounded-md border border-border bg-bg3 px-4 font-heading text-sm text-text-secondary [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}

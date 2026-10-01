@@ -9,7 +9,7 @@
  */
 
 import { Link } from "react-router-dom";
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
 import { MatchupLabel, TeamLabel } from "./MatchupLabel";
 import { predictionPath } from "./PredictionCard";
 import { PredictionStatusChip } from "./PredictionStatusChip";

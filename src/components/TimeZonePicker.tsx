@@ -1,58 +1,43 @@
 /**
- * A searchable IANA timezone picker, from the browser's own zone list.
+ * A searchable IANA timezone picker, from the browser's own zone list, on the shared Combobox.
  *
- * Built from the shared popover and command primitives. `Intl.supportedValuesOf` is newer than this
- * project's TypeScript lib target, so it is read through a guarded cast. On a browser without it the
- * typed search itself is offered as the value, and the API validates the zone.
+ * `Intl.supportedValuesOf` is newer than this project's TypeScript lib target, so it is read through
+ * a guarded cast. On a browser without it the typed search itself is offered as the value, and the
+ * API validates the zone.
  */
 
-import { useMemo, useState } from "react";
-import { ChevronsUpDown } from "lucide-react";
-import { Button } from "./ui/button";
-import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "./ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { useMemo } from "react";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 
-function supportedZones(): string[] {
+function supportedZones(): ComboboxOption[] {
   const supportedValuesOf = (Intl as { supportedValuesOf?: (key: "timeZone") => string[] }).supportedValuesOf;
   try {
-    return supportedValuesOf ? supportedValuesOf("timeZone") : [];
+    return (supportedValuesOf ? supportedValuesOf("timeZone") : []).map(zone => ({ value: zone, label: zone }));
   } catch {
     return [];
   }
 }
 
-export function TimeZonePicker({ value, onChange, disabled }: {
+export function TimeZonePicker({ id, value, onChange, disabled }: {
+  id?: string;
   value: string | null;
   onChange: (zone: string) => void;
   disabled?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const zones = useMemo(supportedZones, []);
-  const pick = (zone: string) => { onChange(zone); setOpen(false); setSearch(""); };
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" disabled={disabled} className="justify-between" aria-label="Timezone">
-          {value ?? "Choose a timezone"}
-          <ChevronsUpDown size={14} aria-hidden="true" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-0">
-        <Command>
-          <CommandInput placeholder="Search timezones" value={search} onValueChange={setSearch} />
-          <CommandList className="max-h-72">
-            <CommandEmpty>No timezone matches.</CommandEmpty>
-            {zones.length === 0 && search.trim() && (
-              <CommandItem value={search.trim()} onSelect={() => pick(search.trim())}>Use {search.trim()}</CommandItem>
-            )}
-            {zones.map(zone => (
-              <CommandItem key={zone} value={zone} onSelect={() => pick(zone)}>{zone}</CommandItem>
-            ))}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <Combobox
+      id={id}
+      options={zones}
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      aria-label={id ? undefined : "Timezone"}
+      placeholder="Choose a timezone"
+      searchPlaceholder="Search timezones"
+      emptyText="No timezone matches."
+      createOption={zones.length === 0 ? search => ({ value: search, label: `Use ${search}` }) : undefined}
+      className="sm:w-80"
+    />
   );
 }

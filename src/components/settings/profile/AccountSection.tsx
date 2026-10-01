@@ -18,7 +18,7 @@
  * page hadn't already said.
  */
 
-import { User } from "lucide-react";
+import { PlayerAvatar } from "../../players/PlayerIdentity";
 import { useAuth } from "../../../lib/authContext";
 import { ProfilePresentationForm } from "../../profile/ProfilePresentationForm";
 
@@ -36,21 +36,7 @@ export function AccountSection() {
       <div className="flex items-center gap-4 mb-6">
         {/* Upstream resolves the default avatar itself, so a null here means a deployment older
             than the field rather than a user without a picture. */}
-        {profile.avatar ? (
-          <img
-            src={profile.avatar}
-            alt=""
-            width={64}
-            height={64}
-            loading="lazy"
-            decoding="async"
-            className="w-16 h-16 rounded-full border border-border shrink-0"
-          />
-        ) : (
-          <div className="w-16 h-16 rounded-full border border-border bg-bg3 grid place-items-center shrink-0">
-            <User size={26} className="text-text-dim" aria-hidden="true" />
-          </div>
-        )}
+        <PlayerAvatar src={profile.avatar} size="xl" />
         <div className="min-w-0">
           <p className="font-display text-2xl text-text-bright tracking-wide truncate">
             {profile.nickname ?? profile.name ?? "—"}

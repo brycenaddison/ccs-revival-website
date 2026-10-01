@@ -3,7 +3,7 @@ import { EditorSelection, type EditorState } from "@codemirror/state";
 import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub,
   ContextMenuPortal, ContextMenuShortcut, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger,
-} from "../../ui/context-menu";
+} from "@/components/ui/context-menu";
 import { commands, shortcutLabel, type CommandGroup, type CommandId, type MarkdownCommand } from "./commands";
 import type { MarkdownSession } from "./useMarkdownSession";
 

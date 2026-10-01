@@ -33,6 +33,11 @@ Do not edit that repository or derive data the API already answers.
   inventory reads deliberately validate strictly. Never call `fetch` from a component.
 - Dates stay ISO strings until rendering. Preserve served row order unless a documented interactive
   table owns sorting. Do not recalculate rankings or use names as join keys.
+- `lib/utils.ts` owns local clock and ISO conversions for date/time editors (`toLocalClock`,
+  `fromLocalClock`). Empty values mean null; never use a UTC substring as a local input value.
+  Every date/time field is `components/DateTimePicker.tsx`: ISO-or-null value, local calendar and
+  time, named zone, explicit Clear, Apply-to-commit draft, refuses DST-skipped times and asks which
+  instant a repeated time means. `suggested` opens an inheriting field on the inherited time.
 - `profileId` is durable identity. Any player name with a usable ID uses `PlayerLink`;
   otherwise render plain content. Reuse `TeamLink`, `ChampionIcon` and profile/account components.
 - Every query key/options object lives in `src/lib/queries.ts`. Explain staleness choices and reuse
@@ -44,18 +49,33 @@ Do not edit that repository or derive data the API already answers.
 - Anything that could be a shared component should be one. Search for an existing component before
   writing markup; never copy a pattern into a second file. When a second caller appears, move the
   first copy into a shared module and migrate every caller in the same change.
-- Reuse `PageShell`, `SectionFrame`, `SettingsRow`, `ACTION*`, `LABEL_CLASS` and `CONTROL_CLASS`.
-  Prefer shadcn/ui primitives for controls, adapting them through tokens and preserving their upstream
-  structure. Modal, layered and focus-trapped UI uses shared Radix wrappers, never handmade overlays,
-  `window.confirm` or `window.alert`. Destructive confirmation uses `ConfirmButton`; confirmations
-  that need input first use `FormDialog`.
+- Reuse `PageShell`, `SectionFrame` and `SettingsRow`. Controls are shadcn/ui primitives adapted
+  through tokens with their upstream structure kept: `Button` (`default` primary, `outline`,
+  `destructive`, `size="sm"`; `quiet` + `size="inline"` beside a caption), `Input`, `Textarea`,
+  `NativeSelect` (+`NativeSelectOption`), `Checkbox`, `RadioGroup`, `Switch` (immediate, reversible
+  Booleans only), `Label`/`Field`, `Badge` (`muted` for absent/secondary states), `Alert` for
+  persistent notices and failed reads, `Empty`, `Spinner`/`Skeleton`, `Table` for ordinary tables
+  (a truncating name column takes `w-full` on its head and `max-w-0` on its cells, so it gets the
+  spare width). Dense stat grids, standings and scoreboards keep their own markup.
+  `SettingsRow` takes a render prop for one control (`{field => <Input {...field} />}`) so label,
+  hint and `error` are wired by id; other content is labelled as a group. Season/schedule editors
+  mark refused fields with `invalidAt` (sets `aria-invalid`). `LABEL_CLASS` is only for captions
+  that are not control labels. Transient confirmations are `toast.success` from `sonner` (one
+  Toaster in `main.tsx`); failures stay inline. Hover hints use `TooltipHint`, never `title`; one
+  `TooltipProvider` wraps the app. Modal, layered and focus-trapped UI uses shared Radix wrappers,
+  never handmade overlays, `window.confirm` or `window.alert`. Destructive confirmation uses
+  `ConfirmButton`; confirmations that need input first use `FormDialog`.
 - Shared page pieces: `BackLink` is every page-level back link (history-aware `fallback`, or an
   explicit `to` + label); in-panel back buttons use `BackButton` from `admin/adminUi.tsx`.
   `UnderlineTabs` is the brand-underlined strip (Link mode for URLs, button mode for local state;
-  hidden under two tabs); `PillTabs` is the bordered switch inside admin sections.
-  `match/MatchupHeader.tsx` is the two-team header card. `CursorPager`/`ShowMore` page cursor lists
-  on `hooks/useCursorPage.ts`. `stats/StatTile.tsx` is the headline-number tile. `TimeZonePicker`
-  is the searchable IANA zone picker.
+  hidden under two tabs); `PillTabs` is the bordered switch inside admin sections. Local view and
+  filter switches (`PillTabs`, `stats/FilterBar`'s `PillGroup`, `ViewToggle`, `StatGroupSwitcher`)
+  are Toggle Groups; genuine local tab panels use `ui/tabs`. `stats/FilterBar`'s `FilterField`
+  labels one filter (`group` for a pill row). `match/MatchupHeader.tsx` is the two-team header
+  card. `CursorPager`/`ShowMore` page cursor lists on `hooks/useCursorPage.ts`; numbered URL pages
+  use `ui/pagination` (router links). `stats/StatTile.tsx` is the headline-number tile.
+  `TimeZonePicker` is the searchable IANA zone picker on `ui/combobox` (Popover + Command), the
+  combobox for stable local option lists.
 - Tailwind utilities use theme tokens; raw colors and inline color styles are only for established
   data-driven branding/stat visualizations. CCS `brand` is red; shadcn `accent` is the hover
   surface. `primary`/`destructive` share a hue, so distinguish actions by treatment, not hue alone.
@@ -97,7 +117,9 @@ Do not edit that repository or derive data the API already answers.
   Keep the setup flow mounted through its second step until explicit navigation.
   `lib/authContext.tsx` owns cookie identity/OAuth; `api/auth.ts` maps `/auth/me`,
   including nickname, pronouns, pronunciation and `setupRequired`.
-- `auth/UserMenu.tsx` + `AuthControl.tsx` share desktop/mobile account actions. Join CCS uses
+- `auth/UserMenu.tsx` + `AuthControl.tsx` share desktop/mobile account actions; the desktop menu
+  is a Radix `DropdownMenu` whose trigger and the drawer's name row show the session's Discord avatar
+  through `PlayerAvatar` (20px in the trigger so it matches the neighboring buttons). Join CCS uses
   `DISCORD_INVITE` from `lib/siteLinks.ts`; Apply Now links to `/register` while
   applications are open (public home flag for anonymous visitors, open-seasons read when signed in).
   `useHasInvitations` offers Team Invitations for a nonempty inbox,
@@ -106,9 +128,14 @@ Do not edit that repository or derive data the API already answers.
 
 ## Search and shared controls
 
-- `components.json` configures shadcn (Radix/new-york, Tailwind v4). Humans add primitives
+- `components.json` configures shadcn (style `radix-vega`: always Radix primitives, never Base UI;
+  Tailwind v4; `utils` is `@/lib/cn`). Native selects use `ui/native-select`. Humans add primitives
   with `pnpm exec shadcn add <component>`. `@/` resolves to `src/`; generated imports use
-  `@/lib/cn`, never the unrelated npm `cn` package. Preserve CCS theme mappings.
+  `@/lib/cn`, never the unrelated npm `cn` package; review generated files for that, Base UI
+  imports and `next-themes`, none of which this site uses. Import primitives as
+  `@/components/ui/<name>`. Preserve CCS theme mappings: `dark:` follows `data-theme`, and sidebar
+  tokens alias CCS tokens. `ui/sidebar.tsx` has no Ctrl/Cmd+B shortcut or cookie and uses the
+  `useWindowSize` breakpoint.
 - `components/search/SiteSearch.tsx` mounts one provider/dialog and Ctrl/Cmd+K handler per
   SiteLayout, with lazy `SearchResults.tsx`. Triggers serve desktop, mobile bottom bar and
   hamburger dropdown; mobile's top row has no search. Opening search closes the hamburger, and its
@@ -175,8 +202,8 @@ Do not edit that repository or derive data the API already answers.
   image and timestamps. Author names imply no profile ID. Show updated dates when later than publication.
 - `pages/News.tsx` is an all-seasons archive at `/news` and `/news/page/:page`.
   Show 24 articles in served order; request 25 at offset `(page - 1) * 24` for lookahead.
-  Use crawlable previous/next links and no previous-page placeholder data. Redirect page 1 to
-  `/news`; invalid or empty later pages use noindex.
+  Use crawlable `ui/pagination` links (`rel` prev/next) and no previous-page placeholder data.
+  Redirect page 1 to `/news`; invalid or empty later pages use noindex.
 
 ## SEO
 
@@ -256,8 +283,14 @@ Do not edit that repository or derive data the API already answers.
   The API permits roster on application review, while this UI requires admin; UI filtering is not
   an authorization boundary. Do not link ordinary league staff to inaccessible site-admin controls.
 - `SettingsShell` renders section registries for profile, site and league areas; add sections
-  through their registry. Shared area links live in `lib/settingsAreas.ts`.
+  through their registry. Settings pages take the full width; desktop navigation is a sticky
+  `ui/sidebar` column (`collapsible="none"`) anchored at the page's left edge. A section's
+  `maxWidth` (default `SECTION_WIDTH`) caps the section, which is centered in the space beside the
+  sidebar, so the sidebar never moves between sections. Mobile keeps the list-to-detail drill-down.
+  Shared area links live in `lib/settingsAreas.ts`.
   `RequireAuth` treats `allow: null` as loading, not denied.
+  `league/bracket/BracketSection.tsx` owns the sticky standings reference, a Card + Scroll Area
+  left of its bracket canvas (above it below `xl`).
 - `league/info/InfoSection.tsx` edits a whole Info document. Preserve `applicationBody` on
   Info saves, and preserve other fields when application notes save; invalidate both relevant roots.
   `rulebookUrl` is required and prepended as the first public quick link, keeping remaining link
@@ -293,8 +326,8 @@ Do not edit that repository or derive data the API already answers.
   missing cached handles prove nothing. Its guild route cannot serve league staff with roster-only
   grants. Shared result UI does not change import's deferred profile creation.
 - `components/players/` owns PlayerPicker/PlayerSlot/PlayerList with required profile/riot/discord
-  modes and typed external adapters. `PlayerIdentity.tsx` owns labels, badges, avatar fallbacks
-  and result rows. Selected names use PlayerLink; result buttons never nest links. Hide profile
+  modes and typed external adapters. `PlayerIdentity.tsx` owns labels, badges and result rows;
+  its `PlayerAvatar` (on `ui/avatar`) is every face on the site, including Riot icons (`square`). Selected names use PlayerLink; result buttons never nest links. Hide profile
   numbers and snowflakes; Discord context is @handle. Nameless fallbacks are Unnamed player or
   Unnamed Discord member, never IDs.
 - Riot mode previews verified accounts; complete Riot IDs always offer explicit lookup alongside
@@ -385,8 +418,9 @@ Do not edit that repository or derive data the API already answers.
   the selection and reloads. Site admins get a link to the switch; league staff do not. The API lets
   `schedule` staff read the week and publish; retrying processing and event actions need `admin`,
   so the section hides those controls unless `hasScope(league, "admin")` or a site admin.
-  `admin/PredictionsSettingsSection.tsx` is Site Admin > Predictions: operation switches, previewed
-  timezone changes and a table of `GET /admin/predictions/leagues` rules, all version-checked.
+  `admin/PredictionsSettingsSection.tsx` is Site Admin > Predictions: operation and per-league
+  rules are `Switch` rows (immediate, no confirmation) and timezone changes are previewed; every
+  write is version-checked.
 
 ## Matches, schedules and games
 
@@ -415,7 +449,8 @@ Do not edit that repository or derive data the API already answers.
 - `pages/GameDetail.tsx` and `components/game/` render the match/timeline/context reads.
   Shared RiotIcons/ChampionIcon handle assets; RiotText tokenizes supported markup rather than
   injecting HTML. Scoreboard density templates use subgrid, responsive name columns and inner
-  scrolling floors; preserve shared timeline selection state.
+  scrolling floors; preserve shared timeline selection state. Secondary panels (the Graphs stat
+  picker, the Timeline map) sit on the left at wide widths so switching tabs does not move them.
   `lib/gameAssets.ts`/`hooks/useGameAssets.ts` supply Community Dragon item/spell lookups.
 - `lib/game/events.ts` + `game/timeline/EventText.tsx`: DRAGON_SOUL_GIVEN with teamId 0 means
   the map became an elemental Rift and has no side. TeamId 100/200 means that side claimed the Soul.

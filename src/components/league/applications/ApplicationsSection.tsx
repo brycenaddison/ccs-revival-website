@@ -39,19 +39,13 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, RefreshCw, Rocket, X } from "lucide-react";
 import { PlayerLink } from "../../profile/PlayerLink";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
+import { LABEL_CLASS } from "../../stats/FilterBar";
 import {
-  ACTION,
-  ACTION_PRIMARY,
-  ACTION_QUIET,
-  ACTION_SM_DANGER,
-  ACTION_SM_PRIMARY,
   ErrorLine,
-  Pill,
 } from "../../admin/adminUi";
 import { MarkdownEditor } from "../../content/MarkdownEditor";
 import { SettingsRow } from "../../settings/SettingsSection";
-import { Toast } from "../../Toast";
+import { toast } from "sonner";
 import { TeamLink } from "../TeamLink";
 import {
   ApplicationDetailsBlock,
@@ -78,6 +72,10 @@ import {
   type PublicationResult,
   type TeamApplication,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 
 /**
  * Display order for the status groups, and it is a worklist order rather than the lifecycle order.
@@ -98,7 +96,6 @@ export function ApplicationsSection() {
   // deliberately just data, so a section that needed the conf passed in would force the shell to
   // thread props through it. Every other league section reads it the same way.
   const { conf = "" } = useParams();
-  const [saved, setSaved] = useState<string | null>(null);
   const { isSiteAdmin, leagues } = useAdminAccess();
 
   const { data, isPending, error } = useQuery(queries.applicationQueue(conf));
@@ -116,9 +113,9 @@ export function ApplicationsSection() {
 
       {canEditInfo && <RulebookWarning conf={conf} />}
 
-      <SeasonPanel conf={conf} applications={applications} onSaved={setSaved} />
+      <SeasonPanel conf={conf} applications={applications} onSaved={toast.success} />
 
-      {canEditInfo && <ApplicationCopy conf={conf} onSaved={setSaved} />}
+      {canEditInfo && <ApplicationCopy conf={conf} onSaved={toast.success} />}
 
       {applications.length === 0 ? (
         <p className="text-text-dim">
@@ -144,7 +141,7 @@ export function ApplicationsSection() {
                     key={application.id}
                     conf={conf}
                     application={application}
-                    onSaved={setSaved}
+                    onSaved={toast.success}
                   />
                 ))}
               </div>
@@ -152,8 +149,6 @@ export function ApplicationsSection() {
           );
         })
       )}
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
 }
@@ -299,18 +294,18 @@ function ApplicationCopyPanel({
       </SettingsRow>
       <ErrorLine message={save.isError ? errorMessage(save.error) : null} />
       <div className="flex items-center gap-2">
-        <button type="submit" className={ACTION_PRIMARY} disabled={!dirty || save.isPending}>
+        <Button type="submit" disabled={!dirty || save.isPending}>
           {save.isPending ? "Saving…" : dirty ? "Save notes" : "Saved"}
-        </button>
+        </Button>
         {dirty && (
-          <button
+          <Button
+            variant="outline"
             type="button"
-            className={ACTION}
             disabled={save.isPending}
             onClick={() => { setText(stored); setEditorReset(value => value + 1); }}
           >
             Reset
-          </button>
+          </Button>
         )}
       </div>
     </form>
@@ -405,7 +400,7 @@ function SeasonPanel({ conf, applications, onSaved }: SeasonProps) {
               : "Closed. Nothing new arrives until intake is opened, so what is in the queue is the field unless it is reopened."
         }
       >
-        <Pill muted={!open}>{open ? "Open" : "Closed"}</Pill>
+        <Badge variant={!open ? "muted" : "default"}>{open ? "Open" : "Closed"}</Badge>
       </SettingsRow>
 
       <SettingsRow
@@ -413,15 +408,15 @@ function SeasonPanel({ conf, applications, onSaved }: SeasonProps) {
         hint="Creates a team entry for everything approved right now. Run it again as more are approved."
       >
         <div className="flex flex-wrap items-center gap-3">
-          <button
+          <Button
+            size="sm"
             type="button"
             disabled={publish.isPending || blocked !== null}
             onClick={() => publish.mutate()}
-            className={ACTION_SM_PRIMARY}
           >
             <Rocket size={14} aria-hidden="true" />
             {publish.isPending ? "Publishing…" : "Publish approved teams"}
-          </button>
+          </Button>
           {blocked && <span className="text-text-dim text-xs">{blocked}</span>}
         </div>
       </SettingsRow>
@@ -435,7 +430,7 @@ function SeasonPanel({ conf, applications, onSaved }: SeasonProps) {
         }
       >
         <div className="flex flex-wrap items-center gap-3">
-          <Pill muted={!listed}>{listed ? "Listed" : "Hidden"}</Pill>
+          <Badge variant={!listed ? "muted" : "default"}>{listed ? "Listed" : "Hidden"}</Badge>
           {season?.teamsPublishedAt && (
             <span className="text-text-dim text-xs">
               Teams first published {fmtDay(season.teamsPublishedAt)}
@@ -585,15 +580,15 @@ function ApplicationCard({ conf, application, onSaved }: CardProps) {
 
         {application.status === "approved" && (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-            <button
+            <Button
+              size="sm"
               type="button"
               disabled={publish.isPending}
               onClick={() => publish.mutate()}
-              className={ACTION_SM_PRIMARY}
             >
               <Rocket size={14} aria-hidden="true" />
               {publish.isPending ? "Publishing…" : "Publish this team"}
-            </button>
+            </Button>
             <span className="text-text-dim text-xs">
               Creates the team row. The season stays private.
             </span>
@@ -617,36 +612,35 @@ function ApplicationCard({ conf, application, onSaved }: CardProps) {
 
         {application.status === "submitted" && (
           <div className="mt-4 border-t border-border pt-3">
-            <label className={LABEL_CLASS} htmlFor={`decision-${application.id}`}>
+            <Label className="mb-1" htmlFor={`decision-${application.id}`}>
               Response to the applicant (optional)
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               id={`decision-${application.id}`}
               value={message}
               onChange={e => setMessage(e.target.value)}
               maxLength={APPLICATION_MESSAGE_MAX}
               rows={2}
-              className={CONTROL_CLASS}
             />
             <div className="mt-2 flex gap-2">
-              <button
+              <Button
+                size="sm"
                 type="button"
                 disabled={review.isPending}
                 onClick={() => review.mutate("approved")}
-                className={ACTION_SM_PRIMARY}
               >
                 <Check size={14} aria-hidden="true" />
                 Approve
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="destructive" size="sm"
                 type="button"
                 disabled={review.isPending}
                 onClick={() => review.mutate("rejected")}
-                className={ACTION_SM_DANGER}
               >
                 <X size={14} aria-hidden="true" />
                 Reject
-              </button>
+              </Button>
             </div>
             <ErrorLine message={refusal ? refusal.message : review.isError ? errorMessage(review.error) : null} />
           </div>
@@ -684,15 +678,15 @@ function MemberList({
         <span className={LABEL_CLASS}>Roster</span>
         {/* Ranks are read from a cache, never fetched on load — a queue of a dozen rosters would
             otherwise spend the shared Riot key on a page view. */}
-        <button type="button" onClick={onRefresh} disabled={refreshing} className={ACTION_QUIET}>
+        <Button variant="quiet" size="inline" type="button" onClick={onRefresh} disabled={refreshing}>
           <RefreshCw size={13} aria-hidden="true" />
           {refreshing ? "Checking…" : "Refresh ranks"}
-        </button>
+        </Button>
       </div>
       <ul className="flex flex-col gap-1">
         {members.map(member => (
           <li key={member.id} className="flex flex-wrap items-center gap-2 text-sm">
-            <Pill muted={member.status !== "accepted"}>{member.status}</Pill>
+            <Badge variant={member.status !== "accepted" ? "muted" : "default"}>{member.status}</Badge>
             <PlayerLink profileId={member.profileId} className="text-brand hover:underline">
               {member.name ?? `profile ${member.profileId}`}
             </PlayerLink>

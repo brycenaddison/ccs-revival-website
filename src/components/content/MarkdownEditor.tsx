@@ -3,18 +3,18 @@ import { ArrowLeft, GripHorizontal, Maximize2 } from "lucide-react";
 import type { EditorState } from "@codemirror/state";
 import { Markdown, type TypesetPreset } from "../Markdown";
 import { UPLOAD_LIMIT_TEXT, useImagePicker } from "../ImageUpload";
-import { CONTROL_CLASS } from "../stats/FilterBar";
-import { ACTION, ACTION_PRIMARY } from "../admin/adminUi";
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "../ui/dialog";
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { TooltipProvider } from "../ui/tooltip";
-import { TOOLBAR_BUTTON } from "../ui/toolbar";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { TOOLBAR_BUTTON } from "@/components/ui/toolbar";
 import { commandById, type CommandId } from "./markdown/commands";
 import { MarkdownToolbar } from "./markdown/MarkdownToolbar";
 import { MarkdownContextMenu } from "./markdown/MarkdownContextMenu";
 import { TableSizePicker } from "./markdown/TableSizePicker";
 import { useEditorSize } from "./markdown/useEditorSize";
 import { useMarkdownSession, type MarkdownSession } from "./markdown/useMarkdownSession";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface Props {
   value: string;
@@ -156,12 +156,12 @@ function Workspace({ session, state, value, preset, label, fullscreen, mode, set
           }} />}
           {link && <div className="space-y-3">
             <label htmlFor={`${linkId}-text`} className="block text-xs text-text-secondary">Link text</label>
-            <input id={`${linkId}-text`} className={CONTROL_CLASS} value={link.text} onChange={event => setInsertion({ ...link, text: event.target.value })} />
+            <Input id={`${linkId}-text`} value={link.text} onChange={event => setInsertion({ ...link, text: event.target.value })} />
             <label htmlFor={`${linkId}-url`} className="block text-xs text-text-secondary">URL or relative path</label>
-            <input id={`${linkId}-url`} className={CONTROL_CLASS} inputMode="url" placeholder="https://… or /news" value={link.url} onChange={event => setInsertion({ ...link, url: event.target.value })} />
+            <Input id={`${linkId}-url`} inputMode="url" placeholder="https://… or /news" value={link.url} onChange={event => setInsertion({ ...link, url: event.target.value })} />
             <div className="flex gap-2">
-              <button type="button" className={ACTION_PRIMARY} disabled={!link.url.trim()} onClick={applyLink}>Insert link</button>
-              <button type="button" className={ACTION} onClick={closeInsertion}>Cancel</button>
+              <Button type="button" disabled={!link.url.trim()} onClick={applyLink}>Insert link</Button>
+              <Button variant="outline" type="button" onClick={closeInsertion}>Cancel</Button>
             </div>
           </div>}
         </PopoverContent>

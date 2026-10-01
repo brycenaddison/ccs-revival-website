@@ -17,7 +17,7 @@ import { TeamLink } from "../league/TeamLink";
 import { PlayerIdentity } from "../players/PlayerIdentity";
 import { PlayerLink } from "../profile/PlayerLink";
 import { TeamLogo } from "../profile/profileUi";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { CommandLinkItem } from "./CommandLinkItem";
 
 const SHORTCUT_GROUPS = ["Pages", "Your Pages", "Admin"] as const;

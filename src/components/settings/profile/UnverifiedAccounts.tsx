@@ -43,11 +43,13 @@ import { useAuth } from "../../../lib/authContext";
 import { queryRoots } from "../../../lib/queries";
 import { splitRiotId } from "../../../lib/riotId";
 import { fmtDay } from "../../../lib/utils";
-import { ACTION_SM, ACTION_SM_PRIMARY, ErrorLine } from "../../admin/adminUi";
+import { ErrorLine } from "../../admin/adminUi";
 import { UnverifiedAccountRow } from "../../profile/RiotAccountCards";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { IconVerification, verifiedText } from "./IconVerification";
 import { OpggImport } from "./OpggImport";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface Props {
   accounts: readonly UnverifiedAccount[];
@@ -176,7 +178,8 @@ export function UnverifiedAccounts({ accounts, canVerify }: Props) {
                       </span>
                     )}
                     {canVerify && (
-                      <button
+                      <Button
+                        size="sm"
                         type="button"
                         onClick={() =>
                           verifying === account.claimId
@@ -184,24 +187,23 @@ export function UnverifiedAccounts({ accounts, canVerify }: Props) {
                             : start.mutate(account.claimId)
                         }
                         disabled={start.isPending}
-                        className={ACTION_SM_PRIMARY}
                         aria-expanded={verifying === account.claimId}
                       >
                         <ShieldCheck size={13} aria-hidden="true" />
                         {start.isPending && start.variables === account.claimId
                           ? "Picking an icon…"
                           : "Verify"}
-                      </button>
+                      </Button>
                     )}
-                    <button
+                    <Button
+                      variant="outline" size="sm"
                       type="button"
                       onClick={() => remove.mutate(account.claimId)}
                       disabled={remove.isPending && remove.variables === account.claimId}
-                      className={ACTION_SM}
                       aria-label={`Remove ${account.riotId ?? "this account"}`}
                     >
                       <Trash2 size={13} aria-hidden="true" />
-                    </button>
+                    </Button>
                   </>
                 }
               />
@@ -233,10 +235,10 @@ export function UnverifiedAccounts({ accounts, canVerify }: Props) {
 
       <form onSubmit={submit} className="mt-4 flex flex-wrap items-end gap-2" noValidate>
         <div className="min-w-[180px] flex-1">
-          <label htmlFor="riot-game-name" className={LABEL_CLASS}>
+          <Label htmlFor="riot-game-name" className="mb-1">
             Riot ID
-          </label>
-          <input
+          </Label>
+          <Input
             id="riot-game-name"
             value={name}
             onChange={event => setName(event.target.value)}
@@ -246,15 +248,14 @@ export function UnverifiedAccounts({ accounts, canVerify }: Props) {
             maxLength={RIOT_GAME_NAME_MAX + RIOT_TAG_LINE_MAX + 1}
             autoComplete="off"
             disabled={full}
-            className={CONTROL_CLASS}
             aria-invalid={incomplete}
           />
         </div>
         <div className="w-24">
-          <label htmlFor="riot-tag-line" className={LABEL_CLASS}>
+          <Label htmlFor="riot-tag-line" className="mb-1">
             Tag
-          </label>
-          <input
+          </Label>
+          <Input
             id="riot-tag-line"
             value={tag}
             onChange={event => setTag(event.target.value)}
@@ -262,14 +263,13 @@ export function UnverifiedAccounts({ accounts, canVerify }: Props) {
             maxLength={RIOT_TAG_LINE_MAX + 1}
             autoComplete="off"
             disabled={full}
-            className={CONTROL_CLASS}
             aria-invalid={incomplete}
           />
         </div>
-        <button type="submit" disabled={add.isPending || full} className={ACTION_SM_PRIMARY}>
+        <Button size="sm" type="submit" disabled={add.isPending || full}>
           <Plus size={13} aria-hidden="true" />
           {add.isPending ? "Adding…" : "Add account"}
-        </button>
+        </Button>
       </form>
 
       <p className="mt-2 text-xs text-text-dim">

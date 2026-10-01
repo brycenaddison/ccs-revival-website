@@ -19,10 +19,10 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck, ListChecks } from "lucide-react";
 import { PillTabs } from "../../PillTabs";
-import { Toast } from "../../Toast";
-import { ErrorLine, Pill } from "../../admin/adminUi";
+import { toast } from "sonner";
+import { ErrorLine } from "../../admin/adminUi";
 import { relativeInstant } from "../../predictions/PredictionUi";
-import { Button } from "../../ui/button";
+import { Button } from "@/components/ui/button";
 import { EventsPanel } from "./EventsPanel";
 import { PublishPanel } from "./PublishPanel";
 import { WeekNavigator } from "./WeekNavigator";
@@ -31,6 +31,7 @@ import { useAuth } from "../../../lib/authContext";
 import { errorMessage, hasScope, reconcilePredictions, type PredictionManage } from "../../../lib/api";
 import { currentPredictionWeek } from "../../../lib/predictionWeek";
 import { queries, queryRoots } from "../../../lib/queries";
+import { Badge } from "@/components/ui/badge";
 
 type Tab = "publish" | "events";
 
@@ -40,9 +41,8 @@ export function PredictionsSection() {
   const { leagues, isSiteAdmin } = useAdminAccess();
   const canManageEvents = isSiteAdmin || hasScope(leagues.find(league => league.conf === conf), "admin");
   const qc = useQueryClient();
-  const [chosenWeek, setChosenWeek] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("publish");
-  const [toast, setToast] = useState<string | null>(null);
+  const [chosenWeek, setChosenWeek] = useState<string | null>(null);
 
   const calendar = useQuery(queries.predictionSiteCalendar());
   const thisWeek = calendar.data ? currentPredictionWeek(calendar.data.serverNow, calendar.data.siteTimeZone) : "";
@@ -53,7 +53,7 @@ export function PredictionsSection() {
     mutationFn: () => reconcilePredictions(conf),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: queryRoots.predictions });
-      setToast("Processing retried.");
+      toast.success("Processing retried.");
     },
   });
 
@@ -81,6 +81,7 @@ export function PredictionsSection() {
       />
 
       <PillTabs
+        label="Predictions view"
         tabs={[
           { key: "publish", label: "Publish", icon: CalendarCheck },
           { key: "events", label: data ? `Events (${data.events.length})` : "Events", icon: ListChecks },
@@ -93,10 +94,8 @@ export function PredictionsSection() {
         : manage.error ? <ErrorLine message={errorMessage(manage.error)} />
         : !data ? null
         : tab === "publish"
-          ? <PublishPanel key={`${conf}-${data.weekStart}`} conf={conf} manage={data} onPublished={setToast} />
-          : <EventsPanel key={`${conf}-${data.weekStart}`} conf={conf} manage={data} canAct={canManageEvents} onDone={setToast} />}
-
-      <Toast message={toast} onClose={() => setToast(null)} />
+          ? <PublishPanel key={`${conf}-${data.weekStart}`} conf={conf} manage={data} onPublished={toast.success} />
+          : <EventsPanel key={`${conf}-${data.weekStart}`} conf={conf} manage={data} canAct={canManageEvents} onDone={toast.success} />}
     </div>
   );
 }
@@ -123,8 +122,8 @@ function StatusStrip({ manage, siteAdmin, retrying, onRetry }: {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Pill muted={!on}>{on ? "Predictions on" : "Predictions off"}</Pill>
-          {counts.map(([count, one, many]) => count ? <Pill key={many} muted>{count} {count === 1 ? one : many}</Pill> : null)}
+          <Badge variant={!on ? "muted" : "default"}>{on ? "Predictions on" : "Predictions off"}</Badge>
+          {counts.map(([count, one, many]) => count ? <Badge key={many} variant="muted">{count} {count === 1 ? one : many}</Badge> : null)}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-heading text-xs text-text-secondary">

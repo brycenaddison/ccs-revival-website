@@ -14,16 +14,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Plus, Search, Trash2 } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
-import { Toast } from "../Toast";
+import { LABEL_CLASS } from "../stats/FilterBar";
+import { toast } from "sonner";
 import { PlayerLink } from "../profile/PlayerLink";
+import { PlayerAvatar } from "../players/PlayerIdentity";
 import {
-  ACTION,
-  ACTION_SM,
-  ACTION_SM_DANGER,
-  ACTION_SM_PRIMARY,
   ErrorLine,
-  Pill,
   stateNote,
 } from "./adminUi";
 import { useDebounced } from "../../hooks/useDebounced";
@@ -42,6 +38,12 @@ import {
   type LeagueGrant,
   type LeagueScope,
 } from "../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 /** Small enough that the pager is rarely needed, large enough that a name search lands in one page. */
 const PAGE_SIZE = 25;
@@ -65,21 +67,21 @@ export function RolesSection() {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <label className={LABEL_CLASS} htmlFor="admin-user-search">
+        <Label className="mb-1" htmlFor="admin-user-search">
           Find someone
-        </label>
+        </Label>
         <div className="relative">
           <Search
             size={15}
             aria-hidden="true"
             className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim pointer-events-none"
           />
-          <input
+          <Input
             id="admin-user-search"
             value={term}
             onChange={e => setTerm(e.target.value)}
             placeholder="Name, Discord handle, or paste a Discord ID"
-            className={`${CONTROL_CLASS} pl-9`}
+            className="pl-9"
           />
         </div>
         <p className="text-text-dim text-xs mt-1.5">
@@ -146,7 +148,7 @@ function UserRow({
       }`}
     >
       {/* Never null upstream: with no hash it resolves to the Discord default for the snowflake. */}
-      <img src={user.avatar} alt="" className="w-8 h-8 rounded-full shrink-0" />
+      <PlayerAvatar src={user.avatar} size="medium" />
       <span className="min-w-0 flex-1">
         <span className="block text-text-bright text-sm truncate">
           {user.name ?? `Profile ${user.profileId}`}
@@ -157,12 +159,12 @@ function UserRow({
       </span>
       <span className="flex flex-wrap justify-end gap-1 shrink-0 max-w-[45%]">
         {user.roles.map(role => (
-          <Pill key={role}>{role}</Pill>
+          <Badge key={role}>{role}</Badge>
         ))}
         {confsOf(user.leagues).map(conf => (
-          <Pill key={conf} muted>
+          <Badge key={conf} variant="muted">
             {conf}
-          </Pill>
+          </Badge>
         ))}
       </span>
     </button>
@@ -188,24 +190,24 @@ function Pager({
         {offset + 1}–{offset + shown} of {total}
       </span>
       <span className="flex gap-2">
-        <button
+        <Button
+          variant="outline"
           type="button"
           disabled={offset === 0}
           onClick={() => onOffset(Math.max(0, offset - PAGE_SIZE))}
-          className={ACTION}
         >
           <ChevronLeft size={15} aria-hidden="true" />
           Prev
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline"
           type="button"
           disabled={offset + shown >= total}
           onClick={() => onOffset(offset + PAGE_SIZE)}
-          className={ACTION}
         >
           Next
           <ChevronRight size={15} aria-hidden="true" />
-        </button>
+        </Button>
       </span>
     </div>
   );
@@ -232,7 +234,6 @@ function byConf(grants: LeagueGrant[]): { conf: string; name: string; scopes: Le
 function UserDetail({ user }: { user: DirectoryUser }) {
   const qc = useQueryClient();
   const leagues = useQuery(queries.adminLeagues());
-  const [notice, setNotice] = useState<string | null>(null);
   const [addConf, setAddConf] = useState("");
   const [addScopes, setAddScopes] = useState<LeagueScope[]>([]);
 
@@ -258,7 +259,7 @@ function UserDetail({ user }: { user: DirectoryUser }) {
   // pre-write state for a frame.
   const done = async (message: string) => {
     await qc.invalidateQueries({ queryKey: queryRoots.adminUsers });
-    setNotice(message);
+    toast.success(message);
   };
 
   const save = useMutation({
@@ -284,7 +285,7 @@ function UserDetail({ user }: { user: DirectoryUser }) {
   return (
     <div>
       <div className="flex items-center gap-3 mb-5">
-        <img src={user.avatar} alt="" className="w-12 h-12 rounded-full shrink-0" />
+        <PlayerAvatar src={user.avatar} size="large" />
         <div className="min-w-0">
           <h3 className="font-display text-lg text-text-bright truncate">
             <PlayerLink profileId={user.profileId} className="text-text-bright no-underline hover:text-brand">{user.name ?? `Profile ${user.profileId}`}</PlayerLink>
@@ -307,7 +308,7 @@ function UserDetail({ user }: { user: DirectoryUser }) {
         onSave={roles => saveSiteRoles.mutate(roles)}
       />
 
-      <label className={LABEL_CLASS}>League grants</label>
+      <h3 className={LABEL_CLASS}>League grants</h3>
       {grants.length === 0 ? (
         <p className="text-text-dim text-sm mb-4">No leagues yet.</p>
       ) : (
@@ -330,34 +331,34 @@ function UserDetail({ user }: { user: DirectoryUser }) {
 
       <div className="flex flex-col gap-3 bg-bg3 border border-border rounded-lg p-3">
         <div className="min-w-[200px] flex-1">
-          <label className={LABEL_CLASS} htmlFor="admin-grant-conf">
+          <Label className="mb-1" htmlFor="admin-grant-conf">
             Add a league
-          </label>
-          <select
+          </Label>
+          <NativeSelect
             id="admin-grant-conf"
             value={addConf}
             onChange={e => setAddConf(e.target.value)}
             disabled={grantable.length === 0}
-            className={CONTROL_CLASS}
           >
-            <option value="">
+            <NativeSelectOption value="">
               {leagues.isPending ? "Loading leagues…" : "Choose a league…"}
-            </option>
+            </NativeSelectOption>
             {/* The lifecycle note is what makes an unlisted season pickable *safely*: several drafts
                 can share a name with the running season, and "hidden" is the only thing on the row
                 that tells them apart. */}
             {grantable.map(t => (
-              <option key={t.conf} value={t.conf}>
+              <NativeSelectOption key={t.conf} value={t.conf}>
                 {t.name} ({t.conf}){stateNote(t)}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <div>
           <span className={LABEL_CLASS}>Scopes</span>
           <ScopePicker value={addScopes} onChange={setAddScopes} disabled={busy} />
         </div>
-        <button
+        <Button
+          size="sm"
           type="button"
           disabled={addConf === "" || addScopes.length === 0 || busy}
           onClick={() => {
@@ -365,11 +366,11 @@ function UserDetail({ user }: { user: DirectoryUser }) {
             setAddConf("");
             setAddScopes([]);
           }}
-          className={`${ACTION_SM_PRIMARY} self-start`}
+          className="self-start"
         >
           <Plus size={14} aria-hidden="true" />
           Add grant
-        </button>
+        </Button>
       </div>
       {grantable.length === 0 && tournaments.length > 0 && (
         <p className="text-text-dim text-xs mt-1.5">They already hold a grant in every league.</p>
@@ -382,8 +383,6 @@ function UserDetail({ user }: { user: DirectoryUser }) {
       )}
 
       <ErrorLine message={failure ? errorMessage(failure) : null} />
-
-      <Toast message={notice} onClose={() => setNotice(null)} />
     </div>
   );
 }
@@ -409,22 +408,20 @@ function SiteRolesEditor({
 
   return (
     <div className="mb-6">
-      <label className={LABEL_CLASS}>Site roles</label>
+      <h3 className={LABEL_CLASS}>Site roles</h3>
       <div className="bg-bg3 border border-border rounded-lg p-3">
         {locked.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
-            {locked.map(role => <Pill key={role}>{role}</Pill>)}
+            {locked.map(role => <Badge key={role}>{role}</Badge>)}
           </div>
         )}
         <div className="flex flex-col gap-2 mb-3">
           {ASSIGNABLE_SITE_ROLES.map(role => (
             <label key={role} className="flex items-center gap-2 text-sm text-text cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={draft.includes(role)}
                 disabled={busy}
-                onChange={() => toggle(role)}
-                className="accent-brand w-4 h-4 cursor-pointer"
+                onCheckedChange={() => toggle(role)}
               />
               <span>
                 <span className="text-text-bright">{role}</span>
@@ -440,18 +437,18 @@ function SiteRolesEditor({
           roles above and preserves any existing admin role.
         </p>
         <div className="flex gap-2">
-          <button
+          <Button
+            size="sm"
             type="button"
             disabled={!dirty || busy}
             onClick={() => onSave(draft)}
-            className={ACTION_SM_PRIMARY}
           >
             {dirty ? "Save roles" : "Saved"}
-          </button>
+          </Button>
           {dirty && (
-            <button type="button" disabled={busy} onClick={() => setDraft(held)} className={ACTION_SM}>
+            <Button variant="outline" size="sm" type="button" disabled={busy} onClick={() => setDraft(held)}>
               Reset
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -503,12 +500,10 @@ function ScopePicker({
               disabled ? "cursor-not-allowed" : "cursor-pointer"
             } ${scope !== LEAGUE_ADMIN_SCOPE && impliedByAdmin ? "text-text-dim" : "text-text"}`}
           >
-            <input
-              type="checkbox"
+            <Checkbox
               checked={value.includes(scope)}
               disabled={disabled}
-              onChange={() => toggle(scope)}
-              className="accent-brand w-4 h-4 cursor-pointer"
+              onCheckedChange={() => toggle(scope)}
             />
             {scope}
           </label>
@@ -555,23 +550,23 @@ function GrantRow({
       </div>
 
       <div className="flex gap-2">
-        <button
+        <Button
+          size="sm"
           type="button"
           disabled={!dirty || busy}
           onClick={() => onSave(draft)}
-          className={ACTION_SM_PRIMARY}
         >
           {dirty ? "Save scopes" : "Saved"}
-        </button>
+        </Button>
         {dirty && (
-          <button type="button" disabled={busy} onClick={() => setDraft(held)} className={ACTION_SM}>
+          <Button variant="outline" size="sm" type="button" disabled={busy} onClick={() => setDraft(held)}>
             Reset
-          </button>
+          </Button>
         )}
-        <button type="button" disabled={busy} onClick={onRevoke} className={ACTION_SM_DANGER}>
+        <Button variant="destructive" size="sm" type="button" disabled={busy} onClick={onRevoke}>
           <Trash2 size={14} aria-hidden="true" />
           Revoke
-        </button>
+        </Button>
       </div>
     </div>
   );

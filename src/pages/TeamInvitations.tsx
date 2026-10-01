@@ -25,11 +25,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
-import { ACTION_SM, ACTION_SM_PRIMARY, ErrorLine } from "../components/admin/adminUi";
+import { ErrorLine } from "../components/admin/adminUi";
 import { LABEL_CLASS } from "../components/stats/FilterBar";
 import { PlayerLink } from "../components/profile/PlayerLink";
 import { TeamStyleHeader } from "../components/TeamBadge";
-import { Toast } from "../components/Toast";
+import { toast } from "sonner";
 import {
   ApplicationStatusPill,
   InvitationStatusPill,
@@ -40,6 +40,7 @@ import { teamGradientForInts } from "../lib/teamStyle";
 import { fmtKickoff } from "../lib/utils";
 import { errorMessage, respondToInvitation, type TeamInvitation } from "../lib/api";
 import { useAuth } from "../lib/authContext";
+import { Button } from "@/components/ui/button";
 
 export default function TeamInvitations() {
   return (
@@ -58,7 +59,6 @@ export default function TeamInvitations() {
 }
 
 function Inbox() {
-  const [saved, setSaved] = useState<string | null>(null);
   const { profile } = useAuth();
   const profileId = profile?.id ?? null;
   const { data, isPending, error } = useQuery({
@@ -103,7 +103,7 @@ function Inbox() {
           <span className={LABEL_CLASS}>Waiting on you</span>
           <div className="flex flex-col gap-3">
             {waiting.map(invitation => (
-              <InvitationCard key={invitation.id} invitation={invitation} onSaved={setSaved} />
+              <InvitationCard key={invitation.id} invitation={invitation} onSaved={toast.success} />
             ))}
           </div>
         </section>
@@ -114,13 +114,11 @@ function Inbox() {
           <span className={LABEL_CLASS}>Already answered</span>
           <div className="flex flex-col gap-3">
             {answered.map(invitation => (
-              <InvitationCard key={invitation.id} invitation={invitation} onSaved={setSaved} />
+              <InvitationCard key={invitation.id} invitation={invitation} onSaved={toast.success} />
             ))}
           </div>
         </section>
       )}
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
 }
@@ -206,24 +204,24 @@ function InvitationCard({
 
         {pending && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
+            <Button
+              size="sm"
               type="button"
               disabled={respond.isPending}
               onClick={() => respond.mutate("accepted")}
-              className={ACTION_SM_PRIMARY}
             >
               <Check size={14} aria-hidden="true" />
               Accept
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline" size="sm"
               type="button"
               disabled={respond.isPending}
               onClick={() => respond.mutate("declined")}
-              className={ACTION_SM}
             >
               <X size={14} aria-hidden="true" />
               Decline
-            </button>
+            </Button>
             {locked && application && (
               <span className="text-xs text-text-dim">
                 This team is already with the league staff.

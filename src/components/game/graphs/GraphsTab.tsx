@@ -23,8 +23,10 @@ import { SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Bar } from "react-chartjs-2";
 import { useThemeColors, withAlpha } from "../../../hooks/useThemeColors";
-import { Button } from "../../ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../../ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useGameView } from "../GameView";
 import { DataSelector, DEFAULT_STAT_KEY, statByKey } from "./DataSelector";
 
@@ -96,10 +98,15 @@ export default function GraphsTab() {
   const picker = <DataSelector selected={selected} onChange={setSelected} />;
 
   return (
-    // The chart has a fixed height and the picker scrolls inside the same height, so twenty checkboxes
-    // never stretch the card and the chart never floats above empty space.
+    // The chart has a fixed height and the picker scrolls inside the chart card's height, so twenty
+    // checkboxes never stretch the row and the chart never floats above empty space. Left, the same
+    // side as the Timeline tab's map.
     <div className="flex items-start gap-4">
-      <aside className="hidden w-64 shrink-0 overflow-y-auto rounded-lg border border-border bg-bg2 p-4 md:block">{picker}</aside>
+      <Card className="hidden w-64 shrink-0 gap-0 py-0 md:flex" aria-label="Stats" role="region">
+        <ScrollArea className="max-h-[436px] [&>[data-slot=scroll-area-viewport]]:max-h-[inherit]">
+          <div className="p-4">{picker}</div>
+        </ScrollArea>
+      </Card>
 
       <div className="flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-bg2 p-4">
         <div className="mb-3 flex flex-wrap items-center gap-2">

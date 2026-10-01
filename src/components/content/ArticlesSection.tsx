@@ -12,13 +12,19 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FilePlus2, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 import { queries } from "../../lib/queries";
 import { errorMessage, type ArticleRecord } from "../../lib/api";
 import { timeAgo } from "../../lib/utils";
-import { Toast } from "../Toast";
-import { ACTION_QUIET, BackButton, Pill } from "../admin/adminUi";
+import { BackButton } from "../admin/adminUi";
 import { LABEL_CLASS } from "../stats/FilterBar";
 import { ArticleEditor } from "./ArticleEditor";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Spinner } from "@/components/ui/spinner";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 type Status = "all" | "published" | "draft";
 
@@ -34,7 +40,6 @@ type Selection = { article: ArticleRecord | null } | null;
 export function ArticlesSection() {
   const [status, setStatus] = useState<Status>("all");
   const [selected, setSelected] = useState<Selection>(null);
-  const [toast, setToast] = useState<string | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const isEditing = selected !== null;
@@ -55,8 +60,6 @@ export function ArticlesSection() {
   if (selected !== null) {
     return (
       <div>
-        {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-
         <div ref={headerRef} className="flex flex-wrap items-center gap-3 mb-4">
           <BackButton onClick={() => setSelected(null)}>Back to articles</BackButton>
           <h3 ref={headingRef} tabIndex={-1} className="font-display text-lg text-text-bright">
@@ -69,13 +72,13 @@ export function ArticlesSection() {
           key={selected.article === null ? "new" : `edit:${selected.article.slug}`}
           article={selected.article}
           onSaved={(message, article) => {
-            setToast(message);
+            toast.success(message);
             // Use the saved record even if its new status removes it from the filtered list.
             // A save that finishes after Back must not reopen an abandoned editor.
             setSelected(current => (current === selected ? { article } : current));
           }}
           onDeleted={message => {
-            setToast(message);
+            toast.success(message);
             setSelected(current => (current === selected ? null : current));
           }}
           onCancel={() => setSelected(null)}
@@ -86,50 +89,52 @@ export function ArticlesSection() {
 
   return (
     <div>
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-
       <div ref={headerRef} className="flex items-center justify-between mb-3">
         <h3 ref={headingRef} tabIndex={-1} className={LABEL_CLASS}>
           Articles
         </h3>
-        <button
+        <Button
           type="button"
-          className={ACTION_QUIET}
+          variant="quiet"
+          size="inline"
           onClick={() => setSelected({ article: null })}
         >
-          <FilePlus2 size={12} />
+          <FilePlus2 size={12} aria-hidden="true" />
           New article
-        </button>
+        </Button>
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="xs"
+        spacing={2}
+        value={status}
+        onValueChange={next => next && setStatus(next as Status)}
+        aria-label="Filter articles"
+        className="mb-4"
+      >
         {STATUSES.map(s => (
-          <button
-            key={s.value}
-            type="button"
-            onClick={() => setStatus(s.value)}
-            aria-pressed={status === s.value}
-            className={`rounded-full border px-3 py-1 font-heading text-[10px] cursor-pointer ${
-              status === s.value
-                ? "border-brand text-text-bright"
-                : "border-border text-text-dim"
-            }`}
-          >
+          <ToggleGroupItem key={s.value} value={s.value} className="rounded-full text-[10px] text-text-dim data-[state=on]:text-text-bright">
             {s.label}
-          </button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
 
       {error ? (
-        <p className="text-ccs-red text-sm" role="alert">
-          {errorMessage(error)}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{errorMessage(error)}</AlertDescription>
+        </Alert>
       ) : isPending ? (
-        <p className="text-text-subtle text-sm py-6 text-center">Loading...</p>
+        <div className="flex justify-center py-6">
+          <Spinner aria-label="Loading articles" />
+        </div>
       ) : articles.length === 0 ? (
-        <p className="text-text-dim text-sm py-6 text-center">
-          {status === "draft" ? "No drafts." : "Nothing here yet."}
-        </p>
+        <Empty className="p-6 md:p-6">
+          <EmptyHeader>
+            <EmptyTitle>{status === "draft" ? "No drafts." : "Nothing here yet."}</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="border border-border rounded-lg overflow-hidden mb-6">
           {articles.map((a, i) => (
@@ -155,7 +160,7 @@ export function ArticlesSection() {
                   <span>· edited {timeAgo(a.updatedAt)}</span>
                 </div>
               </div>
-              <Pill muted={!a.isPublished}>{a.isPublished ? "Live" : "Draft"}</Pill>
+              <Badge variant={!a.isPublished ? "muted" : "default"}>{a.isPublished ? "Live" : "Draft"}</Badge>
             </button>
           ))}
         </div>

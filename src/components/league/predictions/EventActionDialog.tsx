@@ -10,8 +10,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FormDialog } from "../../FormDialog";
 import { ErrorLine } from "../../admin/adminUi";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
-import { Button } from "../../ui/button";
+import { Button } from "@/components/ui/button";
 import {
   ApiError,
   errorMessage,
@@ -21,6 +20,8 @@ import {
   type PredictionEventAction,
 } from "../../../lib/api";
 import { queryRoots } from "../../../lib/queries";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 export const ACTION_COPY: Record<PredictionEventAction, { label: string; title: string; effect: string; done: string }> = {
   lock: {
@@ -94,10 +95,10 @@ export function EventActionDialog({ conf, event, action, onClose, onDone }: {
         </>
       }
     >
-      <label htmlFor="prediction-action-reason" className={LABEL_CLASS}>Reason</label>
-      <textarea
+      <Label htmlFor="prediction-action-reason" className="mb-1">Reason</Label>
+      <Textarea
         id="prediction-action-reason"
-        className={`${CONTROL_CLASS} min-h-20`}
+        className="min-h-20"
         maxLength={PREDICTION_REASON_MAX}
         value={reason}
         disabled={requestId !== null}

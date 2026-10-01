@@ -6,7 +6,7 @@
  */
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import type { CursorPages } from "../hooks/useCursorPage";
 
 export function CursorPager({ pages, nextCursor }: { pages: CursorPages; nextCursor: string | null }) {

@@ -23,18 +23,18 @@ import {
   type LeagueInfoInput,
 } from "../../../lib/api";
 import { queries, queryRoots } from "../../../lib/queries";
-import { Toast } from "../../Toast";
+import { toast } from "sonner";
 import {
-  ACTION,
-  ACTION_PRIMARY,
-  ACTION_QUIET,
-  ACTION_QUIET_BASE,
   ErrorLine,
-  Pill,
 } from "../../admin/adminUi";
 import { SettingsRow } from "../../settings/SettingsSection";
 import { MarkdownEditor } from "../../content/MarkdownEditor";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { LABEL_CLASS } from "../../stats/FilterBar";
+import { Label } from "@/components/ui/label";
 
 interface DraftLink extends InfoLink {
   key: number;
@@ -147,32 +147,33 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
       }}
     >
       <div className="flex items-center gap-2 mb-5">
-        <Pill muted={!isPublished}>{isPublished ? "Live" : "Draft"}</Pill>
+        <Badge variant={!isPublished ? "muted" : "default"}>{isPublished ? "Live" : "Draft"}</Badge>
         {info?.updatedAt && <span className="text-text-dim text-xs">Saved on the server</span>}
       </div>
 
       <SettingsRow label="Page title">
-        <input
-          className={CONTROL_CLASS}
-          value={title}
-          maxLength={INFO_TITLE_MAX}
-          onChange={event => setTitle(event.target.value)}
-          placeholder="League Information"
-        />
+        {field => (
+          <Input {...field}
+            value={title}
+            maxLength={INFO_TITLE_MAX}
+            onChange={event => setTitle(event.target.value)}
+            placeholder="League Information"
+          />
+        )}
       </SettingsRow>
 
       <div className="mb-6">
         <div className="flex items-center justify-between gap-3 mb-2">
-          <label className={LABEL_CLASS}>Quick links</label>
-          <button
+          <h3 className={`${LABEL_CLASS} mb-0`}>Quick links</h3>
+          <Button
+            variant="quiet" size="inline"
             type="button"
-            className={ACTION_QUIET}
             disabled={links.length >= INFO_LINK_MAX}
             onClick={addLink}
           >
             <Plus size={12} aria-hidden="true" />
             Add link
-          </button>
+          </Button>
         </div>
         {links.length === 0 ? (
           <p className="text-text-dim text-sm rounded-lg border border-dashed border-border p-4 text-center">
@@ -184,12 +185,11 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
               <div key={link.key} className="rounded-lg border border-border bg-bg3 p-3">
                 <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] gap-2 items-end">
                   <div>
-                    <label className={LABEL_CLASS} htmlFor={`info-link-label-${link.key}`}>
+                    <Label className="mb-1" htmlFor={`info-link-label-${link.key}`}>
                       Label
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       id={`info-link-label-${link.key}`}
-                      className={CONTROL_CLASS}
                       value={link.label}
                       maxLength={INFO_LINK_LABEL_MAX}
                       onChange={event => updateLink(link.key, { label: event.target.value })}
@@ -197,12 +197,11 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
                     />
                   </div>
                   <div>
-                    <label className={LABEL_CLASS} htmlFor={`info-link-url-${link.key}`}>
+                    <Label className="mb-1" htmlFor={`info-link-url-${link.key}`}>
                       URL
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       id={`info-link-url-${link.key}`}
-                      className={CONTROL_CLASS}
                       value={link.url}
                       maxLength={INFO_LINK_URL_MAX}
                       onChange={event => updateLink(link.key, { url: event.target.value })}
@@ -210,32 +209,33 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
                     />
                   </div>
                   <div className="flex items-center gap-1 pb-1">
-                    <button
+                    <Button
+                      variant="quiet" size="inline"
                       type="button"
-                      className={ACTION_QUIET}
                       disabled={index === 0}
                       onClick={() => moveLink(index, -1)}
                       aria-label={`Move ${link.label || "link"} up`}
                     >
                       <ArrowUp size={14} />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="quiet" size="inline"
                       type="button"
-                      className={ACTION_QUIET}
                       disabled={index === links.length - 1}
                       onClick={() => moveLink(index, 1)}
                       aria-label={`Move ${link.label || "link"} down`}
                     >
                       <ArrowDown size={14} />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="quiet" size="inline"
                       type="button"
-                      className={`${ACTION_QUIET_BASE} text-ccs-red hover:text-text-bright`}
+                      className="text-ccs-red hover:text-text-bright"
                       onClick={() => setLinks(previous => previous.filter(item => item.key !== link.key))}
                       aria-label={`Remove ${link.label || "link"}`}
                     >
                       <Trash2 size={14} />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -255,15 +255,15 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
         label="Rulebook link"
         hint="Required. Where this league's rules live. It shows as the first quick link on the public Info page, and the team application form points its rules confirmation straight at it — so it has to be the real document."
       >
-        <input
-          className={CONTROL_CLASS}
-          value={rulebookUrl}
-          maxLength={INFO_RULEBOOK_URL_MAX}
-          onChange={event => setRulebookUrl(event.target.value)}
-          placeholder="https://docs.google.com/document/d/… or /info"
-          inputMode="url"
-          aria-label="Rulebook link"
-        />
+        {field => (
+          <Input {...field}
+            value={rulebookUrl}
+            maxLength={INFO_RULEBOOK_URL_MAX}
+            onChange={event => setRulebookUrl(event.target.value)}
+            placeholder="https://docs.google.com/document/d/… or /info"
+            inputMode="url"
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
@@ -286,10 +286,9 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
         hint="A draft is visible only in League Admin. Publishing a new page stamps its publish time on the server."
       >
         <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={isPublished}
-            onChange={event => setIsPublished(event.target.checked)}
+            onCheckedChange={v => setIsPublished(v === true)}
           />
           Visible to everyone
         </label>
@@ -315,13 +314,13 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
       <ErrorLine message={save.error ? errorMessage(save.error) : null} />
 
       <div className="flex items-center gap-2 mt-6 pt-5 border-t border-border">
-        <button type="submit" className={ACTION_PRIMARY} disabled={!canSave || !dirty || save.isPending}>
+        <Button type="submit" disabled={!canSave || !dirty || save.isPending}>
           {save.isPending ? "Saving..." : dirty ? "Save info page" : "Saved"}
-        </button>
+        </Button>
         {dirty && info !== null && (
-          <button
+          <Button
+            variant="outline"
             type="button"
-            className={ACTION}
             disabled={save.isPending}
             onClick={() => {
               setTitle(info.title);
@@ -334,7 +333,7 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
             }}
           >
             Reset
-          </button>
+          </Button>
         )}
       </div>
     </form>
@@ -343,7 +342,6 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
 
 export function InfoSection() {
   const { conf = "" } = useParams();
-  const [toast, setToast] = useState<string | null>(null);
   const { data, isPending, error } = useQuery(queries.manageLeagueInfo(conf));
 
   if (error) return <p className="text-ccs-red text-sm" role="alert">{errorMessage(error)}</p>;
@@ -351,12 +349,11 @@ export function InfoSection() {
 
   return (
     <>
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
       <InfoEditor
         key={`${conf}:${data?.updatedAt ?? "new"}`}
         conf={conf}
         info={data ?? null}
-        onSaved={() => setToast("Saved the league Info page.")}
+        onSaved={() => toast.success("Saved the league Info page.")}
       />
     </>
   );

@@ -1,7 +1,7 @@
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useLocation } from "react-router-dom";
 import { Search, X } from "lucide-react";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { RouteErrorBoundary } from "../layout/RouteErrorBoundary";
 
 const SearchResults = lazy(() => import("./SearchResults"));

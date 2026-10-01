@@ -24,8 +24,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Import, Trash2, UserPlus } from "lucide-react";
-import { ACTION_PRIMARY, ACTION_SM, ACTION_SM_DANGER, ColorField, ErrorLine, TeamStylePreview } from "../adminUi";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
+import { ColorField, ErrorLine, TeamStylePreview } from "../adminUi";
+import { LABEL_CLASS } from "../../stats/FilterBar";
 import { SettingsRow } from "../../settings/SettingsSection";
 import { ImageUpload } from "../../ImageUpload";
 import { RolePicker } from "../../apply/InviteMember";
@@ -53,6 +53,11 @@ import {
   type TeamApplication,
   type TeamMemberRole,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { TooltipHint } from "../../TooltipHint";
 
 interface Props {
   conf: string;
@@ -175,26 +180,27 @@ export function ImportApplicationForm({ conf, onDone }: Props) {
         label="Team name"
         hint={`As it should appear in the standings. Up to ${APPLICATION_NAME_MAX} characters.`}
       >
-        <input
-          value={name}
-          onChange={e => setName(e.target.value)}
-          maxLength={APPLICATION_NAME_MAX}
-          aria-label="Team name"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Input {...field}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            maxLength={APPLICATION_NAME_MAX}
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
         label="Tag"
         hint={`Up to ${APPLICATION_CODE_MAX} characters, unique in this league.`}
       >
-        <input
-          value={code}
-          onChange={e => setCode(e.target.value)}
-          maxLength={APPLICATION_CODE_MAX}
-          aria-label="Tag"
-          className={`${CONTROL_CLASS} font-mono`}
-        />
+        {field => (
+          <Input {...field}
+            value={code}
+            onChange={e => setCode(e.target.value)}
+            maxLength={APPLICATION_CODE_MAX}
+            className="font-mono"
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow label="Logo" hint="Optional. The captain can add or replace it from their own page later.">
@@ -219,23 +225,22 @@ export function ImportApplicationForm({ conf, onDone }: Props) {
       </SettingsRow>
 
       <SettingsRow label="Organization" hint="Optional. The org behind the team, if the form named one.">
-        <input
-          value={organization}
-          onChange={e => setOrganization(e.target.value)}
-          maxLength={ORGANIZATION_NAME_MAX}
-          aria-label="Organization"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Input {...field}
+            value={organization}
+            onChange={e => setOrganization(e.target.value)}
+            maxLength={ORGANIZATION_NAME_MAX}
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow label="Twitter / X" hint="Optional. A link or a handle; a bare handle is saved as a link.">
-        <input
+        <Input
           value={twitter}
           onChange={e => setTwitter(e.target.value)}
           maxLength={TWITTER_URL_MAX}
           placeholder="@team"
           aria-label="Twitter or X account"
-          className={CONTROL_CLASS}
         />
         {twitterUrl(twitter) !== null && twitterUrl(twitter) !== twitter.trim() && (
           <p className="mt-1.5 font-mono text-xs text-text-dim">Saved as {twitterUrl(twitter)}</p>
@@ -246,28 +251,28 @@ export function ImportApplicationForm({ conf, onDone }: Props) {
         label="Experience and accomplishments"
         hint="Optional. Paste the form's answer as written; reviewers read it verbatim."
       >
-        <textarea
-          value={experience}
-          onChange={e => setExperience(e.target.value)}
-          maxLength={EXPERIENCE_MAX}
-          rows={5}
-          aria-label="Experience and accomplishments"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Textarea {...field}
+            value={experience}
+            onChange={e => setExperience(e.target.value)}
+            maxLength={EXPERIENCE_MAX}
+            rows={5}
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
         label="Applicant's note to staff"
         hint="Optional. Shown to reviewers as the applicant's own message, so keep it to what they wrote."
       >
-        <textarea
-          value={message}
-          onChange={e => setMessage(e.target.value)}
-          maxLength={APPLICATION_MESSAGE_MAX}
-          rows={3}
-          aria-label="Applicant's note to staff"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Textarea {...field}
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            maxLength={APPLICATION_MESSAGE_MAX}
+            rows={3}
+          />
+        )}
       </SettingsRow>
 
       {/* The two client-side blockers on Submit. They record what the captain confirmed on the
@@ -279,20 +284,16 @@ export function ImportApplicationForm({ conf, onDone }: Props) {
       >
         <div className="flex flex-col gap-2">
           <label className="flex cursor-pointer items-center gap-2.5 text-sm text-text">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={rulesRead}
-              onChange={e => setRulesRead(e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-brand"
+              onCheckedChange={v => setRulesRead(v === true)}
             />
             They confirmed they have read the league rules
           </label>
           <label className="flex cursor-pointer items-center gap-2.5 text-sm text-text">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={ticketOpened}
-              onChange={e => setTicketOpened(e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-brand"
+              onCheckedChange={v => setTicketOpened(v === true)}
             />
             They confirmed they opened a team-apps ticket in the Discord
           </label>
@@ -302,10 +303,10 @@ export function ImportApplicationForm({ conf, onDone }: Props) {
       <div className="mb-5">
         <div className="flex items-center justify-between gap-2">
           <span className={LABEL_CLASS}>Roster</span>
-          <button type="button" onClick={addMember} className={ACTION_SM}>
+          <Button variant="outline" size="sm" type="button" onClick={addMember}>
             <UserPlus size={13} aria-hidden="true" />
             Add a person
-          </button>
+          </Button>
         </div>
 
         {members.length === 0 ? (
@@ -319,15 +320,16 @@ export function ImportApplicationForm({ conf, onDone }: Props) {
               <li key={member.key} className="rounded-md border border-border bg-bg2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <span className="font-heading text-xs text-text-secondary">Person {index + 1}</span>
-                  <button
-                    type="button"
-                    onClick={() => setMembers(current => current.filter(m => m.key !== member.key))}
-                    title="Remove from the roster"
-                    className={ACTION_SM_DANGER}
-                  >
-                    <Trash2 size={13} aria-hidden="true" />
-                    Remove
-                  </button>
+                  <TooltipHint content="Remove from the roster">
+                    <Button
+                      variant="destructive" size="sm"
+                      type="button"
+                      onClick={() => setMembers(current => current.filter(m => m.key !== member.key))}
+                    >
+                      <Trash2 size={13} aria-hidden="true" />
+                      Remove
+                    </Button>
+                  </TooltipHint>
                 </div>
                 <div className="mt-2">
                   <PersonPicker
@@ -360,10 +362,10 @@ export function ImportApplicationForm({ conf, onDone }: Props) {
         </p>
       </div>
 
-      <button type="submit" disabled={!canSave || save.isPending} className={ACTION_PRIMARY}>
+      <Button type="submit" disabled={!canSave || save.isPending}>
         <Import size={15} aria-hidden="true" />
         {save.isPending ? "Importing…" : "Import application"}
-      </button>
+      </Button>
 
       {!save.isPending && !canSave && (
         <p className="mt-2 text-xs text-text-dim">

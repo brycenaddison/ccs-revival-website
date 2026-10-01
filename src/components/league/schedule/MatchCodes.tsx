@@ -40,14 +40,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Copy, Plus, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
+import { LABEL_CLASS } from "../../stats/FilterBar";
 import {
-  ACTION_QUIET,
-  ACTION_SM,
-  ACTION_SM_DANGER,
-  ACTION_SM_PRIMARY,
   ErrorLine,
-  Pill,
 } from "../../admin/adminUi";
 import { GameSummary, LinkedGameSummary, ResultOnlyCard } from "../../match/GameSummary";
 import { CopyAction } from "../../CopyAction";
@@ -68,6 +63,11 @@ import {
   type ScheduleMatch,
   type TeamRecord,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { TooltipHint } from "../../TooltipHint";
 
 /** Riot tournament codes are always exactly this long, with no whitespace. */
 const CODE_LENGTH = 44;
@@ -193,21 +193,22 @@ export function MatchCodes({
         <span className={LABEL_CLASS}>Tournament codes</span>
         <div className="flex flex-wrap items-center gap-4">
           {!adding && (
-            <button type="button" onClick={() => setAdding(true)} className={ACTION_QUIET}>
+            <Button variant="quiet" size="inline" type="button" onClick={() => setAdding(true)}>
               <Plus size={12} aria-hidden="true" />
               Register a code
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            onClick={() => recheck.mutate()}
-            disabled={recheck.isPending}
-            title="Asks Riot again about this match's confirmed codes and records anything now played. The recovery path for a callback that never arrived — safe to press any time."
-            className={ACTION_QUIET}
-          >
-            <RefreshCw size={12} aria-hidden="true" />
-            {recheck.isPending ? "Re-checking…" : "Re-check"}
-          </button>
+          <TooltipHint content="Asks Riot again about this match's confirmed codes and records anything now played. The recovery path for a callback that never arrived — safe to press any time.">
+            <Button
+              variant="quiet" size="inline"
+              type="button"
+              onClick={() => recheck.mutate()}
+              disabled={recheck.isPending}
+            >
+              <RefreshCw size={12} aria-hidden="true" />
+              {recheck.isPending ? "Re-checking…" : "Re-check"}
+            </Button>
+          </TooltipHint>
         </div>
       </div>
 
@@ -288,22 +289,22 @@ export function MatchCodes({
       {adding && checked === null && (
         <div className="mt-2.5 flex flex-wrap items-end gap-2">
           <div className="grow min-w-56">
-            <label className={LABEL_CLASS} htmlFor={`code-${matchId}`}>
+            <Label className="mb-1" htmlFor={`code-${matchId}`}>
               Code
-            </label>
-            <input
+            </Label>
+            <Input
               id={`code-${matchId}`}
               value={code}
               onChange={e => setCode(e.target.value)}
               placeholder="44 characters, straight from Discord"
-              className={`${CONTROL_CLASS} font-mono text-xs`}
+              className="font-mono text-xs"
             />
           </div>
           <div className="w-24">
-            <label className={LABEL_CLASS} htmlFor={`code-game-${matchId}`}>
+            <Label className="mb-1" htmlFor={`code-game-${matchId}`}>
               Game
-            </label>
-            <input
+            </Label>
+            <Input
               id={`code-game-${matchId}`}
               type="number"
               min={1}
@@ -312,27 +313,26 @@ export function MatchCodes({
               onChange={e => setGame(e.target.value)}
               placeholder="next"
               title="Leave blank to take the next free slot."
-              className={CONTROL_CLASS}
             />
           </div>
-          <button
+          <Button
+            size="sm"
             type="button"
             onClick={() => check.mutate()}
             disabled={!valid || check.isPending}
-            className={ACTION_SM_PRIMARY}
           >
             {check.isPending ? "Checking…" : "Check"}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline" size="sm"
             type="button"
             onClick={() => {
               setAdding(false);
               setCode("");
             }}
-            className={ACTION_SM}
           >
             Cancel
-          </button>
+          </Button>
 
           {trimmed !== "" && !valid && (
             <p className="text-ccs-red text-xs w-full">
@@ -445,33 +445,34 @@ function CodeRow({
           code already opens, and a sixth item wrapped the delete button onto a line of its own —
           which is the same reason the "see the game" button was folded into the code itself.
         */}
-        <Pill muted={!entry.confirmed}>{entry.confirmed ? "confirmed" : "pending"}</Pill>
+        <Badge variant={!entry.confirmed ? "muted" : "default"}>{entry.confirmed ? "confirmed" : "pending"}</Badge>
 
         {canDelete && (
-          <button
-            type="button"
-            onClick={() => (destroysAGame && !arming ? setArming(true) : remove.mutate())}
-            disabled={remove.isPending}
-            title={
+          <TooltipHint content={
               destroysAGame
                 ? "Removes the code and the game recorded on it, including its player stats."
                 : "Drops the staged code. Nothing else is touched."
-            }
-            className={ACTION_SM_DANGER}
-          >
-            <Trash2 size={13} aria-hidden="true" />
-            {remove.isPending
-              ? "Deleting…"
-              : arming
-                ? "Really delete — this removes the game"
-                : "Delete"}
-          </button>
+            }>
+            <Button
+              variant="destructive" size="sm"
+              type="button"
+              onClick={() => (destroysAGame && !arming ? setArming(true) : remove.mutate())}
+              disabled={remove.isPending}
+            >
+              <Trash2 size={13} aria-hidden="true" />
+              {remove.isPending
+                ? "Deleting…"
+                : arming
+                  ? "Really delete — this removes the game"
+                  : "Delete"}
+            </Button>
+          </TooltipHint>
         )}
 
         {arming && !remove.isPending && (
-          <button type="button" onClick={() => setArming(false)} className={ACTION_SM}>
+          <Button variant="outline" size="sm" type="button" onClick={() => setArming(false)}>
             Keep it
-          </button>
+          </Button>
         )}
       </div>
       <ErrorLine message={remove.isError ? errorMessage(remove.error) : null} />
@@ -581,13 +582,13 @@ function StagedCode({
 
       <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
         {staged.codeValid && (
-          <button type="button" onClick={onConfirm} disabled={busy} className={ACTION_SM_PRIMARY}>
+          <Button size="sm" type="button" onClick={onConfirm} disabled={busy}>
             {busy ? "Working…" : staged.exists ? "Confirm" : "Confirm anyway"}
-          </button>
+          </Button>
         )}
-        <button type="button" onClick={onDiscard} disabled={busy} className={ACTION_SM}>
+        <Button variant="outline" size="sm" type="button" onClick={onDiscard} disabled={busy}>
           {staged.codeValid ? "Discard" : "Close"}
-        </button>
+        </Button>
       </div>
 
       <ErrorLine message={error} />

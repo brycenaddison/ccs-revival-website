@@ -3,13 +3,13 @@
  *
  * Radix gives it the keyboard interaction (space toggles, focus ring), `role="checkbox"` with
  * `aria-checked`, and an indeterminate state a native input cannot style. The checked fill is the
- * brand red, which is what `ACTION_PRIMARY` already uses for "on".
+ * brand red, the same fill a primary Button uses.
  */
 
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
 import { Check, Minus } from "lucide-react";
 import type { ComponentProps } from "react";
-import { cn } from "../../lib/cn";
+import { cn } from "@/lib/cn";
 
 export function Checkbox({ className, ...props }: ComponentProps<typeof CheckboxPrimitive.Root>) {
   return (

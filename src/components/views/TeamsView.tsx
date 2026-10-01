@@ -24,6 +24,7 @@ import { teamInitial } from "../../lib/utils";
 import { TeamLink } from "../league/TeamLink";
 import { PlayerLink } from "../profile/PlayerLink";
 import type { Team, Standing, Roster } from "../../hooks/useLeagueData";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 
 interface Props {
   teams: Team[];
@@ -110,11 +111,11 @@ export function TeamsView({ teams, standings, rosters, isMobile }: Props) {
                 {teamRoster.length === 0 ? (
                   <div className="py-2 text-xs text-text-dim">No roster set</div>
                 ) : (
-                  <table className="w-full border-collapse">
-                    <tbody>
-                      {teamRoster.map((r, i) => (
-                        <tr key={r.id} className={i < teamRoster.length - 1 ? "border-b border-border" : ""}>
-                          <td className="py-2 font-heading text-[13px] text-text font-medium">
+                  <Table>
+                    <TableBody>
+                      {teamRoster.map(r => (
+                        <TableRow key={r.id}>
+                          <TableCell className="px-0 font-heading text-[13px] font-medium text-text">
                             {/* Every reader-facing name backed by a `profileId` goes through
                                 `PlayerLink`; this roster was the last one on the site that didn't. */}
                             <PlayerLink
@@ -124,17 +125,17 @@ export function TeamsView({ teams, standings, rosters, isMobile }: Props) {
                               {r.players?.display_name || "Unknown"}
                             </PlayerLink>
                             {r.is_captain && <span className="text-[9px] text-ccs-orange ml-1.5 font-bold tracking-wide">C</span>}
-                          </td>
+                          </TableCell>
                           {/* Empty rather than a dash: the bench genuinely has no assigned role,
                               so a placeholder would imply the data is missing. */}
-                          <td className="py-2 text-[11px] text-text-muted text-right font-heading tracking-wide">{roleLabel(r.role, "")}</td>
-                          <td className="py-2 pl-3 text-[10px] text-right">
+                          <TableCell className="px-0 text-right font-heading text-[11px] tracking-wide text-text-muted">{roleLabel(r.role, "")}</TableCell>
+                          <TableCell className="pl-3 pr-0 text-right text-[10px]">
                             {r.is_starter ? <span className="text-ccs-green">Starter</span> : <span className="text-ccs-red">Sub</span>}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 )}
               </div>
             </div>

@@ -17,8 +17,8 @@ import { useState } from "react";
 import type { ProfileChampionBreakdown } from "../../lib/api";
 import { dec, pct0 } from "../../lib/statFormat";
 import { ChampionIcon } from "../ChampionIcon";
-import { ACTION_QUIET } from "../admin/adminUi";
 import { avgKdaText, kdaText, kdaTone, metricText, RailCard, winRateTone } from "./profileUi";
+import { Button } from "@/components/ui/button";
 
 /** Deep enough to cover a season's real pool; the rest is one click away. */
 const PREVIEW = 8;
@@ -94,9 +94,9 @@ export function ChampionPoolCard({ champions }: { champions: readonly ProfileCha
 
       {champions.length > PREVIEW && (
         <div className="border-t border-border px-3 py-2">
-          <button type="button" onClick={() => setShowAll(v => !v)} aria-expanded={showAll} className={ACTION_QUIET}>
+          <Button variant="quiet" size="inline" type="button" onClick={() => setShowAll(v => !v)} aria-expanded={showAll}>
             {showAll ? "Show top 8" : `Show all ${champions.length}`}
-          </button>
+          </Button>
         </div>
       )}
     </RailCard>

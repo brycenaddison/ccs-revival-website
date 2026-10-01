@@ -19,6 +19,7 @@ import { TeamMatchHistory } from "../match/TeamMatchHistory";
 import { PlayerLink } from "../profile/PlayerLink";
 import { usePageMetadata } from "../seo/MetadataProvider";
 import { useLeague } from "../../lib/leagueContext";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface Props {
   conf: string;
@@ -80,45 +81,45 @@ function StatCells({ p }: { p: PlayerStatsRanked | null }) {
   if (!p) {
     return (
       <>
-        <td colSpan={6} className="text-center py-2.5 px-2 text-[11px] text-text-dim italic">
+        <TableCell colSpan={6} className="px-2 py-2.5 text-center text-[11px] text-text-dim italic">
           no recorded games
-        </td>
-        <td className="py-2.5 px-2" />
+        </TableCell>
+        <TableCell className="px-2 py-2.5" />
       </>
     );
   }
   return (
     <>
-      <td className="text-center py-2.5 px-2 font-mono text-xs">{p.games}</td>
-      <td className="text-center py-2.5 px-2 font-bold">{fmtRatio(p.kda)}</td>
-      <td className="text-center py-2.5 px-2 text-xs font-mono">
+      <TableCell className="px-2 py-2.5 text-center font-mono text-xs">{p.games}</TableCell>
+      <TableCell className="px-2 py-2.5 text-center font-bold">{fmtRatio(p.kda)}</TableCell>
+      <TableCell className="px-2 py-2.5 text-center text-xs font-mono">
         {stat(p.avgKills, 1)}/{stat(p.avgDeaths, 1)}/{stat(p.avgAssists, 1)}
-      </td>
-      <td className="text-center py-2.5 px-2 font-mono text-xs">{stat(p.csMin)}</td>
-      <td className="text-center py-2.5 px-2 font-mono text-xs">{rounded(p.damageMin)}</td>
-      <td className="text-center py-2.5 px-2 font-mono text-xs">{fmtPct(p.winPercent)}</td>
-      <td className="py-2.5 px-2">
+      </TableCell>
+      <TableCell className="px-2 py-2.5 text-center font-mono text-xs">{stat(p.csMin)}</TableCell>
+      <TableCell className="px-2 py-2.5 text-center font-mono text-xs">{rounded(p.damageMin)}</TableCell>
+      <TableCell className="px-2 py-2.5 text-center font-mono text-xs">{fmtPct(p.winPercent)}</TableCell>
+      <TableCell className="px-2 py-2.5">
         <div className="flex gap-1">
           {p.champs.slice(0, 3).map(ch => (
             <ChampionIcon key={ch.champid} champion={ch.champid} src={ch.img} name={ch.name} title={`${ch.name} (${ch.picks ?? 0}p)`} size={28} tile className="flex shrink-0" />
           ))}
         </div>
-      </td>
+      </TableCell>
     </>
   );
 }
 
 function RosterHead() {
   return (
-    <thead>
-      <tr className="text-[10px] text-text-secondary border-b border-border">
+    <TableHeader>
+      <TableRow>
         {ROSTER_COLUMNS.map((label, i) => (
-          <th key={label} className={i === 0 ? "text-left py-2 pr-3" : i === ROSTER_COLUMNS.length - 1 ? "text-left py-2 px-2" : "text-center py-2 px-2"}>
+          <TableHead key={label} className={i === 0 ? "pl-0 pr-3 text-text-secondary" : i === ROSTER_COLUMNS.length - 1 ? "px-2 text-text-secondary" : "px-2 text-center text-text-secondary"}>
             {label}
-          </th>
+          </TableHead>
         ))}
-      </tr>
-    </thead>
+      </TableRow>
+    </TableHeader>
   );
 }
 
@@ -138,25 +139,23 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
         {entries.length === 0 ? (
           <div className="py-2 text-xs text-text-dim">No roster set for this team.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <Table>
               <RosterHead />
-              <tbody>
+              <TableBody>
                 {entries.map(e => (
-                  <tr key={e.key} className="border-b border-border last:border-b-0">
-                    <td className="py-2.5 pr-3 font-heading font-bold text-text-bright">
+                  <TableRow key={e.key}>
+                    <TableCell className="py-2.5 pl-0 pr-3 font-heading font-bold text-text-bright">
                       <PlayerLink profileId={e.profileId} className="text-text-bright no-underline hover:text-brand">{e.name}</PlayerLink>
                       {!e.starter && (
                         <span className="ml-1.5 text-[9px] text-text-muted font-bold tracking-wide ">Sub</span>
                       )}
-                    </td>
-                    <td className="text-center py-2.5 px-2 text-[10px] text-text-muted">{roleLabel(e.role)}</td>
+                    </TableCell>
+                    <TableCell className="px-2 py-2.5 text-center text-[10px] text-text-muted">{roleLabel(e.role)}</TableCell>
                     <StatCells p={e.stats} />
-                  </tr>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
         )}
       </div>
 
@@ -166,20 +165,18 @@ function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> 
           <p className="text-[11px] text-text-dim mb-3">
             Games played for {code} outside a roster slot — stand-ins, and roster players in a second role.
           </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <Table>
               <RosterHead />
-              <tbody>
+              <TableBody>
                 {sortByRole(extras).map(p => (
-                  <tr key={p.rowKey} className="border-b border-border last:border-b-0">
-                    <td className="py-2.5 pr-3 font-heading font-bold text-text-bright"><PlayerLink profileId={p.id} className="text-text-bright no-underline hover:text-brand">{p.name}</PlayerLink></td>
-                    <td className="text-center py-2.5 px-2 text-[10px] text-text-muted">{roleLabel(p.role)}</td>
+                  <TableRow key={p.rowKey}>
+                    <TableCell className="py-2.5 pl-0 pr-3 font-heading font-bold text-text-bright"><PlayerLink profileId={p.id} className="text-text-bright no-underline hover:text-brand">{p.name}</PlayerLink></TableCell>
+                    <TableCell className="px-2 py-2.5 text-center text-[10px] text-text-muted">{roleLabel(p.role)}</TableCell>
                     <StatCells p={p} />
-                  </tr>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
         </div>
       )}
     </>

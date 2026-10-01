@@ -29,17 +29,13 @@ import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, ChevronRight, Pencil, Plus, X } from "lucide-react";
 import {
-  ACTION,
-  ACTION_PRIMARY,
-  ACTION_SM,
   ColorField,
   ErrorLine,
   TeamStylePreview,
 } from "../../admin/adminUi";
-import { CONTROL_CLASS } from "../../stats/FilterBar";
 import { SettingsRow } from "../../settings/SettingsSection";
 import { ImageUpload } from "../../ImageUpload";
-import { Toast } from "../../Toast";
+import { toast } from "sonner";
 import { ROLE_LABEL, STARTER_ROLES } from "../../apply/applyUi";
 import { PlayerList } from "../../players/PlayerList";
 import { PlayerSlot } from "../../players/PlayerSlot";
@@ -61,6 +57,8 @@ import {
   type TeamRecord,
   type TeamRosterInput,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /**
  * Lane names come from the applicant vocabulary rather than a second copy here.
@@ -75,7 +73,6 @@ export function TeamsSection() {
   // From the route, like every other league section — the registry in `LeagueAdmin` is just data.
   const { conf = "" } = useParams();
   const { isSiteAdmin, leagues } = useAdminAccess();
-  const [saved, setSaved] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   const { data, isPending, error } = useQuery(queries.teamsForConf(conf));
@@ -109,7 +106,7 @@ export function TeamsSection() {
                 team={null}
                 onDone={message => {
                   setCreating(false);
-                  setSaved(message);
+                  toast.success(message);
                 }}
                 onCancel={() => setCreating(false)}
               />
@@ -117,10 +114,10 @@ export function TeamsSection() {
           </section>
         ) : (
           <div>
-            <button type="button" onClick={() => setCreating(true)} className={ACTION}>
+            <Button variant="outline" type="button" onClick={() => setCreating(true)}>
               <Plus size={15} aria-hidden="true" />
               Add a team
-            </button>
+            </Button>
           </div>
         ))}
 
@@ -137,12 +134,10 @@ export function TeamsSection() {
             team={team}
             canEdit={canEdit}
             sources={sources}
-            onSaved={setSaved}
+            onSaved={toast.success}
           />
         ))
       )}
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
 }
@@ -289,11 +284,11 @@ function TeamCard({ conf, team, canEdit, onSaved, sources }: CardProps) {
           </div>
         </div>
         <Swatches primary={team.color} secondary={team.colorSecondary ?? null} />
-        <button
+        <Button
+          variant="outline" size="sm"
           type="button"
           onClick={() => setOpen(o => !o)}
           aria-expanded={open}
-          className={ACTION_SM}
         >
           {open ? (
             <ChevronDown size={13} aria-hidden="true" />
@@ -301,16 +296,16 @@ function TeamCard({ conf, team, canEdit, onSaved, sources }: CardProps) {
             <ChevronRight size={13} aria-hidden="true" />
           )}
           {canEdit ? "Edit roster" : "Roster"}
-        </button>
+        </Button>
         {canEdit && (
-          <button
+          <Button
+            variant="outline" size="sm"
             type="button"
             onClick={() => setEditingDetails(v => !v)}
-            className={ACTION_SM}
           >
             <Pencil size={13} aria-hidden="true" />
             Team details
-          </button>
+          </Button>
         )}
       </header>
 
@@ -394,24 +389,23 @@ function TeamCard({ conf, team, canEdit, onSaved, sources }: CardProps) {
 
           {canEdit && (
             <div className="flex flex-wrap gap-2">
-              <button
+              <Button
                 type="button"
                 disabled={!dirty || doubled.length > 0 || save.isPending}
                 onClick={() => save.mutate()}
-                className={ACTION_PRIMARY}
               >
                 <Check size={15} aria-hidden="true" />
                 {save.isPending ? "Saving…" : "Save roster"}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="outline"
                 type="button"
                 disabled={!dirty || save.isPending}
                 onClick={() => { setDraft(draftFrom(team)); setPickerRevision(value => value + 1); }}
-                className={ACTION}
               >
                 <X size={15} aria-hidden="true" />
                 Discard changes
-              </button>
+              </Button>
             </div>
           )}
 
@@ -532,26 +526,27 @@ function TeamDetailsForm({ conf, team, onDone, onCancel }: DetailsProps) {
         label="Team name"
         hint={`As it should appear in the standings. Up to ${TEAM_NAME_MAX} characters.`}
       >
-        <input
-          value={name}
-          onChange={e => setName(e.target.value)}
-          maxLength={TEAM_NAME_MAX}
-          aria-label="Team name"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Input {...field}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            maxLength={TEAM_NAME_MAX}
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
         label="Tag"
         hint={`The short form on scoreboards and brackets. Up to ${TEAM_CODE_MAX} characters, unique in this league.`}
       >
-        <input
-          value={code}
-          onChange={e => setCode(e.target.value)}
-          maxLength={TEAM_CODE_MAX}
-          aria-label="Tag"
-          className={`${CONTROL_CLASS} font-mono`}
-        />
+        {field => (
+          <Input {...field}
+            value={code}
+            onChange={e => setCode(e.target.value)}
+            maxLength={TEAM_CODE_MAX}
+            className="font-mono"
+          />
+        )}
       </SettingsRow>
 
       {/* Not a hint on the field, because it only applies to one edit and it is the expensive kind
@@ -598,13 +593,13 @@ function TeamDetailsForm({ conf, team, onDone, onCancel }: DetailsProps) {
       </SettingsRow>
 
       <div className="flex gap-2">
-        <button type="submit" disabled={!canSave || save.isPending} className={ACTION_PRIMARY}>
+        <Button type="submit" disabled={!canSave || save.isPending}>
           {isNew ? <Plus size={15} aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}
           {save.isPending ? "Saving…" : isNew ? "Add team" : "Save details"}
-        </button>
-        <button type="button" onClick={onCancel} className={ACTION}>
+        </Button>
+        <Button variant="outline" type="button" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
 
       <ErrorLine message={save.isError ? errorMessage(save.error) : null} />

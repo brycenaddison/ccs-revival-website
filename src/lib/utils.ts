@@ -11,30 +11,84 @@ export function timeAgo(d?: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+/** A wall-clock reading in the viewer's zone, to the minute. `month` is 0-based, as `Date` has it. */
+export interface LocalClock {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+}
+
 /**
- * An ISO instant as `<input type="datetime-local">` wants it: `YYYY-MM-DDTHH:mm`, **in local time**.
+ * An ISO instant's wall clock **in local time**, or null for absent or unparseable.
  *
  * The API stores naive UTC (`timestamp without time zone`) and the site renders in the viewer's local
  * time, which is the only sensible answer when a roster spans several zones. So this is a real
- * conversion, not a substring: `toISOString().slice(0, 16)` would show a UTC clock in a local-time
- * input and quietly shift every time the user saved without touching the field.
- *
- * Empty string for absent or unparseable, which is also what the input shows for "not set".
+ * conversion through the local `Date` getters, not a substring: slicing `toISOString()` would show a
+ * UTC clock as local and quietly shift the value every time the user saved without touching it.
  */
-export function toLocalInput(iso: string | null | undefined): string {
+export function toLocalClock(iso: string | null | undefined): LocalClock | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate(), hour: d.getHours(), minute: d.getMinutes() };
+}
+
+/**
+ * Every instant whose local wall clock reads `clock`, earliest first, as ISO strings.
+ *
+ * Usually exactly one. A daylight-saving change makes the answer honest rather than convenient: a
+ * time inside a spring-forward gap never happens (none), and a time in a fall-back hour happens twice
+ * (two). `new Date(y, m, d, h, min)` hides both, silently moving a skipped time an hour later and
+ * picking one of the repeated instants, which is how an editor saves a time nobody chose.
+ *
+ * Each candidate offset comes from the zone a day either side of the reading, which covers any
+ * single transition near it; a candidate counts only if it reads back as the same wall clock.
+ */
+export function fromLocalClock(clock: LocalClock): string[] {
+  const wall = Date.UTC(clock.year, clock.month, clock.day, clock.hour, clock.minute);
+  const offsets = new Set([-86400000, 0, 86400000].map(shift => new Date(wall + shift).getTimezoneOffset()));
+  const instants = new Set<number>();
+  for (const offset of offsets) {
+    const t = wall + offset * 60000;
+    const read = toLocalClock(new Date(t).toISOString());
+    if (read && read.year === clock.year && read.month === clock.month && read.day === clock.day
+      && read.hour === clock.hour && read.minute === clock.minute) {
+      instants.add(t);
+    }
+  }
+  return [...instants].sort((a, b) => a - b).map(t => new Date(t).toISOString());
+}
+
+/** The viewer's IANA zone, such as `America/Chicago`, or null where the browser does not say. */
+export function localTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * An instant as an editor's field shows it: local date with the year, the clock and the zone's short
+ * name (`Sat, Oct 3, 2026, 7:00 PM CDT`). The zone is named because the same field is edited by staff
+ * in several zones. Empty string for absent or unparseable.
+ */
+export function fmtLocalDateTime(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
 
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/** The inverse: a local `datetime-local` value back to an ISO instant, or null when cleared. */
-export function fromLocalInput(value: string): string | null {
-  if (value === "") return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  return d.toLocaleString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
 }
 
 /** A kickoff as the editors show it: local date and time, with the weekday, because match day ≠ date. */

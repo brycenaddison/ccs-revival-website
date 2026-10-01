@@ -11,6 +11,8 @@ import { MetadataProvider } from './components/seo/MetadataProvider'
 import { BareLayout, SiteLayout } from './components/layout/SiteLayout'
 import { TABS } from './lib/tabs'
 import { installStaleChunkReload } from './lib/staleChunk'
+import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import './index.css'
 
 // Before anything renders: a lazy route whose chunk a deploy has since renamed reloads the page
@@ -69,6 +71,8 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
+      {/* One provider, so every tooltip shares the open delay and moving between two skips it. */}
+      <TooltipProvider delayDuration={300}>
       <BrowserRouter>
         <AuthProvider>
           <LeagueProvider>
@@ -165,6 +169,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           </LeagueProvider>
         </AuthProvider>
       </BrowserRouter>
+      {/* The one toast stack; anything calls `toast` from `sonner`. */}
+      <Toaster />
+      </TooltipProvider>
     </QueryClientProvider>
   </React.StrictMode>
 )

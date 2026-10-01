@@ -26,12 +26,18 @@
  *     mislabeled — it cannot happen through this screen, only through a team moving conference.
  */
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
-import { Toast } from "../../Toast";
-import { ACTION_SM, ErrorLine, Pill } from "../../admin/adminUi";
+import { toast } from "sonner";
+import { ErrorLine } from "../../admin/adminUi";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { TooltipHint } from "../../TooltipHint";
 import { PhaseTabs } from "../../season/PhaseTabs";
 import { BracketPhaseView } from "../../season/BracketPhaseView";
 import { StandingsReference, type ReferenceTable } from "../../season/StandingsReference";
@@ -66,7 +72,6 @@ export function BracketSection() {
   const isMobile = useWindowSize() < 768;
   const { season, loading, error, refetch } = useSeason(conf);
   const teams = useQuery(queries.teamsForConf(conf));
-  const [saved, setSaved] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
 
   const brackets = useMemo(() => (season?.phases ?? []).filter(isBracketPhase), [season]);
@@ -87,9 +92,9 @@ export function BracketSection() {
     return (
       <div className="flex flex-col items-start gap-3">
         <ErrorLine message={`Couldn't load the season: ${error}`} />
-        <button type="button" onClick={refetch} className={ACTION_SM}>
+        <Button type="button" variant="outline" size="sm" onClick={refetch}>
           Try again
-        </button>
+        </Button>
       </div>
     );
   }
@@ -122,9 +127,9 @@ export function BracketSection() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-2.5">
           <span className="font-display text-lg text-text-bright">{phase.name}</span>
-          <Pill muted>
+          <Badge variant="muted">
             {phase.matchDays} match {phase.matchDays === 1 ? "day" : "days"}
-          </Pill>
+          </Badge>
         </div>
         <Resync conf={conf} phaseId={phase.id} />
       </div>
@@ -137,15 +142,36 @@ export function BracketSection() {
 
       {/*
         `minmax(0, 1fr)` and not `1fr`. A bare `1fr` is `minmax(auto, 1fr)`, and that `auto` floor
-        sizes the track from its content's min-content width — so a 2000px bracket would widen the
+        sizes the track from its content's min-content width, so a 2000px bracket would widen the
         column past the page instead of scrolling inside it. This is the same reason `SectionFrame`
         carries `min-w-0`.
+
+        The reference comes first, on the left, so it reads before the bracket it informs and sits on
+        the same side as the settings navigation; below `xl` it stacks above the bracket.
       */}
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
         {/*
-          Wrapped, because `BracketPhaseView` returns a fragment — the canvas and its legend. Dropped
-          straight into the grid those become *two* items, and the legend would take the sidebar's
-          cell. `min-w-0` says the same thing as the track's `minmax(0, …)`, one level down.
+          Deliberately *not* `items-start` on the grid. A sticky child can only travel inside its
+          containing block, so the aside has to stretch to the row's full height (which the default
+          `align-items: stretch` gives it) for the panel inside to stay put while the bracket
+          scrolls past. The offset is from the top of the page's scroller, which `SiteLayout` starts
+          under the nav; there is no nav height to clear, because nothing scrolls under the nav.
+          The viewport inherits the panel's max height, which is what lets Scroll Area scroll it.
+        */}
+        <aside aria-label="Standings reference">
+          <Card className="sticky top-4 gap-0 py-0">
+            <ScrollArea className="max-h-[calc(100dvh-8rem)] [&>[data-slot=scroll-area-viewport]]:max-h-[inherit]">
+              <div className="p-3">
+                <StandingsReference compact tables={reference} />
+              </div>
+            </ScrollArea>
+          </Card>
+        </aside>
+
+        {/*
+          Wrapped, because `BracketPhaseView` returns a fragment: the canvas and its legend. Dropped
+          straight into the grid those become *two* items, and the legend would take a cell of its
+          own. `min-w-0` says the same thing as the track's `minmax(0, …)`, one level down.
         */}
         <div className="min-w-0">
           {/* Keyed on the phase so switching one throws away every picker's in-flight state. */}
@@ -166,28 +192,13 @@ export function BracketSection() {
                   slot={slot}
                   side={side}
                   teams={teams.data ?? []}
-                  onSaved={setSaved}
+                  onSaved={message => toast.success(message)}
                 />
               )
             }
           />
         </div>
-
-        {/*
-          Deliberately *not* `items-start` on the grid. A sticky child can only travel inside its
-          containing block, so the aside has to stretch to the row's full height — which the default
-          `align-items: stretch` gives it — for the panel inside to stay put while the bracket
-          scrolls past. The offset is from the top of the page's scroller, which `SiteLayout` starts
-          under the nav; there is no nav height to clear, because nothing scrolls under the nav.
-        */}
-        <aside>
-          <div className="sticky top-4 max-h-[calc(100dvh-8rem)] overflow-y-auto rounded-lg border border-border p-3">
-            <StandingsReference compact tables={reference} />
-          </div>
-        </aside>
       </div>
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
 }
@@ -250,16 +261,20 @@ function Resync({ conf, phaseId }: { conf: string; phaseId: number }) {
           {errorMessage(propagate.error)}
         </span>
       )}
-      <button
-        type="button"
-        onClick={() => propagate.mutate()}
-        disabled={propagate.isPending}
-        title="Fills in every team this bracket's results imply. Safe to press any time — it also clears a team whose result was corrected."
-        className={ACTION_SM}
+      <TooltipHint
+        content="Fills in every team this bracket's results imply. Safe to press any time: it also clears a team whose result was corrected."
       >
-        <RefreshCw size={13} aria-hidden="true" />
-        {propagate.isPending ? "Resyncing…" : "Resync bracket"}
-      </button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => propagate.mutate()}
+          disabled={propagate.isPending}
+        >
+          <RefreshCw size={13} aria-hidden="true" />
+          {propagate.isPending ? "Resyncing…" : "Resync bracket"}
+        </Button>
+      </TooltipHint>
     </div>
   );
 }
@@ -315,28 +330,31 @@ function SlotPicker({
     },
   });
 
+  const errorId = useId();
+
   return (
     <div className="min-w-0">
-      <select
+      <NativeSelect
+        size="sm"
         value={current ?? ""}
         disabled={save.isPending}
         aria-label={`${slot === "top" ? "Top" : "Bottom"} team${side.seed ? `, seed ${side.seed}` : ""}`}
+        aria-invalid={save.isError || undefined}
+        aria-describedby={save.isError ? errorId : undefined}
         onChange={e => save.mutate(e.target.value === "" ? null : Number(e.target.value))}
-        className={`w-full cursor-pointer truncate rounded border bg-bg-input px-1.5 py-1 font-heading text-[12px] text-text ${
-          save.isError ? "border-ccs-red" : "border-border"
-        }`}
+        className="h-7 truncate rounded bg-bg-input py-1 pl-1.5 pr-7 font-heading text-[12px]"
       >
-        <option value="">— TBD —</option>
+        <NativeSelectOption value="">— TBD —</NativeSelectOption>
         {teams
           .filter(t => t.id !== opposite)
           .map(t => (
-            <option key={t.id} value={t.id}>
+            <NativeSelectOption key={t.id} value={t.id}>
               {t.code} — {t.name}
-            </option>
+            </NativeSelectOption>
           ))}
-      </select>
+      </NativeSelect>
       {save.isError && (
-        <p className="mt-0.5 text-[10px] text-ccs-red">{errorMessage(save.error)}</p>
+        <p id={errorId} className="mt-0.5 text-[10px] text-ccs-red">{errorMessage(save.error)}</p>
       )}
     </div>
   );

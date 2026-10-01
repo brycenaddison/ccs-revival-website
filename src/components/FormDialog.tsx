@@ -9,7 +9,7 @@
  */
 
 import type { ReactNode } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 export function FormDialog({ open, onOpenChange, title, description, children, footer }: {
   open: boolean;

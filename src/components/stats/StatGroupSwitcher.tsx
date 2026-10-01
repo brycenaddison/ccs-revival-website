@@ -13,6 +13,8 @@
  * the view toggle.
  */
 
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Separator } from "@/components/ui/separator";
 import type { StatGroup } from "../../lib/statGroups";
 
 interface Props<T> {
@@ -28,26 +30,27 @@ interface Props<T> {
 export function StatGroupSwitcher<T>({ groups, activeId, onChange, inline, children }: Props<T>) {
   return (
     <div className="flex gap-1 flex-wrap items-center mb-4">
-      {groups.map(g => (
-        <button
-          key={g.id}
-          onClick={() => onChange(g.id)}
-          aria-pressed={g.id === activeId}
-          // Bold on every pill, not just the active one: bolding on selection changed the button's
-          // width and shifted the rest of the row sideways.
-          className={`rounded-md border py-1.5 px-3 font-heading font-bold text-[11px] tracking-wide ${
-            g.id === activeId
-              ? "bg-brand border-brand text-white"
-              : "bg-bg2 border-border text-text-secondary"
-          }`}
-        >
-          {g.label}
-        </button>
-      ))}
+      {/* The pill variant is bold in both states, so selecting a group never shifts the row. */}
+      <ToggleGroup
+        type="single"
+        variant="pill"
+        size="xs"
+        spacing={1}
+        value={activeId}
+        onValueChange={id => id && onChange(id)}
+        aria-label="Statistics group"
+        className="flex-wrap"
+      >
+        {groups.map(g => (
+          <ToggleGroupItem key={g.id} value={g.id} className="tracking-wide">
+            {g.label}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
 
       {inline && (
         <>
-          <span className="w-px h-5 bg-border mx-1.5 shrink-0" aria-hidden="true" />
+          <Separator orientation="vertical" className="mx-1.5 h-5 data-[orientation=vertical]:h-5" />
           {inline}
         </>
       )}

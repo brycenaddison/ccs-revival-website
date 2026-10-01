@@ -9,7 +9,7 @@
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type { ComponentProps } from "react";
-import { cn } from "../../lib/cn";
+import { cn } from "@/lib/cn";
 
 export const Sheet = SheetPrimitive.Root;
 export const SheetTrigger = SheetPrimitive.Trigger;

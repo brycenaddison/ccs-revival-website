@@ -6,7 +6,7 @@
  */
 
 import { cn } from "../../../lib/cn";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Density } from "./density";
 import type { FarmStat } from "./StatSwitcher";
 

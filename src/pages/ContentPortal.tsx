@@ -21,7 +21,7 @@ import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
 import { ArticlesSection } from "../components/content/ArticlesSection";
 import { CONTENT_ROLE, SITE_ADMIN_ROLE } from "../lib/api";
-import { sectionForSlug, type SettingsArea } from "../lib/settingsAreas";
+import { type SettingsArea } from "../lib/settingsAreas";
 
 const AREA: SettingsArea = {
   title: "Content",
@@ -32,23 +32,20 @@ const AREA: SettingsArea = {
       label: "Articles",
       icon: FileText,
       description: "Write, publish and retire news posts. Drafts are only visible here.",
-      // The editor is a long form with a markdown textarea in it, and a body column 650px wide
-      // after the sidebar is not somewhere anyone wants to write. The form caps its own fields.
+      // The editor is a long form with a markdown textarea in it, and a 760px body column is
+      // not somewhere anyone wants to write. The form caps its own fields.
       maxWidth: "100%",
       Component: ArticlesSection,
     },
   ],
 };
 
-/** Default for a section that doesn't ask for more: a comfortable width for a column of fields. */
-const DEFAULT_WIDTH = 1000;
-
 export default function ContentPortal() {
   const { section } = useParams();
-  const maxWidth = sectionForSlug(AREA.sections, section)?.maxWidth ?? DEFAULT_WIDTH;
 
+  // The page takes the width; `SettingsShell` caps the section column beside its sidebar.
   return (
-    <PageShell maxWidth={maxWidth}>
+    <PageShell maxWidth="100%">
       <RequireAuth roles={[CONTENT_ROLE, SITE_ADMIN_ROLE]}>
         <SettingsShell area={AREA} slug={section} />
       </RequireAuth>

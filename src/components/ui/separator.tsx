@@ -1,7 +1,9 @@
-"use client"
+/**
+ * shadcn's Separator, on the CCS border token.
+ */
 
 import * as React from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/cn"
 import { Separator as SeparatorPrimitive } from "radix-ui"
 
 function Separator({

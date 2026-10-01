@@ -23,8 +23,6 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
-import { CONTROL_CLASS } from "./stats/FilterBar";
-import { ACTION, ACTION_QUIET, ACTION_SM } from "./admin/adminUi";
 // Imported from the barrel rather than `./uploads` so this stays the only file in `components/` that
 // knows the transport exists at all.
 import {
@@ -33,6 +31,8 @@ import {
   UPLOAD_ACCEPT,
   UPLOAD_MAX_BYTES,
 } from "../lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /** The size limit as a sentence, so three call sites don't each do the arithmetic. */
 export const UPLOAD_LIMIT_TEXT = `PNG, JPEG, WebP or GIF, up to ${UPLOAD_MAX_BYTES / 1024 / 1024} MB.`;
@@ -157,27 +157,27 @@ export function ImageUpload({
         )}
 
         {picker.field}
-        <button type="button" disabled={picker.busy} onClick={picker.open} className={ACTION_SM}>
+        <Button variant="outline" size="sm" type="button" disabled={picker.busy} onClick={picker.open}>
           {picker.busy ? (
             <Loader2 size={13} aria-hidden="true" className="animate-spin" />
           ) : (
             <Upload size={13} aria-hidden="true" />
           )}
           {picker.busy ? "Uploading…" : trimmed === "" ? "Upload an image" : "Replace"}
-        </button>
+        </Button>
 
         {trimmed !== "" && (
-          <button
+          <Button
+            variant="quiet" size="inline"
             type="button"
             onClick={() => {
               picker.setError(null);
               onChange("");
             }}
-            className={ACTION_QUIET}
           >
             <Trash2 size={11} aria-hidden="true" />
             Remove
-          </button>
+          </Button>
         )}
 
         <span className="text-xs text-text-dim">{UPLOAD_LIMIT_TEXT}</span>
@@ -204,14 +204,13 @@ export function ImageUpload({
       */}
       {picker.unavailable && (
         <div className="mt-3">
-          <input
+          <Input
             value={value}
             onChange={e => onChange(e.target.value)}
             maxLength={maxLength}
             placeholder={placeholder}
             inputMode="url"
             aria-label={`${label} URL`}
-            className={CONTROL_CLASS}
           />
           <p className="mt-1.5 text-xs text-text-dim">
             Host the image somewhere (Discord, Imgur) and paste the image address. If no picture
@@ -236,21 +235,21 @@ interface ButtonProps {
  * For inserting into a document rather than filling a field — see `MarkdownEditor`, which turns the
  * URL into an image tag at the cursor.
  */
-export function ImageUploadButton({ onUploaded, children, className = ACTION }: ButtonProps) {
+export function ImageUploadButton({ onUploaded, children, className }: ButtonProps) {
   const picker = useImagePicker(onUploaded);
 
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
         {picker.field}
-        <button type="button" disabled={picker.busy} onClick={picker.open} className={className}>
+        <Button type="button" variant="outline" disabled={picker.busy} onClick={picker.open} className={className}>
           {picker.busy ? (
             <Loader2 size={15} aria-hidden="true" className="animate-spin" />
           ) : (
             <ImagePlus size={15} aria-hidden="true" />
           )}
           {picker.busy ? "Uploading…" : children ?? "Insert an image"}
-        </button>
+        </Button>
         <span className="text-xs text-text-dim">{UPLOAD_LIMIT_TEXT}</span>
       </div>
       {picker.error && (

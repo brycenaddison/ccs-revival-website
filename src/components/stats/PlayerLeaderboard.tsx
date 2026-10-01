@@ -39,8 +39,10 @@ import { StatGroupSwitcher } from "./StatGroupSwitcher";
 import { StatGroupDetail, StatTable } from "./StatTable";
 import { StatBars, type BarDirection } from "./StatBars";
 import { STAT_VIEW_OPTIONS, ViewToggle, type StatView } from "./ViewToggle";
-import { CONTROL_CLASS, Field, FilterBar, PillGroup } from "./FilterBar";
+import { FilterBar, FilterField, PillGroup } from "./FilterBar";
 import { PlayerLink } from "../profile/PlayerLink";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 interface Props {
   conf: string;
@@ -248,27 +250,26 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
     <div>
       {/* Filters — shared by both views, so switching between them keeps the selection. */}
       <FilterBar isMobile={isMobile} columns={4}>
-        <Field label="Min Games">
-          <select value={minGames} onChange={e => setMinGames(Number(e.target.value))} className={CONTROL_CLASS}>
-            {MIN_GAMES_OPTIONS.map(n => <option key={n} value={n}>{n}+</option>)}
-          </select>
-        </Field>
+        <FilterField label="Min Games">
+          <NativeSelect value={minGames} onChange={e => setMinGames(Number(e.target.value))}>
+            {MIN_GAMES_OPTIONS.map(n => <NativeSelectOption key={n} value={n}>{n}+</NativeSelectOption>)}
+          </NativeSelect>
+        </FilterField>
 
-        <Field label="Team">
-          <select value={team} onChange={e => setTeam(e.target.value)} className={CONTROL_CLASS}>
-            <option value="ALL">All Teams</option>
-            {teamOptions.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
-          </select>
-        </Field>
+        <FilterField label="Team">
+          <NativeSelect value={team} onChange={e => setTeam(e.target.value)}>
+            <NativeSelectOption value="ALL">All Teams</NativeSelectOption>
+            {teamOptions.map(t => <NativeSelectOption key={t.code} value={t.code}>{t.name}</NativeSelectOption>)}
+          </NativeSelect>
+        </FilterField>
 
-        <Field label="Search" span={2}>
-          <input
+        <FilterField label="Search" span={2}>
+          <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Player or team..."
-            className={CONTROL_CLASS}
           />
-        </Field>
+        </FilterField>
       </FilterBar>
 
       {/* Group pills and the role filter share one row, and the group pills stay put across views, so

@@ -1,53 +1,97 @@
 /**
  * The frame a settings section renders inside, plus the handful of pieces sections are built from.
  *
- * Kept small on purpose. The repo has no component library — panels are `bg-bg2 border border-border
- * rounded-lg`, headings are `font-display`, labels are `LABEL_CLASS` — and every section
- * would otherwise re-derive all three from memory. These are those idioms named once.
+ * Kept small on purpose: these compose the shared `ui/` primitives (Card, Field) into the shapes
+ * every settings, admin and applicant form repeats, so a section never re-derives them.
  */
 
-import type { ReactNode } from "react";
-import { LABEL_CLASS } from "../stats/FilterBar";
+import { useId, type ReactNode } from "react";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { cn } from "../../lib/cn";
 import type { SettingsSection as Section } from "../../lib/settingsAreas";
 
 /**
  * The card a section's content sits in: heading, one-line description, then the content.
  *
- * `min-w-0` is load-bearing. This is the `1fr` item of the shell's `[220px_1fr]` grid, and `1fr` means
- * `minmax(auto, 1fr)` — that `auto` floor sizes the track from the item's **min-content** width. With
- * `overflow: visible`, a wide descendant propagates its width all the way up here, widens the track past
- * the page and puts the whole layout into horizontal overflow. Any section that scrolls something
- * sideways depends on this: a child's `overflow-x-auto` can only clip against a width, and without
- * `min-w-0` the column has no definite one to give it.
+ * `min-w-0` (from Card, and on the shell's column around it) is load-bearing. A flex or grid item
+ * otherwise sizes from its **min-content** width: with `overflow: visible`, a wide descendant
+ * propagates its width up here, widens the column past the page and puts the whole layout into
+ * horizontal overflow. Any section that scrolls something sideways depends on it.
  */
 export function SectionFrame({ section, children }: { section: Section; children: ReactNode }) {
   return (
-    <div className="bg-bg2 border border-border rounded-lg p-5 min-w-0">
-      <h2 className="font-display text-[22px] text-text-bright ">{section.label}</h2>
-      {section.description && (
-        <p className="text-text-secondary text-sm mt-1">{section.description}</p>
-      )}
-      <div className="mt-5">{children}</div>
-    </div>
+    <Card className="gap-5 py-5">
+      <CardHeader className="px-5">
+        <h2 className="font-display text-[22px] text-text-bright">{section.label}</h2>
+        {section.description && (
+          <CardDescription className="text-sm text-text-secondary">{section.description}</CardDescription>
+        )}
+      </CardHeader>
+      <CardContent className="px-5">{children}</CardContent>
+    </Card>
   );
 }
 
-/** One labeled setting. `hint` explains a constraint — why a value is read-only, most often. */
+/** The props a row hands its one control, so the label, hint and error are wired to it. */
+export interface FieldControlProps {
+  id: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: true;
+}
+
+/**
+ * One labeled setting. `hint` explains a constraint (why a value is read-only, most often); `error`
+ * is a validation message for this field.
+ *
+ * Give a single control a real label by passing a function: it receives the `id`,
+ * `aria-describedby` and `aria-invalid` to spread onto the control. Other content (a checkbox
+ * group, a read-only value, an upload) is passed as ordinary children, and the label names the row
+ * as a group instead.
+ */
 export function SettingsRow({
   label,
   hint,
+  error,
+  className,
   children,
 }: {
   label: string;
-  hint?: string;
-  children: ReactNode;
+  hint?: ReactNode;
+  error?: string | null;
+  className?: string;
+  children: ReactNode | ((control: FieldControlProps) => ReactNode);
 }) {
+  const id = useId();
+  const hintId = hint ? `${id}-hint` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
+  const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
+  const labelId = `${id}-label`;
+  const isControl = typeof children === "function";
+
   return (
-    <div className="mb-5 last:mb-0">
-      <label className={LABEL_CLASS}>{label}</label>
-      {children}
-      {hint && <p className="text-text-dim text-xs mt-1.5">{hint}</p>}
-    </div>
+    <Field
+      data-invalid={error ? true : undefined}
+      aria-labelledby={isControl ? undefined : labelId}
+      className={cn("mb-5 last:mb-0", className)}
+    >
+      {isControl ? (
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      ) : (
+        <FieldLabel asChild>
+          <span id={labelId}>{label}</span>
+        </FieldLabel>
+      )}
+      {/* A wrapper, so Field's full-width rule applies to it rather than to a button or chip. */}
+      <div className="min-w-0">
+        {isControl
+          ? children({ id, "aria-describedby": describedBy, "aria-invalid": error ? true : undefined })
+          : children}
+      </div>
+      {hint && <FieldDescription id={hintId}>{hint}</FieldDescription>}
+      {error && <FieldError id={errorId}>{error}</FieldError>}
+    </Field>
   );
 }
 
@@ -77,11 +121,13 @@ export function ReadOnlyValue({ children, mono }: { children: ReactNode; mono?: 
  */
 export function ComingSoon({ needs }: { needs: string }) {
   return (
-    <div className="py-10 text-center">
-      <p className="text-text-dim">Not built yet.</p>
-      <p className="text-text-subtle text-xs mt-2">
-        Needs <span className="font-mono text-text-secondary">{needs}</span>
-      </p>
-    </div>
+    <Empty>
+      <EmptyHeader>
+        <EmptyTitle>Not built yet.</EmptyTitle>
+        <EmptyDescription>
+          Needs <span className="font-mono text-text-secondary">{needs}</span>
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }

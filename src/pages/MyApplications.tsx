@@ -31,7 +31,7 @@ import { RequireAuth } from "../components/auth/RequireAuth";
 import { ApplicationCard } from "../components/apply/ApplicationCard";
 import { ErrorLine } from "../components/admin/adminUi";
 import { Markdown } from "../components/Markdown";
-import { Toast } from "../components/Toast";
+import { toast } from "sonner";
 import { useAuth } from "../lib/authContext";
 import { queries } from "../lib/queries";
 import { errorMessage, type ApplicationSeason, type TeamApplication } from "../lib/api";
@@ -55,7 +55,6 @@ export default function MyApplications() {
 function Panel() {
   const { profile } = useAuth();
   const myProfileId = profile?.id ?? null;
-  const [saved, setSaved] = useState<string | null>(null);
 
   const seasonsQuery = useQuery(queries.openApplicationSeasons());
   const seasons = seasonsQuery.data ?? [];
@@ -121,7 +120,7 @@ function Panel() {
           error={error}
           applications={applications}
           myProfileId={myProfileId}
-          onSaved={setSaved}
+          onSaved={toast.success}
         />
       ))}
 
@@ -132,8 +131,6 @@ function Panel() {
           Go to team registration
         </Link>
       </p>
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
 }

@@ -1,22 +1,29 @@
+/**
+ * shadcn's Badge, on the CCS palette: a read-only tag such as a site role, a grant's scope or a
+ * record's state.
+ *
+ * CCS badges are outlined rather than filled, at caption size in the heading role. `default` carries
+ * a brand edge for something held or active; `muted` is for an absent, inherited or secondary state.
+ * Data-derived colors (scenario tones, team colors) stay with their own components.
+ */
+
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "cn"
+import { cn } from "@/lib/cn"
 import { Slot } from "radix-ui"
 
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
+  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border px-2.5 py-0.5 font-heading text-[10px] whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring/60 [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        secondary:
-          "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
-        destructive:
-          "bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90",
-        outline:
-          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 [a&]:hover:underline",
+        default: "border-brand/50 text-text-bright [a&]:hover:bg-accent",
+        muted: "border-border text-text-dim [a&]:hover:bg-accent",
+        secondary: "border-transparent bg-bg3 text-text-secondary [a&]:hover:bg-accent",
+        destructive: "border-ccs-red/40 text-ccs-red [a&]:hover:bg-ccs-red/10",
+        outline: "border-border text-text [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        ghost: "border-transparent [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        link: "border-transparent text-brand underline-offset-4 [a&]:hover:underline",
       },
     },
     defaultVariants: {

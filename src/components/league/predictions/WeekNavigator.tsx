@@ -8,7 +8,7 @@
  */
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "../../ui/button";
+import { Button } from "@/components/ui/button";
 import { predictionWeekLabel, shiftPredictionWeek } from "../../../lib/predictionWeek";
 
 const WEEK_BOUND = 52;

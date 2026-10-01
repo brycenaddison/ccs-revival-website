@@ -16,9 +16,8 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
-import { Toast } from "../../Toast";
-import { BackButton, ErrorLine, Pill, stateNote } from "../adminUi";
+import { toast } from "sonner";
+import { BackButton, ErrorLine, stateNote } from "../adminUi";
 import { PhaseListEditor } from "./PhaseListEditor";
 import { GroupPhaseEditor } from "./GroupPhaseEditor";
 import { BracketPhaseEditor } from "./BracketPhaseEditor";
@@ -29,6 +28,9 @@ import {
   isGroupContents,
   type PhaseSummary,
 } from "../../../lib/api";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 
 /**
  * Cap for the parts of this section that are a column of fields.
@@ -54,7 +56,6 @@ export function SeasonStructureSection() {
   const error = failure ? errorMessage(failure) : null;
   const [conf, setConf] = useState("");
   const [openPhase, setOpenPhase] = useState<number | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
 
   // The list arriving after a conf was chosen — or a league deleted elsewhere — falls back to the
   // picker rather than editing a conference that isn't there.
@@ -67,10 +68,10 @@ export function SeasonStructureSection() {
       {error && <ErrorLine message={`Couldn't load the league list: ${error}`} />}
 
       <div className="w-full max-w-md">
-        <label className={LABEL_CLASS} htmlFor="season-structure-league">
+        <Label className="mb-1" htmlFor="season-structure-league">
           League
-        </label>
-        <select
+        </Label>
+        <NativeSelect
           id="season-structure-league"
           value={selected?.conf ?? ""}
           onChange={e => {
@@ -78,15 +79,14 @@ export function SeasonStructureSection() {
             // A phase id means nothing in another conference, and the API answers 404 for one.
             setOpenPhase(null);
           }}
-          className={CONTROL_CLASS}
         >
-          <option value="">Choose a league…</option>
+          <NativeSelectOption value="">Choose a league…</NativeSelectOption>
           {tournaments.map(t => (
-            <option key={t.conf} value={t.conf}>
+            <NativeSelectOption key={t.conf} value={t.conf}>
               {t.name} ({t.conf}){stateNote(t)}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       {selected === null ? (
@@ -95,7 +95,7 @@ export function SeasonStructureSection() {
         </p>
       ) : openPhase === null ? (
         <div className={FIELD_COLUMN}>
-          <SeasonPage key={selected.conf} conf={selected.conf} onOpen={setOpenPhase} onSaved={setSaved} />
+          <SeasonPage key={selected.conf} conf={selected.conf} onOpen={setOpenPhase} onSaved={toast.success} />
         </div>
       ) : (
         <PhasePage
@@ -103,11 +103,9 @@ export function SeasonStructureSection() {
           conf={selected.conf}
           phaseId={openPhase}
           onBack={() => setOpenPhase(null)}
-          onSaved={setSaved}
+          onSaved={toast.success}
         />
       )}
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
 }
@@ -165,12 +163,12 @@ function PhasePage({
       {doc.data && (
         <>
           <h3 className="font-display text-lg text-text-bright ">{doc.data.phase.name}</h3>
-          <Pill muted={!doc.data.phase.published}>
+          <Badge variant={!doc.data.phase.published ? "muted" : "default"}>
             {doc.data.phase.days.from === doc.data.phase.days.to
               ? `Day ${doc.data.phase.days.from}`
               : `Days ${doc.data.phase.days.from}–${doc.data.phase.days.to}`}
-          </Pill>
-          {!doc.data.phase.published && <Pill muted>Hidden</Pill>}
+          </Badge>
+          {!doc.data.phase.published && <Badge variant="muted">Hidden</Badge>}
         </>
       )}
     </div>

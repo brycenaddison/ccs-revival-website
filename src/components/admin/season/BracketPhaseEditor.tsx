@@ -48,13 +48,17 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Check, Flag, Plus, Trash2 } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
-import { ACTION, ACTION_PRIMARY, ACTION_SM, ACTION_SM_DANGER, ErrorLine, Pill } from "../adminUi";
-import { IssueList, fieldError } from "./issues";
+import { DateTimePicker } from "../../DateTimePicker";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { ErrorLine } from "../adminUi";
+import { IssueList, invalidAt } from "./issues";
 import { DayKickoffField, StrandedDaysNotice, withDayDefault } from "./DayKickoff";
 import { StandingsReference, type ReferenceTable } from "../../season/StandingsReference";
 import { queries, queryRoots } from "../../../lib/queries";
-import { fromLocalInput, toLocalInput } from "../../../lib/utils";
 import {
   BEST_OF_VALUES,
   NODE_LABEL_MAX,
@@ -381,16 +385,16 @@ export function BracketPhaseEditor({
                 <div className="mb-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-display text-base text-text-bright ">
-                      DAY {matchDay}
+                      Day {matchDay}
                     </span>
-                    <Pill muted>Season day {seasonDayOf(phase, matchDay)}</Pill>
+                    <Badge variant="muted">Season day {seasonDayOf(phase, matchDay)}</Badge>
                     {/* Same reason as the group editor: a column of cards puts the button below the
                         fold, so adding several means scrolling back after each one. */}
                     <div className="ml-auto">
-                      <button type="button" onClick={() => addNode(matchDay)} className={ACTION_SM}>
+                      <Button type="button" variant="outline" size="sm" onClick={() => addNode(matchDay)}>
                         <Plus size={13} aria-hidden="true" />
                         Add
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   <div className="mt-2">
@@ -425,6 +429,7 @@ export function BracketPhaseEditor({
                       isTerminal={terminalNow.has(node.id)}
                       wasTerminal={terminalNodes.includes(node.id)}
                       isCyclic={cyclic.includes(node.id)}
+                      dayKickoff={kickoffs[matchDay - 1] ?? null}
                       onChange={changes => update(node.id, changes)}
                       onMove={by => moveNode(node.id, by)}
                       onSetDay={day => setNodeDay(node.id, day)}
@@ -479,27 +484,26 @@ export function BracketPhaseEditor({
       <IssueList issues={issues} />
 
       <div className="flex items-center gap-3 border-t border-border pt-4">
-        <button
+        <Button
           type="button"
           onClick={() => save.mutate()}
           disabled={!dirty || stranded.length > 0 || cyclic.length > 0 || save.isPending}
-          className={ACTION_PRIMARY}
         >
           <Check size={15} aria-hidden="true" />
           {save.isPending ? "Saving…" : "Save bracket"}
-        </button>
+        </Button>
         {dirty ? (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => {
               setDraft(contents);
               setIssues([]);
             }}
             disabled={save.isPending}
-            className={ACTION}
           >
             Discard changes
-          </button>
+          </Button>
         ) : (
           <span className="text-text-dim text-xs">No changes to save.</span>
         )}
@@ -550,6 +554,7 @@ function NodeCard({
   isTerminal,
   wasTerminal,
   isCyclic,
+  dayKickoff,
   onChange,
   onMove,
   onSetDay,
@@ -575,6 +580,8 @@ function NodeCard({
   isTerminal: boolean;
   wasTerminal: boolean;
   isCyclic: boolean;
+  /** What a null kickoff resolves to: the day's own, so the picker opens on it. */
+  dayKickoff: Date | null;
   onChange: (changes: Partial<NodeSave>) => void;
   onMove: (by: -1 | 1) => void;
   /** Day changes go through the parent: it renumbers the ordinal against the target day. */
@@ -582,6 +589,7 @@ function NodeCard({
   onRemove: () => void;
 }) {
   const path = `nodes.${index}`;
+  const id = `node-${node.id}`;
   const bad =
     isCyclic ||
     issues.some(i => i.path === path || i.path.startsWith(`${path}.`)) ||
@@ -590,44 +598,46 @@ function NodeCard({
   return (
     <div className={`border rounded-md p-3 bg-bg2 ${bad ? "border-ccs-red/50" : "border-border"}`}>
       <div className="flex items-center gap-2 mb-2.5">
-        <input
+        <Input
           value={node.label ?? ""}
           onChange={e => onChange({ label: e.target.value === "" ? null : e.target.value })}
           maxLength={NODE_LABEL_MAX}
           placeholder="Quarterfinal 1"
           aria-label="Match label"
-          className={`${CONTROL_CLASS} ${fieldError(issues, `${path}.label`)}`}
+          aria-invalid={invalidAt(issues, `${path}.label`)}
         />
-        <button type="button" onClick={onRemove} aria-label="Remove this match" className={ACTION_SM_DANGER}>
+        <Button type="button" variant="destructive" size="sm" onClick={onRemove} aria-label="Remove this match">
           <Trash2 size={13} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
 
       {/* The round, which the column cannot say because the column is a day. Read-only by construction:
           it is the wiring's answer, so the way to change it is to rewire a slot below. The arrows next to
           it move the card, which is a separate thing — position is `ordinal` and this is a label. */}
       <div className="flex items-center gap-2 mb-2.5">
-        <Pill muted>{isCyclic ? "No round — looped" : roundName(round)}</Pill>
+        <Badge variant="muted">{isCyclic ? "No round — looped" : roundName(round)}</Badge>
         <span className="text-text-dim text-xs">#{node.match.ordinal} on day {node.match.matchDay}</span>
         <div className="ml-auto flex items-center gap-1.5">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => onMove(-1)}
             disabled={isFirst}
             aria-label="Move this match earlier in the day"
-            className={ACTION_SM}
           >
             <ArrowUp size={13} aria-hidden="true" />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => onMove(1)}
             disabled={isLast}
             aria-label="Move this match later in the day"
-            className={ACTION_SM}
           >
             <ArrowDown size={13} aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -685,73 +695,71 @@ function NodeCard({
       */}
       <div className="mt-2.5 pt-2.5 border-t border-border flex flex-col gap-2">
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className={LABEL_CLASS}>Day</label>
+          <Field data-invalid={invalidAt(issues, `${path}.match.matchDay`)}>
+            <FieldLabel htmlFor={`${id}-day`}>Day</FieldLabel>
             {/* Moves the card to another column, landing it at the bottom — the parent renumbers the
                 ordinal, because keeping this one would drop it wherever the target day had a gap. */}
-            <select
+            <NativeSelect
+              id={`${id}-day`}
               value={node.match.matchDay}
-              aria-label="Match day"
+              aria-invalid={invalidAt(issues, `${path}.match.matchDay`)}
               onChange={e => onSetDay(Number(e.target.value))}
-              className={`${CONTROL_CLASS} ${fieldError(issues, `${path}.match.matchDay`)}`}
             >
               {Array.from({ length: phase.matchDays }, (_, i) => i + 1).map(d => (
-                <option key={d} value={d}>
+                <NativeSelectOption key={d} value={d}>
                   Day {d} · season day {seasonDayOf(phase, d)}
-                </option>
+                </NativeSelectOption>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className={LABEL_CLASS}>Best of</label>
-            <select
+            </NativeSelect>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${id}-bo`}>Best of</FieldLabel>
+            <NativeSelect
+              id={`${id}-bo`}
               value={node.match.bestOf ?? ""}
-              aria-label="Best of"
               onChange={e => {
                 const value = Number(e.target.value);
                 onChange({
                   match: { ...node.match, bestOf: isBestOf(value) ? (value as BestOf) : null },
                 });
               }}
-              className={CONTROL_CLASS}
             >
-              <option value="">Inherit — Bo{phase.defaultBestOf}</option>
+              <NativeSelectOption value="">Inherit — Bo{phase.defaultBestOf}</NativeSelectOption>
               {BEST_OF_VALUES.map(n => (
-                <option key={n} value={n}>
+                <NativeSelectOption key={n} value={n}>
                   Bo{n}
-                </option>
+                </NativeSelectOption>
               ))}
-            </select>
-          </div>
+            </NativeSelect>
+          </Field>
         </div>
 
-        <div>
-          <label className={LABEL_CLASS}>Kickoff override</label>
-          <input
-            type="datetime-local"
-            value={toLocalInput(node.match.scheduledAt)}
-            aria-label="Kickoff override"
-            onChange={e =>
-              onChange({ match: { ...node.match, scheduledAt: fromLocalInput(e.target.value) } })
-            }
-            className={CONTROL_CLASS}
+        <Field data-invalid={invalidAt(issues, `${path}.match.scheduledAt`)}>
+          <FieldLabel htmlFor={`${id}-kickoff`}>Kickoff override</FieldLabel>
+          {/* Opens on the day's kickoff without pinning it: nothing is stored until Apply. */}
+          <DateTimePicker
+            id={`${id}-kickoff`}
+            value={node.match.scheduledAt}
+            onChange={scheduledAt => onChange({ match: { ...node.match, scheduledAt } })}
+            placeholder="Inherits the day"
+            suggested={dayKickoff?.toISOString() ?? null}
+            aria-invalid={invalidAt(issues, `${path}.match.scheduledAt`)}
           />
-        </div>
-        <div>
-          <label className={LABEL_CLASS}>Stream</label>
-          <input
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`${id}-stream`}>Stream</FieldLabel>
+          <Input
+            id={`${id}-stream`}
             value={node.match.streamUrl ?? ""}
             maxLength={STREAM_URL_MAX}
             placeholder="https://twitch.tv/…"
-            aria-label="Stream URL"
             onChange={e =>
               onChange({
                 match: { ...node.match, streamUrl: e.target.value === "" ? null : e.target.value },
               })
             }
-            className={CONTROL_CLASS}
           />
-        </div>
+        </Field>
       </div>
     </div>
   );
@@ -790,22 +798,21 @@ function SlotEditor({
   const value = slot.src ? `${slot.src.node}:${slot.src.output}` : "";
   // A stored seed is always valid — the normalizer drops what isn't — so this can only fire mid-typing.
   const badSeed = slot.seed !== null && !isSlotSeed(slot.seed);
+  const id = `node-${node.id}-${side}`;
 
   return (
     // One slot is a labeled block of two rows, not one row of three fields. In a fixed-width column
     // there is no honest way to fit a seed box, a source picker and a team picker side by side — the
     // previous 2/5/5 split left the seed about 30px wide.
-    <div className="mb-2.5">
-      <p className="font-heading text-[10px] text-text-secondary mb-1">
+    <div role="group" aria-labelledby={`${id}-label`} className="mb-2.5">
+      <p id={`${id}-label`} className="font-heading text-[10px] text-text-secondary mb-1">
         {side === "top" ? "Top" : "Bottom"}
       </p>
 
       {/*
-        Sized by wrappers rather than by overriding `CONTROL_CLASS`'s `w-full` on the controls. Two
-        Tailwind width utilities on one element are resolved by their order in the generated stylesheet,
-        not by the class attribute, so `w-20` next to `w-full` is a coin toss. `min-w-0` on the source
-        picker is load-bearing too: a select's min-content width comes from its longest option, and
-        "Winner of Quarterfinal 1 (day 1)" would otherwise push the row wider than the column.
+        Sized by wrappers. `min-w-0` on the source picker is load-bearing: a select's min-content width
+        comes from its longest option, and "Winner of Quarterfinal 1 (day 1)" would otherwise push the
+        row wider than the column.
       */}
       <div className="flex gap-2">
         {/*
@@ -822,25 +829,25 @@ function SlotEditor({
             {/* Text, not a number input. 1–8 letters or digits is the whole rule. An empty field is
                 `null`: `""` is refused upstream because `null` already means "none", and two spellings of
                 nothing is how an editor ends up rendering an empty box that is not empty. */}
-            <input
+            <Input
               type="text"
               inputMode="text"
               maxLength={SLOT_SEED_MAX}
               value={slot.seed ?? ""}
               placeholder="Seed"
               aria-label={`${side} seed`}
-              aria-invalid={badSeed || undefined}
-              title="1–8 letters or digits, like 1 or 1A"
+              aria-invalid={badSeed || invalidAt(issues, `${path}.${side}.seed`)}
+              aria-describedby={`${id}-seed-hint`}
               onChange={e => onChange({ ...slot, seed: e.target.value === "" ? null : e.target.value })}
-              className={`${CONTROL_CLASS} ${badSeed ? "border-ccs-red/50" : ""} ${fieldError(issues, `${path}.${side}.seed`)}`}
             />
           </div>
         )}
 
         <div className="flex-1 min-w-0">
-          <select
+          <NativeSelect
             value={value}
             aria-label={`Where the ${side} team comes from`}
+            aria-invalid={invalidAt(issues, `${path}.${side}.src`)}
             onChange={e => {
               if (e.target.value === "") {
                 onChange({ ...slot, src: null });
@@ -856,9 +863,8 @@ function SlotEditor({
                 null,
               );
             }}
-            className={`${CONTROL_CLASS} ${fieldError(issues, `${path}.${side}.src`)}`}
           >
-            <option value="">Entry — placed by hand</option>
+            <NativeSelectOption value="">Entry — placed by hand</NativeSelectOption>
             {nodes.flatMap((source, sourceIndex) => {
               // A slot may not draw from its own node, and a node's two slots may not draw from the
               // same source — that would be the winner and loser of one match, one team twice.
@@ -871,39 +877,40 @@ function SlotEditor({
                 const mine = value === key;
 
                 return (
-                  <option key={key} value={key} disabled={holder !== undefined && !mine}>
+                  <NativeSelectOption key={key} value={key} disabled={holder !== undefined && !mine}>
                     {output === "winner" ? "Winner" : "Loser"} of {nameOf(source, sourceIndex)}
                     {holder !== undefined && !mine ? ` — taken by ${holder}` : ""}
-                  </option>
+                  </NativeSelectOption>
                 );
               });
             })}
-          </select>
+          </NativeSelect>
         </div>
       </div>
 
-      {badSeed && (
-        <p className="text-ccs-red text-xs mt-1">Letters and digits only — like 1 or 1A.</p>
+      {!derived && (
+        <p id={`${id}-seed-hint`} className={`text-xs mt-1 ${badSeed ? "text-ccs-red" : "sr-only"}`}>
+          Letters and digits only — like 1 or 1A.
+        </p>
       )}
 
       <div className="mt-1.5">
-        <select
+        <NativeSelect
           value={teamId ?? ""}
           disabled={derived}
           aria-label={`${side} team`}
-          title={derived ? "Filled in automatically once the source match is decided" : undefined}
+          aria-invalid={invalidAt(issues, `${path}.match.team${side === "top" ? "A" : "B"}Id`)}
           onChange={e => onChange(slot, e.target.value === "" ? null : Number(e.target.value))}
-          className={`${CONTROL_CLASS} ${fieldError(issues, `${path}.match.team${side === "top" ? "A" : "B"}Id`)}`}
         >
-          <option value="">{derived ? "— decided by results —" : "— TBD —"}</option>
+          <NativeSelectOption value="">{derived ? "— decided by results —" : "— TBD —"}</NativeSelectOption>
           {teams
             .filter(t => t.id !== (side === "top" ? node.match.teamBId : node.match.teamAId))
             .map(t => (
-              <option key={t.id} value={t.id}>
+              <NativeSelectOption key={t.id} value={t.id}>
                 {t.code} — {t.name}
-              </option>
+              </NativeSelectOption>
             ))}
-        </select>
+        </NativeSelect>
       </div>
     </div>
   );

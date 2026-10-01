@@ -30,9 +30,9 @@
 import { useMemo, useState } from "react";
 import type { ProfileLaneMatchup } from "../../lib/api";
 import { pct0, signed } from "../../lib/statFormat";
-import { ACTION_QUIET } from "../admin/adminUi";
 import { PlayerLink } from "./PlayerLink";
 import { metricText, RailCard, winRateTone } from "./profileUi";
+import { Button } from "@/components/ui/button";
 
 const PREVIEW = 8;
 
@@ -111,9 +111,9 @@ export function MatchupCard({ matchups }: { matchups: readonly ProfileLaneMatchu
 
       {rows.length > PREVIEW && (
         <div className="border-t border-border px-3 py-2">
-          <button type="button" onClick={() => setShowAll(v => !v)} aria-expanded={showAll} className={ACTION_QUIET}>
+          <Button variant="quiet" size="inline" type="button" onClick={() => setShowAll(v => !v)} aria-expanded={showAll}>
             {showAll ? "Show top 8" : `Show all ${rows.length}`}
-          </button>
+          </Button>
         </div>
       )}
     </RailCard>

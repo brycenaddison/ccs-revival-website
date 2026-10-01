@@ -6,12 +6,11 @@
  * `documentElement`, and re-read them when `toggleTheme` flips `data-theme`. That is what keeps a gold
  * graph on the tokens and correct in both themes without a second palette.
  *
- * A `MutationObserver` on the attribute rather than a theme context, because the toggle writes the
- * attribute directly and nothing else on the site subscribes to it; adding a provider for one hook
- * would be a bigger change than the hook.
+ * `useTheme` supplies the re-render; the values are read once per applied theme.
  */
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
+import { useTheme } from "../lib/theme";
 
 export interface ThemeColors {
   sideBlue: string;
@@ -54,15 +53,9 @@ function read(): ThemeColors {
 }
 
 export function useThemeColors(): ThemeColors {
-  const [colors, setColors] = useState<ThemeColors>(read);
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => setColors(read()));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => observer.disconnect();
-  }, []);
-
-  return colors;
+  const theme = useTheme();
+  // `theme` is the trigger: the custom properties it selects are what `read` returns.
+  return useMemo(read, [theme]);
 }
 
 /** `#rrggbb` plus an alpha as a hex byte, for a series that should recede. */

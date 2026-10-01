@@ -1,11 +1,11 @@
 import { useRef } from "react";
 import { ChevronDown, Ellipsis, Heading, List, type LucideIcon } from "lucide-react";
 import type { EditorState } from "@codemirror/state";
-import { Toolbar, ToolbarButton } from "../../ui/toolbar";
+import { Toolbar, ToolbarButton } from "@/components/ui/toolbar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger,
-} from "../../ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { commandById, commands, shortcutLabel, type CommandId } from "./commands";
 
 interface Props {

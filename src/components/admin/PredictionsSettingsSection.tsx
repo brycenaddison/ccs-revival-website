@@ -19,9 +19,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ConfirmButton } from "../ConfirmButton";
 import { TimeZonePicker } from "../TimeZonePicker";
 import { ReadOnlyValue } from "../settings/SettingsSection";
-import { Button } from "../ui/button";
-import { Toast } from "../Toast";
-import { ErrorLine, Pill } from "./adminUi";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { ErrorLine } from "./adminUi";
 import { absoluteInstant } from "../predictions/PredictionUi";
 import { SWITCH_LABEL } from "../predictions/predictionLabels";
 import { useAuth } from "../../lib/authContext";
@@ -40,23 +40,22 @@ import {
 } from "../../lib/api";
 import { groupLabels } from "../../lib/leagueAdapters";
 import { queries, queryRoots } from "../../lib/queries";
+import { Switch } from "@/components/ui/switch";
 
 export function PredictionsSettingsSection() {
   const { profile } = useAuth();
   const viewerId = profile?.id ?? null;
   const settings = useQuery(queries.predictionSiteSettings(viewerId));
-  const [toast, setToast] = useState<string | null>(null);
 
   return (
     <div className="flex flex-col gap-8">
       {settings.isPending ? <p role="status" className="text-sm text-text-dim">Loading prediction settings…</p>
         : settings.error ? <ErrorLine message={errorMessage(settings.error)} />
         : settings.data && <>
-          <Group title="Operations"><Operations settings={settings.data} onDone={setToast} /></Group>
-          <Group title="Site timezone"><TimeZone settings={settings.data} onDone={setToast} /></Group>
+          <Group title="Operations"><Operations settings={settings.data} onDone={toast.success} /></Group>
+          <Group title="Site timezone"><TimeZone settings={settings.data} onDone={toast.success} /></Group>
         </>}
-      <Group title="Leagues"><Leagues viewerId={viewerId} onDone={setToast} /></Group>
-      <Toast message={toast} onClose={() => setToast(null)} />
+      <Group title="Leagues"><Leagues viewerId={viewerId} onDone={toast.success} /></Group>
     </div>
   );
 }
@@ -67,6 +66,42 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
       <h3 className="mb-3 font-heading text-sm text-text-bright">{title}</h3>
       {children}
     </section>
+  );
+}
+
+/**
+ * One setting that takes effect the moment it flips and flips straight back, so a Switch rather
+ * than a confirmation. The name and description are wired to the switch; the state word beside it
+ * repeats what the switch already announces, for a sighted reader scanning the list.
+ */
+function SwitchRow({ id, label, detail, state, checked, disabled, onChange }: {
+  id: string;
+  label: string;
+  detail: ReactNode;
+  state: string | null;
+  checked: boolean | null;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3">
+      <div className="min-w-0">
+        <label htmlFor={id} className="block cursor-pointer truncate font-heading text-sm text-text-bright">{label}</label>
+        <p id={`${id}-detail`} className="text-xs text-text-dim">{detail}</p>
+      </div>
+      {checked !== null && (
+        <div className="flex shrink-0 items-center gap-2">
+          <span aria-hidden="true" className="font-heading text-[10px] text-text-dim">{state}</span>
+          <Switch
+            id={id}
+            checked={checked}
+            disabled={disabled}
+            aria-describedby={`${id}-detail`}
+            onCheckedChange={onChange}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -95,28 +130,21 @@ function Operations({ settings, onDone }: { settings: PredictionSiteSettings; on
     <>
       <ul className="divide-y divide-border rounded-lg border border-border">
         {PREDICTION_SWITCHES.map(field => {
-          const on = settings[field];
+          const stored = settings[field];
+          // The requested state while its write is in flight, so the switch moves when pressed.
+          const on = write.isPending && write.variables?.field === field ? write.variables.enabled : stored;
           const { label, detail } = SWITCH_LABEL[field];
           return (
-            <li key={field} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-              <div className="min-w-0">
-                <p className="font-heading text-sm text-text-bright">{label}</p>
-                <p className="text-xs text-text-dim">{detail}</p>
-              </div>
-              {on !== null && (
-                <div className="flex items-center gap-2">
-                  <Pill muted={!on}>{on ? "On" : "Paused"}</Pill>
-                  <ConfirmButton
-                    title={`${on ? "Pause" : "Resume"} ${label.toLowerCase()}?`}
-                    description={detail}
-                    confirmLabel={on ? "Pause" : "Resume"}
-                    confirmVariant={on ? "destructive" : "default"}
-                    disabled={write.isPending || settings.version === null}
-                    onConfirm={() => write.mutate({ field, enabled: !on })}
-                    trigger={<Button variant={on ? "destructive" : "outline"} size="sm" disabled={write.isPending || settings.version === null}>{on ? "Pause" : "Resume"}</Button>}
-                  />
-                </div>
-              )}
+            <li key={field}>
+              <SwitchRow
+                id={`prediction-switch-${field}`}
+                label={label}
+                detail={detail}
+                state={on === null ? null : on ? "On" : "Paused"}
+                checked={on}
+                disabled={write.isPending || settings.version === null}
+                onChange={enabled => write.mutate({ field, enabled })}
+              />
             </li>
           );
         })}
@@ -215,25 +243,24 @@ function Leagues({ viewerId, onDone }: { viewerId: number | null; onDone: (messa
   return (
     <>
       <ul className="divide-y divide-border rounded-lg border border-border">
-        {rows.map(rule => (
-          <li key={rule.conf} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-            <span className="min-w-0 truncate font-heading text-sm text-text-bright">{nameOf(rule.conf)}</span>
-            <div className="flex items-center gap-2">
-              <Pill muted={!rule.enabled}>{rule.enabled ? "On" : "Off"}</Pill>
-              <ConfirmButton
-                title={`Turn predictions ${rule.enabled ? "off" : "on"} for ${nameOf(rule.conf)}?`}
-                description={rule.enabled
-                  ? "Staff can no longer publish this league's matches. Predictions already published keep running."
-                  : "League staff can publish this league's matches for predictions."}
-                confirmLabel={rule.enabled ? "Turn off" : "Turn on"}
-                confirmVariant={rule.enabled ? "destructive" : "default"}
+        {rows.map(rule => {
+          const on = write.isPending && write.variables?.conf === rule.conf ? !rule.enabled : rule.enabled;
+          return (
+            <li key={rule.conf}>
+              <SwitchRow
+                id={`prediction-league-${rule.conf}`}
+                label={nameOf(rule.conf)}
+                detail={on
+                  ? "League staff can publish this league's matches for predictions."
+                  : "Staff cannot publish this league's matches."}
+                state={on ? "On" : "Off"}
+                checked={on}
                 disabled={write.isPending}
-                onConfirm={() => write.mutate(rule)}
-                trigger={<Button variant={rule.enabled ? "destructive" : "outline"} size="sm" disabled={write.isPending}>{rule.enabled ? "Turn off" : "Turn on"}</Button>}
+                onChange={() => write.mutate(rule)}
               />
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
       <p className="mt-2 text-xs text-text-dim">Published predictions keep running when a league is turned off.</p>
       <ErrorLine message={write.error ? errorMessage(write.error) : null} />

@@ -7,7 +7,7 @@
 
 import { Fragment } from "react";
 import type { RiotParticipant } from "../../../lib/riot/matchV5";
-import { Checkbox } from "../../ui/checkbox";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export interface GraphStat {
   key: string;

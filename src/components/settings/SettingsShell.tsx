@@ -17,8 +17,19 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useWindowSize } from "../../hooks/useWindowSize";
 import { NoticePanel } from "../auth/RequireAuth";
 import { SectionFrame } from "./SettingsSection";
-import { sectionForSlug, sectionPath, type SettingsArea } from "../../lib/settingsAreas";
-import type { ReactNode } from "react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
+import { SECTION_WIDTH, sectionForSlug, sectionPath, type SettingsArea } from "../../lib/settingsAreas";
+import type { CSSProperties, ReactNode } from "react";
 
 interface Props {
   area: SettingsArea;
@@ -69,38 +80,53 @@ export function SettingsShell({ area, slug, sidebarHeader }: Props) {
   // viewport is widened while on the list, and shouldn't leave an extra history entry behind it.
   if (!section) return <Navigate to={sectionPath(area, sections[0])} replace />;
 
+  // A static Sidebar column at the page's left edge, inside SiteLayout's content scroller. The page
+  // takes the full width and the capped section is centered beside it, so the sidebar sits in the
+  // same place for every section however wide it asks to be. It is sticky rather than a second
+  // viewport-height scroll region. The menu button keeps its left rule on both states, so selecting
+  // a section doesn't reflow the list.
   return (
-    <div className="grid grid-cols-[220px_1fr] gap-6 items-start">
-      <nav aria-label={title} className="bg-bg2 border border-border rounded-lg p-2">
-        <h2 className="font-display text-lg text-text-bright px-3 pt-1 pb-2">{title}</h2>
-        {sidebarHeader && <div className="px-2 pb-2">{sidebarHeader}</div>}
-        {sections.map(s => {
-          const active = s.slug === section.slug;
-          const Icon = s.icon;
-          return (
-            <Link
-              key={s.slug}
-              to={sectionPath(area, s)}
-              aria-current={active ? "page" : undefined}
-              // `border-l-[3px]` on both states, so selecting a section doesn't reflow the list —
-              // the same reason the nav drawer and the stat pills carry their border unconditionally.
-              className={`flex items-center gap-2 py-2.5 px-3 rounded-md border-l-[3px] no-underline ${ROW_LABEL} ${
-                active
-                  ? "bg-bg-input text-text-bright font-bold border-l-brand"
-                  : "text-text-secondary font-normal border-l-transparent hover:text-text-bright"
-              }`}
-            >
-              <Icon size={15} aria-hidden="true" className="shrink-0" />
-              {s.label}
-            </Link>
-          );
-        })}
-      </nav>
+    <SidebarProvider className="items-start gap-6" style={{ "--sidebar-width": "220px" } as CSSProperties}>
+      <Sidebar collapsible="none" className="sticky top-6 h-auto shrink-0 rounded-lg border border-sidebar-border">
+        <SidebarHeader className="gap-2 px-2 pt-3 pb-0">
+          <h2 className="font-display text-lg text-text-bright px-3">{title}</h2>
+          {sidebarHeader && <div className="px-2">{sidebarHeader}</div>}
+        </SidebarHeader>
+        <SidebarContent>
+          <nav aria-label={title}>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5">
+                  {sections.map(s => {
+                    const active = s.slug === section.slug;
+                    const Icon = s.icon;
+                    return (
+                      <SidebarMenuItem key={s.slug}>
+                        <SidebarMenuButton asChild isActive={active} className="h-auto py-2.5 px-3">
+                          <Link to={sectionPath(area, s)} aria-current={active ? "page" : undefined}>
+                            <Icon size={15} aria-hidden="true" />
+                            <span>{s.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </nav>
+        </SidebarContent>
+      </Sidebar>
 
-      <SectionFrame section={section}>
-        <section.Component />
-      </SectionFrame>
-    </div>
+      {/* The column fills the rest of the page and centers the capped section inside it. */}
+      <div className="min-w-0 flex-1">
+        <div className="mx-auto min-w-0" style={{ maxWidth: section.maxWidth ?? SECTION_WIDTH }}>
+          <SectionFrame section={section}>
+            <section.Component />
+          </SectionFrame>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 }
 

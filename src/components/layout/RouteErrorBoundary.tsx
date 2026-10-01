@@ -15,8 +15,8 @@
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RotateCw } from "lucide-react";
-import { ACTION } from "../admin/adminUi";
 import { usePageMetadata } from "../seo/MetadataProvider";
+import { Button } from "@/components/ui/button";
 
 function ErrorMetadata() {
   usePageMetadata({ title: "Page unavailable | CCS", noindex: true });
@@ -56,14 +56,15 @@ export class RouteErrorBoundary extends Component<Props, State> {
         <p className="mt-2 text-sm text-text-secondary">
           The site may have just been updated under you. Reloading usually fixes it.
         </p>
-        <button
+        <Button
+          variant="outline"
           type="button"
           onClick={() => window.location.reload()}
-          className={`${ACTION} mt-5`}
+          className="mt-5"
         >
           <RotateCw size={15} aria-hidden="true" />
           Reload
-        </button>
+        </Button>
       </div>
     );
   }

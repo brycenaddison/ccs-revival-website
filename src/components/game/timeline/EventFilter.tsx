@@ -3,9 +3,9 @@
 import { ListFilter } from "lucide-react";
 import { EVENT_NAMES } from "../../../lib/game/events";
 import type { RiotEventType } from "../../../lib/riot/matchV5";
-import { Button } from "../../ui/button";
-import { Checkbox } from "../../ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useTimelineView } from "./TimelineTab";
 
 export function EventFilter() {

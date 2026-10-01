@@ -35,12 +35,17 @@ import {
 } from "../../lib/api";
 import { queryRoots } from "../../lib/queries";
 import { useLeague } from "../../lib/leagueContext";
-import { fromLocalInput, toLocalInput } from "../../lib/utils";
 import { SettingsRow, ReadOnlyValue } from "../settings/SettingsSection";
-import { ACTION, ACTION_PRIMARY, ACTION_SM_DANGER, ErrorLine } from "../admin/adminUi";
+import { ErrorLine } from "../admin/adminUi";
+import { ConfirmButton } from "../ConfirmButton";
+import { DateTimePicker } from "../DateTimePicker";
 import { ImageUpload } from "../ImageUpload";
 import { MarkdownEditor } from "./MarkdownEditor";
-import { CONTROL_CLASS } from "../stats/FilterBar";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface Props {
   /** `null` is the create form. */
@@ -72,8 +77,8 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
   const [conf, setConf] = useState(article?.conf ?? "");
   const [articleType, setArticleType] = useState<ArticleType>(article?.articleType ?? "news");
   const [isPublished, setIsPublished] = useState(article?.isPublished ?? false);
-  const [publishedAt, setPublishedAt] = useState(toLocalInput(article?.publishedAt));
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  // The served instant, so an untouched date compares equal to the record it came from.
+  const [publishedAt, setPublishedAt] = useState<string | null>(article?.publishedAt ?? null);
 
   const t = title.trim();
   const slugPreview = useMemo(() => slugify(t), [t]);
@@ -111,9 +116,7 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
     if (nullable(conf) !== article.conf) out.conf = nullable(conf);
     if (articleType !== article.articleType) out.articleType = articleType;
     if (isPublished !== article.isPublished) out.isPublished = isPublished;
-    if (fromLocalInput(publishedAt) !== article.publishedAt) {
-      out.publishedAt = fromLocalInput(publishedAt);
-    }
+    if (publishedAt !== article.publishedAt) out.publishedAt = publishedAt;
     return out;
   }, [
     article, t, subtitle, author, kind, externalUrl, body, imageUrl, tag, conf, articleType,
@@ -136,7 +139,7 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
           ...(tag.trim() ? { tag: tag.trim() } : {}),
           ...(conf.trim() ? { conf: conf.trim() } : {}),
           ...(kind === "link" ? { externalUrl: externalUrl.trim() } : { body }),
-          ...(fromLocalInput(publishedAt) ? { publishedAt: fromLocalInput(publishedAt) } : {}),
+          ...(publishedAt ? { publishedAt } : {}),
         };
         return createArticle(input);
       }
@@ -174,14 +177,16 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
         if (canSave && dirty && !save.isPending) save.mutate();
       }}
     >
-      <SettingsRow label="Title">
-        <input
-          className={CONTROL_CLASS}
-          value={title}
-          maxLength={TITLE_MAX}
-          onChange={e => setTitle(e.target.value)}
-          placeholder="Week 1 Recap"
-        />
+      <SettingsRow label="Title" error={slugProblem}>
+        {field => (
+          <Input
+            {...field}
+            value={title}
+            maxLength={TITLE_MAX}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Week 1 Recap"
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
@@ -198,32 +203,33 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
       </SettingsRow>
 
       <SettingsRow label="Subtitle">
-        <input
-          className={CONTROL_CLASS}
-          value={subtitle}
-          maxLength={SUBTITLE_MAX}
-          onChange={e => setSubtitle(e.target.value)}
-          placeholder="Ferrets take the opener"
-        />
+        {field => (
+          <Input
+            {...field}
+            value={subtitle}
+            maxLength={SUBTITLE_MAX}
+            onChange={e => setSubtitle(e.target.value)}
+            placeholder="Ferrets take the opener"
+          />
+        )}
       </SettingsRow>
 
       <div className="grid grid-cols-2 gap-4">
         <SettingsRow label="Author">
-          <input
-            className={CONTROL_CLASS}
-            value={author}
-            maxLength={AUTHOR_MAX}
-            onChange={e => setAuthor(e.target.value)}
-          />
+          {field => (
+            <Input {...field} value={author} maxLength={AUTHOR_MAX} onChange={e => setAuthor(e.target.value)} />
+          )}
         </SettingsRow>
         <SettingsRow label="Tag">
-          <input
-            className={CONTROL_CLASS}
-            value={tag}
-            maxLength={TAG_MAX}
-            onChange={e => setTag(e.target.value)}
-            placeholder="recap"
-          />
+          {field => (
+            <Input
+              {...field}
+              value={tag}
+              maxLength={TAG_MAX}
+              onChange={e => setTag(e.target.value)}
+              placeholder="recap"
+            />
+          )}
         </SettingsRow>
       </div>
 
@@ -235,33 +241,33 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
             : "A native article is written here and read at its own URL on this site."
         }
       >
-        <div className="flex gap-2">
-          {(["link", "native"] as const).map(k => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setKind(k)}
-              aria-pressed={kind === k}
-              className={`flex-1 rounded-md border px-3 py-2 font-heading text-xs cursor-pointer ${kind === k
-                  ? "border-brand text-text-bright"
-                  : "border-border text-text-secondary"
-                }`}
-            >
-              {k === "link" ? "External link" : "Written here"}
-            </button>
-          ))}
-        </div>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          spacing={2}
+          value={kind}
+          // A single-choice group can be emptied by pressing the selected item; this one always has a kind.
+          onValueChange={value => value && setKind(value as ArticleKind)}
+          aria-label="Where it lives"
+          className="w-full"
+        >
+          <ToggleGroupItem value="link" className="flex-1">External link</ToggleGroupItem>
+          <ToggleGroupItem value="native" className="flex-1">Written here</ToggleGroupItem>
+        </ToggleGroup>
       </SettingsRow>
 
       {kind === "link" ? (
         <SettingsRow label="Link">
-          <input
-            className={CONTROL_CLASS}
-            value={externalUrl}
-            maxLength={EXTERNAL_URL_MAX}
-            onChange={e => setExternalUrl(e.target.value)}
-            placeholder="https://docs.google.com/document/d/..."
-          />
+          {field => (
+            <Input
+              {...field}
+              value={externalUrl}
+              maxLength={EXTERNAL_URL_MAX}
+              onChange={e => setExternalUrl(e.target.value)}
+              placeholder="https://docs.google.com/document/d/..."
+            />
+          )}
         </SettingsRow>
       ) : (
         <SettingsRow
@@ -292,60 +298,56 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
 
       <div className="grid grid-cols-2 gap-4">
         <SettingsRow label="League" hint="Site-wide posts show on every league's page.">
-          <select className={CONTROL_CLASS} value={conf} onChange={e => setConf(e.target.value)}>
-            <option value="">Site-wide</option>
-            {tournaments.map(t => (
-              <option key={t.conf} value={t.conf}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+          {field => (
+            <NativeSelect {...field} value={conf} onChange={e => setConf(e.target.value)}>
+              <NativeSelectOption value="">Site-wide</NativeSelectOption>
+              {tournaments.map(t => (
+                <NativeSelectOption key={t.conf} value={t.conf}>
+                  {t.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          )}
         </SettingsRow>
 
         <SettingsRow
           label="Home page size"
           hint="The newest hero wins if there is more than one, and only two features are shown."
         >
-          <select
-            className={CONTROL_CLASS}
-            value={articleType}
-            onChange={e => setArticleType(e.target.value as ArticleType)}
-          >
-            {(Object.keys(TYPE_LABELS) as ArticleType[]).map(k => (
-              <option key={k} value={k}>
-                {TYPE_LABELS[k]}
-              </option>
-            ))}
-          </select>
+          {field => (
+            <NativeSelect
+              {...field}
+              value={articleType}
+              onChange={e => setArticleType(e.target.value as ArticleType)}
+            >
+              {(Object.keys(TYPE_LABELS) as ArticleType[]).map(k => (
+                <NativeSelectOption key={k} value={k}>
+                  {TYPE_LABELS[k]}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          )}
         </SettingsRow>
       </div>
 
       <div className="grid grid-cols-2 gap-4 items-start">
         <SettingsRow label="Published">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
-            <input
-              type="checkbox"
-              checked={isPublished}
-              onChange={e => setIsPublished(e.target.checked)}
-            />
+            <Checkbox checked={isPublished} onCheckedChange={v => setIsPublished(v === true)} />
             Visible to everyone
           </label>
         </SettingsRow>
 
         <SettingsRow
           label="Publish date"
-          hint="Leave empty and publishing stamps the current time. This is also the sort order."
+          hint="Leave it unset and publishing stamps the current time. This is also the sort order."
         >
-          <input
-            type="datetime-local"
-            className={CONTROL_CLASS}
-            value={publishedAt}
-            onChange={e => setPublishedAt(e.target.value)}
-          />
+          {field => (
+            <DateTimePicker {...field} value={publishedAt} onChange={setPublishedAt} placeholder="When published" />
+          )}
         </SettingsRow>
       </div>
 
-      {slugProblem && <p className="text-ccs-red text-sm mt-1">{slugProblem}</p>}
       {contentMissing && t !== "" && (
         <p className="text-text-dim text-xs mt-1">
           {kind === "link" ? "A link article needs a URL." : "A native article needs a body."}
@@ -355,40 +357,28 @@ export function ArticleEditor({ article, onSaved, onDeleted, onCancel }: Props) 
       <ErrorLine message={failure ? errorMessage(failure) : null} />
 
       <div className="flex items-center gap-2 mt-6 pt-5 border-t border-border">
-        <button type="submit" className={ACTION_PRIMARY} disabled={!canSave || !dirty || save.isPending}>
+        <Button type="submit" disabled={!canSave || !dirty || save.isPending}>
           {save.isPending ? "Saving..." : isNew ? "Create" : "Save"}
-        </button>
-        <button type="button" className={ACTION} onClick={onCancel}>
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
 
         {!isNew && (
-          <div className="ml-auto flex items-center gap-2">
-            {confirmDelete ? (
-              <>
-                <span className="text-text-secondary text-xs">Delete permanently?</span>
-                <button
-                  type="button"
-                  className={ACTION_SM_DANGER}
-                  disabled={remove.isPending}
-                  onClick={() => remove.mutate()}
-                >
+          <div className="ml-auto">
+            <ConfirmButton
+              title={`Delete "${article.title}"?`}
+              description="The article and its URL are removed permanently."
+              confirmLabel="Delete"
+              onConfirm={() => remove.mutate()}
+              disabled={remove.isPending}
+              trigger={
+                <Button type="button" variant="destructive" size="sm" disabled={remove.isPending}>
+                  <Trash2 size={13} aria-hidden="true" />
                   {remove.isPending ? "Deleting..." : "Delete"}
-                </button>
-                <button type="button" className={ACTION} onClick={() => setConfirmDelete(false)}>
-                  Keep
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className={ACTION_SM_DANGER}
-                onClick={() => setConfirmDelete(true)}
-              >
-                <Trash2 size={13} />
-                Delete
-              </button>
-            )}
+                </Button>
+              }
+            />
           </div>
         )}
       </div>

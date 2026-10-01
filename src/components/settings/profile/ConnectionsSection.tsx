@@ -30,9 +30,10 @@ import { useQuery } from "@tanstack/react-query";
 import { errorMessage } from "../../../lib/api";
 import { queries } from "../../../lib/queries";
 import { useAuth } from "../../../lib/authContext";
-import { ACTION_PRIMARY, ErrorLine } from "../../admin/adminUi";
+import { ErrorLine } from "../../admin/adminUi";
 import { RiotAccountCards } from "../../profile/RiotAccountCards";
 import { UnverifiedAccounts } from "./UnverifiedAccounts";
+import { Button } from "@/components/ui/button";
 
 export function ConnectionsSection() {
   const { profile, linkRiot, canLinkRiot, verification } = useAuth();
@@ -68,15 +69,14 @@ export function ConnectionsSection() {
           is the page you came to *in order to* link, so the control has to be visible for its absence
           not to read as a bug. The sentence beneath says which it is. */}
       <div className="mt-6 border-t border-border pt-5">
-        <button
+        <Button
           type="button"
           onClick={() => void linkRiot()}
           disabled={!canLinkRiot}
-          className={ACTION_PRIMARY}
         >
           <Link2 size={15} aria-hidden="true" />
           Sign in with Riot
-        </button>
+        </Button>
         <p className="mt-2 text-xs text-text-dim">
           {canLinkRiot
             ? "Opens Riot's sign-in in a pop-up and verifies the account in one step. Linking more than one account is fine — they all count as you."

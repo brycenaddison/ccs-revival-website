@@ -227,29 +227,6 @@ export function discordAvatarUrl(userId: string, hash: string | null, size = 64)
 }
 
 /**
- * A member's Discord avatar, or a placeholder of the same size.
- *
- * `avatar` is a finished CDN url from upstream, never a hash — see `ApplicationMember`. A member
- * invited by guild search always has one, because the invitation resolved them through Discord.
- */
-export function MemberAvatar({ member }: { member: Pick<ApplicationMember, "avatar" | "name"> }) {
-  if (!member.avatar) {
-    return <div className="h-7 w-7 shrink-0 rounded-full border border-border bg-bg3" />;
-  }
-  return (
-    <img
-      src={member.avatar}
-      alt=""
-      width={28}
-      height={28}
-      loading="lazy"
-      decoding="async"
-      className="h-7 w-7 shrink-0 rounded-full border border-border"
-    />
-  );
-}
-
-/**
  * A proposed team's card header, drawn as the site will draw the team once it exists.
  *
  * `TeamStyleHeader` over the application's own columns, so the applicant's card, the review queue

@@ -9,9 +9,10 @@
 
 import { useState } from "react";
 import { HexColorInput, HexColorPicker } from "react-colorful";
-import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
-import { Button } from "./button";
-import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { Button } from "@/components/ui/button";
+import { inputVariants } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
 
 export function ColorPicker({
   id,
@@ -62,16 +63,16 @@ export function ColorPicker({
           className="h-44! w-full!"
         />
         <div>
-          <label htmlFor={`${id}-hex`} className={LABEL_CLASS}>
+          <Label htmlFor={`${id}-hex`} className="mb-1">
             Hex
-          </label>
+          </Label>
           <HexColorInput
             id={`${id}-hex`}
             color={value}
             prefixed
             aria-label={`${label} hex value`}
             autoComplete="off"
-            className={`${CONTROL_CLASS} font-mono`}
+            className={inputVariants("font-mono")}
             onChange={hex => {
               if (hex.length === 7) onChange(hex.toLowerCase());
             }}

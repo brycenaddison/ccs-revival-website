@@ -19,10 +19,14 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link2, Unlink } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
-import { ACTION_SM, ACTION_SM_PRIMARY, ErrorLine, Pill } from "../../admin/adminUi";
+import { ErrorLine } from "../../admin/adminUi";
 import { queries, queryRoots } from "../../../lib/queries";
 import { errorMessage, linkGame, type ScheduleDay, type UnscheduledGame } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { TooltipHint } from "../../TooltipHint";
 
 interface Props {
   conf: string;
@@ -82,23 +86,22 @@ export function LinkingPanel({ conf, days, onSaved }: Props) {
       )}
 
       <div className="border-t border-border pt-4">
-        <label className={LABEL_CLASS} htmlFor="linking-target">
+        <Label className="mb-1" htmlFor="linking-target">
           Find games for a scheduled match
-        </label>
-        <select
+        </Label>
+        <NativeSelect
           id="linking-target"
           value={target ?? ""}
           onChange={e => setTarget(e.target.value === "" ? null : Number(e.target.value))}
-          className={CONTROL_CLASS}
         >
-          <option value="">Choose a match…</option>
+          <NativeSelectOption value="">Choose a match…</NativeSelectOption>
           {matches.map(m => (
-            <option key={m.id} value={m.id} disabled={!m.complete}>
+            <NativeSelectOption key={m.id} value={m.id} disabled={!m.complete}>
               {m.label}
               {m.complete ? "" : " — needs both teams first"}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
         <p className="text-text-dim text-xs mt-1.5">
           Candidates are matched on the <span className="text-text">team pair</span>, then ordered by how
           close their recorded day is. A distant day is normal for a legacy season.
@@ -122,7 +125,7 @@ export function LinkingPanel({ conf, days, onSaved }: Props) {
 function GameRow({ game }: { game: UnscheduledGame }) {
   return (
     <li className="flex flex-wrap items-baseline gap-2 bg-bg3 border border-border rounded-md px-3 py-2">
-      <Pill muted>Day {game.seasonDay}</Pill>
+      <Badge variant="muted">Day {game.seasonDay}</Badge>
       <span className="text-sm text-text-bright">
         {game.winner ?? "?"} <span className="text-text-dim">beat</span> {game.loser ?? "?"}
       </span>
@@ -179,7 +182,7 @@ function CandidateList({
           key={game.matchId}
           className="flex flex-wrap items-center gap-2 bg-bg3 border border-border rounded-md px-3 py-2"
         >
-          <Pill muted>Day {game.seasonDay}</Pill>
+          <Badge variant="muted">Day {game.seasonDay}</Badge>
           {game.seasonDay !== seasonDay && (
             <span className="text-text-dim text-xs">
               ({game.seasonDay > seasonDay ? "+" : ""}
@@ -192,24 +195,25 @@ function CandidateList({
           <span className="text-text-dim text-xs">game {game.game}</span>
 
           <div className="ml-auto flex items-center gap-1.5">
-            <button
+            <Button
+              size="sm"
               type="button"
               onClick={() => link.mutate({ gameId: game.matchId, linked: true })}
               disabled={link.isPending}
-              className={ACTION_SM_PRIMARY}
             >
               <Link2 size={13} aria-hidden="true" />
               Link
-            </button>
-            <button
-              type="button"
-              onClick={() => link.mutate({ gameId: game.matchId, linked: false })}
-              disabled={link.isPending}
-              title="Clears any existing link on this game"
-              className={ACTION_SM}
-            >
-              <Unlink size={13} aria-hidden="true" />
-            </button>
+            </Button>
+            <TooltipHint content="Clears any existing link on this game">
+              <Button
+                variant="outline" size="sm"
+                type="button"
+                onClick={() => link.mutate({ gameId: game.matchId, linked: false })}
+                disabled={link.isPending}
+              >
+                <Unlink size={13} aria-hidden="true" />
+              </Button>
+            </TooltipHint>
           </div>
         </li>
       ))}

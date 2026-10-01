@@ -23,11 +23,18 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Check, GitBranch, Plus, Trash2, Users } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
-import { ACTION, ACTION_PRIMARY, ACTION_SM, ACTION_SM_DANGER, ErrorLine, Pill } from "../adminUi";
-import { IssueList, fieldError } from "./issues";
+import { ConfirmButton } from "../../ConfirmButton";
+import { DateTimePicker } from "../../DateTimePicker";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { ErrorLine } from "../adminUi";
+import { IssueList, invalidAt } from "./issues";
 import { queryRoots } from "../../../lib/queries";
-import { fromLocalInput, toLocalInput } from "../../../lib/utils";
 import {
   BEST_OF_VALUES,
   PHASE_NAME_MAX,
@@ -91,7 +98,6 @@ export function PhaseListEditor({ conf, phases, onEdit, onSaved }: Props) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState<PhaseSummary[]>([...phases]);
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
   const days = useMemo(() => ranges(draft), [draft]);
 
@@ -123,7 +129,6 @@ export function PhaseListEditor({ conf, phases, onEdit, onSaved }: Props) {
 
   const remove = (index: number): void => {
     setDraft(list => list.filter((_, i) => i !== index));
-    setConfirmDelete(null);
     setIssues([]);
   };
 
@@ -163,9 +168,11 @@ export function PhaseListEditor({ conf, phases, onEdit, onSaved }: Props) {
       </p>
 
       {draft.length === 0 ? (
-        <p className="text-text-dim py-6 text-center">
-          No phases yet. Add a group stage or a bracket to begin.
-        </p>
+        <Empty className="p-6 md:p-6">
+          <EmptyHeader>
+            <EmptyTitle>No phases yet. Add a group stage or a bracket to begin.</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ol className="flex flex-col gap-3">
           {draft.map((phase, index) => (
@@ -177,11 +184,8 @@ export function PhaseListEditor({ conf, phases, onEdit, onSaved }: Props) {
               issues={issues}
               isFirst={index === 0}
               isLast={index === draft.length - 1}
-              confirming={confirmDelete === phase.id}
               onChange={changes => update(index, changes)}
               onMove={by => move(index, by)}
-              onAskDelete={() => setConfirmDelete(phase.id)}
-              onCancelDelete={() => setConfirmDelete(null)}
               onDelete={() => remove(index)}
               onEdit={() => onEdit(phase)}
             />
@@ -190,40 +194,35 @@ export function PhaseListEditor({ conf, phases, onEdit, onSaved }: Props) {
       )}
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => add("group")} className={ACTION}>
+        <Button type="button" variant="outline" onClick={() => add("group")}>
           <Plus size={15} aria-hidden="true" />
           Add group stage
-        </button>
-        <button type="button" onClick={() => add("bracket")} className={ACTION}>
+        </Button>
+        <Button type="button" variant="outline" onClick={() => add("bracket")}>
           <Plus size={15} aria-hidden="true" />
           Add bracket
-        </button>
+        </Button>
       </div>
 
       <IssueList issues={issues} label={labelFor} />
 
       <div className="flex items-center gap-3 border-t border-border pt-4">
-        <button
-          type="button"
-          onClick={() => save.mutate()}
-          disabled={!canSave || save.isPending}
-          className={ACTION_PRIMARY}
-        >
+        <Button type="button" onClick={() => save.mutate()} disabled={!canSave || save.isPending}>
           <Check size={15} aria-hidden="true" />
           {save.isPending ? "Saving…" : "Save season"}
-        </button>
+        </Button>
         {dirty ? (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => {
               setDraft([...phases]);
               setIssues([]);
             }}
             disabled={save.isPending}
-            className={ACTION}
           >
             Discard changes
-          </button>
+          </Button>
         ) : (
           <span className="text-text-dim text-xs">No changes to save.</span>
         )}
@@ -243,11 +242,8 @@ interface RowProps {
   issues: readonly ValidationIssue[];
   isFirst: boolean;
   isLast: boolean;
-  confirming: boolean;
   onChange: (changes: Partial<PhaseSummary>) => void;
   onMove: (by: -1 | 1) => void;
-  onAskDelete: () => void;
-  onCancelDelete: () => void;
   onDelete: () => void;
   onEdit: () => void;
 }
@@ -259,11 +255,8 @@ function PhaseRow({
   issues,
   isFirst,
   isLast,
-  confirming,
   onChange,
   onMove,
-  onAskDelete,
-  onCancelDelete,
   onDelete,
   onEdit,
 }: RowProps) {
@@ -284,114 +277,106 @@ function PhaseRow({
           <span className="font-heading text-xs text-text-secondary">
             {phase.kind === "group" ? "Group stage" : "Bracket"}
           </span>
-          <Pill muted={!phase.published}>
+          <Badge variant={!phase.published ? "muted" : "default"}>
             {days.from === days.to ? `Day ${days.from}` : `Days ${days.from}–${days.to}`}
-          </Pill>
-          {isNew && <Pill muted>Unsaved</Pill>}
-          {!phase.published && !isNew && <Pill muted>Hidden</Pill>}
+          </Badge>
+          {isNew && <Badge variant="muted">Unsaved</Badge>}
+          {!phase.published && !isNew && <Badge variant="muted">Hidden</Badge>}
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => onMove(-1)}
             disabled={isFirst}
             aria-label={`Move ${phase.name} earlier`}
-            className={ACTION_SM}
           >
             <ArrowUp size={13} aria-hidden="true" />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => onMove(1)}
             disabled={isLast}
             aria-label={`Move ${phase.name} later`}
-            className={ACTION_SM}
           >
             <ArrowDown size={13} aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="sm:col-span-2">
-          <label className={LABEL_CLASS} htmlFor={`phase-name-${phase.id}`}>
-            Name
-          </label>
-          <input
+        <Field data-invalid={invalidAt(issues, `${path}.name`)} className="sm:col-span-2">
+          <FieldLabel htmlFor={`phase-name-${phase.id}`}>Name</FieldLabel>
+          <Input
             id={`phase-name-${phase.id}`}
             value={phase.name}
             onChange={e => onChange({ name: e.target.value })}
             maxLength={PHASE_NAME_MAX}
             placeholder="Regular Season"
-            className={`${CONTROL_CLASS} ${fieldError(issues, `${path}.name`)}`}
+            aria-invalid={invalidAt(issues, `${path}.name`)}
           />
-        </div>
+        </Field>
 
-        <div>
-          <label className={LABEL_CLASS} htmlFor={`phase-days-${phase.id}`}>
-            Match days
-          </label>
-          <input
+        <Field data-invalid={invalidAt(issues, `${path}.matchDays`)}>
+          <FieldLabel htmlFor={`phase-days-${phase.id}`}>Match days</FieldLabel>
+          <Input
             id={`phase-days-${phase.id}`}
             type="number"
             min={1}
             max={99}
             value={phase.matchDays}
             onChange={e => onChange({ matchDays: Math.max(1, Number(e.target.value) || 1) })}
-            className={`${CONTROL_CLASS} ${fieldError(issues, `${path}.matchDays`)}`}
+            aria-invalid={invalidAt(issues, `${path}.matchDays`)}
           />
-        </div>
+        </Field>
 
-        <div>
-          <label className={LABEL_CLASS} htmlFor={`phase-bo-${phase.id}`}>
-            Default best-of
-          </label>
-          <select
+        <Field>
+          <FieldLabel htmlFor={`phase-bo-${phase.id}`}>Default best-of</FieldLabel>
+          <NativeSelect
             id={`phase-bo-${phase.id}`}
             value={phase.defaultBestOf}
             onChange={e => {
               const value = Number(e.target.value);
               if (isBestOf(value)) onChange({ defaultBestOf: value as BestOf });
             }}
-            className={CONTROL_CLASS}
           >
             {BEST_OF_VALUES.map(n => (
-              <option key={n} value={n}>
+              <NativeSelectOption key={n} value={n}>
                 Bo{n}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
-        </div>
+          </NativeSelect>
+        </Field>
 
-        <div className="sm:col-span-2">
-          <label className={LABEL_CLASS} htmlFor={`phase-start-${phase.id}`}>
-            First day kickoff
-          </label>
-          <input
+        <Field data-invalid={invalidAt(issues, `${path}.defaultStartAt`)} className="sm:col-span-2">
+          <FieldLabel htmlFor={`phase-start-${phase.id}`}>First day kickoff</FieldLabel>
+          <DateTimePicker
             id={`phase-start-${phase.id}`}
-            type="datetime-local"
-            value={toLocalInput(phase.defaultStartAt)}
-            onChange={e => onChange({ defaultStartAt: fromLocalInput(e.target.value) })}
-            className={`${CONTROL_CLASS} ${fieldError(issues, `${path}.defaultStartAt`)}`}
+            value={phase.defaultStartAt}
+            onChange={defaultStartAt => onChange({ defaultStartAt })}
+            aria-invalid={invalidAt(issues, `${path}.defaultStartAt`)}
+            aria-describedby={`phase-start-${phase.id}-hint`}
           />
-          <p className="text-text-dim text-xs mt-1.5">
+          <FieldDescription id={`phase-start-${phase.id}-hint`}>
             Your local time. Later match days default to a week apart from here, so a bracket starting
             three weeks after the group stage is this one field.
-          </p>
-        </div>
+          </FieldDescription>
+        </Field>
 
         <div className="sm:col-span-2 flex flex-col justify-end">
           <label className="flex items-center gap-2.5 cursor-pointer text-sm text-text">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={phase.published}
-              onChange={e => onChange({ published: e.target.checked })}
-              className="accent-brand w-4 h-4 cursor-pointer"
+              onCheckedChange={v => onChange({ published: v === true })}
+              aria-describedby={`phase-published-${phase.id}-hint`}
             />
             Visible to the public
           </label>
-          <p className="text-text-dim text-xs mt-1.5">
+          <p id={`phase-published-${phase.id}-hint`} className="text-text-dim text-xs mt-1.5">
             An unpublished phase is left out of every public read entirely, not flagged. Build next
             split&apos;s playoffs in the open.
           </p>
@@ -399,39 +384,37 @@ function PhaseRow({
       </div>
 
       <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-border">
-        <button
-          type="button"
-          onClick={onEdit}
-          disabled={isNew}
-          title={isNew ? "Save the season first — this phase doesn't exist yet" : undefined}
-          className={ACTION_SM}
-        >
-          {phase.kind === "group" ? "Groups & scenarios" : "Bracket wiring"}
-        </button>
-
-        {confirming ? (
-          <div className="flex items-center gap-2">
-            <span className="text-ccs-red text-xs">
-              Deletes its groups, matches, bracket and codes.
-            </span>
-            <button type="button" onClick={onDelete} className={ACTION_SM_DANGER}>
-              Delete
-            </button>
-            <button type="button" onClick={onCancelDelete} className={ACTION_SM}>
-              Keep
-            </button>
-          </div>
-        ) : (
-          <button
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          <Button
             type="button"
-            onClick={onAskDelete}
-            aria-label={`Remove ${phase.name}`}
-            className={ACTION_SM_DANGER}
+            variant="outline"
+            size="sm"
+            onClick={onEdit}
+            disabled={isNew}
+            aria-describedby={isNew ? `phase-edit-${phase.id}-hint` : undefined}
           >
-            <Trash2 size={13} aria-hidden="true" />
-            Remove
-          </button>
-        )}
+            {phase.kind === "group" ? "Groups & scenarios" : "Bracket wiring"}
+          </Button>
+          {/* Said in text rather than a tooltip: a disabled button can be neither hovered nor focused. */}
+          {isNew && (
+            <span id={`phase-edit-${phase.id}-hint`} className="text-text-dim text-xs">
+              Save the season first. This phase doesn&apos;t exist yet.
+            </span>
+          )}
+        </div>
+
+        <ConfirmButton
+          title={`Remove ${phase.name || "this phase"}?`}
+          description="Saving the season then deletes its groups, matches, bracket and codes."
+          confirmLabel="Remove"
+          onConfirm={onDelete}
+          trigger={
+            <Button type="button" variant="destructive" size="sm" aria-label={`Remove ${phase.name}`}>
+              <Trash2 size={13} aria-hidden="true" />
+              Remove
+            </Button>
+          }
+        />
       </div>
     </li>
   );

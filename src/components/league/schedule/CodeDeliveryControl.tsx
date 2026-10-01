@@ -2,7 +2,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Send } from "lucide-react";
-import { ACTION_SM, ErrorLine } from "../../admin/adminUi";
+import { ErrorLine } from "../../admin/adminUi";
 import { PlayerLink } from "../../profile/PlayerLink";
 import { teamMembers } from "../../../lib/roster";
 import {
@@ -16,6 +16,7 @@ import {
   type ScheduleMatch,
   type TeamRecord,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
 
 type Target = { conf: string; seasonDay: number } | { matchId: number };
 
@@ -82,15 +83,15 @@ export function CodeDeliveryControl({
   return (
     <section aria-label="Code delivery" className="my-3 rounded-md border border-border p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <button
+        <Button
+          variant="outline" size="sm"
           type="button"
-          className={ACTION_SM}
           disabled={disabled || delivery.isPending || matches.length === 0}
           onClick={() => delivery.mutate()}
         >
           <Send size={13} aria-hidden="true" />
           {delivery.isPending ? "Sending codes…" : "matchId" in target ? "Send codes via Discord" : "Send this day's codes via Discord"}
-        </button>
+        </Button>
         {delivery.isPending && <span role="status" className="text-xs text-text-secondary">Delivering Discord DMs…</span>}
       </div>
       <p className="mt-2 text-xs text-text-dim">

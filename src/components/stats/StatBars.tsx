@@ -16,7 +16,8 @@ import { dec } from "../../lib/statFormat";
 import type { FlatStatCell } from "../../lib/statGroups";
 import { rampColor } from "../../lib/statUi";
 import { BarLeaderboard, type BarLeaderboardRow } from "./BarLeaderboard";
-import { CONTROL_CLASS, Field, FilterBar, PillGroup } from "./FilterBar";
+import { FilterBar, FilterField, PillGroup } from "./FilterBar";
+import { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from "@/components/ui/native-select";
 
 export type BarDirection = "highest" | "lowest" | "all";
 
@@ -151,40 +152,39 @@ export function StatBars<T>({
   return (
     <div>
       <FilterBar isMobile={isMobile} columns={2}>
-        <Field label="Stat">
-          <select
+        <FilterField label="Stat">
+          <NativeSelect
             value={statKey}
             onChange={e => onStatKey(e.target.value, defaultDirection(catalog.find(c => c.key === e.target.value)))}
-            className={CONTROL_CLASS}
           >
             {groups.length > 1
               ? groups.map(g => (
-                  <optgroup key={g} label={g}>
+                  <NativeSelectOptGroup key={g} label={g}>
                     {catalog
                       .filter(c => c.group === g)
                       .map(c => (
-                        <option key={c.key} value={c.key}>
+                        <NativeSelectOption key={c.key} value={c.key}>
                           {c.label}
-                        </option>
+                        </NativeSelectOption>
                       ))}
-                  </optgroup>
+                  </NativeSelectOptGroup>
                 ))
               : catalog.map(c => (
-                  <option key={c.key} value={c.key}>
+                  <NativeSelectOption key={c.key} value={c.key}>
                     {c.label}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-          </select>
-        </Field>
+          </NativeSelect>
+        </FilterField>
 
-        <Field label="Show">
+        <FilterField label="Show" group>
           <PillGroup
             options={DIRECTIONS}
             isActive={v => v === direction}
             onSelect={v => onDirection(v as BarDirection)}
             stretch
           />
-        </Field>
+        </FilterField>
       </FilterBar>
 
       <BarLeaderboard

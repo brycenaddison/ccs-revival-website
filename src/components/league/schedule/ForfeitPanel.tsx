@@ -31,8 +31,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Flag } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
-import { ACTION_SM, ACTION_SM_DANGER, ACTION_SM_PRIMARY, ErrorLine } from "../../admin/adminUi";
+import { LABEL_CLASS } from "../../stats/FilterBar";
+import { ErrorLine } from "../../admin/adminUi";
 import { queryRoots } from "../../../lib/queries";
 import {
   clearForfeit,
@@ -45,6 +45,10 @@ import {
   type SeriesSnapshot,
   type TeamRecord,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Label } from "@/components/ui/label";
+import { TooltipHint } from "../../TooltipHint";
 
 export function ForfeitPanel({
   match,
@@ -178,35 +182,35 @@ export function ForfeitPanel({
         <>
           <div className="mt-1 flex flex-wrap items-end gap-2">
             <div className="min-w-40">
-              <label className={LABEL_CLASS} htmlFor={`forfeit-${match.id}`}>
+              <Label className="mb-1" htmlFor={`forfeit-${match.id}`}>
                 Which team forfeited
-              </label>
-              <select
+              </Label>
+              <NativeSelect
                 id={`forfeit-${match.id}`}
                 value={loserCode}
                 onChange={e => setLoserCode(e.target.value)}
-                className={CONTROL_CLASS}
               >
-                <option value="">Choose a team…</option>
+                <NativeSelectOption value="">Choose a team…</NativeSelectOption>
                 {/*
                   Both sides offered rather than only the one behind: a no-show is not always the team
                   that is losing, and upstream validates the pair either way.
                 */}
-                <option value={sides.a.code}>{sides.a.code} forfeits</option>
-                <option value={sides.b.code}>{sides.b.code} forfeits</option>
-              </select>
+                <NativeSelectOption value={sides.a.code}>{sides.a.code} forfeits</NativeSelectOption>
+                <NativeSelectOption value={sides.b.code}>{sides.b.code} forfeits</NativeSelectOption>
+              </NativeSelect>
             </div>
 
-            <button
-              type="button"
-              onClick={() => loserId !== null && record.mutate(loserId)}
-              disabled={loserId === null || record.isPending}
-              title="Awards the series to the other side, writing only the games it still needs to clinch."
-              className={ACTION_SM_PRIMARY}
-            >
-              <Flag size={13} aria-hidden="true" />
-              {record.isPending ? "Recording…" : "Record forfeit"}
-            </button>
+            <TooltipHint content="Awards the series to the other side, writing only the games it still needs to clinch.">
+              <Button
+                size="sm"
+                type="button"
+                onClick={() => loserId !== null && record.mutate(loserId)}
+                disabled={loserId === null || record.isPending}
+              >
+                <Flag size={13} aria-hidden="true" />
+                {record.isPending ? "Recording…" : "Record forfeit"}
+              </Button>
+            </TooltipHint>
           </div>
 
           {/* The prediction: what one press does to the score, and to the games already played. */}
@@ -235,23 +239,24 @@ export function ForfeitPanel({
 
       {hasForfeit && (
         <div className="flex flex-wrap items-center gap-1.5 mt-2">
-          <button
-            type="button"
-            onClick={() => (arming ? clear.mutate() : setArming(true))}
-            disabled={clear.isPending}
-            title="Removes every forfeited game on this match and re-derives the bracket. Games actually played are untouched."
-            className={ACTION_SM_DANGER}
-          >
-            {clear.isPending
-              ? "Clearing…"
-              : arming
-                ? "Really clear — this can empty a later bracket slot"
-                : "Clear the forfeit"}
-          </button>
+          <TooltipHint content="Removes every forfeited game on this match and re-derives the bracket. Games actually played are untouched.">
+            <Button
+              variant="destructive" size="sm"
+              type="button"
+              onClick={() => (arming ? clear.mutate() : setArming(true))}
+              disabled={clear.isPending}
+            >
+              {clear.isPending
+                ? "Clearing…"
+                : arming
+                  ? "Really clear — this can empty a later bracket slot"
+                  : "Clear the forfeit"}
+            </Button>
+          </TooltipHint>
           {arming && !clear.isPending && (
-            <button type="button" onClick={() => setArming(false)} className={ACTION_SM}>
+            <Button variant="outline" size="sm" type="button" onClick={() => setArming(false)}>
               Keep it
-            </button>
+            </Button>
           )}
         </div>
       )}

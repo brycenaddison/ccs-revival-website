@@ -9,7 +9,7 @@
 
 import { Link } from "react-router-dom";
 import { useQueries } from "@tanstack/react-query";
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
 import { PredictionCard } from "../predictions/PredictionCard";
 import { usePredictionPositions } from "../predictions/usePredictionPositions";
 import { useLeague, useSeasonLink } from "../../lib/leagueContext";

@@ -1,10 +1,11 @@
 import { X } from "lucide-react";
-import { ACTION_SM, ACTION_SM_DANGER } from "../admin/adminUi";
 import { LABEL_CLASS } from "../stats/FilterBar";
 import { PlayerPicker } from "./PlayerPicker";
 import { PlayerIdentity, type PickedPlayer } from "./PlayerIdentity";
 import type { PlayerPickerMode, PlayerPickerOptions } from "./pickerTypes";
 import { usePickerDisclosure } from "./usePickerDisclosure";
+import { Button } from "@/components/ui/button";
+import { TooltipHint } from "../TooltipHint";
 
 type Props = PlayerPickerMode & PlayerPickerOptions & {
   label: string;
@@ -25,8 +26,12 @@ export function PlayerSlot(props: Props) {
           {value ? <PlayerIdentity player={value} small /> : <span className="text-text-dim">Empty</span>}
         </span>
         {editable && !open && <>
-          <button ref={trigger} type="button" className={ACTION_SM} aria-label={`${value ? "Change" : "Set"} ${label}`} onClick={() => setOpen(true)}>{value ? "Change" : "Set"}</button>
-          {value && <button type="button" className={ACTION_SM_DANGER} aria-label={`Clear ${label}`} title={`Clear ${label}`} onClick={() => onChange(null)}><X size={13} aria-hidden="true" /></button>}
+          <Button variant="outline" size="sm" ref={trigger} type="button" aria-label={`${value ? "Change" : "Set"} ${label}`} onClick={() => setOpen(true)}>{value ? "Change" : "Set"}</Button>
+          {value && (
+            <TooltipHint content={`Clear ${label}`}>
+              <Button variant="destructive" size="sm" type="button" aria-label={`Clear ${label}`} onClick={() => onChange(null)}><X size={13} aria-hidden="true" /></Button>
+            </TooltipHint>
+          )}
         </>}
       </div>
       {editable && open && <div className="mt-2"><PlayerPicker {...props}

@@ -33,8 +33,10 @@ import {
 } from "../../../lib/api";
 import { parseOpggImport, riotIdText, type SkippedEntry } from "../../../lib/riotId";
 import { queryRoots } from "../../../lib/queries";
-import { ACTION_SM, ACTION_SM_PRIMARY, ErrorLine } from "../../admin/adminUi";
-import { LABEL_CLASS } from "../../stats/FilterBar";
+import { ErrorLine } from "../../admin/adminUi";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
   /** The claims already on the profile, so the preview can say which of these are new. */
@@ -119,19 +121,19 @@ export function OpggImport({ accounts, onDone }: Props) {
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className={`${ACTION_SM} mt-3`}>
+      <Button variant="outline" size="sm" type="button" onClick={() => setOpen(true)} className="mt-3">
         <Import size={13} aria-hidden="true" />
         Import from an OP.GG link
-      </button>
+      </Button>
     );
   }
 
   return (
     <div className="mt-3 rounded-md border border-border bg-bg3 p-3">
-      <label htmlFor="opgg-import" className={LABEL_CLASS}>
+      <Label htmlFor="opgg-import" className="mb-1">
         OP.GG multisearch link
-      </label>
-      <textarea
+      </Label>
+      <Textarea
         id="opgg-import"
         value={text}
         onChange={event => setText(event.target.value)}
@@ -139,8 +141,7 @@ export function OpggImport({ accounts, onDone }: Props) {
         autoFocus
         placeholder="https://op.gg/lol/multisearch/na?summoners=…"
         spellCheck={false}
-        // Not `CONTROL_CLASS`: that token is sized for a single-line input and pins the height.
-        className="mt-1 w-full resize-y rounded-md border border-border bg-bg-input px-3 py-2 font-mono text-xs text-text placeholder:text-text-dim focus:border-brand focus:outline-none"
+        className="min-h-14 resize-y bg-bg-input font-mono text-xs md:text-xs"
       />
       <p className="mt-1.5 text-xs text-text-dim">
         Paste the whole link, or just the Riot IDs separated by commas. Nothing is added until you
@@ -188,11 +189,11 @@ export function OpggImport({ accounts, onDone }: Props) {
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <button
+        <Button
+          size="sm"
           type="button"
           disabled={fresh.length === 0 || run.isPending}
           onClick={() => run.mutate(fresh)}
-          className={ACTION_SM_PRIMARY}
         >
           <Import size={13} aria-hidden="true" />
           {run.isPending
@@ -200,18 +201,18 @@ export function OpggImport({ accounts, onDone }: Props) {
             : fresh.length <= 1
               ? "Add account"
               : `Add ${fresh.length} accounts`}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline" size="sm"
           type="button"
           disabled={run.isPending}
           onClick={() => {
             setText("");
             setOpen(false);
           }}
-          className={ACTION_SM}
         >
           Cancel
-        </button>
+        </Button>
       </div>
 
       {run.error && <ErrorLine message={errorMessage(run.error)} />}

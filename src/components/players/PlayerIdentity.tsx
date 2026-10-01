@@ -1,6 +1,8 @@
-import { useState } from "react";
+import type { ReactNode } from "react";
 import { ShieldCheck, UserRound } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PlayerLink } from "../profile/PlayerLink";
+import { cn } from "../../lib/cn";
 import type { PlayerSummary } from "../../lib/api";
 
 export type PickedPlayer = PlayerSummary;
@@ -9,22 +11,39 @@ export function playerLabel(player: Pick<PlayerSummary, "name">): string {
   return player.name ?? "Unnamed player";
 }
 
-const AVATAR_SIZE = { small: "h-[22px] w-[22px]", normal: "h-7 w-7", large: "h-12 w-12" };
+const AVATAR_SIZE = {
+  small: "size-[22px]",
+  normal: "size-7",
+  medium: "size-8",
+  large: "size-12",
+  xl: "size-16",
+} as const;
 
-/** Shared visible fallback; a new URL gets another chance after an earlier image failed. */
-export function PlayerAvatar({ src, size = "normal", square = false }: {
+/**
+ * Every face on the site: a Discord avatar or Riot profile icon over the shared fallback glyph.
+ *
+ * The Avatar primitive keeps the glyph until the image loads and when it fails, and gives a new URL
+ * another chance. The image is decorative (the name beside it is the label), so only a known-absent
+ * avatar is announced. `square` is for Riot artwork, which is a tile rather than a portrait.
+ * `fallback` replaces the glyph where something more specific is known, such as an initial.
+ */
+export function PlayerAvatar({ src, size = "normal", square = false, className, fallback }: {
   src: string | null;
   size?: keyof typeof AVATAR_SIZE;
   square?: boolean;
+  className?: string;
+  fallback?: ReactNode;
 }) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const classes = `${AVATAR_SIZE[size]} shrink-0 ${square ? "rounded-md" : "rounded-full"} border border-border object-cover`;
-  return src && failedUrl !== src ? (
-    <img src={src} alt="" loading="lazy" decoding="async" className={classes} onError={() => setFailedUrl(src)} />
-  ) : (
-    <span className={`${classes} inline-flex items-center justify-center bg-bg3 text-text-dim`} role="img" aria-label="Avatar unavailable">
-      <UserRound size={size === "large" ? 24 : 14} aria-hidden="true" />
-    </span>
+  const glyph = size === "xl" ? 26 : size === "large" ? 24 : 14;
+  return (
+    <Avatar className={cn(AVATAR_SIZE[size], square && "rounded-md", size === "xl" && square && "rounded-lg", className)}>
+      {src && <AvatarImage src={src} alt="" loading="lazy" decoding="async" />}
+      <AvatarFallback
+        {...(src ? { "aria-hidden": true } : { role: "img", "aria-label": "Avatar unavailable" })}
+      >
+        {fallback ?? <UserRound size={glyph} aria-hidden="true" />}
+      </AvatarFallback>
+    </Avatar>
   );
 }
 

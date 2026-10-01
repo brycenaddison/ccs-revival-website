@@ -1,7 +1,13 @@
-"use client"
+/**
+ * shadcn's Scroll Area, on the CCS palette: a contained scrolling region with a themed scrollbar.
+ *
+ * Radix keeps native scrolling, so wheel, touch and keyboard scrolling all work; the viewport is
+ * focusable for keyboard users. Give the root a height or max-height or it grows with its content.
+ * Horizontal scrolling that snaps or bleeds stays `ScrollRail` and `FullBleedScroller`.
+ */
 
 import * as React from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/cn"
 import { ScrollArea as ScrollAreaPrimitive } from "radix-ui"
 
 function ScrollArea({
@@ -17,7 +23,7 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
@@ -48,7 +54,7 @@ function ScrollBar({
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
         data-slot="scroll-area-thumb"
-        className="relative flex-1 rounded-full bg-border"
+        className="relative flex-1 rounded-full bg-border3"
       />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
   )

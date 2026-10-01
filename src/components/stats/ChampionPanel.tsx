@@ -41,8 +41,10 @@ import { HighlightChip, HighlightPanel } from "./HighlightPanel";
 import { StatGroupDetail, StatTable } from "./StatTable";
 import { StatBars, type BarDirection } from "./StatBars";
 import { STAT_VIEW_OPTIONS, ViewToggle, type StatView } from "./ViewToggle";
-import { CONTROL_CLASS, Field, FilterBar, PillGroup } from "./FilterBar";
+import { FilterBar, FilterField, PillGroup } from "./FilterBar";
 import { TeamLink } from "../league/TeamLink";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 interface Props {
   conf: string;
@@ -239,20 +241,19 @@ export function ChampionPanel({ conf, isMobile }: Props) {
 
       {/* Filters sit below the summary, because they narrow the table and not the numbers above. */}
       <FilterBar isMobile={isMobile} columns={4}>
-        <Field label="Champion">
-          <input
+        <FilterField label="Champion">
+          <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Champion..."
-            className={CONTROL_CLASS}
           />
-        </Field>
+        </FilterField>
 
-        <Field label="Min Games">
-          <select value={minGames} onChange={e => setMinGames(Number(e.target.value))} className={CONTROL_CLASS}>
-            {MIN_PICKS_OPTIONS.map(n => <option key={n} value={n}>{n}+</option>)}
-          </select>
-        </Field>
+        <FilterField label="Min Games">
+          <NativeSelect value={minGames} onChange={e => setMinGames(Number(e.target.value))}>
+            {MIN_PICKS_OPTIONS.map(n => <NativeSelectOption key={n} value={n}>{n}+</NativeSelectOption>)}
+          </NativeSelect>
+        </FilterField>
       </FilterBar>
 
       {/* Group pills and the role filter share one row, and the group pills stay put across views, so

@@ -28,9 +28,11 @@
  */
 
 import { CalendarClock, RotateCcw } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
-import { ACTION_SM } from "../adminUi";
-import { fmtKickoff, fromLocalInput, toLocalInput } from "../../../lib/utils";
+import { DateTimePicker } from "../../DateTimePicker";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { fmtKickoff } from "../../../lib/utils";
 import type { DayDefault, PhaseSummary } from "../../../lib/api";
 
 /**
@@ -117,19 +119,17 @@ export function DayKickoffField({
 
   return (
     <div>
-      <label className={LABEL_CLASS} htmlFor={inputId}>
+      <Label className="mb-1" htmlFor={inputId}>
         Day kickoff
-      </label>
+      </Label>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        {/* Width on the wrapper rather than the input: `CONTROL_CLASS` carries `w-full`, and two
-            width utilities on one element are resolved by stylesheet order, not class order. */}
-        <div className="w-52 shrink-0">
-          <input
+        <div className="w-64 max-w-full shrink-0">
+          <DateTimePicker
             id={inputId}
-            type="datetime-local"
-            value={toLocalInput(pinned)}
-            onChange={e => onChange(fromLocalInput(e.target.value))}
-            className={CONTROL_CLASS}
+            value={pinned}
+            onChange={onChange}
+            placeholder="Inherits"
+            suggested={inherited?.toISOString() ?? null}
           />
         </div>
 
@@ -148,14 +148,15 @@ export function DayKickoffField({
               Pinned to this day only.
               {laterPinned.length === 0 && " Later days still follow the phase start."}
             </span>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => onChange(null)}
-              className={ACTION_SM}
               aria-label={`Clear day ${matchDay}'s kickoff and inherit again`}
             >
               Clear
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -176,11 +177,11 @@ export function DayKickoffField({
           {laterPinned.length > 0
             ? onClearLater !== undefined && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                  <button type="button" onClick={onClearLater} className={ACTION_SM}>
+                  <Button type="button" variant="outline" size="sm" onClick={onClearLater} className="whitespace-normal text-left">
                     <RotateCcw size={13} aria-hidden="true" />
                     Clear the {laterPinned.length === 1 ? "day" : `${laterPinned.length} days`} pinned
                     after this one
-                  </button>
+                  </Button>
                   <span className="text-text-dim text-xs">
                     {laterPinned.length === 1 ? "It goes" : "They go"} back to following the phase
                     start, and the shift is offered again.
@@ -191,15 +192,17 @@ export function DayKickoffField({
               offsetMs !== null &&
               offsetMs !== 0 &&
               onShiftLater !== undefined && (
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => onShiftLater(offsetMs)}
-                  className={`${ACTION_SM} mt-1.5`}
+                  className="mt-1.5 whitespace-normal text-left"
                 >
                   <CalendarClock size={13} aria-hidden="true" />
                   Shift the {laterDays === 1 ? "day" : `${laterDays} days`} after this one by{" "}
                   {describeOffset(offsetMs)}
-                </button>
+                </Button>
               )}
         </>
       )}
@@ -211,8 +214,8 @@ export function DayKickoffField({
  * An offset in words — `"1 week later"`, `"2 days earlier"`.
  *
  * Rounded to the nearest unit that divides it, so the button says what was meant rather than
- * `"604800000ms"`. An offset that is not a whole number of days is described in hours, which is the
- * granularity a `datetime-local` field can produce.
+ * `"604800000ms"`. An offset that is not a whole number of days is described in hours, down to the
+ * minute the date and time picker can produce.
  */
 function describeOffset(ms: number): string {
   const direction = ms > 0 ? "later" : "earlier";
@@ -255,16 +258,18 @@ export function StrandedDaysNotice({
   const days = stranded.map(d => d.matchDay).join(", ");
 
   return (
-    <div className="border border-ccs-red/50 rounded-md p-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-      <p className="text-ccs-red text-sm">
-        {stranded.length === 1 ? `Day ${days} has` : `Days ${days} have`} a kickoff time but{" "}
-        {stranded.length === 1 ? "sits" : "sit"} past the end of this {phase.matchDays}-day phase.
-        Nothing can be saved until {stranded.length === 1 ? "it goes" : "they go"} — or lengthen the phase
-        on the season page to bring {stranded.length === 1 ? "it" : "them"} back.
-      </p>
-      <button type="button" onClick={onClear} className={ACTION_SM}>
-        Drop {stranded.length === 1 ? "it" : "them"}
-      </button>
-    </div>
+    <Alert variant="destructive">
+      <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p>
+          {stranded.length === 1 ? `Day ${days} has` : `Days ${days} have`} a kickoff time but{" "}
+          {stranded.length === 1 ? "sits" : "sit"} past the end of this {phase.matchDays}-day phase.
+          Nothing can be saved until {stranded.length === 1 ? "it goes" : "they go"} — or lengthen the phase
+          on the season page to bring {stranded.length === 1 ? "it" : "them"} back.
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={onClear}>
+          Drop {stranded.length === 1 ? "it" : "them"}
+        </Button>
+      </AlertDescription>
+    </Alert>
   );
 }

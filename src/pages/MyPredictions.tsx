@@ -17,7 +17,7 @@ import { relativeInstant, usePredictionClock } from "../components/predictions/P
 import { usePredictionPositions } from "../components/predictions/usePredictionPositions";
 import type { PredictionWallet } from "../components/predictions/usePredictionWallet";
 import { StatTile } from "../components/stats/StatTile";
-import { Button } from "../components/ui/button";
+import { Button } from "@/components/ui/button";
 import { useCursorPage } from "../hooks/useCursorPage";
 import { errorMessage, PREDICTION_HOLDINGS_MAX, type PredictionRewards } from "../lib/api";
 import { pointsText } from "../lib/predictionPoints";

@@ -26,11 +26,12 @@ import { ProfilePresentationForm } from "../components/profile/ProfilePresentati
 import { playerPath } from "../components/profile/PlayerLink";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { UnverifiedAccounts } from "../components/settings/profile/UnverifiedAccounts";
-import { ACTION_PRIMARY, ErrorLine } from "../components/admin/adminUi";
+import { ErrorLine } from "../components/admin/adminUi";
 import { RiotAccountCards } from "../components/profile/RiotAccountCards";
 import { useAuth } from "../lib/authContext";
 import { queries } from "../lib/queries";
 import { errorMessage } from "../lib/api";
+import { Button } from "@/components/ui/button";
 
 export default function Setup() {
   const { profile, verification } = useAuth();
@@ -127,12 +128,12 @@ function AccountsStep({
       )}
 
       <div className="mt-7 border-t border-border pt-5">
-        <button type="button" onClick={onDone} className={ACTION_PRIMARY}>
+        <Button type="button" onClick={onDone}>
           {data && (data.accounts.length > 0 || data.unverifiedAccounts.length > 0)
             ? "Go to my profile"
             : "Skip for now"}
           <ArrowRight size={15} aria-hidden="true" />
-        </button>
+        </Button>
         <p className="mt-2 text-xs text-text-dim">
           Accounts can be added and verified any time in Settings →
           Connections.

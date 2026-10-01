@@ -14,7 +14,7 @@ import type { Participants } from "../../../lib/game/participants";
 import { buildEventList, DEFAULT_EXCLUDED, type ListEvent } from "../../../lib/game/events";
 import { gameLengthMinutes } from "../../../lib/game/timelineStats";
 import type { RenderableTimeline, RiotEventType } from "../../../lib/riot/matchV5";
-import { Button } from "../../ui/button";
+import { Button } from "@/components/ui/button";
 import { useGameView } from "../GameView";
 import { TimelineNote } from "../TimelineNote";
 import { EventFilter } from "./EventFilter";
@@ -104,11 +104,14 @@ function Dashboard({ timeline }: { timeline: RenderableTimeline }) {
           <PlayerSelector />
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+        {/* The map takes the left column on wide screens, the side the Graphs tab's picker is on, so
+            switching tabs never moves the secondary panel across the page. Narrow screens keep the
+            chart first. */}
+        <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,1fr)]">
           <div className="flex min-w-0 flex-col rounded-lg border border-border bg-bg2 p-4 lg:h-[420px]">
             <StatChart />
           </div>
-          <div className="flex items-start justify-center">
+          <div className="flex items-start justify-center lg:order-first">
             <RiftMap />
           </div>
         </div>

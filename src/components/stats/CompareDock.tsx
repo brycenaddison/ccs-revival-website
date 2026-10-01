@@ -14,8 +14,8 @@
  * above it because that is the part worth seeing without interacting.
  *
  * Position: `MobileBottomBar` is `fixed bottom-0 z-[200]`, and `--bottom-nav-h` in index.css carries its
- * height, so this sits exactly on top of it and below it in stacking order. The Toast at `z-[999]` still
- * wins over both.
+ * height, so this sits exactly on top of it and below it in stacking order. Sonner's toasts still
+ * float above both.
  */
 
 import { useState } from "react";

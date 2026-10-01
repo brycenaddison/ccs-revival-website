@@ -22,15 +22,15 @@ export interface SettingsSection {
   /** One line under the heading saying what this section controls. Also the mobile row's subtitle. */
   description?: string;
   /**
-   * Content width for the page this section is on, overriding the area's own.
+   * Cap on this section's column, beside the sidebar; `SECTION_WIDTH` when absent.
    *
-   * Here rather than on the area because the two shapes genuinely disagree: a column of labeled
-   * fields is unreadable stretched wide, while a bracket laid out in day columns has nowhere to go at
-   * 1000px — after the sidebar it gets about 650. The page reads this, not the shell: `PageShell`
-   * wraps `SettingsShell`, so the width has to be resolved before the shell renders.
+   * Per section because the shapes genuinely disagree: a column of labeled fields is unreadable
+   * stretched wide, while a bracket laid out in day columns has nowhere to go in 760px. The shell
+   * centers the capped section in the space beside the sidebar, and the sidebar stays anchored at
+   * the page's left edge whatever the section asks for.
    *
-   * A number is pixels; `"100%"` means take the page. A section that goes full width owns capping its
-   * own field columns, since nothing else will.
+   * A number is pixels; `"100%"` means take the rest of the page. A section that goes full width owns
+   * capping its own field columns, since nothing else will.
    */
   maxWidth?: number | string;
   Component: ComponentType;
@@ -64,3 +64,6 @@ export function sectionForSlug(
 export function sectionPath(area: SettingsArea, section: SettingsSection): string {
   return `${area.basePath}/${section.slug}`;
 }
+
+/** A section's column cap when it does not set its own: a comfortable width for a column of fields. */
+export const SECTION_WIDTH = 760;

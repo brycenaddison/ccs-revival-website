@@ -42,7 +42,7 @@ import { GameHeader } from "../components/game/GameHeader";
 import { GameTabs } from "../components/game/GameTabs";
 import { GameViewProvider, type GameView, type ScoreboardSize } from "../components/game/GameView";
 import { ScoreboardTab } from "../components/game/scoreboard/ScoreboardTab";
-import { TooltipProvider } from "../components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { usePageMetadata } from "../components/seo/MetadataProvider";
 
 // The three tabs that carry their own weight: chart.js in two of them, the event templates in the

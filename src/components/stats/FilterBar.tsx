@@ -1,16 +1,16 @@
 /**
- * The filter row every stats tab now shares.
- *
- * The two class strings below were already the de-facto standard — the Leaderboard hoisted them and
- * every other control copied them by hand, which is how three near-identical selects ended up with
- * three slightly different paddings. Exporting them makes the copy unnecessary.
+ * The filter row every stats tab shares.
  *
  * Layout is a labeled grid rather than a toolbar because a bare row of selects gives the reader no
  * way to tell "Min Games" from "Team" until they open one.
+ *
+ * `LABEL_CLASS` is the site's caption style for text that names a group or a section rather than one
+ * control; a label for a control is `ui/label.tsx`, which wears the same style.
  */
 
-export const CONTROL_CLASS =
-  "bg-bg2 border border-border rounded-md text-text text-sm font-body px-3 py-2 focus:outline-none focus:border-brand w-full";
+import { useId } from "react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/cn";
 
 export const LABEL_CLASS =
   "block text-[10px] font-heading font-medium text-text-secondary mb-1";
@@ -38,15 +38,32 @@ interface FieldProps {
   label: string;
   /** Columns to span. Use the grid's full width for a pill row. */
   span?: number;
+  /** A set of controls (a pill row) rather than one: the caption names the group. */
+  group?: boolean;
   children: React.ReactNode;
 }
 
-export function Field({ label, span, children }: FieldProps) {
+/**
+ * One captioned filter. A single control sits inside the `<label>`, which names it without an id; a
+ * pill row is a group named by its caption instead, since a label can name only one control.
+ */
+export function FilterField({ label, span, group, children }: FieldProps) {
+  const id = useId();
+  const style = span ? { gridColumn: `span ${span}` } : undefined;
+
+  if (group) {
+    return (
+      <div role="group" aria-labelledby={id} style={style}>
+        <span id={id} className={LABEL_CLASS}>{label}</span>
+        {children}
+      </div>
+    );
+  }
   return (
-    <div style={span ? { gridColumn: `span ${span}` } : undefined}>
+    <label className="block min-w-0" style={style}>
       <span className={LABEL_CLASS}>{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -59,34 +76,34 @@ interface PillGroupProps {
 }
 
 /**
- * The active/inactive pill pair, which was the single most-duplicated class string in the repo.
+ * The stats filter pills, on the shared Toggle Group.
  *
  * Works for both single-select (role filter, direction) and multi-select (the Leaderboard's roles),
- * because it only asks the caller whether a value is active — it holds no selection state of its own.
- *
- * `font-bold` is on every pill, not just the selected one. Bolding only the selection changed that
- * button's text width, so the whole row shifted sideways as you clicked along it. Selection is carried
- * by the fill and border instead, which cost nothing in layout.
+ * because it only asks the caller whether a value is active and reports which pill was pressed; it
+ * holds no selection state of its own. Each pill is a toggle button with `aria-pressed`.
  */
 export function PillGroup({ options, isActive, onSelect, stretch }: PillGroupProps) {
+  const value = options.filter(o => isActive(o.value)).map(o => o.value);
+
   return (
-    <div className="flex gap-1 flex-wrap items-center">
+    <ToggleGroup
+      type="multiple"
+      variant="pill"
+      size="xs"
+      spacing={1}
+      value={value}
+      onValueChange={next => {
+        // The one pill whose state changed, whichever direction it changed in.
+        const pressed = options.find(o => next.includes(o.value) !== value.includes(o.value));
+        if (pressed) onSelect(pressed.value);
+      }}
+      className={cn("flex-wrap", stretch && "w-full flex-nowrap")}
+    >
       {options.map(o => (
-        <button
-          key={o.value}
-          onClick={() => onSelect(o.value)}
-          aria-pressed={isActive(o.value)}
-          className={`rounded-md border py-1.5 px-3 font-heading font-bold text-[11px] tracking-wide whitespace-nowrap ${
-            stretch ? "flex-1 px-1" : ""
-          } ${
-            isActive(o.value)
-              ? "bg-brand border-brand text-white"
-              : "bg-bg2 border-border text-text-secondary"
-          }`}
-        >
+        <ToggleGroupItem key={o.value} value={o.value} className={cn("tracking-wide", stretch && "flex-1 px-1")}>
           {o.label}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }

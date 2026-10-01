@@ -27,18 +27,16 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Send, Trash2 } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
 import { ConfirmButton } from "../../ConfirmButton";
-import { Toast } from "../../Toast";
+import { toast } from "sonner";
 import { PlayerLink } from "../../profile/PlayerLink";
 import {
   ApplicationTeamHeader,
   InvitationStatusPill,
-  MemberAvatar,
   memberLabel,
   roleSummary,
 } from "../../apply/applyUi";
-import { ACTION_SM_DANGER, ACTION_SM_PRIMARY, ErrorLine, Pill, stateNote } from "../adminUi";
+import { ErrorLine, stateNote } from "../adminUi";
 import { ImportApplicationForm } from "./ImportApplicationForm";
 import { queries, queryRoots } from "../../../lib/queries";
 import { fmtKickoff } from "../../../lib/utils";
@@ -51,13 +49,17 @@ import {
   type InvitationSendResult,
   type TeamApplication,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { PlayerAvatar } from "../../players/PlayerIdentity";
 
 export function ImportApplicationsSection() {
   const { data, isPending, error } = useQuery(queries.adminLeagues());
   const leagues = data ?? [];
 
   const [selected, setSelected] = useState<string | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
   // Bumped after every import so the form remounts empty for the next row of the spreadsheet.
   const [imports, setImports] = useState(0);
 
@@ -74,21 +76,20 @@ export function ImportApplicationsSection() {
       {error && <ErrorLine message={`Couldn't load the league list: ${errorMessage(error)}`} />}
 
       <div>
-        <label className={LABEL_CLASS} htmlFor="import-league">
+        <Label className="mb-1" htmlFor="import-league">
           League
-        </label>
-        <select
+        </Label>
+        <NativeSelect
           id="import-league"
           value={conf}
           onChange={e => setSelected(e.target.value)}
-          className={CONTROL_CLASS}
         >
           {leagues.map(t => (
-            <option key={t.conf} value={t.conf}>
+            <NativeSelectOption key={t.conf} value={t.conf}>
               {t.name} ({t.conf}){stateNote(t)}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
         <p className="mt-1.5 text-xs text-text-dim">
           Applications belong to a season that is still hidden. Intake does not have to be open for an
           import.
@@ -117,18 +118,16 @@ export function ImportApplicationsSection() {
                 key={`${conf}:${imports}`}
                 conf={conf}
                 onDone={message => {
-                  setSaved(message);
+                  toast.success(message);
                   setImports(n => n + 1);
                 }}
               />
             </div>
           </section>
 
-          <ApplicationList conf={conf} onSaved={setSaved} />
+          <ApplicationList conf={conf} onSaved={toast.success} />
         </>
       )}
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
 }
@@ -233,7 +232,7 @@ function ApplicationCard({ conf, application, onSaved }: CardProps) {
 
       <div className="p-4">
         <div className="flex flex-wrap items-center gap-2 text-xs text-text-dim">
-          <Pill muted={application.status === "draft"}>{application.status}</Pill>
+          <Badge variant={application.status === "draft" ? "muted" : "default"}>{application.status}</Badge>
           <span>
             Submitter{" "}
             <PlayerLink profileId={application.submittedByProfileId} className="text-brand hover:underline">
@@ -255,7 +254,7 @@ function ApplicationCard({ conf, application, onSaved }: CardProps) {
           <ul className="mt-3 flex flex-col gap-1.5">
             {members.map(member => (
               <li key={member.id} className="flex flex-wrap items-center gap-2 text-sm">
-                <MemberAvatar member={member} />
+                <PlayerAvatar src={member.avatar} />
                 <PlayerLink profileId={member.profileId} className="text-brand hover:underline">
                   {memberLabel(member)}
                 </PlayerLink>
@@ -282,10 +281,10 @@ function ApplicationCard({ conf, application, onSaved }: CardProps) {
             disabled={send.isPending || unsent.length === 0}
             onConfirm={() => send.mutate()}
             trigger={
-              <button
+              <Button
+                size="sm"
                 type="button"
                 disabled={send.isPending || unsent.length === 0}
-                className={ACTION_SM_PRIMARY}
               >
                 <Send size={14} aria-hidden="true" />
                 {send.isPending
@@ -293,7 +292,7 @@ function ApplicationCard({ conf, application, onSaved }: CardProps) {
                   : unsent.length === 0
                     ? "Send invites"
                     : `Send invites (${unsent.length})`}
-              </button>
+              </Button>
             }
           />
           {unsent.length === 0 && members.length > 0 && (
@@ -310,10 +309,10 @@ function ApplicationCard({ conf, application, onSaved }: CardProps) {
               disabled={discard.isPending}
               onConfirm={() => discard.mutate()}
               trigger={
-                <button type="button" disabled={discard.isPending} className={`${ACTION_SM_DANGER} ml-auto`}>
+                <Button variant="destructive" size="sm" type="button" disabled={discard.isPending} className="ml-auto">
                   <Trash2 size={14} aria-hidden="true" />
                   {discard.isPending ? "Deleting…" : "Delete"}
-                </button>
+                </Button>
               }
             />
           )}

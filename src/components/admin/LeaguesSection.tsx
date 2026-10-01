@@ -29,11 +29,10 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, EyeOff, Globe, Lock, LockOpen, Plus } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
 import { ReadOnlyValue, SettingsRow } from "../settings/SettingsSection";
 import { ConfirmButton } from "../ConfirmButton";
-import { Toast } from "../Toast";
-import { ACTION, ACTION_PRIMARY, ACTION_SM_PRIMARY, ErrorLine, Pill, stateNote } from "./adminUi";
+import { toast } from "sonner";
+import { ErrorLine, stateNote } from "./adminUi";
 import { queries, queryRoots } from "../../lib/queries";
 import { fmtDay } from "../../lib/utils";
 import {
@@ -50,6 +49,12 @@ import {
   type LeagueEdit,
   type Tournament,
 } from "../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 /** Picker value for "not an existing league". Never collides — a real conf is 1–3 characters. */
 const NEW = "";
@@ -59,10 +64,6 @@ export function LeaguesSection() {
   const tournaments = data ?? [];
   const error = failure ? errorMessage(failure) : null;
   const [selected, setSelected] = useState<string>(NEW);
-  // Owned here rather than in the form: creating a league re-keys the form, which would destroy
-  // the confirmation of the very save that caused it.
-  const [saved, setSaved] = useState<string | null>(null);
-
   const current = tournaments.find(t => t.conf === selected) ?? null;
 
   // A conf that vanished — deleted elsewhere, or the list arriving after a create — falls back to
@@ -76,21 +77,20 @@ export function LeaguesSection() {
       {error && <ErrorLine message={`Couldn't load the league list: ${error}`} />}
 
       <div>
-        <label className={LABEL_CLASS}>Editing</label>
-        <select
+        <Label htmlFor="league-editing" className="mb-1">Editing</Label>
+        <NativeSelect
+          id="league-editing"
           value={value}
-          aria-label="League to edit"
           onChange={e => setSelected(e.target.value)}
-          className={CONTROL_CLASS}
         >
-          <option value={NEW}>+ New league</option>
+          <NativeSelectOption value={NEW}>+ New league</NativeSelectOption>
           {tournaments.map(t => (
-            <option key={t.conf} value={t.conf}>
+            <NativeSelectOption key={t.conf} value={t.conf}>
               {t.name} ({t.conf})
               {stateNote(t)}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       {/* Keyed on the selection so switching leagues resets the fields to that row, rather than
@@ -99,11 +99,9 @@ export function LeaguesSection() {
         key={value}
         league={current}
         existing={tournaments}
-        onSaved={setSaved}
+        onSaved={toast.success}
         onCreated={setSelected}
       />
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
 }
@@ -245,13 +243,13 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
         }
       >
         {league === null ? (
-          <input
+          <Input
             value={conf}
             onChange={e => setConf(e.target.value.toLowerCase())}
             maxLength={3}
             placeholder="ccs"
             aria-label="Conf"
-            className={`${CONTROL_CLASS} font-mono`}
+            className="font-mono"
           />
         ) : (
           <ReadOnlyValue mono>{league.conf}</ReadOnlyValue>
@@ -268,13 +266,13 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
       )}
 
       <SettingsRow label="Name" hint="The full season name, e.g. “CCS 2026 Summer Diamond Division”. Shown wherever a league has to be told apart from the one running beside it.">
-        <input
-          value={name}
-          onChange={e => setName(e.target.value)}
-          maxLength={NAME_MAX}
-          aria-label="Name"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Input {...field}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            maxLength={NAME_MAX}
+          />
+        )}
       </SettingsRow>
 
       {/* Two short labels, and they answer different questions: the season name says *when* a league
@@ -285,26 +283,26 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
         label="Season Name"
         hint={`Optional, ${SHORTNAME_MAX} characters max, e.g. “Summer ’26”. Names the season a team played in. Divisions running concurrently are meant to share one, so it can't tell them apart. Leave it empty to clear.`}
       >
-        <input
-          value={shortname}
-          onChange={e => setShortname(e.target.value)}
-          maxLength={SHORTNAME_MAX}
-          aria-label="Season Name"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Input {...field}
+            value={shortname}
+            onChange={e => setShortname(e.target.value)}
+            maxLength={SHORTNAME_MAX}
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
         label="Division Name"
         hint={`Optional, ${CODENAME_MAX} characters max, e.g. “Apollo”. What the site calls this division wherever several run at once: the Standings, Stats and Teams strips, the Home standings panel and the schedule captions. Falls back to the full name without one. Leave it empty to clear.`}
       >
-        <input
-          value={codename}
-          onChange={e => setCodename(e.target.value)}
-          maxLength={CODENAME_MAX}
-          aria-label="Division Name"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Input {...field}
+            value={codename}
+            onChange={e => setCodename(e.target.value)}
+            maxLength={CODENAME_MAX}
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
@@ -316,11 +314,9 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
         }
       >
         <label className="flex items-center gap-2.5 cursor-pointer text-sm text-text">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={active}
-            onChange={e => setActive(e.target.checked)}
-            className="accent-brand w-4 h-4 cursor-pointer"
+            onCheckedChange={v => setActive(v === true)}
           />
           This season is running now
         </label>
@@ -340,18 +336,18 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
               <ReadOnlyValue>Not reported by this deployment</ReadOnlyValue>
             ) : (
               <div className="flex flex-wrap items-center gap-3">
-                <Pill muted={!open}>{open ? "Open" : "Closed"}</Pill>
+                <Badge variant={!open ? "muted" : "default"}>{open ? "Open" : "Closed"}</Badge>
                 {/* A listed season cannot open intake (`409 season_listed`), so the button only stays
                     live on one for the case that should be impossible: intake somehow open. */}
-                <button
+                <Button
+                  variant="outline"
                   type="button"
                   disabled={intake.isPending || (listed && !open)}
                   onClick={() => intake.mutate(!open)}
-                  className={ACTION}
                 >
                   {open ? <Lock size={15} aria-hidden="true" /> : <LockOpen size={15} aria-hidden="true" />}
                   {intake.isPending ? "Saving…" : open ? "Close applications" : "Open applications"}
-                </button>
+                </Button>
               </div>
             )}
             <ErrorLine message={intakeError} />
@@ -366,7 +362,7 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
             }
           >
             <div className="flex flex-wrap items-center gap-3">
-              <Pill muted={!listed}>{listed ? "Listed" : "Hidden"}</Pill>
+              <Badge variant={!listed ? "muted" : "default"}>{listed ? "Listed" : "Hidden"}</Badge>
               {league.teamsPublishedAt && (
                 <span className="text-text-dim text-xs">
                   Teams published {fmtDay(league.teamsPublishedAt)}
@@ -394,10 +390,10 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
                   disabled={goPublic.isPending}
                   onConfirm={() => goPublic.mutate()}
                   trigger={
-                    <button type="button" disabled={goPublic.isPending} className={ACTION_SM_PRIMARY}>
+                    <Button size="sm" type="button" disabled={goPublic.isPending}>
                       <Globe size={14} aria-hidden="true" />
                       {goPublic.isPending ? "Publishing…" : "Make season public"}
-                    </button>
+                    </Button>
                   }
                 />
               )}
@@ -405,11 +401,10 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
             <ErrorLine message={listError} />
             {listed && (
               <label className="mt-2.5 flex items-center gap-2.5 cursor-pointer text-sm text-text">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={hide}
-                  onChange={e => setHide(e.target.checked)}
-                  className="accent-ccs-red w-4 h-4 cursor-pointer"
+                  onCheckedChange={v => setHide(v === true)}
+                  className="data-[state=checked]:border-ccs-red data-[state=checked]:bg-ccs-red"
                 />
                 <EyeOff size={14} aria-hidden="true" className="text-ccs-red" />
                 Hide this season from the whole site
@@ -419,10 +414,10 @@ function LeagueForm({ league, existing, onSaved, onCreated }: FormProps) {
         </>
       )}
 
-      <button type="submit" disabled={!canSave || save.isPending} className={ACTION_PRIMARY}>
+      <Button type="submit" disabled={!canSave || save.isPending}>
         {isNew ? <Plus size={15} aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}
         {save.isPending ? "Saving…" : isNew ? "Create league" : "Save changes"}
-      </button>
+      </Button>
       {!isNew && Object.keys(changes).length === 0 && !save.isPending && (
         <p className="text-text-dim text-xs mt-2">No changes to save.</p>
       )}

@@ -13,7 +13,6 @@
 import { Suspense } from "react";
 import { Outlet, useLocation, useOutletContext } from "react-router-dom";
 import { PageShell } from "../components/layout/PageShell";
-import { Toast } from "../components/Toast";
 import { PredictionsHeader, type PredictionsTab } from "../components/predictions/PredictionsHeader";
 import { usePredictionWallet, type PredictionWallet } from "../components/predictions/usePredictionWallet";
 
@@ -30,7 +29,6 @@ export default function PredictionsHub() {
       <Suspense fallback={<p role="status" className="py-10 text-center text-sm text-text-dim">Loading…</p>}>
         <Outlet context={wallet} />
       </Suspense>
-      <Toast message={wallet.notice} onClose={wallet.clearNotice} />
     </PageShell>
   );
 }

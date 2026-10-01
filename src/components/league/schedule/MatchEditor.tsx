@@ -17,14 +17,18 @@
  * and is overwritten by the next ingested game, which is worse than a refusal.
  */
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
-import { ACTION, ACTION_PRIMARY, ErrorLine } from "../../admin/adminUi";
-import { IssueList, fieldError } from "../../admin/season/issues";
+import { DateTimePicker } from "../../DateTimePicker";
+import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { ErrorLine } from "../../admin/adminUi";
+import { IssueList, invalidAt } from "../../admin/season/issues";
 import { queries, queryRoots } from "../../../lib/queries";
-import { fmtKickoff, fromLocalInput, toLocalInput } from "../../../lib/utils";
+import { fmtKickoff } from "../../../lib/utils";
 import {
   BEST_OF_VALUES,
   STREAM_URL_MAX,
@@ -109,14 +113,9 @@ export function MatchEditor({ matchId, teams, onClose, onSaved }: Props) {
         <p className="font-heading text-xs text-text-secondary">
           {phase.name} · day {match.matchDay} of the phase · season day {seasonDay}
         </p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close the editor"
-          className="text-text-dim hover:text-text-bright cursor-pointer"
-        >
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close the editor">
           <X size={16} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -132,10 +131,12 @@ export function MatchEditor({ matchId, teams, onClose, onSaved }: Props) {
         />
 
         {isBye ? (
-          <div>
-            <label className={LABEL_CLASS}>Team B</label>
+          <Field aria-labelledby={`teamb-${matchId}`}>
+            <FieldLabel asChild>
+              <span id={`teamb-${matchId}`}>Team B</span>
+            </FieldLabel>
             <p className="text-text-dim text-sm py-2">None — this is a bye.</p>
-          </div>
+          </Field>
         ) : (
           <TeamField
             label="Team B"
@@ -149,60 +150,56 @@ export function MatchEditor({ matchId, teams, onClose, onSaved }: Props) {
           />
         )}
 
-        <div>
-          <label className={LABEL_CLASS} htmlFor={`kickoff-${matchId}`}>
-            Kickoff
-          </label>
-          <input
+        <Field data-invalid={invalidAt(issues, "scheduledAt")}>
+          <FieldLabel htmlFor={`kickoff-${matchId}`}>Kickoff</FieldLabel>
+          <DateTimePicker
             id={`kickoff-${matchId}`}
-            type="datetime-local"
-            value={toLocalInput(scheduledAt)}
-            onChange={e => set("scheduledAt", fromLocalInput(e.target.value))}
-            className={`${CONTROL_CLASS} ${fieldError(issues, "scheduledAt")}`}
+            value={scheduledAt}
+            onChange={value => set("scheduledAt", value)}
+            placeholder="Inherits"
+            suggested={inherited.scheduledAt}
+            aria-invalid={invalidAt(issues, "scheduledAt")}
+            aria-describedby={`kickoff-${matchId}-hint`}
           />
-          <p className="text-text-dim text-xs mt-1.5">
+          <FieldDescription id={`kickoff-${matchId}-hint`}>
             {scheduledAt === null
-              ? `Empty — inherits ${inherited.scheduledAt ? fmtKickoff(inherited.scheduledAt) : "nothing, as the phase has no kickoff set"}.`
-              : "Overrides the phase default for this match only. Clear the field to go back to inheriting."}
-          </p>
-        </div>
+              ? `Not set, so it inherits ${inherited.scheduledAt ? fmtKickoff(inherited.scheduledAt) : "nothing, as the phase has no kickoff set"}.`
+              : "Overrides the phase default for this match only. Clear it to go back to inheriting."}
+          </FieldDescription>
+        </Field>
 
-        <div>
-          <label className={LABEL_CLASS} htmlFor={`bestof-${matchId}`}>
-            Best of
-          </label>
-          <select
+        <Field data-invalid={invalidAt(issues, "bestOf")}>
+          <FieldLabel htmlFor={`bestof-${matchId}`}>Best of</FieldLabel>
+          <NativeSelect
             id={`bestof-${matchId}`}
             value={bestOf ?? ""}
+            aria-invalid={invalidAt(issues, "bestOf")}
             onChange={e => {
               const value = Number(e.target.value);
               set("bestOf", isBestOf(value) ? (value as BestOf) : null);
             }}
-            className={`${CONTROL_CLASS} ${fieldError(issues, "bestOf")}`}
           >
             {/* The empty option is what the API means by null, and `inherited` is what it resolves to. */}
-            <option value="">Inherit — Bo{inherited.bestOf}</option>
+            <NativeSelectOption value="">Inherit — Bo{inherited.bestOf}</NativeSelectOption>
             {BEST_OF_VALUES.map(n => (
-              <option key={n} value={n}>
+              <NativeSelectOption key={n} value={n}>
                 Bo{n}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
-        </div>
+          </NativeSelect>
+        </Field>
 
-        <div className="sm:col-span-2">
-          <label className={LABEL_CLASS} htmlFor={`stream-${matchId}`}>
-            Stream
-          </label>
-          <input
+        <Field data-invalid={invalidAt(issues, "streamUrl")} className="sm:col-span-2">
+          <FieldLabel htmlFor={`stream-${matchId}`}>Stream</FieldLabel>
+          <Input
             id={`stream-${matchId}`}
             value={streamUrl ?? ""}
             maxLength={STREAM_URL_MAX}
             placeholder="https://twitch.tv/…"
+            aria-invalid={invalidAt(issues, "streamUrl")}
             onChange={e => set("streamUrl", e.target.value === "" ? null : e.target.value)}
-            className={`${CONTROL_CLASS} ${fieldError(issues, "streamUrl")}`}
           />
-        </div>
+        </Field>
       </div>
 
       {derivedSides.length > 0 && (
@@ -218,27 +215,22 @@ export function MatchEditor({ matchId, teams, onClose, onSaved }: Props) {
       </div>
 
       <div className="flex items-center gap-3 mt-3">
-        <button
-          type="button"
-          onClick={() => save.mutate()}
-          disabled={!dirty || save.isPending}
-          className={ACTION_PRIMARY}
-        >
+        <Button type="button" onClick={() => save.mutate()} disabled={!dirty || save.isPending}>
           <Check size={15} aria-hidden="true" />
           {save.isPending ? "Saving…" : "Save match"}
-        </button>
+        </Button>
         {dirty ? (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => {
               setEdit({});
               setIssues([]);
             }}
             disabled={save.isPending}
-            className={ACTION}
           >
             Discard
-          </button>
+          </Button>
         ) : (
           <span className="text-text-dim text-xs">No changes to save.</span>
         )}
@@ -271,29 +263,31 @@ function TeamField({
   onChange: (id: number | null) => void;
 }) {
   const options = useMemo(() => teams.filter(t => t.id !== exclude), [teams, exclude]);
+  const id = useId();
 
   return (
-    <div>
-      <label className={LABEL_CLASS}>{label}</label>
-      <select
+    <Field data-invalid={invalidAt(issues, path)}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <NativeSelect
+        id={id}
         value={value ?? ""}
         disabled={derived}
-        aria-label={label}
-        title={
-          derived
-            ? "This team arrives from an earlier bracket match and fills in automatically once it is decided."
-            : undefined
-        }
+        aria-invalid={invalidAt(issues, path)}
+        aria-describedby={derived ? `${id}-derived` : undefined}
         onChange={e => onChange(e.target.value === "" ? null : Number(e.target.value))}
-        className={`${CONTROL_CLASS} ${fieldError(issues, path)}`}
       >
-        <option value="">{derived ? "— decided by results —" : "— TBD —"}</option>
+        <NativeSelectOption value="">{derived ? "— decided by results —" : "— TBD —"}</NativeSelectOption>
         {options.map(t => (
-          <option key={t.id} value={t.id}>
+          <NativeSelectOption key={t.id} value={t.id}>
             {t.code} — {t.name}
-          </option>
+          </NativeSelectOption>
         ))}
-      </select>
-    </div>
+      </NativeSelect>
+      {derived && (
+        <FieldDescription id={`${id}-derived`}>
+          Arrives from an earlier bracket match and fills in automatically once it is decided.
+        </FieldDescription>
+      )}
+    </Field>
   );
 }

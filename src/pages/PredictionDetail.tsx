@@ -9,12 +9,12 @@
  * caller, and nothing viewer-specific rides on it.
  */
 
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { BackLink } from "../components/BackLink";
 import { PageShell } from "../components/layout/PageShell";
-import { Toast } from "../components/Toast";
+import { toast } from "sonner";
 import {
   MATCHUP_CAPTION_LINK,
   MatchupCaption,
@@ -48,9 +48,6 @@ export default function PredictionDetail() {
   const wallet = usePredictionWallet();
   const { byEvent } = usePredictionPositions(event ? [[event.id]] : []);
   const { tournaments } = useLeague();
-  const [toast, setToast] = useState<string | null>(null);
-  const { clearNotice } = wallet;
-  const closeToast = useCallback(() => { setToast(null); clearNotice(); }, [clearNotice]);
 
   const matchup = event ? `${event.outcomes[0].team?.name ?? "TBD"} vs ${event.outcomes[1].team?.name ?? "TBD"}` : null;
   usePageMetadata({
@@ -111,14 +108,13 @@ export default function PredictionDetail() {
 
       <div className="space-y-5">
         <div>
-          <PredictPanel event={event} wallet={wallet} onPlaced={setToast} />
+          <PredictPanel event={event} wallet={wallet} onPlaced={message => toast.success(message)} />
           {!!(wallet.summary.error ?? wallet.enrollError) && (
             <ErrorLine message={errorMessage(wallet.summary.error ?? wallet.enrollError)} />
           )}
         </div>
         {position && <PositionBreakdown event={event} position={position} />}
       </div>
-      <Toast message={toast ?? wallet.notice} onClose={closeToast} />
     </PageShell>
   );
 }

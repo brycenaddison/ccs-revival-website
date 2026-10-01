@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
-import { ACTION, ACTION_PRIMARY } from "../../admin/adminUi";
 import { TABLE_MAX_COLUMNS, TABLE_MAX_ROWS, type TableSize } from "./commands";
+import { Button } from "@/components/ui/button";
 
 /** Shared by the toolbar and context menu through the editor's insertion popover. */
 export function TableSizePicker({ onInsert, onCancel }: {
@@ -55,8 +55,8 @@ export function TableSizePicker({ onInsert, onCancel }: {
       </div>
       <p id={hintId} className="text-xs text-text-secondary">First row is the header. Choose a cell, or use arrow keys and Enter.</p>
       <div className="flex gap-2">
-        <button type="button" className={ACTION_PRIMARY} onClick={() => onInsert(size)}>Insert table</button>
-        <button type="button" className={ACTION} onClick={onCancel}>Cancel</button>
+        <Button type="button" onClick={() => onInsert(size)}>Insert table</Button>
+        <Button variant="outline" type="button" onClick={onCancel}>Cancel</Button>
       </div>
     </div>
   );

@@ -16,7 +16,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Toast } from "../components/Toast";
+import { toast } from "sonner";
 import { queryRoots } from "./queries";
 import {
   ANONYMOUS,
@@ -114,18 +114,12 @@ function successText(m: RiotLinkMessage): string {
   return `Linked ${who}.`;
 }
 
-interface Notice {
-  text: string;
-  tone: "success" | "error";
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [identity, setIdentity] = useState<Identity>(ANONYMOUS);
   const lastProfileId = useRef<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<Notice | null>(null);
 
   useEffect(() => {
     const profileId = identity.profile?.id ?? null;
@@ -165,12 +159,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const canLinkRiot = RIOT_LINKING_ENABLED && identity.accountVerification.rso;
 
+  // The provider reports the Riot-link outcome because it owns the flow; both nav menus that start it
+  // unmount on click, so neither could show it.
   const linkRiot = useCallback(async () => {
     if (!canLinkRiot) return;
 
     const popup = window.open(auth.riotLinkUrl(), "ccs-riot-link", "width=520,height=720");
     if (!popup) {
-      setNotice({ text: "Allow pop-ups for this site to link a Riot account.", tone: "error" });
+      toast.error("Allow pop-ups for this site to link a Riot account.");
       return;
     }
 
@@ -204,10 +200,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await read();
       // A verified-account transfer can merge prediction wallets into the surviving profile.
       await queryClient.invalidateQueries({ queryKey: queryRoots.predictions });
-      setNotice({ text: successText(result), tone: "success" });
+      toast.success(successText(result));
       return;
     }
-    setNotice({ text: FAILURE_TEXT[result.status] ?? "Couldn't link that Riot account.", tone: "error" });
+    toast.error(FAILURE_TEXT[result.status] ?? "Couldn't link that Riot account.");
   }, [read, canLinkRiot, queryClient]);
 
   const clear = useCallback(async (end: () => Promise<void>) => {
@@ -248,16 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <AuthCtx.Provider value={value}>
-      {children}
-      {/* The provider owns the Riot-link result because it owns the flow, and because the two nav
-          variants that start it both unmount their menu on click — neither could show it. */}
-      <Toast
-        message={notice?.text ?? null}
-        type={notice?.tone ?? "success"}
-        onClose={() => setNotice(null)}
-      />
-    </AuthCtx.Provider>
+    <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>
   );
 }
 

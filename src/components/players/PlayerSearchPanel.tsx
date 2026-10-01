@@ -1,7 +1,9 @@
 import { useId, type ReactNode } from "react";
 import { Search } from "lucide-react";
-import { ACTION_SM } from "../admin/adminUi";
-import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
+import { LABEL_CLASS } from "../stats/FilterBar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function PlayerSearchPanel({ label, term, onTerm, onCancel, busy = false, children }: {
   label: string;
@@ -17,14 +19,14 @@ export function PlayerSearchPanel({ label, term, onTerm, onCancel, busy = false,
       onKeyDown={event => {
         if (event.key === "Escape" && !busy) { event.stopPropagation(); onCancel(); }
       }}>
-      <label htmlFor={id} className={LABEL_CLASS}>{label}</label>
+      <Label htmlFor={id} className="mb-1">{label}</Label>
       <div className="relative">
         <Search size={14} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
-        <input id={id} value={term} onChange={event => onTerm(event.target.value)} autoComplete="off"
-          autoFocus disabled={busy} className={`${CONTROL_CLASS} pl-8`} />
+        <Input id={id} value={term} onChange={event => onTerm(event.target.value)} autoComplete="off"
+          autoFocus disabled={busy} className="pl-8" />
       </div>
       <div className="mt-2 flex justify-end">
-        <button type="button" onClick={onCancel} disabled={busy} className={ACTION_SM}>Cancel</button>
+        <Button variant="outline" size="sm" type="button" onClick={onCancel} disabled={busy}>Cancel</Button>
       </div>
       {children}
     </div>

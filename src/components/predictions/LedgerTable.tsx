@@ -13,43 +13,40 @@ import { LEDGER_KIND_LABEL } from "./predictionLabels";
 import type { PredictionHistoryEntry } from "../../lib/api";
 import { pointsText, signedPointsText, signedPointsTone } from "../../lib/predictionPoints";
 import { fmtKickoff } from "../../lib/utils";
-
-const HEAD = "px-3 py-2 text-left font-heading text-[10px] font-medium text-text-muted";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export function LedgerTable({ entries }: { entries: readonly PredictionHistoryEntry[] }) {
   return (
-    <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-bg2">
-      <table className="w-full min-w-[640px] text-sm">
-        <thead>
-          <tr>
-            <th scope="col" className={HEAD}>Date</th>
-            <th scope="col" className={HEAD}>Activity</th>
-            <th scope="col" className={HEAD}>Match</th>
-            <th scope="col" className={`${HEAD} text-right`}>Amount</th>
-            <th scope="col" className={`${HEAD} text-right`}>Balance</th>
-          </tr>
-        </thead>
-        <tbody>
+    <Table containerClassName="rounded-lg border border-border bg-bg2" className="w-full min-w-[640px] text-sm">
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">Date</TableHead>
+            <TableHead scope="col">Activity</TableHead>
+            <TableHead scope="col" className="w-full">Match</TableHead>
+            <TableHead scope="col" className="text-right">Amount</TableHead>
+            <TableHead scope="col" className="text-right">Balance</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {entries.map(entry => (
-            <tr key={entry.id} className="border-t border-border">
-              <td className="whitespace-nowrap px-3 py-2 text-text-secondary">
+            <TableRow key={entry.id}>
+              <TableCell className="whitespace-nowrap text-text-secondary">
                 {entry.createdAt && <time dateTime={entry.createdAt}>{fmtKickoff(entry.createdAt)}</time>}
-              </td>
-              <td className="px-3 py-2 font-heading text-text-bright">{activityText(entry)}</td>
-              <td className="max-w-0 px-3 py-2">
+              </TableCell>
+              <TableCell className="min-w-40 font-heading text-text-bright">{activityText(entry)}</TableCell>
+              <TableCell className="max-w-0">
                 {entry.event && (
                   <Link to={predictionPath(entry.event.id)} className="block min-w-0 no-underline hover:underline">
                     <MatchupLabel teamA={entry.event.teams[0]} teamB={entry.event.teams[1]} conf={entry.event.conf} linked={false} size={18} />
                   </Link>
                 )}
-              </td>
-              <td className={`whitespace-nowrap px-3 py-2 text-right font-mono ${signedPointsTone(entry.amount)}`}>{signedPointsText(entry.amount)}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-text-bright">{pointsText(entry.balanceAfter)}</td>
-            </tr>
+              </TableCell>
+              <TableCell className={`whitespace-nowrap text-right font-mono ${signedPointsTone(entry.amount)}`}>{signedPointsText(entry.amount)}</TableCell>
+              <TableCell className="whitespace-nowrap text-right font-mono text-text-bright">{pointsText(entry.balanceAfter)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
   );
 }
 

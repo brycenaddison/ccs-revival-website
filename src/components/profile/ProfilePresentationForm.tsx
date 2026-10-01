@@ -19,8 +19,10 @@ import {
 } from "../../lib/api";
 import { useAuth } from "../../lib/authContext";
 import { queryRoots } from "../../lib/queries";
-import { ACTION_PRIMARY, ErrorLine } from "../admin/adminUi";
-import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
+import { ErrorLine } from "../admin/adminUi";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface Values {
   nickname: string;
@@ -90,14 +92,13 @@ export function ProfilePresentationForm({ initial, submitLabel, onSaved }: Props
         maxLength={NICKNAME_MAX}
         error={fieldError === "nickname"}
       >
-        <input
+        <Input
           ref={nicknameRef}
           id="profile-nickname"
           value={values.nickname}
           onChange={event => update("nickname", event.target.value)}
           maxLength={NICKNAME_MAX}
           autoComplete="nickname"
-          className={CONTROL_CLASS}
           aria-invalid={fieldError === "nickname"}
           aria-describedby="profile-nickname-help"
         />
@@ -112,14 +113,13 @@ export function ProfilePresentationForm({ initial, submitLabel, onSaved }: Props
         maxLength={PRONOUNS_MAX}
         error={fieldError === "pronouns"}
       >
-        <input
+        <Input
           ref={pronounsRef}
           id="profile-pronouns"
           value={values.pronouns}
           onChange={event => update("pronouns", event.target.value)}
           maxLength={PRONOUNS_MAX}
           autoComplete="off"
-          className={CONTROL_CLASS}
           aria-invalid={fieldError === "pronouns"}
           aria-describedby="profile-pronouns-help"
         />
@@ -134,14 +134,13 @@ export function ProfilePresentationForm({ initial, submitLabel, onSaved }: Props
         maxLength={PRONUNCIATION_MAX}
         error={fieldError === "pronunciation"}
       >
-        <input
+        <Input
           ref={pronunciationRef}
           id="profile-pronunciation"
           value={values.pronunciation}
           onChange={event => update("pronunciation", event.target.value)}
           maxLength={PRONUNCIATION_MAX}
           autoComplete="off"
-          className={CONTROL_CLASS}
           aria-invalid={fieldError === "pronunciation"}
           aria-describedby="profile-pronunciation-help"
         />
@@ -150,9 +149,9 @@ export function ProfilePresentationForm({ initial, submitLabel, onSaved }: Props
       {fieldError && <ErrorLine message="Nickname, pronouns, and pronunciation are all required." />}
       {mutation.error && <ErrorLine message={errorMessage(mutation.error)} />}
 
-      <button type="submit" disabled={mutation.isPending} className={`${ACTION_PRIMARY} mt-2`}>
+      <Button type="submit" disabled={mutation.isPending} className="mt-2">
         {mutation.isPending ? "Saving…" : submitLabel}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -185,7 +184,7 @@ function ProfileField({
   return (
     <div className="mb-5">
       <div className="mb-1.5 flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className={LABEL_CLASS}>{label}</label>
+        <Label htmlFor={id} className="mb-1">{label}</Label>
         <span className="shrink-0 font-mono text-[10px] text-text-dim">{value.length}/{maxLength}</span>
       </div>
       {children}

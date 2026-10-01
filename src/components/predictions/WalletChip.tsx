@@ -3,7 +3,7 @@
  * claim button while today's reward is waiting. Reads the summary only.
  */
 
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
 import type { PredictionWallet } from "./usePredictionWallet";
 import { pointsText } from "../../lib/predictionPoints";
 

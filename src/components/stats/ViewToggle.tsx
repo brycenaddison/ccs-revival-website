@@ -7,6 +7,8 @@
  * this in the group switcher's trailing slot, and the selection survives.
  */
 
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+
 export type StatView = "table" | "bars";
 
 export const STAT_VIEW_OPTIONS: readonly { value: StatView; label: string }[] = [
@@ -22,20 +24,20 @@ interface Props<V extends string> {
 
 export function ViewToggle<V extends string>({ options, value, onChange }: Props<V>) {
   return (
-    <div className="flex gap-0.5 rounded-md border border-border overflow-hidden">
+    // A segmented pair: one item is always on, so pressing the selected one changes nothing.
+    <ToggleGroup
+      type="single"
+      variant="pill"
+      size="xs"
+      value={value}
+      onValueChange={next => next && onChange(next as V)}
+      aria-label="View"
+    >
       {options.map(o => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          aria-pressed={value === o.value}
-          // Bold on both, so switching doesn't resize the control.
-          className={`py-1.5 px-3 font-heading font-bold text-[10px] ${
-            value === o.value ? "bg-brand text-white" : "bg-bg2 text-text-secondary"
-          }`}
-        >
+        <ToggleGroupItem key={o.value} value={o.value} className="text-[10px] tracking-normal not-first:border-l-0">
           {o.label}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }

@@ -17,8 +17,7 @@ import { ErrorLine } from "../../admin/adminUi";
 import { PlayerIdentity } from "../../players/PlayerIdentity";
 import { TeamLabel } from "../../predictions/MatchupLabel";
 import { voidReasonText } from "../../predictions/predictionLabels";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
-import { Button } from "../../ui/button";
+import { Button } from "@/components/ui/button";
 import {
   ApiError,
   applyPredictionCorrection,
@@ -31,6 +30,8 @@ import {
 } from "../../../lib/api";
 import { pointsText, signedPointsText, signedPointsTone } from "../../../lib/predictionPoints";
 import { queryRoots } from "../../../lib/queries";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 const KINDS = [
   { key: "result" as const, label: "Correct result" },
@@ -99,11 +100,11 @@ export function CorrectionDialog({ conf, event, onClose, onDone }: {
       }
     >
       {/* Locked while an apply attempt is outstanding, so a retry repeats the same command. */}
-      <PillTabs tabs={KINDS} selected={kind} onSelect={next => { if (applyId === null && !busy) change(() => setKind(next)); }} />
-      <label htmlFor="prediction-correction-reason" className={`${LABEL_CLASS} mt-4`}>Reason</label>
-      <textarea
+      <PillTabs label="Correction" tabs={KINDS} selected={kind} onSelect={next => { if (applyId === null && !busy) change(() => setKind(next)); }} />
+      <Label htmlFor="prediction-correction-reason" className="mb-1 mt-4">Reason</Label>
+      <Textarea
         id="prediction-correction-reason"
-        className={`${CONTROL_CLASS} min-h-20`}
+        className="min-h-20"
         maxLength={PREDICTION_REASON_MAX}
         value={reason}
         disabled={applyId !== null}

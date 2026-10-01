@@ -1,4 +1,5 @@
 /** The all-seasons archive. A one-row lookahead avoids linking to an empty final page. */
+import { Fragment } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { PageShell } from "../components/layout/PageShell";
@@ -7,9 +8,16 @@ import { usePageMetadata } from "../components/seo/MetadataProvider";
 import { queries } from "../lib/queries";
 import { errorMessage } from "../lib/api";
 import { NEWS_PAGE_SIZE, newsPagePath, parseNewsPage } from "../lib/seo/site";
-
-const PAGE_LINK = "rounded-md border border-border px-3 py-2 font-heading text-sm text-text-bright hover:border-brand";
-
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+
 export default function News() {
   const { page: rawPage } = useParams();
   const page = parseNewsPage(rawPage);
@@ -51,13 +59,35 @@ export default function News() {
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             {articles.map(article => <ArticleCardTile key={article.slug} article={article} />)}
           </div>
-          <nav aria-label="News pagination" className="mt-8 flex flex-wrap items-center justify-center gap-2">
-            {page! > 1 && <Link to={newsPagePath(page! - 1)} rel="prev" className={PAGE_LINK}>Previous</Link>}
-            {pages.map(number => number === page ? (
-              <span key={number} aria-current="page" className="rounded-md border border-brand px-3 py-2 font-heading text-sm text-text-bright">{number}</span>
-            ) : <Link key={number} to={newsPagePath(number)} aria-label={`News page ${number}`} className={PAGE_LINK}>{number}</Link>)}
-            {hasNext && <Link to={newsPagePath(page! + 1)} rel="next" className={PAGE_LINK}>Next</Link>}
-          </nav>
+          <Pagination aria-label="News pagination" className="mt-8">
+            <PaginationContent className="flex-wrap justify-center">
+              {page! > 1 && (
+                <PaginationItem>
+                  <PaginationPrevious to={newsPagePath(page! - 1)} rel="prev" />
+                </PaginationItem>
+              )}
+              {pages.map((number, index) => (
+                <Fragment key={number}>
+                  {/* Page 1 is always offered, so a jump past page 2 leaves a gap worth marking. */}
+                  {index > 0 && number - pages[index - 1] > 1 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  <PaginationItem>
+                    <PaginationLink to={newsPagePath(number)} isActive={number === page} aria-label={`News page ${number}`}>
+                      {number}
+                    </PaginationLink>
+                  </PaginationItem>
+                </Fragment>
+              ))}
+              {hasNext && (
+                <PaginationItem>
+                  <PaginationNext to={newsPagePath(page! + 1)} rel="next" />
+                </PaginationItem>
+              )}
+            </PaginationContent>
+          </Pagination>
         </>
       )}
     </PageShell>

@@ -1,6 +1,6 @@
 import { cloneElement, useRef, type ComponentProps, type ReactElement } from "react";
 import { cn } from "../../lib/cn";
-import { CommandItem } from "../ui/command";
+import { CommandItem } from "@/components/ui/command";
 
 /** Arrow/Enter selection and ordinary link behavior share the same anchor activation. */
 export function CommandLinkItem({ value, onNavigate, children }: {

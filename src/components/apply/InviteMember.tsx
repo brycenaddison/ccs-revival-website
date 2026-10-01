@@ -20,11 +20,11 @@
  * takes one or the other rather than either.
  */
 
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Search, UserPlus, X } from "lucide-react";
-import { ACTION, ACTION_PRIMARY, ACTION_QUIET, ACTION_SM, ErrorLine } from "../admin/adminUi";
-import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
+import { ErrorLine } from "../admin/adminUi";
+import { LABEL_CLASS } from "../stats/FilterBar";
 import { discordAvatarUrl, ROLE_LABEL, STARTER_ROLES } from "./applyUi";
 import { useDebounced } from "../../hooks/useDebounced";
 import { DISCORD_INVITE } from "../../lib/siteLinks";
@@ -40,6 +40,12 @@ import {
   type MemberRoleAssignment,
   type TeamMemberRole,
 } from "../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { PlayerAvatar } from "../players/PlayerIdentity";
+import { TooltipHint } from "../TooltipHint";
 
 interface Props {
   conf: string;
@@ -125,9 +131,9 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
           accept the new ones.
         </p>
       ) : (
-        <label className={`${LABEL_CLASS} mt-3`} htmlFor={`search-${applicationId}`}>
+        <Label className="mb-1 mt-3" htmlFor={`search-${applicationId}`}>
           Find them in the CCS Discord
-        </label>
+        </Label>
       )}
 
       {editing ? null : picked ? (
@@ -137,15 +143,16 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
             {picked.displayName}
             <span className="ml-2 text-xs text-text-dim">@{picked.username}</span>
           </span>
-          <button
-            type="button"
-            onClick={() => setPicked(null)}
-            title="Pick somebody else"
-            className={ACTION_SM}
-          >
-            <X size={13} aria-hidden="true" />
-            Change
-          </button>
+          <TooltipHint content="Pick somebody else">
+            <Button
+              variant="outline" size="sm"
+              type="button"
+              onClick={() => setPicked(null)}
+            >
+              <X size={13} aria-hidden="true" />
+              Change
+            </Button>
+          </TooltipHint>
         </div>
       ) : (
         <>
@@ -155,13 +162,13 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
               aria-hidden="true"
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-dim"
             />
-            <input
+            <Input
               id={`search-${applicationId}`}
               value={term}
               onChange={e => setTerm(e.target.value)}
               placeholder="Discord name or username"
               autoComplete="off"
-              className={`${CONTROL_CLASS} pl-8`}
+              className="pl-8"
             />
           </div>
 
@@ -232,14 +239,14 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
                   >
                     {invite}
                   </a>
-                  <button
+                  <Button
+                    variant="quiet" size="inline"
                     type="button"
                     onClick={() => void navigator.clipboard?.writeText(invite)}
-                    className={ACTION_QUIET}
                   >
                     <Copy size={11} aria-hidden="true" />
                     Copy
-                  </button>
+                  </Button>
                 </p>
               )}
             </div>
@@ -257,18 +264,17 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
       />
 
       <div className="mt-4 flex gap-2">
-        <button
+        <Button
           type="button"
           disabled={!canSend || send.isPending}
           onClick={() => send.mutate()}
-          className={ACTION_PRIMARY}
         >
           <UserPlus size={15} aria-hidden="true" />
           {send.isPending ? "Sending…" : editing ? "Save roles and re-ask" : "Send invitation"}
-        </button>
-        <button type="button" onClick={onCancel} className={ACTION}>
+        </Button>
+        <Button variant="outline" type="button" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
 
       {(picked !== null || editing !== undefined) && roles.length === 0 && (
@@ -294,26 +300,10 @@ export function InviteMember({ conf, applicationId, members, editing, onDone, on
  * between the search and the render — rather than a broken image in a list of faces.
  */
 function CandidateFace({ candidate }: { candidate: GuildMemberCandidate }) {
-  const [failed, setFailed] = useState(false);
-
-  if (failed) {
-    return (
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg3 font-heading text-[11px] text-text-secondary">
-        {candidate.displayName.slice(0, 1)}
-      </span>
-    );
-  }
-
   return (
-    <img
+    <PlayerAvatar
       src={discordAvatarUrl(candidate.userId, candidate.avatar)}
-      alt=""
-      width={28}
-      height={28}
-      loading="lazy"
-      decoding="async"
-      onError={() => setFailed(true)}
-      className="h-7 w-7 shrink-0 rounded-full border border-border"
+      fallback={<span className="font-heading text-[11px] text-text-secondary">{candidate.displayName.slice(0, 1)}</span>}
     />
   );
 }
@@ -382,54 +372,57 @@ export function RolePicker({ roles, onToggle, ownerNote = CAPTAIN_OWNER_NOTE }: 
     role => role === "sub" || (STARTER_ROLES as readonly string[]).includes(role),
   );
 
-  const chip = (selected: boolean) =>
-    `rounded-md border px-3 py-1.5 bg-transparent cursor-pointer font-heading text-xs ${
-      selected ? "border-brand text-text-bright" : "border-border text-text-secondary"
-    }`;
+  const groupId = useId();
+  const extras: string[] = (["owner", "contact"] as const).filter(role => roles.includes(role));
 
   return (
     <div className="mt-4">
-      <span className={LABEL_CLASS}>Position</span>
-      <div className="flex flex-wrap gap-1.5">
+      <span id={`${groupId}-position`} className={LABEL_CLASS}>Position</span>
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        spacing={1.5}
+        value={playing ?? ""}
+        onValueChange={next => {
+          // Pressing the held position clears it; picking another replaces it rather than adding.
+          if (playing) onToggle(playing);
+          if (next) onToggle(next as TeamMemberRole);
+        }}
+        aria-labelledby={`${groupId}-position`}
+        className="flex-wrap"
+      >
         {[...STARTER_ROLES, "sub" as const].map(role => (
-          <button
-            key={role}
-            type="button"
-            aria-pressed={playing === role}
-            onClick={() => {
-              if (playing === role) {
-                onToggle(role);
-                return;
-              }
-              // Picking a position replaces the previous one rather than adding to it.
-              if (playing) onToggle(playing);
-              onToggle(role);
-            }}
-            className={chip(playing === role)}
-          >
+          <ToggleGroupItem key={role} value={role}>
             {ROLE_LABEL[role]}
-          </button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
 
       {playing === "sub" && (
         <p className="mt-1.5 text-xs text-text-dim">Up to five substitutes.</p>
       )}
 
-      <span className={`${LABEL_CLASS} mt-4`}>Also</span>
-      <div className="flex flex-wrap gap-1.5">
+      <span id={`${groupId}-also`} className={`${LABEL_CLASS} mt-4`}>Also</span>
+      <ToggleGroup
+        type="multiple"
+        variant="outline"
+        size="sm"
+        spacing={1.5}
+        value={extras}
+        onValueChange={next => {
+          const changed = (["owner", "contact"] as const).find(role => next.includes(role) !== extras.includes(role));
+          if (changed) onToggle(changed);
+        }}
+        aria-labelledby={`${groupId}-also`}
+        className="flex-wrap"
+      >
         {(["owner", "contact"] as const).map(role => (
-          <button
-            key={role}
-            type="button"
-            aria-pressed={roles.includes(role)}
-            onClick={() => onToggle(role)}
-            className={chip(roles.includes(role))}
-          >
+          <ToggleGroupItem key={role} value={role}>
             {ROLE_LABEL[role]}
-          </button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
       {/* Deliberately reassuring rather than a warning. Inviting an owner used to be described as
           handing over the application, which was never true: every write gates on whoever created
           it, so the role records who runs the team for the league and changes nothing here. */}

@@ -14,8 +14,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
-import { ACTION_PRIMARY, ACTION_SM, ErrorLine } from "../adminUi";
-import { Toast } from "../../Toast";
+import { ErrorLine } from "../adminUi";
+import { toast } from "sonner";
 import { DefinitionForm, DefinitionRow } from "./accoladeUi";
 import { queries, queryRoots } from "../../../lib/queries";
 import {
@@ -25,6 +25,7 @@ import {
   type AccoladeDefinition,
   type AccoladeDefinitionInput,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
 
 /** Editor target: nothing open, a new definition, or an existing one by id. */
 type Editing = { kind: "closed" } | { kind: "new" } | { kind: "existing"; id: number };
@@ -32,7 +33,6 @@ type Editing = { kind: "closed" } | { kind: "new" } | { kind: "existing"; id: nu
 export function GlobalAccoladesSection() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Editing>({ kind: "closed" });
-  const [saved, setSaved] = useState<string | null>(null);
 
   const { data, isPending, error } = useQuery(queries.globalAccoladeDefinitions());
   const definitions = data ?? [];
@@ -51,7 +51,7 @@ export function GlobalAccoladesSection() {
         qc.invalidateQueries({ queryKey: queryRoots.accolades }),
         qc.invalidateQueries({ queryKey: queryRoots.profiles }),
       ]);
-      setSaved(`Saved ${definition.name}.`);
+      toast.success(`Saved ${definition.name}.`);
       setEditing({ kind: "closed" });
     },
   });
@@ -66,17 +66,16 @@ export function GlobalAccoladesSection() {
       {error && <ErrorLine message={`Couldn't load the definitions: ${errorMessage(error)}`} />}
 
       {editing.kind === "closed" ? (
-        <button
+        <Button
           type="button"
           onClick={() => {
             save.reset();
             setEditing({ kind: "new" });
           }}
-          className={ACTION_PRIMARY}
         >
           <Plus size={15} aria-hidden="true" />
           New definition
-        </button>
+        </Button>
       ) : (
         <DefinitionForm
           // Keyed on the target so opening a different definition resets the fields to that row
@@ -98,23 +97,21 @@ export function GlobalAccoladesSection() {
         <ul>
           {definitions.map(definition => (
             <DefinitionRow key={definition.id} definition={definition}>
-              <button
+              <Button
+                variant="outline" size="sm"
                 type="button"
                 onClick={() => {
                   save.reset();
                   setEditing({ kind: "existing", id: definition.id });
                 }}
-                className={ACTION_SM}
               >
                 <Pencil size={13} aria-hidden="true" />
                 Edit
-              </button>
+              </Button>
             </DefinitionRow>
           ))}
         </ul>
       )}
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
 }

@@ -16,9 +16,9 @@ import { errorMessage } from "../lib/api";
 import { pointsText, signedPointsText, signedPointsTone } from "../lib/predictionPoints";
 import { queries } from "../lib/queries";
 import { usePredictionsHub } from "./PredictionsHub";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const TILE_COLOR = "var(--text-bright)";
-const HEAD = "px-3 py-2 text-left font-heading text-[10px] font-medium text-text-muted";
 
 export default function PredictionLeaderboard() {
   const wallet = usePredictionsHub();
@@ -41,34 +41,36 @@ export default function PredictionLeaderboard() {
         : board.error ? <ErrorLine message={errorMessage(board.error)} />
         : !page || page.items.length === 0 ? <p className="rounded-lg border border-border bg-bg2 p-5 text-sm text-text-secondary">No one is on the leaderboard yet.</p>
         : <>
-          <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-bg2">
-            <table className="w-full min-w-[480px] text-sm">
-              <thead>
-                <tr>
-                  <th scope="col" className={`${HEAD} w-16`}>Rank</th>
-                  <th scope="col" className={HEAD}>Player</th>
-                  <th scope="col" className={`${HEAD} text-right`}>Wealth</th>
-                  <th scope="col" className={`${HEAD} text-right`}>Net profit</th>
-                </tr>
-              </thead>
-              <tbody>
+          <Table containerClassName="rounded-lg border border-border bg-bg2" className="w-full min-w-[480px] text-sm">
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col" className="w-16">Rank</TableHead>
+                  {/* `w-full` gives this column whatever the numbers do not need. Its cells carry `max-w-0`
+                      so a long name truncates, but only once the row is genuinely full. */}
+                  <TableHead scope="col" className="w-full">Player</TableHead>
+                  <TableHead scope="col" className="text-right">Wealth</TableHead>
+                  <TableHead scope="col" className="text-right">Net profit</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {page.items.map((leader, index) => {
                   const mine = wallet.viewerId !== null && leader.player?.profileId === wallet.viewerId;
                   return (
-                    <tr key={`${leader.rank}-${leader.player?.profileId ?? index}`} className={`border-t border-border ${mine ? "bg-bg3" : ""}`}>
-                      <td className="px-3 py-2 font-mono text-text-bright">{leader.rank}</td>
-                      <td className="max-w-0 px-3 py-2 font-heading text-text-bright">
-                        <PlayerIdentity player={leader.player ?? { profileId: null, name: null, avatar: null, verified: false }} />
-                        {mine && <span className="ml-2 font-heading text-[10px] text-text-dim">You</span>}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-text-bright">{pointsText(leader.wealth)}</td>
-                      <td className={`px-3 py-2 text-right font-mono ${signedPointsTone(leader.netProfit)}`}>{signedPointsText(leader.netProfit)}</td>
-                    </tr>
+                    <TableRow key={`${leader.rank}-${leader.player?.profileId ?? index}`} className={mine ? "bg-bg3" : ""}>
+                      <TableCell className="font-mono text-text-bright">{leader.rank}</TableCell>
+                      <TableCell className="max-w-0 font-heading text-text-bright">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <PlayerIdentity player={leader.player ?? { profileId: null, name: null, avatar: null, verified: false }} />
+                          {mine && <span className="shrink-0 font-heading text-[10px] text-text-dim">You</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-right font-mono text-text-bright">{pointsText(leader.wealth)}</TableCell>
+                      <TableCell className={`whitespace-nowrap text-right font-mono ${signedPointsTone(leader.netProfit)}`}>{signedPointsText(leader.netProfit)}</TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
           <p className="mt-2 text-xs text-text-dim">Wealth is available points plus points in unsettled predictions.</p>
           <CursorPager pages={pages} nextCursor={page.nextCursor} />
         </>}

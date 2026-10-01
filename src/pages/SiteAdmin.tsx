@@ -26,7 +26,7 @@ import { RolesSection } from "../components/admin/RolesSection";
 import { SeasonStructureSection } from "../components/admin/season/SeasonStructureSection";
 import { PredictionsSettingsSection } from "../components/admin/PredictionsSettingsSection";
 import { SITE_ADMIN_ROLE } from "../lib/api";
-import { sectionForSlug, type SettingsArea } from "../lib/settingsAreas";
+import { type SettingsArea } from "../lib/settingsAreas";
 
 const AREA: SettingsArea = {
   title: "Site Admin",
@@ -67,7 +67,7 @@ const AREA: SettingsArea = {
       // The bracket editor lays a season out in day columns, so it takes the page: a fixed cap only
       // decides how soon the day strip has to start scrolling, and there is no width at which a
       // long season stops needing to. The editors inside cap their own field columns, since a form
-      // stretched across a 4K monitor is worse than a narrow one. Other sections stay at 1000.
+      // stretched across a 4K monitor is worse than a narrow one. Other sections keep `SECTION_WIDTH`.
       maxWidth: "100%",
       Component: SeasonStructureSection,
     },
@@ -101,19 +101,12 @@ const AREA: SettingsArea = {
   ],
 };
 
-/** Default for a section that doesn't ask for more: a comfortable width for a column of fields. */
-const DEFAULT_WIDTH = 1000;
-
 export default function SiteAdmin() {
   const { section } = useParams();
 
-  // Resolved here rather than in the shell because `PageShell` is the thing that owns the content
-  // column, and it wraps `SettingsShell`. An unknown slug falls back to the default; the shell
-  // redirects it to the first section a moment later.
-  const maxWidth = sectionForSlug(AREA.sections, section)?.maxWidth ?? DEFAULT_WIDTH;
-
+  // The page takes the width; `SettingsShell` caps the section column beside its sidebar.
   return (
-    <PageShell maxWidth={maxWidth}>
+    <PageShell maxWidth="100%">
       <RequireAuth roles={[SITE_ADMIN_ROLE]}>
         <SettingsShell area={AREA} slug={section} />
       </RequireAuth>

@@ -1,7 +1,8 @@
 /** Shared clipboard feedback for individual tournament codes and whole code sheets. */
 import { useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
-import { ACTION_QUIET_BASE } from "./admin/adminUi";
+import { Button } from "@/components/ui/button";
+import { TooltipHint } from "./TooltipHint";
 
 export function CopyAction({
   text,
@@ -42,22 +43,22 @@ export function CopyAction({
   };
 
   const Shown = done ? Check : Icon;
-  const color = done ? "text-ccs-green" : "text-text-dim hover:text-text-bright";
 
-  return (
-    <button
+  // The icon-only form names itself through a tooltip as well as its label, so a sighted reader can
+  // tell which code it copies before pressing it.
+  const button = (
+    <Button
       type="button"
+      variant="quiet"
+      size="inline"
       onClick={run}
-      title={title}
       aria-label={title}
-      className={
-        label === undefined
-          ? `inline-flex items-center shrink-0 cursor-pointer transition-colors ${color}`
-          : `${ACTION_QUIET_BASE} transition-colors ${color}`
-      }
+      className={`shrink-0 ${done ? "text-ccs-green hover:text-ccs-green" : ""}`}
     >
       <Shown size={label === undefined ? 13 : 12} aria-hidden="true" />
       {label}
-    </button>
+    </Button>
   );
+
+  return label !== undefined ? button : <TooltipHint content={title}>{button}</TooltipHint>;
 }

@@ -25,8 +25,8 @@ import { useState } from "react";
 import { fmtPct, type ProfileMetrics } from "../../lib/api";
 import { dec, int, signed } from "../../lib/statFormat";
 import { StatTile } from "../stats/StatTile";
-import { ACTION_QUIET } from "../admin/adminUi";
 import { metricText } from "./profileUi";
+import { Button } from "@/components/ui/button";
 
 /** See the header: one color, until a stat has a basis for having its own. */
 const TILE_COLOR = "var(--text-bright)";
@@ -75,14 +75,15 @@ export function CareerTiles({ totals }: { totals: ProfileMetrics }) {
           ))}
       </div>
 
-      <button
+      <Button
+        variant="quiet" size="inline"
         type="button"
         onClick={() => setExpanded(v => !v)}
         aria-expanded={expanded}
-        className={`${ACTION_QUIET} mt-2.5`}
+        className="mt-2.5"
       >
         {expanded ? "Fewer career stats" : "More career stats"}
-      </button>
+      </Button>
     </>
   );
 }

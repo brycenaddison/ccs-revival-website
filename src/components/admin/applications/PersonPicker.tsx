@@ -21,8 +21,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
-import { ACTION_SM } from "../adminUi";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
+import { LABEL_CLASS } from "../../stats/FilterBar";
 import { discordAvatarUrl } from "../../apply/applyUi";
 import { PlayerIdentity, PlayerResultRow, playerLabel } from "../../players/PlayerIdentity";
 import { useDebounced } from "../../../hooks/useDebounced";
@@ -33,6 +32,9 @@ import {
   PROFILE_SEARCH_MIN,
   type PersonRef,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { TooltipHint } from "../../TooltipHint";
 
 /** Who was picked, by the one key that source has for them. */
 export type PersonIdentity =
@@ -98,20 +100,20 @@ function PersonSearch({ id, taken, onPick, onCancel }: SearchProps) {
             aria-hidden="true"
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-dim"
           />
-          <input
+          <Input
             id={id}
             value={term}
             onChange={e => setTerm(e.target.value)}
             placeholder="Discord name, site name or profile id"
             autoComplete="off"
             autoFocus
-            className={`${CONTROL_CLASS} pl-8`}
+            className="pl-8"
           />
         </div>
         {onCancel && (
-          <button type="button" onClick={onCancel} className={ACTION_SM}>
+          <Button variant="outline" size="sm" type="button" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         )}
       </div>
 
@@ -231,17 +233,18 @@ export function PersonPicker({ id, value, onChange, taken }: PickerProps) {
           <span className="ml-2 text-xs text-text-dim">@{value.handle}</span>
         )}
       </span>
-      <button type="button" onClick={() => setSearching(true)} className={ACTION_SM}>
+      <Button variant="outline" size="sm" type="button" onClick={() => setSearching(true)}>
         Change
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange(null)}
-        title="Clear"
-        className={ACTION_SM}
-      >
-        <X size={13} aria-hidden="true" />
-      </button>
+      </Button>
+      <TooltipHint content="Clear">
+        <Button
+          variant="outline" size="sm"
+          type="button"
+          onClick={() => onChange(null)}
+        >
+          <X size={13} aria-hidden="true" />
+        </Button>
+      </TooltipHint>
     </div>
   );
 }

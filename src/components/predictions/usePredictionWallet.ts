@@ -3,7 +3,7 @@
  *
  * Reads only `GET /predictions/me/summary`, so a header never loads holdings. Owned by the
  * component that outlives the request: the hub layout (which stays mounted across its tabs) and the
- * detail page. Commands start from user events only.
+ * detail page. Commands start from user events only, and their confirmations are toasts.
  *
  * A claim keeps its request ID until the outcome is known. An uncertain failure (network, 5xx)
  * keeps it so "Retry" repeats the same command, which the API answers with the saved receipt. A 4xx
@@ -12,6 +12,7 @@
 
 import { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useAuth } from "../../lib/authContext";
 import { ApiError, claimPredictionReward, enrollPredictions } from "../../lib/api";
 import { pointsText } from "../../lib/predictionPoints";
@@ -24,7 +25,6 @@ export function usePredictionWallet() {
   const viewerId = loading ? null : profile?.id ?? null;
   const summary = useQuery(queries.predictionSummary(viewerId));
   const qc = useQueryClient();
-  const [notice, setNotice] = useState<string | null>(null);
   const [claimAttempt, setClaimAttempt] = useState<ClaimAttempt | null>(null);
   const invalidate = useCallback(() => qc.invalidateQueries({ queryKey: queryRoots.predictions }), [qc]);
 
@@ -32,7 +32,7 @@ export function usePredictionWallet() {
     mutationFn: enrollPredictions,
     onSuccess: async result => {
       await invalidate();
-      setNotice(`You have ${pointsText(result.spendable)} starting points.`);
+      toast.success(`You have ${pointsText(result.spendable)} starting points.`);
     },
     onError: async error => {
       if (error instanceof ApiError && error.status === 401) await refresh();
@@ -44,7 +44,7 @@ export function usePredictionWallet() {
     onSuccess: async result => {
       setClaimAttempt(null);
       await invalidate();
-      setNotice(result.alreadyClaimed ? "Today's points were already claimed." : `You claimed ${pointsText(result.awarded)} points.`);
+      toast.success(result.alreadyClaimed ? "Today's points were already claimed." : `You claimed ${pointsText(result.awarded)} points.`);
     },
     onError: async error => {
       if (!(error instanceof ApiError) || error.status >= 500) return;
@@ -61,7 +61,6 @@ export function usePredictionWallet() {
     setClaimAttempt(attempt);
     claiming.mutate(attempt);
   };
-  const clearNotice = useCallback(() => setNotice(null), []);
 
   return {
     viewerId,
@@ -77,8 +76,6 @@ export function usePredictionWallet() {
     claimError: claiming.error,
     /** An uncertain claim failure: the next press repeats the same request. */
     claimRetry: claimAttempt !== null && !claiming.isPending,
-    notice,
-    clearNotice,
   };
 }
 

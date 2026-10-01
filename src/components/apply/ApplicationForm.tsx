@@ -14,8 +14,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus } from "lucide-react";
-import { ACTION, ACTION_PRIMARY, ColorField, ErrorLine, TeamStylePreview } from "../admin/adminUi";
-import { CONTROL_CLASS } from "../stats/FilterBar";
+import { ColorField, ErrorLine, TeamStylePreview } from "../admin/adminUi";
 import { SettingsRow } from "../settings/SettingsSection";
 import { ImageUpload } from "../ImageUpload";
 import { queries, queryRoots } from "../../lib/queries";
@@ -38,6 +37,10 @@ import {
   TWITTER_URL_MAX,
   type TeamApplication,
 } from "../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Props {
   conf: string;
@@ -133,26 +136,27 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
         label="Team name"
         hint={`The full name, as it should appear in the standings. Up to ${APPLICATION_NAME_MAX} characters.`}
       >
-        <input
-          value={name}
-          onChange={e => setName(e.target.value)}
-          maxLength={APPLICATION_NAME_MAX}
-          aria-label="Team name"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Input {...field}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            maxLength={APPLICATION_NAME_MAX}
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
         label="Tag"
         hint={`The short form used on scoreboards and brackets, e.g. “TSM”. Up to ${APPLICATION_CODE_MAX} characters, capitalized however you like, and it has to be unique in this league.`}
       >
-        <input
-          value={code}
-          onChange={e => setCode(e.target.value)}
-          maxLength={APPLICATION_CODE_MAX}
-          aria-label="Tag"
-          className={`${CONTROL_CLASS} font-mono`}
-        />
+        {field => (
+          <Input {...field}
+            value={code}
+            onChange={e => setCode(e.target.value)}
+            maxLength={APPLICATION_CODE_MAX}
+            className="font-mono"
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
@@ -194,26 +198,25 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
         label="Organization"
         hint="The org behind the team, if there is one."
       >
-        <input
-          value={organization}
-          onChange={e => setOrganization(e.target.value)}
-          maxLength={ORGANIZATION_NAME_MAX}
-          aria-label="Organization"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Input {...field}
+            value={organization}
+            onChange={e => setOrganization(e.target.value)}
+            maxLength={ORGANIZATION_NAME_MAX}
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
         label="Twitter / X"
         hint="A link or a handle. Optional, and it's for the league to find you, not a requirement to have one."
       >
-        <input
+        <Input
           value={twitter}
           onChange={e => setTwitter(e.target.value)}
           maxLength={TWITTER_URL_MAX}
           placeholder="@yourteam"
           aria-label="Twitter or X account"
-          className={CONTROL_CLASS}
         />
         {/* Shown because the field rewrites what was typed: a bare handle becomes a URL, and seeing
             that before saving is better than discovering it afterwards. */}
@@ -228,28 +231,28 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
         label="Experience and accomplishments"
         hint="Other leagues you've played, placements, how long the org has been around, etc. Optional."
       >
-        <textarea
-          value={experience}
-          onChange={e => setExperience(e.target.value)}
-          maxLength={EXPERIENCE_MAX}
-          rows={6}
-          aria-label="Experience and accomplishments"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Textarea {...field}
+            value={experience}
+            onChange={e => setExperience(e.target.value)}
+            maxLength={EXPERIENCE_MAX}
+            rows={6}
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
         label="Note for the league staff"
         hint="Anything staff should know while reviewing. Optional."
       >
-        <textarea
-          value={message}
-          onChange={e => setMessage(e.target.value)}
-          maxLength={APPLICATION_MESSAGE_MAX}
-          rows={3}
-          aria-label="Note for the league staff"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Textarea {...field}
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            maxLength={APPLICATION_MESSAGE_MAX}
+            rows={3}
+          />
+        )}
       </SettingsRow>
 
       {/*
@@ -282,14 +285,14 @@ export function ApplicationForm({ conf, application = null, onDone, onCancel }: 
       </SettingsRow>
 
       <div className="flex gap-2">
-        <button type="submit" disabled={!canSave || save.isPending} className={ACTION_PRIMARY}>
+        <Button type="submit" disabled={!canSave || save.isPending}>
           {isNew ? <Plus size={15} aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}
           {save.isPending ? "Saving…" : isNew ? "Start my application" : "Save details"}
-        </button>
+        </Button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className={ACTION}>
+          <Button variant="outline" type="button" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         )}
       </div>
 
@@ -340,11 +343,10 @@ function RulesAcknowledgement({
   return (
     <>
       <label className="flex cursor-pointer items-start gap-2.5 text-sm text-text">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={checked}
-          onChange={e => onChange(e.target.checked)}
-          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand"
+          onCheckedChange={v => onChange(v === true)}
+          className="mt-0.5 shrink-0"
         />
         <span>
           I have read all{" "}
@@ -389,11 +391,10 @@ function TicketAcknowledgement({
 }) {
   return (
     <label className="flex cursor-pointer items-start gap-2.5 text-sm text-text">
-      <input
-        type="checkbox"
+      <Checkbox
         checked={checked}
-        onChange={e => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand"
+        onCheckedChange={v => onChange(v === true)}
+        className="mt-0.5 shrink-0"
       />
       <span>
         Have you opened a ticket in{" "}

@@ -1,9 +1,11 @@
 /**
  * The bordered pill switch used inside admin sections, where an underline strip would compete with
- * the section's own heading. Local state only; the selected pill takes the brand border.
+ * the section's own heading. Local state only, on the shared Toggle Group: one pill is always
+ * selected and takes the brand border, and arrow keys move between them.
  */
 
 import type { LucideIcon } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export interface PillTab<K extends string> {
   key: K;
@@ -11,32 +13,36 @@ export interface PillTab<K extends string> {
   icon?: LucideIcon;
 }
 
-const PILL =
-  "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 bg-transparent font-heading text-xs text-text-bright cursor-pointer hover:bg-accent";
-
 export function PillTabs<K extends string>({
   tabs,
   selected,
   onSelect,
+  label,
 }: {
   tabs: readonly PillTab<K>[];
   selected: K;
   onSelect: (key: K) => void;
+  /** Names the switch for assistive technology, such as "Schedule view". */
+  label?: string;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      spacing={1.5}
+      value={selected}
+      // Pressing the selected pill would otherwise empty the group; a view is always showing.
+      onValueChange={key => key && onSelect(key as K)}
+      aria-label={label}
+      className="flex-wrap"
+    >
       {tabs.map(({ key, label, icon: Icon }) => (
-        <button
-          key={key}
-          type="button"
-          onClick={() => onSelect(key)}
-          aria-current={key === selected ? "true" : undefined}
-          className={`${PILL} ${key === selected ? "border-brand" : "border-border"}`}
-        >
+        <ToggleGroupItem key={key} value={key}>
           {Icon && <Icon size={13} aria-hidden="true" />}
           {label}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }

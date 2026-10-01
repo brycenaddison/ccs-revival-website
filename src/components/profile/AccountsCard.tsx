@@ -27,9 +27,10 @@ import {
   type ProfileAccountRefresh,
 } from "../../lib/api";
 import { queries, queryRoots } from "../../lib/queries";
-import { ACTION_SM, ErrorLine } from "../admin/adminUi";
+import { ErrorLine } from "../admin/adminUi";
 import { RiotAccountCards, UnverifiedAccountRow } from "./RiotAccountCards";
 import { RailCard } from "./profileUi";
+import { Button } from "@/components/ui/button";
 
 export function AccountsCard({ data }: { data: PlayerProfile }) {
   const qc = useQueryClient();
@@ -95,11 +96,12 @@ export function AccountsCard({ data }: { data: PlayerProfile }) {
               </a>
             )}
 
-            <button
+            <Button
+              variant="outline" size="sm"
               type="button"
               onClick={() => mutation.mutate()}
               disabled={mutation.isPending}
-              className={`${ACTION_SM} justify-center`}
+              className="justify-center"
             >
               <RefreshCw size={13} aria-hidden="true" className={mutation.isPending ? "animate-spin" : ""} />
               {/* Both labels occupy one grid cell, so the button is always as wide as the longer of
@@ -111,7 +113,7 @@ export function AccountsCard({ data }: { data: PlayerProfile }) {
                   {mutation.isPending ? "Refreshing…" : "Refresh"}
                 </span>
               </span>
-            </button>
+            </Button>
           </div>
 
           {!data.links.opggComplete && data.accounts.length > 0 && (

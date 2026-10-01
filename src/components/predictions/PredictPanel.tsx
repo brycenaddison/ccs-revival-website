@@ -15,9 +15,8 @@
 
 import { useState, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
 import { ErrorLine } from "../admin/adminUi";
-import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
 import { TeamBadge } from "../TeamBadge";
 import { shareText } from "./PoolBar";
 import { REVIEW_REASON_LABEL, voidReasonText } from "./predictionLabels";
@@ -35,6 +34,8 @@ import {
   PREDICTION_QUICK_AMOUNTS,
 } from "../../lib/predictionPoints";
 import { queries, queryRoots } from "../../lib/queries";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const PANEL = "rounded-lg border border-border bg-bg2 p-5";
 const TITLE = "mb-3 font-display text-[22px] text-text-bright";
@@ -154,11 +155,11 @@ function PredictForm({ event, viewerId, available, onPlaced }: {
       </div>
 
       <div className="mt-4">
-        <label htmlFor="prediction-points" className={LABEL_CLASS}>Points</label>
+        <Label htmlFor="prediction-points" className="mb-1">Points</Label>
         <div className="relative">
-          <input
+          <Input
             id="prediction-points"
-            className={`${CONTROL_CLASS} pr-16`}
+            className="pr-16"
             inputMode="decimal"
             placeholder="0"
             value={input}

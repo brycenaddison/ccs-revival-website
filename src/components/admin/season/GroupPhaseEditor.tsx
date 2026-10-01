@@ -23,12 +23,19 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, Trash2 } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
-import { ACTION, ACTION_PRIMARY, ACTION_SM, ACTION_SM_DANGER, ErrorLine, Pill } from "../adminUi";
-import { IssueList, fieldError } from "./issues";
+import { DateTimePicker } from "../../DateTimePicker";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel, FieldLegend } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ErrorLine } from "../adminUi";
+import { LABEL_CLASS } from "../../stats/FilterBar";
+import { IssueList, invalidAt } from "./issues";
 import { DayKickoffField, StrandedDaysNotice, withDayDefault } from "./DayKickoff";
 import { queryRoots } from "../../../lib/queries";
-import { fromLocalInput, toLocalInput } from "../../../lib/utils";
 import { SCENARIO_TONES, toneForLevel } from "../../../lib/scenarioTones";
 import { ScenarioPill } from "../../season/ScenarioPill";
 import {
@@ -168,27 +175,26 @@ export function GroupPhaseEditor({ conf, phase, contents, teams, onSaved }: Prop
       <IssueList issues={issues} />
 
       <div className="flex items-center gap-3 border-t border-border pt-4">
-        <button
+        <Button
           type="button"
           onClick={() => save.mutate()}
           disabled={!dirty || stranded.length > 0 || save.isPending}
-          className={ACTION_PRIMARY}
         >
           <Check size={15} aria-hidden="true" />
           {save.isPending ? "Saving…" : "Save phase"}
-        </button>
+        </Button>
         {dirty ? (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => {
               setDraft(contents);
               setIssues([]);
             }}
             disabled={save.isPending}
-            className={ACTION}
           >
             Discard changes
-          </button>
+          </Button>
         ) : (
           <span className="text-text-dim text-xs">No changes to save.</span>
         )}
@@ -280,36 +286,33 @@ function ScenarioLibraryEditor({
           {entries.map(([key, scenario]) => (
             <li key={key} className="bg-bg3 border border-border rounded-md p-3">
               <div className="grid gap-2.5 sm:grid-cols-12">
-                <div className="sm:col-span-6">
-                  <label className={LABEL_CLASS}>Title</label>
-                  <input
+                <Field className="sm:col-span-6">
+                  <FieldLabel htmlFor={`scenario-${key}-title`}>Title</FieldLabel>
+                  <Input
+                    id={`scenario-${key}-title`}
                     value={scenario.title}
                     placeholder="Advances"
                     onChange={e =>
                       onChange({ ...scenarios, [key]: { ...scenario, title: e.target.value } })
                     }
-                    aria-label="Scenario title"
-                    className={CONTROL_CLASS}
                   />
-                </div>
-                <div className="sm:col-span-6">
-                  <label className={LABEL_CLASS}>Subtitle</label>
-                  <input
+                </Field>
+                <Field className="sm:col-span-6">
+                  <FieldLabel htmlFor={`scenario-${key}-subtitle`}>Subtitle</FieldLabel>
+                  <Input
+                    id={`scenario-${key}-subtitle`}
                     value={scenario.subtitle}
                     placeholder="Play-in berth"
                     onChange={e =>
                       onChange({ ...scenarios, [key]: { ...scenario, subtitle: e.target.value } })
                     }
-                    aria-label="Scenario subtitle"
-                    className={CONTROL_CLASS}
                   />
-                </div>
-                {/* A real fieldset, not a bare label like the fields above: ten radios need one
-                    accessible name over the group, and a legend is how that is said without ARIA.
-                    `min-w-0` because a fieldset's default `min-inline-size: min-content` otherwise
-                    stops it shrinking inside the grid. */}
+                </Field>
+                {/* A real fieldset: ten radios need one accessible name over the group, and a legend
+                    is how that is said without ARIA. `min-w-0` because a fieldset's default
+                    `min-inline-size: min-content` otherwise stops it shrinking inside the grid. */}
                 <fieldset className="sm:col-span-12 min-w-0">
-                  <legend className={LABEL_CLASS}>Color</legend>
+                  <FieldLegend variant="label" className="mb-1">Color</FieldLegend>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
                     <TonePicker
                       scenarioKey={key}
@@ -327,8 +330,10 @@ function ScenarioLibraryEditor({
                     ? "Not mapped to any position yet."
                     : `Used by ${usage(key)} ${usage(key) === 1 ? "position" : "positions"}.`}
                 </span>
-                <button
+                <Button
                   type="button"
+                  variant="destructive"
+                  size="sm"
                   onClick={() => {
                     // The save refuses an outcome pointing at a key that is gone, so they go together.
                     if (usage(key) > 0) onClearOrphans(key);
@@ -337,21 +342,20 @@ function ScenarioLibraryEditor({
                     onChange(next);
                   }}
                   aria-label={`Remove ${scenario.title || "this scenario"}`}
-                  className={ACTION_SM_DANGER}
                 >
                   <Trash2 size={13} aria-hidden="true" />
                   {usage(key) > 0 ? `Remove and clear ${usage(key)}` : "Remove"}
-                </button>
+                </Button>
               </div>
             </li>
           ))}
         </ul>
       )}
 
-      <button type="button" onClick={add} className={`${ACTION_SM} mt-3`}>
+      <Button type="button" variant="outline" size="sm" onClick={add} className="mt-3">
         <Plus size={13} aria-hidden="true" />
         Add scenario
-      </button>
+      </Button>
 
       {issues.some(i => i.path.startsWith("scenarios")) && (
         <div className="mt-3">
@@ -365,11 +369,10 @@ function ScenarioLibraryEditor({
 /**
  * The ten levels as swatches.
  *
- * Real radio inputs, visually hidden and drawn over, rather than buttons carrying `aria-pressed`. A
- * palette is a single choice out of ten, which is what a radio group *is* — and the native one brings
- * arrow-key navigation, one tab stop for the group rather than ten, and the right announcement ("Gold,
- * 1 of 10") at no cost. `name` is scoped to the scenario key, which is minted once and never changes,
- * so two scenarios never share a group.
+ * A radio group whose items are visually hidden and drawn over, rather than buttons carrying
+ * `aria-pressed`. A palette is a single choice out of ten, which is what a radio group *is*, and the
+ * Radix group brings arrow-key navigation, one tab stop for the group rather than ten, and the right
+ * announcement ("Gold, 1 of 10"). Each scenario renders its own group, so two never share a selection.
  */
 function TonePicker({
   scenarioKey,
@@ -381,18 +384,20 @@ function TonePicker({
   onPick: (level: number) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <RadioGroup
+      value={String(level)}
+      onValueChange={value => onPick(Number(value))}
+      aria-label="Color"
+      className="flex flex-wrap gap-1.5"
+    >
       {SCENARIO_TONES.map(tone => {
         const picked = tone.level === level;
         return (
-          <label key={tone.level} className="group cursor-pointer" title={tone.name}>
-            <input
-              type="radio"
-              name={`tone-${scenarioKey}`}
-              value={tone.level}
-              checked={picked}
-              onChange={() => onPick(tone.level)}
-              className="sr-only peer"
+          <label key={tone.level} className="group relative cursor-pointer" title={tone.name}>
+            <RadioGroupItem
+              id={`tone-${scenarioKey}-${tone.level}`}
+              value={String(tone.level)}
+              className="peer sr-only"
             />
             {/* The dot is the tone's own color on its own fill — the same pairing the badge and the
                 standings row use, so a swatch is a small preview rather than a legend for one.
@@ -401,9 +406,9 @@ function TonePicker({
                 others have a translucent one, and the step up in size. One of them alone is too quiet
                 against nine neighbours that are all already colored. */}
             <span
-              // `group-hover`, not `peer-hover`: the peer is the `sr-only` input, which is clipped to a
+              // `group-hover`, not `peer-hover`: the peer is the `sr-only` radio, which is clipped to a
               // pixel and so is never the thing under the cursor. Focus is the other way round — the
-              // input is what receives it — so that one stays a `peer-` variant.
+              // radio is what receives it — so that one stays a `peer-` variant.
               className={`flex h-7 w-7 items-center justify-center rounded-md border-2 transition group-hover:opacity-100 peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-bg3 ${
                 picked ? "scale-110" : "opacity-60"
               }`}
@@ -415,7 +420,7 @@ function TonePicker({
           </label>
         );
       })}
-    </div>
+    </RadioGroup>
   );
 }
 
@@ -495,58 +500,59 @@ function GroupsEditor({
               }`}
             >
               <div className="flex items-end gap-2.5 mb-3">
-                <div className="w-28">
-                  <label className={LABEL_CLASS}>Name</label>
-                  <input
+                <Field data-invalid={invalidAt(issues, `groups.${index}.name`)} className="w-28">
+                  <FieldLabel htmlFor={`group-${group.id}-name`}>Name</FieldLabel>
+                  <Input
+                    id={`group-${group.id}-name`}
                     value={group.name}
                     onChange={e => update(index, { name: e.target.value })}
                     maxLength={GROUP_NAME_MAX}
-                    aria-label={`Group ${index + 1} name`}
-                    className={`${CONTROL_CLASS} ${fieldError(issues, `groups.${index}.name`)}`}
+                    aria-invalid={invalidAt(issues, `groups.${index}.name`)}
                   />
-                </div>
-                <div className="w-24">
-                  <label className={LABEL_CLASS}>Order</label>
-                  <input
+                </Field>
+                <Field data-invalid={invalidAt(issues, `groups.${index}.ordinal`)} className="w-24">
+                  <FieldLabel htmlFor={`group-${group.id}-order`}>Order</FieldLabel>
+                  <Input
+                    id={`group-${group.id}-order`}
                     type="number"
                     min={1}
                     value={group.ordinal}
                     onChange={e => update(index, { ordinal: Math.max(1, Number(e.target.value) || 1) })}
-                    aria-label={`Group ${group.name} display order`}
-                    className={`${CONTROL_CLASS} ${fieldError(issues, `groups.${index}.ordinal`)}`}
+                    aria-invalid={invalidAt(issues, `groups.${index}.ordinal`)}
                   />
-                </div>
-                <Pill muted>
+                </Field>
+                <Badge variant="muted">
                   {group.teams.length} {group.teams.length === 1 ? "team" : "teams"}
-                </Pill>
+                </Badge>
                 <div className="ml-auto">
-                  <button
+                  <Button
                     type="button"
+                    variant="destructive"
+                    size="sm"
                     onClick={() => onChange(groups.filter((_, i) => i !== index))}
                     aria-label={`Remove group ${group.name}`}
-                    className={ACTION_SM_DANGER}
                   >
                     <Trash2 size={13} aria-hidden="true" />
                     Remove
-                  </button>
+                  </Button>
                 </div>
               </div>
 
-              <label className={LABEL_CLASS}>Teams</label>
-              <div className="flex flex-wrap gap-1.5 mb-2">
+              <Label id={`group-${group.id}-teams`} className="mb-1">Teams</Label>
+              <div role="group" aria-labelledby={`group-${group.id}-teams`} className="flex flex-wrap gap-1.5 mb-2">
                 {group.teams.map(id => {
                   const team = teams.find(t => t.id === id);
                   return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => update(index, { teams: group.teams.filter(t => t !== id) })}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-brand/50 px-2.5 py-0.5 text-xs text-text-bright hover:border-ccs-red"
-                    >
-                      {team ? team.code : `#${id}`}
-                      <span aria-hidden="true">×</span>
-                      <span className="sr-only">Remove from group {group.name}</span>
-                    </button>
+                    <Badge key={id} asChild className="cursor-pointer text-xs hover:border-ccs-red">
+                      <button
+                        type="button"
+                        onClick={() => update(index, { teams: group.teams.filter(t => t !== id) })}
+                      >
+                        {team ? team.code : `#${id}`}
+                        <span aria-hidden="true">×</span>
+                        <span className="sr-only">Remove from group {group.name}</span>
+                      </button>
+                    </Badge>
                   );
                 })}
                 {group.teams.length === 0 && (
@@ -554,28 +560,27 @@ function GroupsEditor({
                 )}
               </div>
 
-              <select
+              <NativeSelect
                 value=""
                 aria-label={`Add a team to group ${group.name}`}
                 onChange={e => {
                   const id = Number(e.target.value);
                   if (id) update(index, { teams: [...group.teams, id] });
                 }}
-                className={CONTROL_CLASS}
               >
-                <option value="">+ Add a team…</option>
+                <NativeSelectOption value="">+ Add a team…</NativeSelectOption>
                 {teams
                   .filter(t => !group.teams.includes(t.id))
                   .map(t => {
                     const elsewhere = takenBy.get(t.id);
                     return (
-                      <option key={t.id} value={t.id} disabled={elsewhere !== undefined}>
+                      <NativeSelectOption key={t.id} value={t.id} disabled={elsewhere !== undefined}>
                         {t.code} — {t.name}
                         {elsewhere !== undefined ? ` (in ${elsewhere})` : ""}
-                      </option>
+                      </NativeSelectOption>
                     );
                   })}
-              </select>
+              </NativeSelect>
 
               <OutcomesEditor
                 group={group}
@@ -589,10 +594,10 @@ function GroupsEditor({
         </ul>
       )}
 
-      <button type="button" onClick={add} className={`${ACTION_SM} mt-3`}>
+      <Button type="button" variant="outline" size="sm" onClick={add} className="mt-3">
         <Plus size={13} aria-hidden="true" />
         Add group
-      </button>
+      </Button>
     </section>
   );
 }
@@ -634,7 +639,7 @@ function OutcomesEditor({
 
   return (
     <div className="mt-3.5 pt-3 border-t border-border">
-      <label className={LABEL_CLASS}>Finishing positions</label>
+      <h4 className={LABEL_CLASS}>Finishing positions</h4>
 
       {positions.length === 0 ? (
         <p className="text-text-dim text-xs">Add teams to map their finishing positions.</p>
@@ -664,20 +669,20 @@ function OutcomesEditor({
                   {position}
                   {position === 1 ? "st" : position === 2 ? "nd" : position === 3 ? "rd" : "th"}
                 </span>
-                <select
+                <NativeSelect
                   value={mapped ?? ""}
                   aria-label={`Outcome for position ${position} in group ${group.name}`}
                   onChange={e => set(position, e.target.value)}
-                  className={`${CONTROL_CLASS} ${fieldError(issues, `groups.${index}.outcomes`)}`}
+                  aria-invalid={invalidAt(issues, `groups.${index}.outcomes`)}
                 >
-                  <option value="">— none —</option>
+                  <NativeSelectOption value="">— none —</NativeSelectOption>
                   {keys.map(key => (
-                    <option key={key} value={key}>
+                    <NativeSelectOption key={key} value={key}>
                       {/* Never the key — it is a generated id and means nothing to a reader. */}
                       {scenarios[key].title || "(untitled)"}
-                    </option>
+                    </NativeSelectOption>
                   ))}
-                </select>
+                </NativeSelect>
               </label>
             );
           })}
@@ -787,9 +792,9 @@ function MatchesEditor({
                   scrolling back down after every click. Up here its position never moves. */}
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="font-display text-base text-text-bright ">
-                  DAY {matchDay}
+                  Day {matchDay}
                 </span>
-                <Pill muted>Season day {seasonDayOf(phase, matchDay)}</Pill>
+                <Badge variant="muted">Season day {seasonDayOf(phase, matchDay)}</Badge>
                 {/* Only when there are some — the empty case already says so below, and a header
                     reading "No matches" over a panel reading "Nothing scheduled" says it twice. */}
                 {onDay.length > 0 && (
@@ -798,10 +803,10 @@ function MatchesEditor({
                   </span>
                 )}
                 <div className="ml-auto">
-                  <button type="button" onClick={() => add(matchDay)} className={ACTION_SM}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => add(matchDay)}>
                     <Plus size={13} aria-hidden="true" />
                     Add match
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -832,6 +837,7 @@ function MatchesEditor({
                       teams={teams}
                       teamsById={teamsById}
                       issues={issues}
+                      dayKickoff={kickoffs[matchDay - 1] ?? null}
                       onChange={changes => update(match.id, changes)}
                       onRemove={() => onChange(matches.filter(m => m.id !== match.id))}
                     />
@@ -861,6 +867,7 @@ function MatchRow({
   teams,
   teamsById,
   issues,
+  dayKickoff,
   onChange,
   onRemove,
 }: {
@@ -870,10 +877,13 @@ function MatchRow({
   teams: readonly TeamRecord[];
   teamsById: ReadonlyMap<number, TeamRecord>;
   issues: readonly ValidationIssue[];
+  /** What a null kickoff resolves to: the day's own, so the picker opens on it. */
+  dayKickoff: Date | null;
   onChange: (changes: Partial<MatchSave>) => void;
   onRemove: () => void;
 }) {
   const path = `matches.${index}`;
+  const id = `match-${match.id}`;
   const bad =
     issues.some(i => i.path === path || i.path.startsWith(`${path}.`)) ||
     issues.some(i =>
@@ -886,13 +896,13 @@ function MatchRow({
 
   const teamOptions = (exclude: number | null) => (
     <>
-      <option value="">— TBD —</option>
+      <NativeSelectOption value="">— TBD —</NativeSelectOption>
       {teams
         .filter(t => t.id !== exclude)
         .map(t => (
-          <option key={t.id} value={t.id}>
+          <NativeSelectOption key={t.id} value={t.id}>
             {t.code} — {t.name}
-          </option>
+          </NativeSelectOption>
         ))}
     </>
   );
@@ -900,11 +910,11 @@ function MatchRow({
   return (
     <li className={`border rounded-md p-3 bg-bg2 ${bad ? "border-ccs-red/50" : "border-border"}`}>
       <div className="grid gap-2.5 sm:grid-cols-12 items-end">
-        <div className="sm:col-span-2">
-          <label className={LABEL_CLASS}>Type</label>
-          <select
+        <Field className="sm:col-span-2">
+          <FieldLabel htmlFor={`${id}-type`}>Type</FieldLabel>
+          <NativeSelect
+            id={`${id}-type`}
             value={match.kind}
-            aria-label="Match type"
             onChange={e =>
               // A bye is one team and no opponent. Clearing B on the way in stops the save being
               // refused for a shape the user did not intend to send.
@@ -914,106 +924,101 @@ function MatchRow({
                   : { kind: "match" },
               )
             }
-            className={CONTROL_CLASS}
           >
-            <option value="match">Match</option>
-            <option value="bye">Bye</option>
-          </select>
-        </div>
+            <NativeSelectOption value="match">Match</NativeSelectOption>
+            <NativeSelectOption value="bye">Bye</NativeSelectOption>
+          </NativeSelect>
+        </Field>
 
-        <div className="sm:col-span-3">
-          <label className={LABEL_CLASS}>{isBye ? "Team" : "Team A"}</label>
+        <Field data-invalid={invalidAt(issues, `${path}.teamAId`)} className="sm:col-span-3">
+          <FieldLabel htmlFor={`${id}-a`}>{isBye ? "Team" : "Team A"}</FieldLabel>
           {/* No `required` and nothing disabled by an empty value: a fixture with no teams is a legal
               document, not a half-finished one. */}
-          <select
+          <NativeSelect
+            id={`${id}-a`}
             value={match.teamAId ?? ""}
-            aria-label={isBye ? "Team on the bye" : "Team A"}
+            aria-invalid={invalidAt(issues, `${path}.teamAId`)}
             onChange={e => onChange({ teamAId: e.target.value === "" ? null : Number(e.target.value) })}
-            className={`${CONTROL_CLASS} ${fieldError(issues, `${path}.teamAId`)}`}
           >
             {teamOptions(match.teamBId)}
-          </select>
-        </div>
+          </NativeSelect>
+        </Field>
 
-        <div className="sm:col-span-3">
-          <label className={LABEL_CLASS}>Team B</label>
-          <select
+        <Field data-invalid={invalidAt(issues, `${path}.teamBId`)} className="sm:col-span-3">
+          <FieldLabel htmlFor={`${id}-b`}>Team B</FieldLabel>
+          <NativeSelect
+            id={`${id}-b`}
             value={match.teamBId ?? ""}
             disabled={isBye}
-            aria-label="Team B"
+            aria-invalid={invalidAt(issues, `${path}.teamBId`)}
             onChange={e => onChange({ teamBId: e.target.value === "" ? null : Number(e.target.value) })}
-            className={`${CONTROL_CLASS} ${fieldError(issues, `${path}.teamBId`)}`}
           >
             {teamOptions(match.teamAId)}
-          </select>
-        </div>
+          </NativeSelect>
+        </Field>
 
-        <div className="sm:col-span-2">
-          <label className={LABEL_CLASS}>Best of</label>
-          <select
+        <Field className="sm:col-span-2">
+          <FieldLabel htmlFor={`${id}-bo`}>Best of</FieldLabel>
+          <NativeSelect
+            id={`${id}-bo`}
             value={match.bestOf ?? ""}
-            aria-label="Best of"
             onChange={e => {
               const value = Number(e.target.value);
               onChange({ bestOf: isBestOf(value) ? (value as BestOf) : null });
             }}
-            className={CONTROL_CLASS}
           >
             {/* Empty means inherit. Never pre-fill the resolved value: saving it back pins it. */}
-            <option value="">Inherit — Bo{phase.defaultBestOf}</option>
+            <NativeSelectOption value="">Inherit — Bo{phase.defaultBestOf}</NativeSelectOption>
             {BEST_OF_VALUES.map(n => (
-              <option key={n} value={n}>
+              <NativeSelectOption key={n} value={n}>
                 Bo{n}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
-        </div>
+          </NativeSelect>
+        </Field>
 
         <div className="sm:col-span-2 flex justify-end">
-          <button
-            type="button"
-            onClick={onRemove}
-            aria-label="Remove match"
-            className={ACTION_SM_DANGER}
-          >
+          <Button type="button" variant="destructive" size="sm" onClick={onRemove} aria-label="Remove match">
             <Trash2 size={13} aria-hidden="true" />
-          </button>
+          </Button>
         </div>
 
-        <div className="sm:col-span-4">
-          <label className={LABEL_CLASS}>Kickoff override</label>
-          <input
-            type="datetime-local"
-            value={toLocalInput(match.scheduledAt)}
-            aria-label="Kickoff override"
-            onChange={e => onChange({ scheduledAt: fromLocalInput(e.target.value) })}
-            className={`${CONTROL_CLASS} ${fieldError(issues, `${path}.scheduledAt`)}`}
+        <Field data-invalid={invalidAt(issues, `${path}.scheduledAt`)} className="sm:col-span-4">
+          <FieldLabel htmlFor={`${id}-kickoff`}>Kickoff override</FieldLabel>
+          {/* Opens on the day's kickoff without pinning it: nothing is stored until Apply. */}
+          <DateTimePicker
+            id={`${id}-kickoff`}
+            value={match.scheduledAt}
+            onChange={scheduledAt => onChange({ scheduledAt })}
+            placeholder="Inherits the day"
+            suggested={dayKickoff?.toISOString() ?? null}
+            aria-invalid={invalidAt(issues, `${path}.scheduledAt`)}
           />
-        </div>
+        </Field>
 
-        <div className="sm:col-span-6">
-          <label className={LABEL_CLASS}>Stream</label>
-          <input
+        <Field className="sm:col-span-6">
+          <FieldLabel htmlFor={`${id}-stream`}>Stream</FieldLabel>
+          <Input
+            id={`${id}-stream`}
             value={match.streamUrl ?? ""}
             maxLength={STREAM_URL_MAX}
             placeholder="https://twitch.tv/…"
-            aria-label="Stream URL"
             onChange={e => onChange({ streamUrl: e.target.value === "" ? null : e.target.value })}
-            className={CONTROL_CLASS}
           />
-        </div>
+        </Field>
 
-        <div className="sm:col-span-2">
-          <label className={LABEL_CLASS}>Order</label>
-          <input
+        <Field className="sm:col-span-2">
+          <FieldLabel htmlFor={`${id}-order`}>Order</FieldLabel>
+          <Input
+            id={`${id}-order`}
             type="number"
             min={1}
             value={match.ordinal}
-            aria-label="Display order within the day"
+            aria-describedby={`${id}-order-hint`}
             onChange={e => onChange({ ordinal: Math.max(1, Number(e.target.value) || 1) })}
-            className={CONTROL_CLASS}
           />
-        </div>
+          <span id={`${id}-order-hint`} className="sr-only">Display order within the day</span>
+        </Field>
       </div>
 
       <p className="text-text-dim text-xs mt-2">

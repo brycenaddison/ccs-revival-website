@@ -22,7 +22,8 @@ import { queries } from "../../lib/queries";
 import { dec, int, pct, signed } from "../../lib/statFormat";
 import { rampColor } from "../../lib/statUi";
 import { BarLeaderboard, type BarLeaderboardRow } from "./BarLeaderboard";
-import { CONTROL_CLASS, Field, FilterBar, PillGroup } from "./FilterBar";
+import { FilterBar, FilterField, PillGroup } from "./FilterBar";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 interface Props {
   conf: string;
@@ -77,15 +78,15 @@ export function RecordsPanel({ conf, isMobile }: Props) {
   return (
     <div>
       <FilterBar isMobile={isMobile} columns={3}>
-        <Field label="Rows">
-          <select value={limit} onChange={e => setLimit(Number(e.target.value))} className={CONTROL_CLASS}>
-            {ROW_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-        </Field>
+        <FilterField label="Rows">
+          <NativeSelect value={limit} onChange={e => setLimit(Number(e.target.value))}>
+            {ROW_OPTIONS.map(n => <NativeSelectOption key={n} value={n}>{n}</NativeSelectOption>)}
+          </NativeSelect>
+        </FilterField>
 
-        <Field label="Boards" span={2}>
+        <FilterField label="Boards" span={2} group>
           <PillGroup options={SIDES} isActive={v => v === side} onSelect={v => setSide(v as Side)} />
-        </Field>
+        </FilterField>
       </FilterBar>
 
       {boards.length === 0 ? (

@@ -27,7 +27,7 @@ import { TeamsSection } from "../components/league/teams/TeamsSection";
 import { PredictionsSection } from "../components/league/predictions/PredictionsSection";
 import { useAdminAccess } from "../lib/adminAccess";
 import { hasScope, type LeagueScopeName } from "../lib/api";
-import { sectionForSlug, type SettingsArea, type SettingsSection } from "../lib/settingsAreas";
+import { type SettingsArea, type SettingsSection } from "../lib/settingsAreas";
 
 // Named to match the parked tabs in `src/_disabled/admin/`, so reviving one is a swap rather than a
 // redesign.
@@ -81,7 +81,7 @@ const SECTIONS: readonly LeagueAdminSection[] = [
     description: "Rosters, and the names, tags, logos and colors the teams wear.",
     // Takes more than a column of fields: five starter pickers side by side, and each one opens a
     // search. At the default width they stack into a single column and the page becomes a scroll.
-    maxWidth: 1280,
+    maxWidth: 1040,
     Component: TeamsSection,
   },
   {
@@ -114,16 +114,13 @@ const SECTIONS: readonly LeagueAdminSection[] = [
     // reaches it — this is that write laid out as a bracket instead of as a list of days. Wiring,
     // seed labels and which nodes exist stay in Site Admin.
     description: "Who plays each seeded position in the playoffs.",
-    // Takes the page, the same way Site Admin → Season Structure does and for the same reason: a
-    // bracket laid out in day columns has nowhere to go at 1000px — after the sidebar it gets about
-    // 650, which is two columns. The section caps its own reference panel; nothing else is a form.
+    // Takes the rest of the page, the same way Site Admin → Season Structure does and for the same
+    // reason: a bracket laid out in day columns has nowhere to go in a 760px column. The section caps
+    // its own reference panel; nothing else is a form.
     maxWidth: "100%",
     Component: BracketSection,
   },
 ];
-
-/** Default for a section that doesn't ask for more: a comfortable width for a column of fields. */
-const DEFAULT_WIDTH = 1000;
 
 export default function LeagueAdmin() {
   const { conf = "", section } = useParams();
@@ -133,10 +130,6 @@ export default function LeagueAdmin() {
     () => SECTIONS.filter(s => isSiteAdmin || hasScope(league, s.scope)),
     [isSiteAdmin, league],
   );
-
-  // Resolved here rather than in the shell, matching `SiteAdmin`: `PageShell` owns the content column
-  // and wraps `SettingsShell`, so the width has to be known before the shell renders.
-  const maxWidth = sectionForSlug(visibleSections, section)?.maxWidth ?? DEFAULT_WIDTH;
 
   // `basePath` carries the conf, so the area can't be a module constant like the other two.
   const area = useMemo<SettingsArea>(
@@ -148,8 +141,9 @@ export default function LeagueAdmin() {
     [conf, visibleSections],
   );
 
+  // The page takes the width; `SettingsShell` caps the section column beside its sidebar.
   return (
-    <PageShell maxWidth={maxWidth}>
+    <PageShell maxWidth="100%">
       {/* `null` while access is still resolving — a site admin's leagues come from /tournaments,
           which lands after the session does, so assuming `false` would flash NOT AUTHORIZED. */}
       <RequireAuth allow={ready ? canAdminLeague(conf) : null}>

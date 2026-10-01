@@ -26,12 +26,11 @@ import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { PlayerLink } from "../../profile/PlayerLink";
-import { CONTROL_CLASS } from "../../stats/FilterBar";
-import { ACTION, ACTION_PRIMARY, ACTION_SM, ACTION_SM_DANGER, ErrorLine, Pill } from "../../admin/adminUi";
+import { ErrorLine } from "../../admin/adminUi";
 import { DefinitionForm, DefinitionRow, KindPill } from "../../admin/accolades/accoladeUi";
 import { SettingsRow } from "../../settings/SettingsSection";
 import { ConfirmButton } from "../../ConfirmButton";
-import { Toast } from "../../Toast";
+import { toast } from "sonner";
 import { useDebounced } from "../../../hooks/useDebounced";
 import { queries, queryRoots } from "../../../lib/queries";
 import { fmtDay } from "../../../lib/utils";
@@ -50,10 +49,15 @@ import {
   type AccoladeRecord,
   type TeamRecord,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PlayerAvatar } from "../../players/PlayerIdentity";
 
 export function AccoladesSection() {
   const { conf = "" } = useParams();
-  const [saved, setSaved] = useState<string | null>(null);
 
   const { data, isPending, error } = useQuery(queries.leagueAccolades(conf));
   const { data: teamRows } = useQuery(queries.teamsForConf(conf));
@@ -70,12 +74,10 @@ export function AccoladesSection() {
         definitions={data?.definitions ?? []}
         accolades={data?.accolades ?? []}
         teams={teams}
-        onSaved={setSaved}
+        onSaved={toast.success}
       />
 
-      <DefinitionsPanel conf={conf} definitions={data?.definitions ?? []} onSaved={setSaved} />
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
+      <DefinitionsPanel conf={conf} definitions={data?.definitions ?? []} onSaved={toast.success} />
     </div>
   );
 }
@@ -131,17 +133,17 @@ function DefinitionsPanel({ conf, definitions, onSaved }: DefinitionsProps) {
 
       <div className="mt-3">
         {editing.kind === "closed" ? (
-          <button
+          <Button
+            variant="outline"
             type="button"
             onClick={() => {
               save.reset();
               setEditing({ kind: "new" });
             }}
-            className={ACTION}
           >
             <Plus size={15} aria-hidden="true" />
             New definition for this league
-          </button>
+          </Button>
         ) : (
           <DefinitionForm
             key={editing.kind === "existing" ? editing.id : "new"}
@@ -158,17 +160,17 @@ function DefinitionsPanel({ conf, definitions, onSaved }: DefinitionsProps) {
         <ul className="mt-3">
           {own.map(definition => (
             <DefinitionRow key={definition.id} definition={definition}>
-              <button
+              <Button
+                variant="outline" size="sm"
                 type="button"
                 onClick={() => {
                   save.reset();
                   setEditing({ kind: "existing", id: definition.id });
                 }}
-                className={ACTION_SM}
               >
                 <Pencil size={13} aria-hidden="true" />
                 Edit
-              </button>
+              </Button>
             </DefinitionRow>
           ))}
         </ul>
@@ -230,15 +232,14 @@ function IssuedPanel({ conf, definitions, accolades, teams, onSaved }: IssuedPro
 
       <div className="mt-3">
         {editing.kind === "closed" ? (
-          <button
+          <Button
             type="button"
             disabled={definitions.every(d => !d.active)}
             onClick={() => setEditing({ kind: "new" })}
-            className={ACTION_PRIMARY}
           >
             <Plus size={15} aria-hidden="true" />
             Issue an accolade
-          </button>
+          </Button>
         ) : (
           <IssueForm
             key={editing.kind === "existing" ? editing.id : "new"}
@@ -268,7 +269,7 @@ function IssuedPanel({ conf, definitions, accolades, teams, onSaved }: IssuedPro
                 <span className="font-heading text-sm text-text-bright">
                   {accolade.definition.name}
                 </span>
-                {accolade.label && <Pill muted>{accolade.label}</Pill>}
+                {accolade.label && <Badge variant="muted">{accolade.label}</Badge>}
                 {accolade.team && (
                   <span className="text-text-secondary text-xs">
                     {accolade.team.name} ({accolade.team.code})
@@ -278,14 +279,14 @@ function IssuedPanel({ conf, definitions, accolades, teams, onSaved }: IssuedPro
                   <span className="text-text-dim text-xs">{fmtDay(accolade.awardedAt)}</span>
                 )}
                 <span className="ml-auto flex gap-2">
-                  <button
+                  <Button
+                    variant="outline" size="sm"
                     type="button"
                     onClick={() => setEditing({ kind: "existing", id: accolade.id })}
-                    className={ACTION_SM}
                   >
                     <Pencil size={13} aria-hidden="true" />
                     Edit
-                  </button>
+                  </Button>
                   <ConfirmButton
                     title={`Revoke “${accolade.definition.name}”?`}
                     description={
@@ -297,10 +298,10 @@ function IssuedPanel({ conf, definitions, accolades, teams, onSaved }: IssuedPro
                     onConfirm={() => remove.mutate(accolade.id)}
                     disabled={remove.isPending}
                     trigger={
-                      <button type="button" className={ACTION_SM_DANGER}>
+                      <Button variant="destructive" size="sm" type="button">
                         <Trash2 size={13} aria-hidden="true" />
                         Revoke
-                      </button>
+                      </Button>
                     }
                   />
                 </span>
@@ -429,38 +430,38 @@ function IssueForm({ conf, accolade, definitions, teams, onDone, onCancel }: Iss
       }}
     >
       <SettingsRow label="Award" hint="Only definitions available to this league are listed.">
-        <select
-          value={definitionId}
-          aria-label="Award"
-          onChange={e => {
-            setDefinitionId(Number(e.target.value));
-            // The target shape belongs to the kind, so switching definitions clears whichever half
-            // of the form no longer applies rather than carrying a stale team or recipient list.
-            setTeamId(null);
-            setSelected([]);
-          }}
-          className={CONTROL_CLASS}
-        >
-          {issuable.map(d => (
-            <option key={d.id} value={d.id}>
-              {d.name} — {d.kind === "team" ? "team" : "individual"}
-              {d.active ? "" : " (retired)"}
-            </option>
-          ))}
-        </select>
+        {field => (
+          <NativeSelect {...field}
+            value={definitionId}
+            onChange={e => {
+              setDefinitionId(Number(e.target.value));
+              // The target shape belongs to the kind, so switching definitions clears whichever half
+              // of the form no longer applies rather than carrying a stale team or recipient list.
+              setTeamId(null);
+              setSelected([]);
+            }}
+          >
+            {issuable.map(d => (
+              <NativeSelectOption key={d.id} value={d.id}>
+                {d.name} — {d.kind === "team" ? "team" : "individual"}
+                {d.active ? "" : " (retired)"}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        )}
       </SettingsRow>
 
       <SettingsRow
         label="Label"
         hint="Optional, and what tells repeat awards apart: “Group A”, “Week 4”. Leave it empty for a one-off."
       >
-        <input
-          value={label}
-          onChange={e => setLabel(e.target.value)}
-          maxLength={ACCOLADE_LABEL_MAX}
-          aria-label="Label"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Input {...field}
+            value={label}
+            onChange={e => setLabel(e.target.value)}
+            maxLength={ACCOLADE_LABEL_MAX}
+          />
+        )}
       </SettingsRow>
 
       {isTeamAward ? (
@@ -468,19 +469,18 @@ function IssueForm({ conf, accolade, definitions, teams, onDone, onCancel }: Iss
           label="Team"
           hint="The server writes this team's current roster as the recipients — starters and substitutes, deduplicated. Former members are not included, and editing this award later repeats that expansion against the roster as it is then."
         >
-          <select
+          <NativeSelect
             value={teamId ?? ""}
             aria-label="Team"
             onChange={e => setTeamId(e.target.value === "" ? null : Number(e.target.value))}
-            className={CONTROL_CLASS}
           >
-            <option value="">Select a team…</option>
+            <NativeSelectOption value="">Select a team…</NativeSelectOption>
             {teams.map(team => (
-              <option key={team.id} value={team.id}>
+              <NativeSelectOption key={team.id} value={team.id}>
                 {team.name} ({team.code})
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
           {teams.length === 0 && (
             <p className="text-text-dim text-xs mt-1.5">
               This league has no published teams yet, so there is nothing to award to.
@@ -496,15 +496,12 @@ function IssueForm({ conf, accolade, definitions, teams, onDone, onCancel }: Iss
             <ul className="mb-2 flex flex-wrap gap-1.5">
               {selected.map(recipient => (
                 <li key={recipient.profileId}>
-                  <button
-                    type="button"
-                    onClick={() => toggle(recipient)}
-                    title="Remove"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-brand/50 px-2.5 py-0.5 bg-transparent cursor-pointer font-heading text-[10px] text-text-bright"
-                  >
-                    {recipient.name}
-                    <X size={11} aria-hidden="true" />
-                  </button>
+                  <Badge asChild className="cursor-pointer hover:border-ccs-red">
+                    <button type="button" onClick={() => toggle(recipient)} aria-label={`Remove ${recipient.name}`}>
+                      {recipient.name}
+                      <X size={11} aria-hidden="true" />
+                    </button>
+                  </Badge>
                 </li>
               ))}
             </ul>
@@ -516,22 +513,20 @@ function IssueForm({ conf, accolade, definitions, teams, onDone, onCancel }: Iss
               aria-hidden="true"
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-dim"
             />
-            <input
+            <Input
               value={term}
               onChange={e => setTerm(e.target.value)}
               placeholder="Search by name, Discord handle or profile id"
               aria-label="Search players"
               autoComplete="off"
-              className={`${CONTROL_CLASS} pl-8`}
+              className="pl-8"
             />
           </div>
 
           <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-text">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={thisLeagueOnly}
-              onChange={e => setThisLeagueOnly(e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-brand"
+              onCheckedChange={v => setThisLeagueOnly(v === true)}
             />
             Only this league's players
           </label>
@@ -551,25 +546,11 @@ function IssueForm({ conf, accolade, definitions, teams, onDone, onCancel }: Iss
                 return (
                   <li key={hit.profileId}>
                     <label className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 text-sm text-text hover:bg-bg-input">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={picked}
-                        onChange={() => toggle({ profileId: hit.profileId, name })}
-                        className="h-4 w-4 cursor-pointer accent-brand"
+                        onCheckedChange={() => toggle({ profileId: hit.profileId, name })}
                       />
-                      {hit.avatar ? (
-                        <img
-                          src={hit.avatar}
-                          alt=""
-                          width={22}
-                          height={22}
-                          loading="lazy"
-                          decoding="async"
-                          className="h-[22px] w-[22px] shrink-0 rounded-full border border-border"
-                        />
-                      ) : (
-                        <span className="h-[22px] w-[22px] shrink-0 rounded-full border border-border bg-bg2" />
-                      )}
+                      <PlayerAvatar src={hit.avatar} size="small" />
                       <span className="min-w-0 truncate">{name}</span>
                       {hit.handle && hit.handle !== hit.name && (
                         <span className="shrink-0 text-xs text-text-dim">@{hit.handle}</span>
@@ -592,12 +573,12 @@ function IssueForm({ conf, accolade, definitions, teams, onDone, onCancel }: Iss
       )}
 
       <div className="flex gap-2">
-        <button type="submit" disabled={!canSave || save.isPending} className={ACTION_PRIMARY}>
+        <Button type="submit" disabled={!canSave || save.isPending}>
           {save.isPending ? "Saving…" : isNew ? "Award it" : "Save award"}
-        </button>
-        <button type="button" onClick={onCancel} className={ACTION}>
+        </Button>
+        <Button variant="outline" type="button" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
 
       <ErrorLine message={save.isError ? errorMessage(save.error) : null} />

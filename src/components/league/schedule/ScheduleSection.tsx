@@ -25,10 +25,9 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { CalendarDays, Flag, KeyRound, Link2, Pencil, RefreshCw } from "lucide-react";
-import { CONTROL_CLASS, LABEL_CLASS } from "../../stats/FilterBar";
-import { Toast } from "../../Toast";
+import { toast } from "sonner";
 import { PillTabs, type PillTab } from "../../PillTabs";
-import { ACTION_SM, ErrorLine, Pill } from "../../admin/adminUi";
+import { ErrorLine } from "../../admin/adminUi";
 import { MatchEditor } from "./MatchEditor";
 import { MatchCodes } from "./MatchCodes";
 import { CodeDeliveryControl } from "./CodeDeliveryControl";
@@ -46,13 +45,17 @@ import {
   type ScheduleMatch,
   type TeamRecord,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { TooltipHint } from "../../TooltipHint";
 
 type Tab = "days" | "linking";
 
 export function ScheduleSection() {
   const { conf = "" } = useParams();
   const [tab, setTab] = useState<Tab>("days");
-  const [saved, setSaved] = useState<string | null>(null);
 
   const schedule = useQuery(queries.schedule(conf));
   const teams = useQuery(queries.teamsForConf(conf));
@@ -61,7 +64,7 @@ export function ScheduleSection() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PillTabs tabs={TABS} selected={tab} onSelect={setTab} />
+      <PillTabs label="Schedule view" tabs={TABS} selected={tab} onSelect={setTab} />
 
       {schedule.isError && (
         <ErrorLine message={`Couldn't load the schedule: ${errorMessage(schedule.error)}`} />
@@ -71,7 +74,7 @@ export function ScheduleSection() {
       )}
 
       {tab === "linking" ? (
-        <LinkingPanel conf={conf} days={days} onSaved={setSaved} />
+        <LinkingPanel conf={conf} days={days} onSaved={toast.success} />
       ) : schedule.isPending ? (
         <p className="text-text-dim">Loading the schedule…</p>
       ) : days.length === 0 ? (
@@ -79,10 +82,8 @@ export function ScheduleSection() {
           Nothing scheduled yet. Contact a server admin to configure the league&apos;s format.
         </p>
       ) : (
-        <DayList conf={conf} days={days} teams={teams.data ?? []} onSaved={setSaved} />
+        <DayList conf={conf} days={days} teams={teams.data ?? []} onSaved={toast.success} />
       )}
-
-      <Toast message={saved} onClose={() => setSaved(null)} />
     </div>
   );
 }
@@ -113,22 +114,21 @@ function DayList({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <label className={LABEL_CLASS} htmlFor="schedule-day">
+        <Label className="mb-1" htmlFor="schedule-day">
           Season day
-        </label>
-        <select
+        </Label>
+        <NativeSelect
           id="schedule-day"
           value={day.seasonDay}
           onChange={e => setOpen(Number(e.target.value))}
-          className={CONTROL_CLASS}
         >
           {days.map(d => (
-            <option key={d.seasonDay} value={d.seasonDay}>
+            <NativeSelectOption key={d.seasonDay} value={d.seasonDay}>
               Day {d.seasonDay} — {d.phase} (day {d.matchDay} of the phase) ·{" "}
               {d.matches.length} {d.matches.length === 1 ? "match" : "matches"}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       <DayPanel key={`${conf}-${day.seasonDay}`} conf={conf} day={day} teams={teams} onSaved={onSaved} />
@@ -250,43 +250,46 @@ function DayPanel({
           <span className="font-display text-lg text-text-bright ">
             DAY {day.seasonDay}
           </span>
-          <Pill muted>{day.phase}</Pill>
-          <Pill muted>{day.phaseKind === "group" ? "Group stage" : "Bracket"}</Pill>
+          <Badge variant="muted">{day.phase}</Badge>
+          <Badge variant="muted">{day.phaseKind === "group" ? "Group stage" : "Bracket"}</Badge>
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
           {canResync && (
-            <button
+            <TooltipHint content="Fills in every team this bracket's results imply. Safe to press any time — it also clears a team whose result was corrected.">
+              <Button
+                variant="outline" size="sm"
+                type="button"
+                onClick={() => propagate.mutate()}
+                disabled={propagate.isPending}
+              >
+                <RefreshCw size={13} aria-hidden="true" />
+                {propagate.isPending ? "Resyncing…" : "Resync bracket"}
+              </Button>
+            </TooltipHint>
+          )}
+          <TooltipHint content="Matches that already have their codes are skipped, so this is safe to press twice.">
+            <Button
+              variant="outline" size="sm"
               type="button"
-              onClick={() => propagate.mutate()}
-              disabled={propagate.isPending}
-              title="Fills in every team this bracket's results imply. Safe to press any time — it also clears a team whose result was corrected."
-              className={ACTION_SM}
+              onClick={() => mint.mutate()}
+              disabled={mint.isPending}
+            >
+              <KeyRound size={13} aria-hidden="true" />
+              {mint.isPending ? "Minting…" : "Mint this day's codes"}
+            </Button>
+          </TooltipHint>
+          <TooltipHint content="Asks Riot about every confirmed code on this day and records anything now played. The fix for a night whose results never arrived — safe to press any time.">
+            <Button
+              variant="outline" size="sm"
+              type="button"
+              onClick={() => recheck.mutate()}
+              disabled={recheck.isPending}
             >
               <RefreshCw size={13} aria-hidden="true" />
-              {propagate.isPending ? "Resyncing…" : "Resync bracket"}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => mint.mutate()}
-            disabled={mint.isPending}
-            title="Matches that already have their codes are skipped, so this is safe to press twice."
-            className={ACTION_SM}
-          >
-            <KeyRound size={13} aria-hidden="true" />
-            {mint.isPending ? "Minting…" : "Mint this day's codes"}
-          </button>
-          <button
-            type="button"
-            onClick={() => recheck.mutate()}
-            disabled={recheck.isPending}
-            title="Asks Riot about every confirmed code on this day and records anything now played. The fix for a night whose results never arrived — safe to press any time."
-            className={ACTION_SM}
-          >
-            <RefreshCw size={13} aria-hidden="true" />
-            {recheck.isPending ? "Re-checking…" : "Re-check this day's codes"}
-          </button>
+              {recheck.isPending ? "Re-checking…" : "Re-check this day's codes"}
+            </Button>
+          </TooltipHint>
         </div>
       </div>
 
@@ -312,36 +315,36 @@ function DayPanel({
               <MatchSummary match={match} />
 
               <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-                <button
+                <Button
+                  variant="outline" size="sm"
                   type="button"
                   onClick={() => setEditing(editing === match.id ? null : match.id)}
-                  className={ACTION_SM}
                 >
                   <Pencil size={13} aria-hidden="true" />
                   {editing === match.id ? "Close" : "Edit"}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="outline" size="sm"
                   type="button"
                   onClick={() => setShowCodes(showCodes === match.id ? null : match.id)}
-                  className={ACTION_SM}
                 >
                   <KeyRound size={13} aria-hidden="true" />
                   Codes
-                </button>
+                </Button>
                 {/*
                   A forfeit is a *result*, not a schedule change — its own panel rather than a field in
                   the editor, because `PATCH` semantics don't apply to it and it is not something to
                   press on the way past. Offered for a bye too: the panel is where the reason it can't
                   be forfeited is written.
                 */}
-                <button
+                <Button
+                  variant="outline" size="sm"
                   type="button"
                   onClick={() => setShowForfeit(showForfeit === match.id ? null : match.id)}
-                  className={ACTION_SM}
                 >
                   <Flag size={13} aria-hidden="true" />
                   Forfeit
-                </button>
+                </Button>
               </div>
 
               {editing === match.id && (
@@ -386,10 +389,10 @@ function MatchSummary({ match }: { match: ScheduleMatch }) {
       </span>
 
       {match.result && (
-        <Pill>
+        <Badge>
           {match.result.winsA}–{match.result.winsB}
           {match.result.hasForfeit ? " · FF" : ""}
-        </Pill>
+        </Badge>
       )}
 
       {!isBye && <span className="text-text-dim text-xs">Bo{match.bestOf ?? "?"}</span>}

@@ -16,11 +16,6 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Pencil, RefreshCw, Send, Trash2, UserPlus, X } from "lucide-react";
 import {
-  ACTION,
-  ACTION_DANGER,
-  ACTION_PRIMARY,
-  ACTION_SM,
-  ACTION_SM_DANGER,
   ErrorLine,
 } from "../admin/adminUi";
 import { LABEL_CLASS } from "../stats/FilterBar";
@@ -34,7 +29,6 @@ import {
   ApplicationTeamHeader,
   InvitationStatusPill,
   isPlaying,
-  MemberAvatar,
   memberLabel,
   RankChip,
   roleSummary,
@@ -55,6 +49,8 @@ import {
   type ApplicationMember,
   type TeamApplication,
 } from "../../lib/api";
+import { Button } from "@/components/ui/button";
+import { PlayerAvatar } from "../players/PlayerIdentity";
 
 /** Whether the applicant may still change this application. Mirrors upstream's `getOwnedDraft`. */
 const EDITABLE = new Set(["draft", "rejected"]);
@@ -137,10 +133,10 @@ export function ApplicationCard({ application, myProfileId, onSaved }: Props) {
                 onCancel={() => setEditing(false)}
               />
             ) : (
-              <button type="button" onClick={() => setEditing(true)} className={ACTION}>
+              <Button variant="outline" type="button" onClick={() => setEditing(true)}>
                 <Pencil size={15} aria-hidden="true" />
                 Edit team details
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -151,20 +147,20 @@ export function ApplicationCard({ application, myProfileId, onSaved }: Props) {
             <div className="flex flex-wrap items-center gap-2">
               {/* Ranks come from a cache upstream, never a live lookup, so somebody who linked an
                 account a minute ago sees "Rank pending" until this is pressed. */}
-              <button
+              <Button
+                variant="outline"
                 type="button"
                 onClick={() => refresh.mutate()}
                 disabled={refresh.isPending}
-                className={ACTION}
               >
                 <RefreshCw size={15} aria-hidden="true" />
                 {refresh.isPending ? "Checking…" : "Refresh ranks"}
-              </button>
+              </Button>
               {editable && inviting === null && (
-                <button type="button" onClick={() => setInviting(true)} className={ACTION}>
+                <Button variant="outline" type="button" onClick={() => setInviting(true)}>
                   <UserPlus size={15} aria-hidden="true" />
                   Invite a player
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -229,15 +225,14 @@ export function ApplicationCard({ application, myProfileId, onSaved }: Props) {
             )}
 
             <div className="flex flex-wrap gap-2">
-              <button
+              <Button
                 type="button"
                 disabled={submit.isPending || blockers.length > 0}
                 onClick={() => submit.mutate()}
-                className={ACTION_PRIMARY}
               >
                 <Send size={15} aria-hidden="true" />
                 {submit.isPending ? "Submitting…" : "Submit for review"}
-              </button>
+              </Button>
               <ConfirmButton
                 title={`Withdraw ${application.teamName}?`}
                 description="This deletes the application. There's no reopening it, so getting back in means starting a new one from scratch, and everyone you invited would have to be invited again."
@@ -245,10 +240,10 @@ export function ApplicationCard({ application, myProfileId, onSaved }: Props) {
                 onConfirm={() => withdraw.mutate()}
                 disabled={withdraw.isPending}
                 trigger={
-                  <button type="button" className={ACTION_DANGER}>
+                  <Button variant="destructive" type="button">
                     <Trash2 size={15} aria-hidden="true" />
                     Withdraw
-                  </button>
+                  </Button>
                 }
               />
             </div>
@@ -358,7 +353,7 @@ function RosterList({ conf, applicationId, members, editable, myProfileId, onEdi
             key={member.id}
             className="flex flex-wrap items-center gap-2.5 border-b border-border py-2.5 last:border-b-0"
           >
-            <MemberAvatar member={member} />
+            <PlayerAvatar src={member.avatar} />
             <PlayerLink profileId={member.profileId} className="text-brand no-underline hover:underline">
               {memberLabel(member)}
             </PlayerLink>
@@ -382,10 +377,10 @@ function RosterList({ conf, applicationId, members, editable, myProfileId, onEdi
                 there is no reason theirs should be the one nobody can fix. */}
             {editable && (
               <span className="ml-auto flex gap-2">
-                <button type="button" onClick={() => onEdit(member)} className={ACTION_SM}>
+                <Button variant="outline" size="sm" type="button" onClick={() => onEdit(member)}>
                   <Pencil size={13} aria-hidden="true" />
                   Roles
-                </button>
+                </Button>
                 <ConfirmButton
                   title={`Remove ${memberLabel(member)}?`}
                   description={
@@ -397,10 +392,10 @@ function RosterList({ conf, applicationId, members, editable, myProfileId, onEdi
                   onConfirm={() => revoke.mutate(member.id)}
                   disabled={revoke.isPending}
                   trigger={
-                    <button type="button" className={ACTION_SM_DANGER}>
+                    <Button variant="destructive" size="sm" type="button">
                       <X size={13} aria-hidden="true" />
                       Remove
-                    </button>
+                    </Button>
                   }
                 />
               </span>

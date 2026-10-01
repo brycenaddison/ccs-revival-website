@@ -1,5 +1,5 @@
 /**
- * The signed-in account control: a name button that opens a dropdown of account actions.
+ * The signed-in account control: an avatar-and-name button that opens a dropdown of account actions.
  *
  * The action list lives in `accountMenuEntries` rather than in the markup, because both nav
  * variants render the same actions in different shapes — a floating panel on desktop, flat
@@ -7,7 +7,6 @@
  * not two components.
  */
 
-import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ClipboardList, Coins, FileText, Inbox, Link2, LogOut, Settings, Shield, UserRound, type LucideIcon } from "lucide-react";
 import { useAdminAccess } from "../../lib/adminAccess";
@@ -15,6 +14,14 @@ import { useAuth } from "../../lib/authContext";
 import { CONTENT_ROLE } from "../../lib/api";
 import { useHasLiveApplication } from "../../hooks/useMyApplications";
 import { useHasInvitations } from "../../hooks/useInvitations";
+import { PlayerAvatar } from "../players/PlayerIdentity";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { playerPath } from "../profile/PlayerLink";
 
 export type MenuEntry =
@@ -121,37 +128,17 @@ export function accountMenuEntries({
 const LABEL = "font-heading text-sm whitespace-nowrap";
 
 /** Shared by the button and link branches, so the two are indistinguishable in the panel. */
-const ITEM = `flex w-full items-center gap-2 text-left bg-transparent border-none px-4 py-2.5 text-text-secondary ${LABEL}`;
+const ITEM = `cursor-pointer gap-2 px-3 py-2 text-text-secondary no-underline focus:text-text-bright ${LABEL}`;
 
-export function UserMenu({ name }: { name: string }) {
+/**
+ * The account trigger and its menu. Radix owns the floating layer: arrow-key navigation, Escape,
+ * dismissal on an outside click and focus returning to the trigger.
+ */
+export function UserMenu({ name, avatar }: { name: string; avatar: string | null }) {
   const { logout, linkRiot, canLinkRiot, hasRole, profile } = useAuth();
   const { isSiteAdmin } = useAdminAccess();
   const hasApplication = useHasLiveApplication();
   const hasInvitations = useHasInvitations();
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      setOpen(false);
-      // Focus would otherwise land on <body>, stranding keyboard users outside the nav.
-      triggerRef.current?.focus();
-    };
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
 
   const entries = accountMenuEntries({
     profileId: profile?.id ?? null,
@@ -165,79 +152,54 @@ export function UserMenu({ name }: { name: string }) {
   });
 
   return (
-    <div ref={wrapRef} className="relative">
-      <button
-        ref={triggerRef}
-        onClick={() => setOpen(o => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger
         title={name}
-        className={`flex items-center gap-1.5 bg-transparent border border-border rounded-md px-3 py-1 cursor-pointer text-text-secondary hover:text-text-bright ${LABEL}`}
+        className={`group flex items-center gap-1.5 bg-transparent border border-border rounded-md py-1 pl-1.5 pr-3 cursor-pointer text-text-secondary hover:text-text-bright data-[state=open]:text-text-bright ${LABEL}`}
       >
+        {/* 20px, so the trigger stays the height of the outlined and filled buttons beside it. */}
+        <PlayerAvatar src={avatar} size="small" className="size-5" />
         <span className="max-w-[7rem] lg:max-w-[10rem] truncate">{name}</span>
         <ChevronDown
           size={14}
           aria-hidden="true"
-          className={`shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+          className="shrink-0 transition-transform duration-150 group-data-[state=open]:rotate-180"
         />
-      </button>
+      </DropdownMenuTrigger>
 
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-full mt-1 min-w-[13rem] bg-bg2 border border-border rounded-md py-1 z-[200] shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
-        >
-          {entries.map((entry, i) => {
-            if (entry.kind === "divider") {
-              return <div key={`divider-${i}`} role="separator" className="my-1 border-t border-border" />;
-            }
-            const Icon = entry.icon;
-            const glyph = Icon && <Icon size={15} aria-hidden="true" className="shrink-0" />;
-            const state = entry.disabled
-              ? "opacity-50 cursor-default"
-              : "cursor-pointer hover:bg-bg-input hover:text-text-bright";
+      <DropdownMenuContent align="end" className="min-w-[13rem]">
+        {entries.map((entry, i) => {
+          if (entry.kind === "divider") return <DropdownMenuSeparator key={`divider-${i}`} />;
+          const Icon = entry.icon;
+          const glyph = Icon && <Icon size={15} aria-hidden="true" className="shrink-0" />;
 
-            // A navigation is a real link, not a button that navigates — middle-click and
-            // "copy link address" should work on it like anywhere else in the nav.
-            if (entry.to && !entry.disabled) {
-              return (
-                <Link
-                  key={entry.label}
-                  role="menuitem"
-                  to={entry.to}
-                  title={entry.title}
-                  onClick={() => setOpen(false)}
-                  className={`${ITEM} ${state} no-underline`}
-                >
+          // A navigation is a real link, not a button that navigates: middle-click and "copy link
+          // address" should work on it like anywhere else in the nav.
+          if (entry.to && !entry.disabled) {
+            return (
+              <DropdownMenuItem key={entry.label} asChild className={ITEM}>
+                <Link to={entry.to} title={entry.title}>
                   {glyph}
                   {entry.label}
                 </Link>
-              );
-            }
-
-            return (
-              <button
-                key={entry.label}
-                role="menuitem"
-                title={entry.title}
-                aria-disabled={entry.disabled || undefined}
-                onClick={
-                  entry.disabled
-                    ? undefined
-                    : () => {
-                      setOpen(false);
-                      entry.onSelect?.();
-                    }
-                }
-                className={`${ITEM} ${state}`}
-              >
-                {glyph}
-                {entry.label}
-              </button>
+              </DropdownMenuItem>
             );
-          })}
-        </div>
-      )}
-    </div>
+          }
+
+          return (
+            <DropdownMenuItem
+              key={entry.label}
+              title={entry.title}
+              disabled={entry.disabled}
+              onSelect={entry.onSelect}
+              className={ITEM}
+            >
+              {glyph}
+              {entry.label}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

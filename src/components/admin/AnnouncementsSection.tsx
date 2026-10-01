@@ -15,6 +15,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   createAnnouncement,
   deleteAnnouncement,
@@ -31,19 +32,21 @@ import {
   type AnnouncementUpdate,
 } from "../../lib/api";
 import { queries, queryRoots } from "../../lib/queries";
-import { fmtKickoff, fromLocalInput, timeAgo, toLocalInput } from "../../lib/utils";
-import { Toast } from "../Toast";
+import { fmtKickoff, timeAgo } from "../../lib/utils";
+import { ConfirmButton } from "../ConfirmButton";
+import { DateTimePicker } from "../DateTimePicker";
 import { SettingsRow } from "../settings/SettingsSection";
-import {
-  ACTION,
-  ACTION_PRIMARY,
-  ACTION_QUIET,
-  ACTION_SM_DANGER,
-  ErrorLine,
-  Pill,
-  stateNote,
-} from "./adminUi";
-import { CONTROL_CLASS, LABEL_CLASS } from "../stats/FilterBar";
+import { ErrorLine, stateNote } from "./adminUi";
+import { LABEL_CLASS } from "../stats/FilterBar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 
 const LEVEL_LABELS: Record<AnnouncementLevel, string> = {
   info: "Info — the usual notice",
@@ -55,7 +58,6 @@ type Selection = null | "new" | number;
 
 export function AnnouncementsSection() {
   const [selected, setSelected] = useState<Selection>(null);
-  const [toast, setToast] = useState<string | null>(null);
 
   const { data, isPending, error } = useQuery(queries.announcements());
   const rows = data ?? [];
@@ -70,14 +72,12 @@ export function AnnouncementsSection() {
 
   return (
     <div>
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-
       <div className="flex items-center justify-between mb-2">
-        <label className={LABEL_CLASS}>Banners</label>
-        <button type="button" className={ACTION_QUIET} onClick={() => setSelected("new")}>
-          <Megaphone size={12} />
+        <h3 className={LABEL_CLASS}>Banners</h3>
+        <Button type="button" variant="quiet" size="inline" onClick={() => setSelected("new")}>
+          <Megaphone size={12} aria-hidden="true" />
           New banner
-        </button>
+        </Button>
       </div>
 
       <p className="text-text-dim text-xs mb-4 leading-relaxed">
@@ -87,13 +87,19 @@ export function AnnouncementsSection() {
       </p>
 
       {error ? (
-        <p className="text-ccs-red text-sm" role="alert">
-          {errorMessage(error)}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{errorMessage(error)}</AlertDescription>
+        </Alert>
       ) : isPending ? (
-        <p className="text-text-subtle text-sm py-6 text-center">Loading...</p>
+        <div className="flex justify-center py-6">
+          <Spinner aria-label="Loading banners" />
+        </div>
       ) : rows.length === 0 ? (
-        <p className="text-text-dim text-sm py-6 text-center">No banners yet.</p>
+        <Empty className="p-6 md:p-6">
+          <EmptyHeader>
+            <EmptyTitle>No banners yet.</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="border border-border rounded-lg overflow-hidden mb-6">
           {rows.map((a, i) => (
@@ -116,8 +122,8 @@ export function AnnouncementsSection() {
                 </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                {a.id === liveId && <Pill>Live now</Pill>}
-                {!a.active && <Pill muted>Off</Pill>}
+                {a.id === liveId && <Badge>Live now</Badge>}
+                {!a.active && <Badge variant="muted">Off</Badge>}
               </div>
             </button>
           ))}
@@ -127,13 +133,13 @@ export function AnnouncementsSection() {
       {(selected === "new" || editing !== null) && (
         <div className="border-t border-border pt-5">
           <h3 className="font-display text-[18px] text-text-bright mb-4">
-            {selected === "new" ? "NEW BANNER" : "EDIT BANNER"}
+            {selected === "new" ? "New banner" : "Edit banner"}
           </h3>
           <AnnouncementForm
             key={selected === "new" ? "new" : editing?.id}
             announcement={editing}
             onSaved={message => {
-              setToast(message);
+              toast.success(message);
               setSelected(null);
             }}
             onCancel={() => setSelected(null)}
@@ -170,12 +176,12 @@ function AnnouncementForm({ announcement, onSaved, onCancel }: FormProps) {
   const [linkLabel, setLinkLabel] = useState(announcement?.linkLabel ?? "");
   const [conf, setConf] = useState(announcement?.conf ?? "");
   const [active, setActive] = useState(announcement?.active ?? true);
-  const [startsAt, setStartsAt] = useState(toLocalInput(announcement?.startsAt));
-  const [endsAt, setEndsAt] = useState(toLocalInput(announcement?.endsAt));
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  // ISO instants as served, so an untouched window compares equal to the row it came from.
+  const [startsAt, setStartsAt] = useState<string | null>(announcement?.startsAt ?? null);
+  const [endsAt, setEndsAt] = useState<string | null>(announcement?.endsAt ?? null);
 
   const trimmed = message.trim();
-  const windowProblem = windowError(fromLocalInput(startsAt), fromLocalInput(endsAt));
+  const windowProblem = windowError(startsAt, endsAt);
 
   const changes = useMemo((): AnnouncementUpdate => {
     if (announcement === null) return {};
@@ -188,8 +194,8 @@ function AnnouncementForm({ announcement, onSaved, onCancel }: FormProps) {
     if (nullable(linkLabel) !== announcement.linkLabel) out.linkLabel = nullable(linkLabel);
     if (nullable(conf) !== announcement.conf) out.conf = nullable(conf);
     if (active !== announcement.active) out.active = active;
-    if (fromLocalInput(startsAt) !== announcement.startsAt) out.startsAt = fromLocalInput(startsAt);
-    if (fromLocalInput(endsAt) !== announcement.endsAt) out.endsAt = fromLocalInput(endsAt);
+    if (startsAt !== announcement.startsAt) out.startsAt = startsAt;
+    if (endsAt !== announcement.endsAt) out.endsAt = endsAt;
     return out;
   }, [announcement, trimmed, level, linkUrl, linkLabel, conf, active, startsAt, endsAt]);
 
@@ -206,8 +212,8 @@ function AnnouncementForm({ announcement, onSaved, onCancel }: FormProps) {
           ...(linkUrl.trim() ? { linkUrl: linkUrl.trim() } : {}),
           ...(linkLabel.trim() ? { linkLabel: linkLabel.trim() } : {}),
           ...(conf.trim() ? { conf: conf.trim() } : {}),
-          ...(fromLocalInput(startsAt) ? { startsAt: fromLocalInput(startsAt) } : {}),
-          ...(fromLocalInput(endsAt) ? { endsAt: fromLocalInput(endsAt) } : {}),
+          ...(startsAt ? { startsAt } : {}),
+          ...(endsAt ? { endsAt } : {}),
         };
         return createAnnouncement(input);
       }
@@ -245,129 +251,112 @@ function AnnouncementForm({ announcement, onSaved, onCancel }: FormProps) {
       }}
     >
       <SettingsRow label="Message" hint="Shown as a card at the top of the home page's center column.">
-        <textarea
-          className={CONTROL_CLASS}
-          rows={3}
-          value={message}
-          maxLength={MESSAGE_MAX}
-          onChange={e => setMessage(e.target.value)}
-          placeholder="Signups for the summer split are open."
-        />
+        {field => (
+          <Textarea
+            {...field}
+            rows={3}
+            value={message}
+            maxLength={MESSAGE_MAX}
+            onChange={e => setMessage(e.target.value)}
+            placeholder="Signups for the summer split are open."
+          />
+        )}
       </SettingsRow>
 
       <div className="grid grid-cols-2 gap-4">
         <SettingsRow label="Level">
-          <select
-            className={CONTROL_CLASS}
-            value={level}
-            onChange={e => setLevel(e.target.value as AnnouncementLevel)}
-          >
-            {ANNOUNCEMENT_LEVELS.map(l => (
-              <option key={l} value={l}>
-                {LEVEL_LABELS[l]}
-              </option>
-            ))}
-          </select>
+          {field => (
+            <NativeSelect {...field} value={level} onChange={e => setLevel(e.target.value as AnnouncementLevel)}>
+              {ANNOUNCEMENT_LEVELS.map(l => (
+                <NativeSelectOption key={l} value={l}>
+                  {LEVEL_LABELS[l]}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          )}
         </SettingsRow>
 
         <SettingsRow label="League" hint="Site-wide shows on every league's page.">
-          <select className={CONTROL_CLASS} value={conf} onChange={e => setConf(e.target.value)}>
-            <option value="">Site-wide</option>
-            {tournaments.map(t => (
-              <option key={t.conf} value={t.conf}>
-                {t.shortname ?? t.name}
-                {stateNote(t)}
-              </option>
-            ))}
-          </select>
+          {field => (
+            <NativeSelect {...field} value={conf} onChange={e => setConf(e.target.value)}>
+              <NativeSelectOption value="">Site-wide</NativeSelectOption>
+              {tournaments.map(t => (
+                <NativeSelectOption key={t.conf} value={t.conf}>
+                  {t.shortname ?? t.name}
+                  {stateNote(t)}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          )}
         </SettingsRow>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <SettingsRow label="Link">
-          <input
-            className={CONTROL_CLASS}
-            value={linkUrl}
-            maxLength={LINK_URL_MAX}
-            onChange={e => setLinkUrl(e.target.value)}
-            placeholder="https://ccsesports.org/register"
-          />
+          {field => (
+            <Input
+              {...field}
+              value={linkUrl}
+              maxLength={LINK_URL_MAX}
+              onChange={e => setLinkUrl(e.target.value)}
+              placeholder="https://ccsesports.org/register"
+            />
+          )}
         </SettingsRow>
         <SettingsRow label="Button text" hint='Defaults to "Learn more".'>
-          <input
-            className={CONTROL_CLASS}
-            value={linkLabel}
-            maxLength={LINK_LABEL_MAX}
-            onChange={e => setLinkLabel(e.target.value)}
-            placeholder="Sign up"
-          />
+          {field => (
+            <Input
+              {...field}
+              value={linkLabel}
+              maxLength={LINK_LABEL_MAX}
+              onChange={e => setLinkLabel(e.target.value)}
+              placeholder="Sign up"
+            />
+          )}
         </SettingsRow>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <SettingsRow label="Starts" hint="Empty means immediately.">
-          <input
-            type="datetime-local"
-            className={CONTROL_CLASS}
-            value={startsAt}
-            onChange={e => setStartsAt(e.target.value)}
-          />
+        <SettingsRow label="Starts" hint="Not set means immediately.">
+          {field => <DateTimePicker {...field} value={startsAt} onChange={setStartsAt} placeholder="Immediately" />}
         </SettingsRow>
-        <SettingsRow label="Ends" hint="Empty means it runs until switched off or replaced.">
-          <input
-            type="datetime-local"
-            className={CONTROL_CLASS}
-            value={endsAt}
-            onChange={e => setEndsAt(e.target.value)}
-          />
+        <SettingsRow label="Ends" hint="Not set means it runs until switched off or replaced." error={windowProblem}>
+          {field => <DateTimePicker {...field} value={endsAt} onChange={setEndsAt} placeholder="No end" />}
         </SettingsRow>
       </div>
 
       <SettingsRow label="Active">
         <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
-          <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} />
+          <Checkbox checked={active} onCheckedChange={v => setActive(v === true)} />
           Eligible to show
         </label>
       </SettingsRow>
 
-      {windowProblem && <p className="text-ccs-red text-sm mt-1">{windowProblem}</p>}
       <ErrorLine message={failure ? errorMessage(failure) : null} />
 
       <div className="flex items-center gap-2 mt-6 pt-5 border-t border-border">
-        <button type="submit" className={ACTION_PRIMARY} disabled={!canSave || !dirty || save.isPending}>
+        <Button type="submit" disabled={!canSave || !dirty || save.isPending}>
           {save.isPending ? "Saving..." : isNew ? "Post" : "Save"}
-        </button>
-        <button type="button" className={ACTION} onClick={onCancel}>
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
 
         {!isNew && (
-          <div className="ml-auto flex items-center gap-2">
-            {confirmDelete ? (
-              <>
-                <span className="text-text-secondary text-xs">Delete permanently?</span>
-                <button
-                  type="button"
-                  className={ACTION_SM_DANGER}
-                  disabled={remove.isPending}
-                  onClick={() => remove.mutate()}
-                >
+          <div className="ml-auto">
+            <ConfirmButton
+              title="Delete this banner?"
+              description="The row is removed permanently, along with its place in this history."
+              confirmLabel="Delete"
+              onConfirm={() => remove.mutate()}
+              disabled={remove.isPending}
+              trigger={
+                <Button type="button" variant="destructive" size="sm" disabled={remove.isPending}>
+                  <Trash2 size={13} aria-hidden="true" />
                   {remove.isPending ? "Deleting..." : "Delete"}
-                </button>
-                <button type="button" className={ACTION} onClick={() => setConfirmDelete(false)}>
-                  Keep
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className={ACTION_SM_DANGER}
-                onClick={() => setConfirmDelete(true)}
-              >
-                <Trash2 size={13} />
-                Delete
-              </button>
-            )}
+                </Button>
+              }
+            />
           </div>
         )}
       </div>

@@ -11,7 +11,7 @@
 import riftMap from "../../../assets/rift-map.png";
 import { cn } from "../../../lib/cn";
 import { fmtTimestamp } from "../../../lib/game/timelineStats";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventText } from "./EventText";
 import { useTimelineView } from "./TimelineTab";
 

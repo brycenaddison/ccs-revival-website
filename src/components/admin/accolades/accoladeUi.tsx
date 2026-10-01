@@ -10,8 +10,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Check, Plus, Trophy, Users } from "lucide-react";
-import { CONTROL_CLASS } from "../../stats/FilterBar";
-import { ACTION, ACTION_PRIMARY, ErrorLine } from "../adminUi";
+import { ErrorLine } from "../adminUi";
 import { SettingsRow } from "../../settings/SettingsSection";
 import {
   ACCOLADE_DESCRIPTION_MAX,
@@ -22,6 +21,11 @@ import {
   type AccoladeDefinitionInput,
   type AccoladeKind,
 } from "../../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 /**
  * A definition's kind, with the icon the public profile strip uses for it.
@@ -123,18 +127,17 @@ export function DefinitionForm({ definition, onSave, saving, error, onCancel }: 
             : "One or more named players. Co-winners are a single award with several recipients."
         }
       >
-        <select
+        <NativeSelect
           value={kind}
           aria-label="Awarded to"
           onChange={e => isAccoladeKind(e.target.value) && setKind(e.target.value)}
-          className={CONTROL_CLASS}
         >
           {ACCOLADE_KINDS.map(k => (
-            <option key={k} value={k}>
+            <NativeSelectOption key={k} value={k}>
               {k === "team" ? "A team" : "Individual players"}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
         {definition !== null && kind !== definition.kind && (
           <p className="text-ccs-orange text-xs mt-1.5">
             Changing the kind doesn't rewrite accolades already awarded under this definition — they
@@ -147,27 +150,27 @@ export function DefinitionForm({ definition, onSave, saving, error, onCancel }: 
         label="Name"
         hint={`What a player sees on their profile, e.g. “First Team All-Pro” or “🏆 Champion”. Emoji count as one character, up to ${ACCOLADE_NAME_MAX}.`}
       >
-        <input
-          value={name}
-          onChange={e => setName(e.target.value)}
-          maxLength={ACCOLADE_NAME_MAX}
-          aria-label="Name"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Input {...field}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            maxLength={ACCOLADE_NAME_MAX}
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
         label="Description"
         hint="Optional. Shown as the pill's tooltip on a profile, so it's for the detail that doesn't fit in the name. Leave it empty to clear."
       >
-        <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          maxLength={ACCOLADE_DESCRIPTION_MAX}
-          rows={2}
-          aria-label="Description"
-          className={CONTROL_CLASS}
-        />
+        {field => (
+          <Textarea {...field}
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            maxLength={ACCOLADE_DESCRIPTION_MAX}
+            rows={2}
+          />
+        )}
       </SettingsRow>
 
       <SettingsRow
@@ -175,24 +178,22 @@ export function DefinitionForm({ definition, onSave, saving, error, onCancel }: 
         hint="Retiring a definition stops it being issued again. Every accolade already awarded under it is untouched and keeps showing on the players who won it — this is the only way to withdraw one, because there is no delete."
       >
         <label className="flex items-center gap-2.5 cursor-pointer text-sm text-text">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={active}
-            onChange={e => setActive(e.target.checked)}
-            className="accent-brand w-4 h-4 cursor-pointer"
+            onCheckedChange={v => setActive(v === true)}
           />
           Available to issue
         </label>
       </SettingsRow>
 
       <div className="flex gap-2">
-        <button type="submit" disabled={!canSave || saving} className={ACTION_PRIMARY}>
+        <Button type="submit" disabled={!canSave || saving}>
           {isNew ? <Plus size={15} aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}
           {saving ? "Saving…" : isNew ? "Create definition" : "Save definition"}
-        </button>
-        <button type="button" onClick={onCancel} className={ACTION}>
+        </Button>
+        <Button variant="outline" type="button" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
 
       <ErrorLine message={error} />

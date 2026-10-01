@@ -16,13 +16,13 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ConfirmButton } from "../../ConfirmButton";
-import { ErrorLine, Pill } from "../../admin/adminUi";
+import { ErrorLine } from "../../admin/adminUi";
 import { MatchupLabel } from "../../predictions/MatchupLabel";
 import { predictionPath } from "../../predictions/PredictionCard";
 import { absoluteInstant } from "../../predictions/PredictionUi";
 import { SKIP_REASON_LABEL } from "../../predictions/predictionLabels";
-import { Button } from "../../ui/button";
-import { Checkbox } from "../../ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ApiError,
   errorMessage,
@@ -35,8 +35,9 @@ import {
   type PublicationSelection,
 } from "../../../lib/api";
 import { queryRoots } from "../../../lib/queries";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
-const HEAD = "px-3 py-2 text-left font-heading text-[10px] font-medium text-text-muted";
 /** The count appears only near the batch limit, where it starts to matter. */
 const COUNT_FROM = PREDICTION_BATCH_MAX - 10;
 
@@ -110,29 +111,28 @@ export function PublishPanel({ conf, manage, onPublished }: {
 
   return (
     <div>
-      <div className="min-w-0 overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead>
-            <tr>
-              <th scope="col" className={`${HEAD} w-10`}>
+      <Table containerClassName="rounded-lg border border-border" className="w-full min-w-[640px] text-sm">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col" className="w-10">
                 <Checkbox
                   aria-label="Select all available matches"
                   checked={allChosen ? true : chosen.length > 0 ? "indeterminate" : false}
                   disabled={available.length === 0 || locked}
                   onCheckedChange={value => toggleAll(value === true)}
                 />
-              </th>
-              <th scope="col" className={HEAD}>Match</th>
-              <th scope="col" className={HEAD}>Placement</th>
-              <th scope="col" className={HEAD}>Format</th>
-              <th scope="col" className={HEAD}>Kickoff</th>
-              <th scope="col" className={HEAD}><span className="sr-only">Status</span></th>
-            </tr>
-          </thead>
-          <tbody>
+              </TableHead>
+              <TableHead scope="col" className="w-full">Match</TableHead>
+              <TableHead scope="col">Placement</TableHead>
+              <TableHead scope="col">Format</TableHead>
+              <TableHead scope="col">Kickoff</TableHead>
+              <TableHead scope="col"><span className="sr-only">Status</span></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {manage.candidates.map(candidate => (
-              <tr key={candidate.scheduleMatchId} className="border-t border-border">
-                <td className="px-3 py-2">
+              <TableRow key={candidate.scheduleMatchId}>
+                <TableCell>
                   {candidate.available ? (
                     <Checkbox
                       aria-label={`Select ${nameOf(candidate)}`}
@@ -141,19 +141,18 @@ export function PublishPanel({ conf, manage, onPublished }: {
                       onCheckedChange={value => toggle(candidate.scheduleMatchId, value === true)}
                     />
                   ) : <span className="text-text-dim" aria-hidden="true">–</span>}
-                </td>
-                <td className="max-w-0 px-3 py-2">
+                </TableCell>
+                <TableCell className="max-w-0">
                   <MatchupLabel teamA={candidate.teamA} teamB={candidate.teamB} conf={conf} />
-                </td>
-                <td className="px-3 py-2 text-text-secondary">{placementLabel(candidate.phase, 0) ?? ""}</td>
-                <td className="px-3 py-2 text-text-secondary">{candidate.bestOf ? `Bo${candidate.bestOf}` : ""}</td>
-                <td className="whitespace-nowrap px-3 py-2 text-text-secondary">{absoluteInstant(candidate.closesAt, manage.siteTimeZone) ?? ""}</td>
-                <td className="whitespace-nowrap px-3 py-2 text-right">{!candidate.available && <SkipReason candidate={candidate} />}</td>
-              </tr>
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-text-secondary">{placementLabel(candidate.phase, 0) ?? ""}</TableCell>
+                <TableCell className="whitespace-nowrap text-text-secondary">{candidate.bestOf ? `Bo${candidate.bestOf}` : ""}</TableCell>
+                <TableCell className="whitespace-nowrap text-text-secondary">{absoluteInstant(candidate.closesAt, manage.siteTimeZone) ?? ""}</TableCell>
+                <TableCell className="whitespace-nowrap text-right">{!candidate.available && <SkipReason candidate={candidate} />}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-text-secondary">
@@ -189,5 +188,5 @@ function SkipReason({ candidate }: { candidate: PredictionCandidate }) {
   if (candidate.reason === "already_published" && candidate.eventId !== null) {
     return <Link to={predictionPath(candidate.eventId)} className="font-heading text-[10px] text-brand no-underline hover:underline">Published</Link>;
   }
-  return <Pill muted>{candidate.reason ? SKIP_REASON_LABEL[candidate.reason] : "Unavailable"}</Pill>;
+  return <Badge variant="muted">{candidate.reason ? SKIP_REASON_LABEL[candidate.reason] : "Unavailable"}</Badge>;
 }

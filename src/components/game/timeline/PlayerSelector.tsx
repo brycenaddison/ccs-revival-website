@@ -6,7 +6,8 @@
 import { X } from "lucide-react";
 import { cn } from "../../../lib/cn";
 import { ChampionIcon } from "../../ChampionIcon";
-import { Button } from "../../ui/button";
+import { TooltipHint } from "../../TooltipHint";
+import { Button } from "@/components/ui/button";
 import { useGameView } from "../GameView";
 import { useTimelineView } from "./TimelineTab";
 
@@ -22,38 +23,38 @@ export function PlayerSelector() {
         const active = selectedPlayers.length === 0 || selectedPlayers.includes(id);
         const hovered = hoveredPlayer === id;
         return (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={selectedPlayers.includes(id)}
-            aria-label={player.displayName}
-            title={player.displayName}
-            onMouseEnter={() => setHoveredPlayer(id)}
-            onMouseLeave={() => setHoveredPlayer(undefined)}
-            onFocus={() => setHoveredPlayer(id)}
-            onBlur={() => setHoveredPlayer(undefined)}
-            onClick={() =>
-              setSelectedPlayers(ids => {
-                if (ids.includes(id)) return ids.filter(other => other !== id);
-                const next = [...ids, id];
-                return next.length >= players.length ? [] : next;
-              })
-            }
-            className={cn(
-              "cursor-pointer rounded-md p-0.5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
-              !active && !hovered && "opacity-40 grayscale",
-              i === 4 && "mr-3",
-            )}
-          >
-            <ChampionIcon
-              champion={player.championId}
-              lookup={lookups.champions}
-              size={36}
-              decorative
-              tile
-                    className="flex"
-            />
-          </button>
+          <TooltipHint key={id} content={player.displayName}>
+            <button
+              type="button"
+              aria-pressed={selectedPlayers.includes(id)}
+              aria-label={player.displayName}
+              onMouseEnter={() => setHoveredPlayer(id)}
+              onMouseLeave={() => setHoveredPlayer(undefined)}
+              onFocus={() => setHoveredPlayer(id)}
+              onBlur={() => setHoveredPlayer(undefined)}
+              onClick={() =>
+                setSelectedPlayers(ids => {
+                  if (ids.includes(id)) return ids.filter(other => other !== id);
+                  const next = [...ids, id];
+                  return next.length >= players.length ? [] : next;
+                })
+              }
+              className={cn(
+                "cursor-pointer rounded-md p-0.5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                !active && !hovered && "opacity-40 grayscale",
+                i === 4 && "mr-3",
+              )}
+            >
+              <ChampionIcon
+                champion={player.championId}
+                lookup={lookups.champions}
+                size={36}
+                decorative
+                tile
+                      className="flex"
+              />
+            </button>
+          </TooltipHint>
         );
       })}
       <Button
