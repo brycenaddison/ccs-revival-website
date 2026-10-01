@@ -1,9 +1,10 @@
 /**
  * The viewer's point history, newest first, as served.
  *
- * The Match column uses each entry's compact event: both crests and names, linked as one to the
- * prediction (so the team names inside are not links of their own). Hidden and eventless entries
- * leave it empty. A stake entry names its team when the ledger recorded one.
+ * The Prediction column uses each entry's compact event, linked as one to the prediction (so the
+ * team names inside are not links of their own): both crests and names when the event has teams,
+ * otherwise a custom market's title. Hidden and eventless entries leave it empty. A stake entry
+ * names its team when the ledger recorded one that the event lists.
  */
 
 import { Link } from "react-router-dom";
@@ -22,7 +23,7 @@ export function LedgerTable({ entries }: { entries: readonly PredictionHistoryEn
           <TableRow>
             <TableHead scope="col">Date</TableHead>
             <TableHead scope="col">Activity</TableHead>
-            <TableHead scope="col" className="w-full">Match</TableHead>
+            <TableHead scope="col" className="w-full">Prediction</TableHead>
             <TableHead scope="col" className="text-right">Amount</TableHead>
             <TableHead scope="col" className="text-right">Balance</TableHead>
           </TableRow>
@@ -37,7 +38,9 @@ export function LedgerTable({ entries }: { entries: readonly PredictionHistoryEn
               <TableCell className="max-w-0">
                 {entry.event && (
                   <Link to={predictionPath(entry.event.id)} className="block min-w-0 no-underline hover:underline">
-                    <MatchupLabel teamA={entry.event.teams[0]} teamB={entry.event.teams[1]} conf={entry.event.conf} linked={false} size={18} />
+                    {entry.event.teams.length === 2
+                      ? <MatchupLabel teamA={entry.event.teams[0]} teamB={entry.event.teams[1]} conf={entry.event.conf} linked={false} size={18} />
+                      : <span className="block truncate font-heading text-sm text-text-bright">{entry.event.title ?? "League prediction"}</span>}
                   </Link>
                 )}
               </TableCell>

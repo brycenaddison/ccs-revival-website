@@ -47,7 +47,7 @@ export function PlayerAvatar({ src, size = "normal", square = false, className, 
   );
 }
 
-type DisplayPlayer = Omit<PlayerSummary, "profileId" | "avatarSource"> & { profileId: number | null };
+export type DisplayPlayer = Omit<PlayerSummary, "profileId" | "avatarSource"> & { profileId: number | null };
 const VERIFIED_LABEL = "Discord linked · Riot account verified";
 
 /** Selection buttons opt out of navigation; selected values and preview headings use PlayerLink. */

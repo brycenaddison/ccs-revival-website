@@ -4,12 +4,18 @@
  * Every staff command carries the event's `revision` so a stale page cannot act on a changed event;
  * a 409 closes nothing and refreshes the week. The request ID is kept across an uncertain failure so
  * a retry repeats the same command. Revision numbers and event IDs stay out of the copy.
+ *
+ * A match market reopens until its kickoff. A custom market has no fixture, so reopening it needs a
+ * new future deadline, sent as `closesAt`; the field locks with the reason while an attempt is
+ * outstanding so a retry repeats the same command.
  */
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { DateTimePicker } from "../../DateTimePicker";
 import { FormDialog } from "../../FormDialog";
 import { ErrorLine } from "../../admin/adminUi";
+import { eventName } from "../../predictions/outcomeLabels";
 import { Button } from "@/components/ui/button";
 import {
   ApiError,
@@ -21,6 +27,7 @@ import {
 } from "../../../lib/api";
 import { queryRoots } from "../../../lib/queries";
 import { Textarea } from "@/components/ui/textarea";
+import { FieldError } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 
 export const ACTION_COPY: Record<PredictionEventAction, { label: string; title: string; effect: string; done: string }> = {
@@ -44,6 +51,12 @@ export const ACTION_COPY: Record<PredictionEventAction, { label: string; title: 
   },
 };
 
+/** Custom markets have no result to settle on their own and no kickoff to reopen to. */
+const CUSTOM_EFFECT: Partial<Record<PredictionEventAction, string>> = {
+  lock: "No one can place new predictions. Existing predictions stay in the pool until you resolve or reopen it.",
+  reopen: "Predictions open again until the new deadline.",
+};
+
 export function EventActionDialog({ conf, event, action, onClose, onDone }: {
   conf: string;
   event: PredictionEvent;
@@ -53,12 +66,15 @@ export function EventActionDialog({ conf, event, action, onClose, onDone }: {
 }) {
   const qc = useQueryClient();
   const [reason, setReason] = useState("");
+  const [closesAt, setClosesAt] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | null>(null);
   const copy = ACTION_COPY[action];
-  const matchup = `${event.outcomes[0].team?.name ?? "TBD"} vs ${event.outcomes[1].team?.name ?? "TBD"}`;
+  const effect = (event.kind === "custom" ? CUSTOM_EFFECT[action] : null) ?? copy.effect;
+  const needsDeadline = event.kind === "custom" && action === "reopen";
+  const deadlinePast = needsDeadline && closesAt !== null && Date.parse(closesAt) <= Date.now();
 
   const acting = useMutation({
-    mutationFn: (id: string) => predictionAction(conf, event.id, action, event.revision!, reason.trim(), id),
+    mutationFn: (id: string) => predictionAction(conf, event.id, action, event.revision!, reason.trim(), id, needsDeadline ? closesAt : null),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: queryRoots.predictions });
       onDone(copy.done);
@@ -81,13 +97,13 @@ export function EventActionDialog({ conf, event, action, onClose, onDone }: {
       open
       onOpenChange={open => { if (!open && !acting.isPending) onClose(); }}
       title={`${copy.title}?`}
-      description={<><span className="text-text-bright">{matchup}</span>. {copy.effect}</>}
+      description={<><span className="text-text-bright">{eventName(event)}</span>. {effect}</>}
       footer={
         <>
           <Button variant="outline" disabled={acting.isPending} onClick={onClose}>Cancel</Button>
           <Button
             variant={action === "void" ? "destructive" : "default"}
-            disabled={acting.isPending || !reason.trim() || event.revision === null}
+            disabled={acting.isPending || !reason.trim() || event.revision === null || (needsDeadline && (closesAt === null || deadlinePast))}
             onClick={submit}
           >
             {requestId && acting.isError ? "Retry" : copy.label}
@@ -95,6 +111,20 @@ export function EventActionDialog({ conf, event, action, onClose, onDone }: {
         </>
       }
     >
+      {needsDeadline && (
+        <div className="mb-4">
+          <Label htmlFor="prediction-action-deadline" className="mb-1">New deadline</Label>
+          <DateTimePicker
+            id="prediction-action-deadline"
+            value={closesAt}
+            onChange={setClosesAt}
+            disabled={requestId !== null}
+            aria-invalid={deadlinePast || undefined}
+            aria-describedby={deadlinePast ? "prediction-action-deadline-error" : undefined}
+          />
+          {deadlinePast && <FieldError id="prediction-action-deadline-error" className="mt-1">Choose a time in the future.</FieldError>}
+        </div>
+      )}
       <Label htmlFor="prediction-action-reason" className="mb-1">Reason</Label>
       <Textarea
         id="prediction-action-reason"

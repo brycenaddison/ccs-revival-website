@@ -95,7 +95,7 @@ const AREA: SettingsArea = {
       slug: "predictions",
       label: "Predictions",
       icon: Coins,
-      description: "Pause or resume prediction operations, set the site timezone, and choose which leagues have predictions.",
+      description: "Pause or resume prediction operations, set the site timezone and reward policy, start a new leaderboard season, and choose which leagues have predictions.",
       Component: PredictionsSettingsSection,
     },
   ],

@@ -1,23 +1,25 @@
 /**
- * One published prediction as a card, for the Matches tab (full) and Home (compact).
+ * One published prediction as a card, for All predictions (full) and Home (compact).
  *
- * The card itself is not a link, because the team names inside it are: the footer button is the way
- * in, "Predict" while open and "View" after. Cards carry no league label; a division heading above
- * them does that job when more than one conf is shown.
+ * The card itself is not a link, because the team and player names inside it are: the footer button
+ * is the way in, "Predict" while open and "View" after. Cards carry no league label; a division
+ * heading above them does that job when more than one conf is shown.
  *
  * `position` is the viewer's own, from `usePredictionPositions`, and is absent for anonymous
- * viewers. The caption is the served placement and format only; nothing is inferred when the event
- * has no phase.
+ * viewers. A match card's caption is the served placement and format only; nothing is inferred when
+ * the event has no phase. A custom card leads with its title, in compact mode too, and lists its
+ * outcomes through `OutcomeShares`.
  */
 
 import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TeamLabel } from "./MatchupLabel";
-import { PoolBar, shareText } from "./PoolBar";
+import { OutcomeShares, PoolBar, shareText } from "./PoolBar";
 import { PredictionStatusChip } from "./PredictionStatusChip";
 import { closesText, usePredictionClock } from "./PredictionUi";
 import { pickNames } from "./usePredictionPositions";
+import { eventName } from "./outcomeLabels";
 import { REVIEW_REASON_LABEL, voidReasonText } from "./predictionLabels";
 import { placementLabel, type PredictionEvent, type PredictionOutcome, type PredictionPosition } from "../../lib/api";
 import { pointsText } from "../../lib/predictionPoints";
@@ -27,8 +29,9 @@ export function predictionPath(eventId: number): string {
   return `/predictions/${eventId}`;
 }
 
-/** "Playoffs · Round 2 · Bo3", from served fields only. */
-export function predictionCaption(event: PredictionEvent): string {
+/** "Playoffs · Round 2 · Bo3", from served fields only. Null for custom markets, which lead with their title. */
+export function predictionCaption(event: PredictionEvent): string | null {
+  if (event.kind === "custom") return null;
   return [placementLabel(event.phase, 0), event.bestOf ? `Bo${event.bestOf}` : null].filter(Boolean).join(" · ");
 }
 
@@ -38,22 +41,21 @@ export function PredictionCard({ event, position, compact = false }: {
   compact?: boolean;
 }) {
   const now = usePredictionClock(event.serverNow);
-  const [a, b] = event.outcomes;
   const open = event.state === "open";
-  const caption = predictionCaption(event);
 
   return (
     <article className="flex min-w-0 flex-col rounded-lg border border-border bg-bg2 p-4">
-      {!compact && (
-        <header className="mb-3 flex items-center justify-between gap-2">
-          <span className="min-w-0 truncate font-heading text-[11px] text-text-muted">{caption}</span>
-          <PredictionStatusChip state={event.state} />
-        </header>
+      {event.kind === "custom" ? (
+        <>
+          <header className="mb-3 flex items-start justify-between gap-2">
+            <h3 className="min-w-0 font-heading text-sm text-text-bright">{eventName(event)}</h3>
+            {!compact && <PredictionStatusChip state={event.state} />}
+          </header>
+          <OutcomeShares event={event} compact={compact} />
+        </>
+      ) : (
+        <MatchBody event={event} compact={compact} />
       )}
-      <OutcomeRow event={event} outcome={a} score={event.result?.score?.teamA ?? null} compact={compact} />
-      {!compact && <PoolBar event={event} className="my-2.5" />}
-      <OutcomeRow event={event} outcome={b} score={event.result?.score?.teamB ?? null} compact={compact} />
-      {compact && <PoolBar event={event} className="mt-2.5" />}
       <footer className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
         <p className="min-w-0 font-heading text-xs text-text-secondary">{footerText(event, position, now)}</p>
         <Button asChild size="sm" variant={open ? "default" : "outline"}>
@@ -64,6 +66,24 @@ export function PredictionCard({ event, position, compact = false }: {
   );
 }
 
+function MatchBody({ event, compact }: { event: PredictionEvent; compact: boolean }) {
+  const [a, b] = event.outcomes;
+  return (
+    <>
+      {!compact && (
+        <header className="mb-3 flex items-center justify-between gap-2">
+          <span className="min-w-0 truncate font-heading text-[11px] text-text-muted">{predictionCaption(event)}</span>
+          <PredictionStatusChip state={event.state} />
+        </header>
+      )}
+      <OutcomeRow event={event} outcome={a} score={event.result?.score?.teamA ?? null} compact={compact} />
+      {!compact && <PoolBar event={event} className="my-2.5" />}
+      <OutcomeRow event={event} outcome={b} score={event.result?.score?.teamB ?? null} compact={compact} />
+      {compact && <PoolBar event={event} className="mt-2.5" />}
+    </>
+  );
+}
+
 function OutcomeRow({ event, outcome, score, compact }: {
   event: PredictionEvent;
   outcome: PredictionOutcome;
@@ -71,8 +91,8 @@ function OutcomeRow({ event, outcome, score, compact }: {
   compact: boolean;
 }) {
   const settled = event.state === "settled";
-  const winnerId = event.result?.winnerTeamId ?? null;
-  const won = settled && winnerId !== null && outcome.teamId === winnerId;
+  const winnerId = event.result?.winnerOutcomeId ?? null;
+  const won = settled && winnerId !== null && outcome.id === winnerId;
   const share = shareText(outcome, event);
   return (
     <div className={`flex min-w-0 items-center gap-2 ${settled && !won ? "opacity-60" : ""}`}>
@@ -97,7 +117,7 @@ function footerText(event: PredictionEvent, position: PredictionPosition | null 
   switch (event.state) {
     case "open":
     case "scheduled":
-      return join([closesText(event.closesAt, now), picked && `Your pick: ${picked}`]);
+      return join([closesText(event, now), picked && `Your pick: ${picked}`]);
     case "settled":
       return picked
         ? join([`You picked ${picked}`, returned !== null ? `Returned ${pointsText(returned)} pts` : null])

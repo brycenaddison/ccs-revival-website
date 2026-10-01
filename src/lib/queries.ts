@@ -48,7 +48,9 @@ import {
   myPredictions,
   previewPrediction,
   predictionHistory,
+  predictionSeasons,
   predictionLeaderboard,
+  predictionRolloverPreview,
   publicPredictionSiteSettings,
   managePredictions,
   predictionSiteSettings,
@@ -67,6 +69,7 @@ import {
   standings,
   statTotals,
   teamDetail,
+  teamDiscordStatus,
   teamStats,
   teams,
   teamsForConf,
@@ -83,6 +86,7 @@ import {
   type Role,
   type ProfileSearchIdentity,
   type RiotAccountInput,
+  type TeamDiscordStatus,
 } from "./api";
 
 const MINUTE = 60_000;
@@ -186,7 +190,7 @@ export const queries = {
       ...holdOnError(MINUTE),
     }),
   /**
-   * One conf's open events, next kickoff first. The Matches tab and Home share this key, so
+   * One conf's open events, next deadline first. All predictions and Home share this key, so
    * whichever loads second reuses the first's request.
    */
   openPredictions: (conf: string, cursor: string | null = null) =>
@@ -206,10 +210,18 @@ export const queries = {
       staleTime: 15_000,
       ...holdOnError(30_000),
     }),
-  predictionLeaderboard: (cursor?: string | null) =>
+  /** Leaderboard seasons only change on rollover, which invalidates the predictions root. */
+  predictionSeasons: () =>
     query({
-      queryKey: ["predictions", "leaderboard", cursor ?? "first"] as const,
-      queryFn: ({ signal }: { signal: AbortSignal }) => predictionLeaderboard(cursor, { signal }),
+      queryKey: ["predictions", "public", "seasons"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => predictionSeasons({ signal }),
+      staleTime: 5 * MINUTE,
+    }),
+  /** A null season is the open board; a closed season's board is frozen. */
+  predictionLeaderboard: (season: number | null, cursor?: string | null) =>
+    query({
+      queryKey: ["predictions", "leaderboard", season ?? "open", cursor ?? "first"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => predictionLeaderboard(season, cursor, { signal }),
       staleTime: 30_000,
       ...holdOnError(),
     }),
@@ -257,11 +269,11 @@ export const queries = {
    * it is a read keyed by its inputs; callers debounce the amount. No retry: a 409 (closed, paused,
    * short of points) is an answer to show, not a blip.
    */
-  predictionEstimate: (viewerId: number | null, eventId: number, teamId: number | null, amountMinor: string | null) =>
+  predictionEstimate: (viewerId: number | null, eventId: number, outcomeId: number | null, amountMinor: string | null) =>
     query({
-      queryKey: ["predictions", "private", viewerId, "estimate", eventId, teamId, amountMinor] as const,
-      queryFn: ({ signal }: { signal: AbortSignal }) => previewPrediction(eventId, teamId!, amountMinor!, { signal }),
-      enabled: viewerId !== null && teamId !== null && amountMinor !== null,
+      queryKey: ["predictions", "private", viewerId, "estimate", eventId, outcomeId, amountMinor] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => previewPrediction(eventId, outcomeId!, amountMinor!, { signal }),
+      enabled: viewerId !== null && outcomeId !== null && amountMinor !== null,
       staleTime: 0,
       gcTime: 0,
       retry: false,
@@ -289,6 +301,19 @@ export const queries = {
       enabled: viewerId !== null,
       staleTime: 0,
       gcTime: 0,
+    }),
+  /**
+   * The season rollover preview, loaded only after a site admin asks to start a new season, so the
+   * caller supplies `enabled`. Its token goes stale with any market or balance change.
+   */
+  predictionRolloverPreview: (viewerId: number | null, enabled: boolean) =>
+    query({
+      queryKey: ["predictions", "settings", viewerId, "rollover"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => predictionRolloverPreview({ signal }),
+      enabled: viewerId !== null && enabled,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
     }),
   /** Season metadata. Changes when a split is created, so effectively static within a visit. */
   tournaments: () =>
@@ -896,6 +921,24 @@ export const queries = {
       gcTime: 0,
       retry: false,
       refetchOnWindowFocus: false,
+    }),
+
+  /**
+   * A conference's team Discord setup for League Admin. Private and no-store upstream, so it is keyed
+   * by viewer and dropped once unobserved. Under the teams root because a roster or branding save is
+   * what queues a sync, and the next read should show it. While the queue is draining it refreshes
+   * every 15 seconds so a background sync's result appears without a reload.
+   */
+  teamDiscord: (conf: string, viewerId: number | null) =>
+    query({
+      queryKey: ["teams", "discord", conf, viewerId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => teamDiscordStatus(conf, { signal }),
+      enabled: conf !== "" && viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+      refetchInterval: (q: { state: { status: string; data?: TeamDiscordStatus } }) =>
+        q.state.status !== "error" && (q.state.data?.queue.depth ?? 0) > 0 ? 15_000 : false,
     }),
 
   /** Explicitly requested POST preview; no automatic provider retries or background refreshes. */

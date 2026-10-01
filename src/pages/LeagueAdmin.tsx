@@ -13,7 +13,7 @@
 
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Award, BookOpen, CalendarDays, Coins, GitFork, Inbox, Users } from "lucide-react";
+import { Award, BookOpen, CalendarDays, Coins, GitFork, Inbox, MessagesSquare, Users } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
@@ -24,6 +24,7 @@ import { ScheduleSection } from "../components/league/schedule/ScheduleSection";
 import { BracketSection } from "../components/league/bracket/BracketSection";
 import { InfoSection } from "../components/league/info/InfoSection";
 import { TeamsSection } from "../components/league/teams/TeamsSection";
+import { DiscordSection } from "../components/league/discord/DiscordSection";
 import { PredictionsSection } from "../components/league/predictions/PredictionsSection";
 import { useAdminAccess } from "../lib/adminAccess";
 import { hasScope, type LeagueScopeName } from "../lib/api";
@@ -83,6 +84,16 @@ const SECTIONS: readonly LeagueAdminSection[] = [
     // search. At the default width they stack into a single column and the page becomes a scroll.
     maxWidth: 1040,
     Component: TeamsSection,
+  },
+  {
+    slug: "discord",
+    // Provisioning and esubs need `roster`; staff roles and teardown need `admin` and are gated by
+    // the section itself.
+    scope: "roster",
+    label: "Discord",
+    icon: MessagesSquare,
+    description: "Each team's role and private channels in the CCS Discord server.",
+    Component: DiscordSection,
   },
   {
     slug: "schedule",

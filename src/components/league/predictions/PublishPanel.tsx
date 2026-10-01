@@ -43,9 +43,11 @@ const COUNT_FROM = PREDICTION_BATCH_MAX - 10;
 
 interface Attempt { requestId: string; weekStart: string; selections: PublicationSelection[] }
 
-export function PublishPanel({ conf, manage, onPublished }: {
+export function PublishPanel({ conf, manage, readOnly = false, onPublished }: {
   conf: string;
   manage: PredictionManage;
+  /** A hidden league: the week stays visible, but nothing can be selected or published. */
+  readOnly?: boolean;
   onPublished: (message: string) => void;
 }) {
   const qc = useQueryClient();
@@ -107,7 +109,7 @@ export function PublishPanel({ conf, manage, onPublished }: {
   const count = attempt?.selections.length ?? chosen.length;
   const overLimit = count > PREDICTION_BATCH_MAX;
   const nameOf = (candidate: PredictionCandidate) => `${candidate.teamA?.name ?? "TBD"} vs ${candidate.teamB?.name ?? "TBD"}`;
-  const locked = attempt !== null || publishing.isPending;
+  const locked = readOnly || attempt !== null || publishing.isPending;
 
   return (
     <div>
@@ -154,7 +156,7 @@ export function PublishPanel({ conf, manage, onPublished }: {
           </TableBody>
         </Table>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+      {!readOnly && <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-text-secondary">
           {count} of {available.length} available {available.length === 1 ? "match" : "matches"} selected
           {count >= COUNT_FROM && ` · up to ${PREDICTION_BATCH_MAX} per batch`}
@@ -177,7 +179,7 @@ export function PublishPanel({ conf, manage, onPublished }: {
           onConfirm={publish}
           trigger={<Button disabled={count === 0 || overLimit || publishing.isPending}>{attempt ? "Retry publishing" : `Publish ${count}`}</Button>}
         />
-      </div>
+      </div>}
       {notice && <p role="status" className="mt-3 text-sm text-text-secondary">{notice}</p>}
       {publishing.error && !notice && <ErrorLine message={errorMessage(publishing.error)} />}
     </div>

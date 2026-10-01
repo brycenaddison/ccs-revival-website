@@ -4,31 +4,53 @@
  * Served ranks and order, ties included; nothing is re-ranked here. Cursors are positions in the
  * served ranking, so a page can shift while scores move. The viewer's own rank comes from their
  * summary, so it shows whichever page is open, and their row is highlighted when it is on the page.
+ *
+ * The board runs in prediction seasons. `?season=<id>` selects a closed season's frozen final
+ * standings and is omitted for the open season, so a past board is a shareable link. The board is
+ * keyed by season so its cursor pages reset on a switch. The viewer's standing tiles describe the
+ * open season only, so a closed board hides them.
  */
 
+import { useId } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ErrorLine } from "../components/admin/adminUi";
 import { CursorPager } from "../components/CursorPager";
 import { PlayerIdentity } from "../components/players/PlayerIdentity";
 import { StatTile } from "../components/stats/StatTile";
 import { useCursorPage } from "../hooks/useCursorPage";
-import { errorMessage } from "../lib/api";
+import { errorMessage, type PredictionSeason } from "../lib/api";
 import { pointsText, signedPointsText, signedPointsTone } from "../lib/predictionPoints";
 import { queries } from "../lib/queries";
+import { fmtDate } from "../lib/utils";
 import { usePredictionsHub } from "./PredictionsHub";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const TILE_COLOR = "var(--text-bright)";
 
 export default function PredictionLeaderboard() {
   const wallet = usePredictionsHub();
-  const pages = useCursorPage();
-  const board = useQuery(queries.predictionLeaderboard(pages.cursor));
-  const standing = wallet.summary.data?.standing ?? null;
-  const page = board.data;
+  const [search, setSearch] = useSearchParams();
+  const seasons = useQuery(queries.predictionSeasons());
+  const openSeason = seasons.data?.find(season => season.endedAt === null) ?? null;
+  const requested = Number(search.get("season"));
+  const season = Number.isSafeInteger(requested) && requested > 0 && requested !== openSeason?.id ? requested : null;
+  const standing = season === null ? wallet.summary.data?.standing ?? null : null;
+
+  const select = (id: number) => {
+    const params = new URLSearchParams(search);
+    if (id === openSeason?.id) params.delete("season");
+    else params.set("season", String(id));
+    setSearch(params);
+  };
 
   return (
     <div>
+      {seasons.data && seasons.data.length > 1 && (
+        <SeasonPicker seasons={seasons.data} value={season ?? openSeason?.id ?? null} onChange={select} />
+      )}
       {standing && (
         <div className="mb-5 grid grid-cols-3 gap-3 sm:max-w-xl">
           <StatTile label="Your rank" value={String(standing.rank)} color={TILE_COLOR} />
@@ -36,10 +58,47 @@ export default function PredictionLeaderboard() {
           <StatTile label="Net profit" value={signedPointsText(standing.netProfit)} color={TILE_COLOR} />
         </div>
       )}
+      <Board key={season ?? "open"} season={season} viewerId={wallet.viewerId} />
+    </div>
+  );
+}
 
-      {board.isPending ? <p role="status" className="py-6 text-sm text-text-dim">Loading the leaderboard…</p>
-        : board.error ? <ErrorLine message={errorMessage(board.error)} />
-        : !page || page.items.length === 0 ? <p className="rounded-lg border border-border bg-bg2 p-5 text-sm text-text-secondary">No one is on the leaderboard yet.</p>
+function SeasonPicker({ seasons, value, onChange }: {
+  seasons: readonly PredictionSeason[];
+  value: number | null;
+  onChange: (id: number) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="mb-5 max-w-xs">
+      <Label htmlFor={id} className="mb-1">Season</Label>
+      <NativeSelect id={id} value={value ?? ""} onChange={e => onChange(Number(e.target.value))}>
+        {seasons.map(season => (
+          <NativeSelectOption key={season.id} value={season.id}>
+            {season.endedAt === null ? `${season.name} (current)` : season.name}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+    </div>
+  );
+}
+
+function Board({ season, viewerId }: { season: number | null; viewerId: number | null }) {
+  const pages = useCursorPage();
+  const board = useQuery(queries.predictionLeaderboard(season, pages.cursor));
+  const page = board.data;
+  const closed = page?.season?.endedAt ? page.season : null;
+
+  return board.isPending ? <p role="status" className="py-6 text-sm text-text-dim">Loading the leaderboard…</p>
+    : board.error ? <ErrorLine message={errorMessage(board.error)} />
+    : <>
+      {closed && (
+        <p className="mb-3 font-heading text-sm text-text-secondary">
+          Final standings, {fmtDate(closed.startedAt)} to {fmtDate(closed.endedAt)}
+        </p>
+      )}
+      {!page || page.items.length === 0
+        ? <p className="rounded-lg border border-border bg-bg2 p-5 text-sm text-text-secondary">No one is on the leaderboard yet.</p>
         : <>
           <Table containerClassName="rounded-lg border border-border bg-bg2" className="w-full min-w-[480px] text-sm">
               <TableHeader>
@@ -54,7 +113,7 @@ export default function PredictionLeaderboard() {
               </TableHeader>
               <TableBody>
                 {page.items.map((leader, index) => {
-                  const mine = wallet.viewerId !== null && leader.player?.profileId === wallet.viewerId;
+                  const mine = viewerId !== null && leader.player?.profileId === viewerId;
                   return (
                     <TableRow key={`${leader.rank}-${leader.player?.profileId ?? index}`} className={mine ? "bg-bg3" : ""}>
                       <TableCell className="font-mono text-text-bright">{leader.rank}</TableCell>
@@ -74,6 +133,5 @@ export default function PredictionLeaderboard() {
           <p className="mt-2 text-xs text-text-dim">Wealth is available points plus points in unsettled predictions.</p>
           <CursorPager pages={pages} nextCursor={page.nextCursor} />
         </>}
-    </div>
-  );
+    </>;
 }

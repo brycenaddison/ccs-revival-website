@@ -1,9 +1,10 @@
 /**
  * Placing a prediction, on the detail page. The only place on the site that places one.
  *
- * Pick a team, enter points (the presets only fill the input; any amount can be typed), and the
- * estimate updates as a debounced read-only query. One button places it. The server rechecks the
- * deadline, recorded play and funds at acceptance, so every check here is guidance.
+ * Pick an outcome (a team on match markets, any served outcome on custom ones), enter points (the
+ * presets only fill the input; any amount can be typed), and the estimate updates as a debounced
+ * read-only query. One button places it, by `outcomeId`. The server rechecks the deadline, recorded
+ * play and funds at acceptance, so every check here is guidance.
  *
  * The request ID is a command identity. An uncertain failure (network, 5xx) keeps it and locks the
  * inputs so "Retry" repeats exactly the same command, which the API answers with the saved receipt.
@@ -18,7 +19,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ErrorLine } from "../admin/adminUi";
 import { TeamBadge } from "../TeamBadge";
+import { OutcomeLabel } from "./MatchupLabel";
 import { shareText } from "./PoolBar";
+import { closingPoint } from "./PredictionUi";
+import { outcomeById, outcomeName } from "./outcomeLabels";
 import { REVIEW_REASON_LABEL, voidReasonText } from "./predictionLabels";
 import type { PredictionWallet } from "./usePredictionWallet";
 import { useDebounced } from "../../hooks/useDebounced";
@@ -40,7 +44,7 @@ import { Label } from "@/components/ui/label";
 const PANEL = "rounded-lg border border-border bg-bg2 p-5";
 const TITLE = "mb-3 font-display text-[22px] text-text-bright";
 
-interface Attempt { requestId: string; teamId: number; paid: string }
+interface Attempt { requestId: string; outcomeId: number; paid: string }
 
 export function PredictPanel({ event, wallet, onPlaced }: {
   event: PredictionEvent;
@@ -54,7 +58,7 @@ export function PredictPanel({ event, wallet, onPlaced }: {
     return (
       <section className={PANEL}>
         <h2 className={TITLE}>Make your prediction</h2>
-        <p className="mb-4 text-sm text-text-secondary">Sign in to pick a winner with your points.</p>
+        <p className="mb-4 text-sm text-text-secondary">Sign in to predict with your points.</p>
         <Button variant="outline" onClick={wallet.login}>Sign in</Button>
       </section>
     );
@@ -66,7 +70,7 @@ export function PredictPanel({ event, wallet, onPlaced }: {
     return (
       <section className={PANEL}>
         <h2 className={TITLE}>Make your prediction</h2>
-        <p className="mb-4 text-sm text-text-secondary">Get your starting points to predict this match.</p>
+        <p className="mb-4 text-sm text-text-secondary">Get this season's starting points to make this prediction.</p>
         <Button disabled={wallet.enrolling} onClick={wallet.enroll}>Start predicting</Button>
       </section>
     );
@@ -82,23 +86,25 @@ function PredictForm({ event, viewerId, available, onPlaced }: {
 }) {
   const qc = useQueryClient();
   const { refresh } = useAuth();
-  const [teamId, setTeamId] = useState<number | null>(null);
+  const [outcomeId, setOutcomeId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [attempt, setAttempt] = useState<Attempt | null>(null);
 
   const paid = pointInputToMinor(input);
   const over = paid !== null && exceedsPoints(paid, available);
   const estimateAmount = useDebounced(paid !== null && !over ? paid : null, 350);
-  const estimate = useQuery(queries.predictionEstimate(viewerId, event.id, teamId, estimateAmount));
-  const teamName = (id: number | null) => event.outcomes.find(outcome => outcome.teamId === id)?.team?.name ?? "that team";
+  const estimate = useQuery(queries.predictionEstimate(viewerId, event.id, outcomeId, estimateAmount));
+  // A match outcome whose team is not yet set cannot be picked; custom outcomes always can.
+  const pickable = event.outcomes.filter(outcome => event.kind === "custom" || outcome.teamId !== null);
 
   const placing = useMutation({
-    mutationFn: (next: Attempt) => placePrediction(event.id, next.teamId, next.paid, next.requestId),
+    mutationFn: (next: Attempt) => placePrediction(event.id, next.outcomeId, next.paid, next.requestId),
     onSuccess: async (_, placed) => {
       setAttempt(null);
       setInput("");
       await qc.invalidateQueries({ queryKey: queryRoots.predictions });
-      onPlaced(`Prediction placed on ${teamName(placed.teamId)}.`);
+      const outcome = outcomeById(event, placed.outcomeId);
+      onPlaced(`Prediction placed on ${outcome ? outcomeName(event, outcome) : "that outcome"}.`);
     },
     onError: async error => {
       if (!(error instanceof ApiError) || error.status >= 500) return;
@@ -111,43 +117,56 @@ function PredictForm({ event, viewerId, available, onPlaced }: {
   const locked = attempt !== null;
   const place = () => {
     if (placing.isPending) return;
-    const next = attempt ?? (teamId !== null && paid !== null && !over ? { requestId: crypto.randomUUID(), teamId, paid } : null);
+    const next = attempt ?? (outcomeId !== null && paid !== null && !over ? { requestId: crypto.randomUUID(), outcomeId, paid } : null);
     if (!next) return;
     setAttempt(next);
     placing.mutate(next);
   };
 
   const onRadioKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key) || locked) return;
+    const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    if (step === 0 || locked || pickable.length === 0) return;
     e.preventDefault();
-    const ids = event.outcomes.flatMap(outcome => outcome.teamId === null ? [] : [outcome.teamId]);
-    const next = ids.find(id => id !== teamId) ?? ids[0];
-    if (next !== undefined) setTeamId(next);
+    const current = pickable.findIndex(outcome => outcome.id === outcomeId);
+    const next = pickable[current === -1 ? 0 : (current + step + pickable.length) % pickable.length];
+    setOutcomeId(next.id);
+    e.currentTarget.querySelector<HTMLButtonElement>(`[data-outcome="${next.id}"]`)?.focus();
   };
 
   return (
     <section className={PANEL}>
       <h2 className={TITLE}>Make your prediction</h2>
 
-      <div role="radiogroup" aria-label="Pick the series winner" className="grid gap-3 sm:grid-cols-2" onKeyDown={onRadioKey}>
-        {event.outcomes.map((outcome, index) => {
-          const selected = outcome.teamId !== null && outcome.teamId === teamId;
+      <div
+        role="radiogroup"
+        aria-label={event.kind === "custom" ? event.title ?? "Pick an outcome" : "Pick the series winner"}
+        className="grid gap-3 sm:grid-cols-2"
+        onKeyDown={onRadioKey}
+      >
+        {event.outcomes.map(outcome => {
+          const selected = outcome.id === outcomeId;
           const share = shareText(outcome, event);
+          const canPick = pickable.includes(outcome);
           return (
             <button
-              key={outcome.teamId ?? `tbd-${index}`}
+              key={outcome.id}
+              data-outcome={outcome.id}
               type="button"
               role="radio"
               aria-checked={selected}
-              tabIndex={selected || (teamId === null && index === 0) ? 0 : -1}
-              disabled={outcome.teamId === null || locked}
-              onClick={() => setTeamId(outcome.teamId)}
+              tabIndex={selected || (outcomeId === null && outcome === pickable[0]) ? 0 : -1}
+              disabled={!canPick || locked}
+              onClick={() => setOutcomeId(outcome.id)}
               className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-md border p-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${
                 selected ? "border-brand bg-bg3" : "border-border hover:bg-accent"
               }`}
             >
-              {outcome.team && <TeamBadge team={toBadge(outcome.team)} size={32} />}
-              <span className="min-w-0 flex-1 truncate font-heading text-sm text-text-bright">{outcome.team?.name ?? "TBD"}</span>
+              {event.kind === "match" ? <>
+                {outcome.team && <TeamBadge team={toBadge(outcome.team)} size={32} />}
+                <span className="min-w-0 flex-1 truncate font-heading text-sm text-text-bright">{outcomeName(event, outcome)}</span>
+              </> : (
+                <OutcomeLabel event={event} outcome={outcome} linked={false} size={28} className="flex-1 font-heading text-sm text-text-bright" />
+              )}
               {share && <span className="shrink-0 font-mono text-xs text-text-secondary">{share}</span>}
             </button>
           );
@@ -185,7 +204,7 @@ function PredictForm({ event, viewerId, available, onPlaced }: {
         {over && <p className="mt-2 text-sm text-ccs-red">That is more than your available points.</p>}
       </div>
 
-      {teamId !== null && estimateAmount !== null && (
+      {outcomeId !== null && estimateAmount !== null && (
         <div className="mt-4 rounded-md border border-border bg-bg3 p-3" aria-live="polite">
           {estimate.isPending ? <p role="status" className="text-sm text-text-dim">Estimating…</p>
             : estimate.error ? <ErrorLine message={errorMessage(estimate.error)} />
@@ -200,14 +219,14 @@ function PredictForm({ event, viewerId, available, onPlaced }: {
                 <dt className="text-text-secondary">Potential return</dt>
                 <dd className="text-right font-mono text-text-bright">{pointsText(estimate.data.estimatedReturn)}</dd>
               </dl>
-              <p className="mt-2 text-xs text-text-dim">Estimates change as others predict, until kickoff.</p>
+              <p className="mt-2 text-xs text-text-dim">Estimates change as others predict, until {closingPoint(event.kind)}.</p>
             </>}
         </div>
       )}
 
       <Button
         className="mt-4 w-full"
-        disabled={placing.isPending || (!locked && (teamId === null || paid === null || over))}
+        disabled={placing.isPending || (!locked && (outcomeId === null || paid === null || over))}
         onClick={place}
       >
         {placing.isPending ? "Placing…" : locked ? "Retry" : "Place prediction"}
@@ -218,16 +237,19 @@ function PredictForm({ event, viewerId, available, onPlaced }: {
 }
 
 function ResultSummary({ event }: { event: PredictionEvent }) {
-  const winner = event.outcomes.find(outcome => outcome.teamId !== null && outcome.teamId === event.result?.winnerTeamId)?.team;
-  const score = event.result?.score;
+  const winner = outcomeById(event, event.result?.winnerOutcomeId);
+  const winnerName = winner ? outcomeName(event, winner) : "The winner";
+  const score = event.kind === "match" ? event.result?.score : null;
   const text = event.state === "settled"
-    ? `${winner?.name ?? "The winner"} won${score ? ` ${Math.max(score.teamA, score.teamB)}-${Math.min(score.teamA, score.teamB)}` : ""}.`
+    ? `${winnerName} won${score ? ` ${Math.max(score.teamA, score.teamB)}-${Math.min(score.teamA, score.teamB)}` : ""}.`
     : event.state === "voided"
       ? `Voided: ${voidReasonText(event.result?.voidReason ?? null) ?? "no reason given"}. Points were refunded.`
       : event.state === "review"
         ? `Under review${event.reviewReason ? `: ${REVIEW_REASON_LABEL[event.reviewReason]}` : ""}. Payouts wait until it is resolved.`
         : event.state === "locked"
-          ? "Predictions closed at kickoff. Waiting for the result."
+          ? event.kind === "custom"
+            ? "Predictions closed. Waiting for league staff to resolve it."
+            : "Predictions closed at kickoff. Waiting for the result."
           : "Predictions are not open yet.";
   return (
     <section className={PANEL}>

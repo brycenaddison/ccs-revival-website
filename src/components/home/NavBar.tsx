@@ -35,7 +35,7 @@ function CcsBrand({ compact = false, onNavigate }: { compact?: boolean; onNaviga
  * you're editing, and a second one in the nav — meaning what the *public* views show — reads as the
  * same control twice.
  */
-// `/predictions/` with the slash: the Matches tab is seasonal, while prediction detail, the leaderboard
+// `/predictions/` with the slash: All predictions is seasonal, while prediction detail, the leaderboard
 // and your own predictions are cross-season.
 const SEASONLESS_PREFIXES = ["/settings", "/setup", "/players/", "/admin", "/league/", "/news", "/predictions/", "/my-predictions"];
 

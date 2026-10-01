@@ -1,8 +1,9 @@
 /**
- * The Matches tab of the predictions hub: `/predictions`.
+ * The All predictions tab of the predictions hub: `/predictions`.
  *
- * Scoped by the nav's season picker (`useLeague().selectedConfs`), with no filters of its own. Per
- * conf, "Open now" leads with the next kickoff (`sort=closesAt`), then "Results" lists every closed
+ * Scoped by the nav's season picker (`useLeague().selectedConfs`), with no filters of its own: match
+ * and custom predictions share each conf's lists, in served order, with no `kind` filter. Per
+ * conf, "Open now" leads with the next deadline (`sort=closesAt`), then "Results" lists every closed
  * state newest first (`sort=-closesAt`) with Show more. Both orders are served; nothing here sorts.
  *
  * With several divisions selected, each gets a block headed by its `groupLabels` name and empty
@@ -26,7 +27,7 @@ import { groupLabels } from "../lib/leagueAdapters";
 import { useLeague } from "../lib/leagueContext";
 import { queries } from "../lib/queries";
 
-const EMPTY = "No open predictions right now. New matches are published each week.";
+const EMPTY = "No open predictions right now. New predictions are published each week.";
 
 export default function Predictions() {
   const { selectedConfs, tournaments, loading } = useLeague();

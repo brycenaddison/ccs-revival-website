@@ -1,5 +1,6 @@
 /**
- * The viewer's prediction balance, plus the two wallet commands: enroll and claim the daily reward.
+ * The viewer's prediction balance, plus the two wallet commands: enroll in the open season and
+ * claim the current period's reward.
  *
  * Reads only `GET /predictions/me/summary`, so a header never loads holdings. Owned by the
  * component that outlives the request: the hub layout (which stays mounted across its tabs) and the
@@ -44,7 +45,7 @@ export function usePredictionWallet() {
     onSuccess: async result => {
       setClaimAttempt(null);
       await invalidate();
-      toast.success(result.alreadyClaimed ? "Today's points were already claimed." : `You claimed ${pointsText(result.awarded)} points.`);
+      toast.success(result.alreadyClaimed ? "This reward was already claimed." : `You claimed ${pointsText(result.awarded)} points.`);
     },
     onError: async error => {
       if (!(error instanceof ApiError) || error.status >= 500) return;

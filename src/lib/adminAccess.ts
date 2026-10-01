@@ -40,6 +40,15 @@ export interface AdminAccess {
   /** True if this profile can administer `conf`. */
   canAdminLeague: (conf: string) => boolean;
   /**
+   * Whether `conf` is listed publicly, or null while that cannot be told yet.
+   *
+   * A site admin reads the flag off `GET /admin/leagues`. Anyone else infers it from the public
+   * `/tournaments`, which serves listed conferences only, so a granted conf missing from it is
+   * hidden; a failed or pending public read answers null rather than calling everything hidden.
+   * Presentation only: the API refuses work that needs a listed conference on its own.
+   */
+  isListed: (conf: string) => boolean | null;
+  /**
    * True once both `/auth/me` and `/tournaments` have settled.
    *
    * Gates must wait on this rather than reading an empty `leagues` as a refusal: a site admin's
@@ -61,7 +70,7 @@ function labelFor(t: Tournament): string {
 
 export function useAdminAccess(): AdminAccess {
   const { hasRole, leagues: granted, isAuthenticated, loading: authLoading } = useAuth();
-  const { tournaments, loading: leagueLoading } = useLeague();
+  const { tournaments, loading: leagueLoading, error: leagueError } = useLeague();
 
   const isSiteAdmin = isAuthenticated && hasRole(SITE_ADMIN_ROLE);
 
@@ -118,13 +127,22 @@ export function useAdminAccess(): AdminAccess {
     [isSiteAdmin, leagues],
   );
 
+  const isListed = useCallback((conf: string): boolean | null => {
+    const adminRow = isSiteAdmin ? allLeagues?.find(t => t.conf === conf) : undefined;
+    // An admin row without the flag comes from a deployment older than the column: listed.
+    if (adminRow) return adminRow.listed !== false;
+    if (leagueLoading || leagueError) return null;
+    return tournaments.some(t => t.conf === conf);
+  }, [isSiteAdmin, allLeagues, leagueLoading, leagueError, tournaments]);
+
   return useMemo<AdminAccess>(
     () => ({
       leagues,
       isSiteAdmin,
       canAdminLeague,
+      isListed,
       ready: !authLoading && !leagueLoading,
     }),
-    [leagues, isSiteAdmin, canAdminLeague, authLoading, leagueLoading],
+    [leagues, isSiteAdmin, canAdminLeague, isListed, authLoading, leagueLoading],
   );
 }

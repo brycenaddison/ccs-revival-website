@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Send } from "lucide-react";
 import { ErrorLine } from "../../admin/adminUi";
 import { PlayerLink } from "../../profile/PlayerLink";
-import { teamMembers } from "../../../lib/roster";
+import { rosterNames } from "../../../lib/roster";
 import {
   codeDeliveryIssues,
   errorMessage,
@@ -63,12 +63,7 @@ export function CodeDeliveryControl({
     retry: false,
   });
   const issues = codeDeliveryIssues(delivery.error);
-  const people = new Map<number, string>();
-  for (const team of teams) {
-    for (const person of teamMembers(team)) {
-      people.set(person.profileId, person.name?.trim() || "Unnamed player");
-    }
-  }
+  const people = rosterNames(teams);
   const matchLabel = (id: number) => {
     const match = matches.find(match => match.id === id);
     if (!match) return "View match";

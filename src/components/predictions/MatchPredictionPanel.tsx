@@ -36,7 +36,7 @@ export function MatchPredictionPanel({ scheduleMatchId }: { scheduleMatchId: num
           <PredictionStatusChip state={event.state} />
         </div>
         <span className="font-heading text-xs text-text-secondary">
-          {pointsText(event.totalPool)} points in the pool{open && ` · ${closesText(event.closesAt, now)}`}
+          {pointsText(event.totalPool)} points in the pool{open && ` · ${closesText(event, now)}`}
         </span>
       </div>
       <PoolBar event={event} labels />

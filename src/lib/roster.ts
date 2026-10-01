@@ -21,6 +21,15 @@ export function teamMembers(team: TeamRecord): RosterSlot[] {
     .filter((person): person is RosterSlot => person != null);
 }
 
+/** Every declared member's display name by profileId, for naming people an API answer lists by id. */
+export function rosterNames(teams: readonly TeamRecord[]): Map<number, string> {
+  const names = new Map<number, string>();
+  for (const team of teams) {
+    for (const person of teamMembers(team)) names.set(person.profileId, person.name?.trim() || "Unnamed player");
+  }
+  return names;
+}
+
 /** Starting slots in roster order, with the role each one plays. */
 const SLOTS: readonly { key: RoleKey; role: Role }[] = [
   { key: "top", role: "TOP" },

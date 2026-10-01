@@ -1,45 +1,73 @@
 /**
- * Site Admin > Predictions: the site-wide operation switches, the calendar timezone, and which
- * leagues have predictions on.
+ * Site Admin > Predictions: the site-wide operation switches, the calendar timezone, the reward
+ * policy, the leaderboard season, and which leagues have predictions on.
  *
  * Every write is version-checked. Settings writes carry `/admin/settings`' `version`; a league rule
  * carries its own row's `version`, zero for a league that has never had one. A 409 means someone
  * else changed it first, so the settings reload rather than retrying.
  *
- * Timezone changes are previewed first. The preview's effective boundary (the already announced
- * reward reset) is sent back on save, and a pending change cannot be replaced. Kickoffs and published
- * batches keep their instants.
+ * Timezone and reward policy changes are previewed first. Both take effect at the same boundary,
+ * the already announced reward reset, which the preview returns and the save sends back. A pending
+ * timezone change cannot be replaced; a pending policy change can, until it takes effect. Kickoffs
+ * and published batches keep their instants. Each reward period keeps the policy it started under.
+ *
+ * Starting a new leaderboard season loads its preview only on request. It is refused while any
+ * market is outstanding, and otherwise freezes the standings and zeroes every balance, so it is a
+ * destructive confirmation. Its request ID is kept across an uncertain failure.
  *
  * League names come from `queries.adminLeagues`, which includes hidden drafts; a rule for a conf that
  * list does not know still renders, labeled by `groupLabels`' fallback.
  */
 
 import { useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ConfirmButton } from "../ConfirmButton";
 import { TimeZonePicker } from "../TimeZonePicker";
-import { ReadOnlyValue } from "../settings/SettingsSection";
+import { ReadOnlyValue, SettingsRow } from "../settings/SettingsSection";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ErrorLine } from "./adminUi";
+import { predictionPath } from "../predictions/PredictionCard";
+import { PredictionStatusChip } from "../predictions/PredictionStatusChip";
 import { absoluteInstant } from "../predictions/PredictionUi";
-import { SWITCH_LABEL } from "../predictions/predictionLabels";
+import { rewardPolicyText } from "../predictions/outcomeLabels";
+import { CADENCE_LABEL, MODE_LABEL, SWITCH_LABEL } from "../predictions/predictionLabels";
 import { useAuth } from "../../lib/authContext";
 import {
   ApiError,
   errorMessage,
+  PREDICTION_REWARD_CADENCES,
+  PREDICTION_REWARD_MODES,
+  PREDICTION_SEASON_NAME_MAX,
   PREDICTION_SWITCHES,
+  previewPredictionRewardPolicy,
   previewPredictionSiteTimeZone,
+  REWARD_AMOUNT_MAX_MINOR,
+  REWARD_AMOUNT_MIN_MINOR,
+  REWARD_STREAK_CAP_MAX,
+  rolloverPredictionSeason,
   savePredictionLeagueRule,
+  savePredictionRewardPolicy,
   savePredictionSiteSwitch,
   savePredictionSiteTimeZone,
   type CalendarPreview,
   type PredictionLeagueRule,
+  type PredictionRewardCadence,
+  type PredictionRewardMode,
+  type PredictionRolloverInput,
   type PredictionSiteSettings,
   type PredictionSwitch,
+  type RewardPolicyChanges,
+  type RewardPolicyPreview,
 } from "../../lib/api";
 import { groupLabels } from "../../lib/leagueAdapters";
+import { minorToPointInput, pointInputToMinor, pointsText } from "../../lib/predictionPoints";
 import { queries, queryRoots } from "../../lib/queries";
+import { fmtDate } from "../../lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { RadioOptions } from "../RadioOptions";
 import { Switch } from "@/components/ui/switch";
 
 export function PredictionsSettingsSection() {
@@ -53,8 +81,11 @@ export function PredictionsSettingsSection() {
         : settings.error ? <ErrorLine message={errorMessage(settings.error)} />
         : settings.data && <>
           <Group title="Operations"><Operations settings={settings.data} onDone={toast.success} /></Group>
+          {/* Shares its effective boundary with the reward policy: both change at the next announced reset. */}
           <Group title="Site timezone"><TimeZone settings={settings.data} onDone={toast.success} /></Group>
+          <Group title="Rewards"><RewardPolicy settings={settings.data} onDone={toast.success} /></Group>
         </>}
+      <Group title="Leaderboard season"><SeasonRollover viewerId={viewerId} onDone={toast.success} /></Group>
       <Group title="Leagues"><Leagues viewerId={viewerId} onDone={toast.success} /></Group>
     </div>
   );
@@ -220,6 +251,262 @@ function TimeZone({ settings, onDone }: { settings: PredictionSiteSettings; onDo
           <ErrorLine message={previewing.error ? errorMessage(previewing.error) : save.error ? errorMessage(save.error) : null} />
         </div>
       )}
+    </div>
+  );
+}
+
+interface PolicyDraft {
+  cadence: PredictionRewardCadence;
+  mode: PredictionRewardMode;
+  /** Points, as typed. */
+  amount: string;
+  streakCap: string;
+}
+interface PolicyReview { changes: RewardPolicyChanges; result: RewardPolicyPreview }
+
+function RewardPolicy({ settings, onDone }: { settings: PredictionSiteSettings; onDone: (message: string) => void }) {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState<PolicyDraft | null>(null);
+  const [review, setReview] = useState<PolicyReview | null>(null);
+  const current = settings.rewardPolicy, pending = settings.pendingRewardPolicy;
+  const zone = settings.siteTimeZone;
+
+  // A 409 (`calendar_preview_changed`, `settings_changed`) means the reviewed boundary or version moved.
+  const onStale = async (error: unknown) => {
+    if (!(error instanceof ApiError) || error.status !== 409) return;
+    setReview(null);
+    await qc.invalidateQueries({ queryKey: queryRoots.predictions });
+  };
+  const previewing = useMutation({
+    mutationFn: (changes: RewardPolicyChanges) => previewPredictionRewardPolicy(changes, settings.version!),
+    onSuccess: (result, changes) => setReview({ changes, result }),
+    onError: onStale,
+  });
+  const save = useMutation({
+    mutationFn: (reviewed: PolicyReview) => savePredictionRewardPolicy(reviewed.changes, settings.version!, reviewed.result.effectiveAt!),
+    onSuccess: async () => {
+      setDraft(null); setReview(null);
+      await qc.invalidateQueries({ queryKey: queryRoots.predictions });
+      onDone("Reward change scheduled.");
+    },
+    onError: onStale,
+  });
+
+  const start = () => {
+    const base = pending ?? current;
+    setDraft({
+      cadence: base?.cadence ?? "daily", mode: base?.mode ?? "scaling",
+      amount: base ? minorToPointInput(base.amount) : "", streakCap: base ? String(base.streakCap) : "5",
+    });
+  };
+  const edit = (patch: Partial<PolicyDraft>) => {
+    setDraft(value => value && { ...value, ...patch });
+    setReview(null); previewing.reset(); save.reset();
+  };
+  const cancel = () => { setDraft(null); setReview(null); previewing.reset(); save.reset(); };
+
+  const minor = draft ? pointInputToMinor(draft.amount) : null;
+  const amountError = !draft || draft.amount.trim() === "" ? null
+    : minor === null || BigInt(minor) < REWARD_AMOUNT_MIN_MINOR || BigInt(minor) > REWARD_AMOUNT_MAX_MINOR
+      ? `Enter ${pointsText(REWARD_AMOUNT_MIN_MINOR.toString())} to ${pointsText(REWARD_AMOUNT_MAX_MINOR.toString())} points.`
+      : null;
+  const cap = draft ? Number(draft.streakCap) : NaN;
+  const capError = !draft || draft.mode !== "scaling" || draft.streakCap.trim() === "" ? null
+    : !Number.isInteger(cap) || cap < 1 || cap > REWARD_STREAK_CAP_MAX ? `Enter a whole number from 1 to ${REWARD_STREAK_CAP_MAX}.` : null;
+  const changes: RewardPolicyChanges | null = !draft || minor === null || amountError || capError
+    || (draft.mode === "scaling" && draft.streakCap.trim() === "") ? null
+    : { cadence: draft.cadence, mode: draft.mode, amount: minor, ...(draft.mode === "scaling" ? { streakCap: cap } : {}) };
+  const busy = previewing.isPending || save.isPending;
+
+  return (
+    <div className="max-w-xl">
+      <ReadOnlyValue>{current ? rewardPolicyText(current) : "Unavailable"}</ReadOnlyValue>
+      {pending && (
+        <p className="mt-2 text-sm text-text-secondary">
+          Changing to {rewardPolicyText(pending)} on {absoluteInstant(settings.pendingRewardEffectiveAt, zone) ?? "the next reset"}.
+          {" "}You can replace it until then.
+        </p>
+      )}
+      {!draft ? (
+        <Button variant="outline" size="sm" className="mt-3" disabled={settings.version === null} onClick={start}>Change rewards</Button>
+      ) : (
+        <div className="mt-4">
+          <SettingsRow label="Cadence">
+            <RadioOptions
+              name="cadence"
+              options={PREDICTION_REWARD_CADENCES.map(value => ({ value, label: CADENCE_LABEL[value] }))}
+              value={draft.cadence}
+              disabled={busy}
+              onChange={cadence => edit({ cadence })}
+            />
+          </SettingsRow>
+          <SettingsRow label="Amount">
+            <RadioOptions
+              name="mode"
+              options={PREDICTION_REWARD_MODES.map(value => ({ value, label: MODE_LABEL[value].label, detail: MODE_LABEL[value].detail }))}
+              value={draft.mode}
+              disabled={busy}
+              onChange={mode => edit({ mode })}
+            />
+          </SettingsRow>
+          <SettingsRow label={draft.mode === "scaling" ? "Points per streak step" : "Points per claim"} error={amountError}>
+            {field => <Input {...field} inputMode="decimal" value={draft.amount} disabled={busy} onChange={e => edit({ amount: e.target.value })} />}
+          </SettingsRow>
+          {draft.mode === "scaling" && (
+            <SettingsRow label="Streak cap" hint="The streak at which the reward stops growing." error={capError}>
+              {field => <Input {...field} inputMode="numeric" value={draft.streakCap} disabled={busy} onChange={e => edit({ streakCap: e.target.value })} />}
+            </SettingsRow>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" disabled={busy || !changes || settings.version === null} onClick={() => changes && previewing.mutate(changes)}>Preview</Button>
+            <Button variant="ghost" size="sm" disabled={save.isPending} onClick={cancel}>Cancel</Button>
+          </div>
+          {previewing.isPending && <p role="status" className="mt-2 text-sm text-text-dim">Checking the change…</p>}
+          {review && (
+            <div className="mt-3 rounded-md border border-border bg-bg3 p-3 text-sm text-text-secondary">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+                <dt>Takes effect</dt>
+                <dd className="text-text-bright">{absoluteInstant(review.result.effectiveAt, zone) ?? "Unavailable"}</dd>
+                <dt>Next reward reset</dt>
+                <dd className="text-text-bright">{absoluteInstant(review.result.nextRewardReset, zone) ?? "Unavailable"}</dd>
+                {review.result.transitionHours !== null && <>
+                  <dt>First period</dt>
+                  <dd className="text-text-bright">{review.result.transitionHours} hours</dd>
+                </>}
+                <dt>Now</dt>
+                <dd className="text-text-bright">{review.result.current ? rewardPolicyText(review.result.current) : "Unavailable"}</dd>
+                <dt>From then</dt>
+                <dd className="text-text-bright">{review.result.next ? rewardPolicyText(review.result.next) : "Unavailable"}</dd>
+              </dl>
+              <p className="mt-2 text-xs text-text-dim">The current period keeps its reward. Streaks carry across the change.</p>
+              <ConfirmButton
+                title="Schedule this reward change?"
+                description={`Rewards change to ${review.result.next ? rewardPolicyText(review.result.next) : "the new policy"} from the time shown. You can replace it until then.`}
+                confirmLabel="Schedule change"
+                confirmVariant="default"
+                disabled={save.isPending || !review.result.effectiveAt}
+                onConfirm={() => save.mutate(review)}
+                trigger={<Button size="sm" className="mt-3" disabled={save.isPending || !review.result.effectiveAt}>Save rewards</Button>}
+              />
+            </div>
+          )}
+          <ErrorLine message={previewing.error ? errorMessage(previewing.error) : save.error ? errorMessage(save.error) : null} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SeasonRollover({ viewerId, onDone }: { viewerId: number | null; onDone: (message: string) => void }) {
+  const qc = useQueryClient();
+  const seasons = useQuery(queries.predictionSeasons());
+  const leagues = useQuery(queries.adminLeagues());
+  const [started, setStarted] = useState(false);
+  const preview = useQuery(queries.predictionRolloverPreview(viewerId, started));
+  const [name, setName] = useState("");
+  const [attempt, setAttempt] = useState<PredictionRolloverInput | null>(null);
+  const open = seasons.data?.find(season => season.endedAt === null) ?? null;
+
+  const rolling = useMutation({
+    mutationFn: rolloverPredictionSeason,
+    onSuccess: async (result, input) => {
+      setAttempt(null); setStarted(false); setName("");
+      await qc.invalidateQueries({ queryKey: queryRoots.predictions });
+      onDone(`${result.season?.name ?? input.name} started. Every balance is now zero.`);
+    },
+    onError: async error => {
+      if (!(error instanceof ApiError) || error.status >= 500) return;
+      setAttempt(null);
+      // `season_outstanding_events` and `season_preview_changed` both mean the preview is out of date.
+      if (error.status === 409) await qc.invalidateQueries({ queryKey: queryRoots.predictions });
+    },
+  });
+  const apply = () => {
+    const data = preview.data;
+    if (rolling.isPending || !data) return;
+    const next = attempt ?? { requestId: crypto.randomUUID(), expectedSeasonId: data.season.id, name: name.trim(), previewToken: data.previewToken };
+    setAttempt(next);
+    rolling.mutate(next);
+  };
+  const cancel = () => { setStarted(false); setName(""); setAttempt(null); rolling.reset(); };
+
+  const data = preview.data;
+  const blockers = data?.blockers ?? [];
+  const labels = groupLabels(leagues.data ?? [], blockers.map(blocker => blocker.conf));
+  const trimmed = name.trim();
+
+  return (
+    <div className="max-w-xl">
+      <ReadOnlyValue>
+        {seasons.isPending ? "Loading…" : open ? <>{open.name}{open.startedAt && <span className="text-text-dim"> · since {fmtDate(open.startedAt)}</span>}</> : "Unavailable"}
+      </ReadOnlyValue>
+      <ErrorLine message={seasons.error ? errorMessage(seasons.error) : null} />
+      {!started ? (
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => setStarted(true)}>Start a new season</Button>
+      ) : preview.isPending ? (
+        <p role="status" className="mt-3 text-sm text-text-dim">Checking outstanding predictions…</p>
+      ) : preview.error || !data ? (
+        <div className="mt-3">
+          <ErrorLine message={preview.error ? errorMessage(preview.error) : "The rollover preview is unavailable."} />
+          <Button variant="ghost" size="sm" className="mt-2" onClick={cancel}>Cancel</Button>
+        </div>
+      ) : blockers.length > 0 ? (
+        <div className="mt-3 space-y-3">
+          <Alert>
+            <AlertDescription>
+              {blockers.length === 1 ? "This prediction" : `These ${blockers.length} predictions`} must settle or be voided before a new season can start.
+            </AlertDescription>
+          </Alert>
+          <ul className="divide-y divide-border rounded-lg border border-border">
+            {blockers.map(blocker => (
+              <li key={blocker.eventId} className="flex min-w-0 items-center justify-between gap-3 px-4 py-2.5">
+                <div className="min-w-0">
+                  <Link to={predictionPath(blocker.eventId)} className="block truncate text-sm text-brand no-underline hover:underline">
+                    {blocker.title ?? "Match prediction"}
+                  </Link>
+                  <span className="text-xs text-text-dim">{labels.get(blocker.conf) ?? blocker.conf}</span>
+                </div>
+                {blocker.state && <PredictionStatusChip state={blocker.state} />}
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" disabled={preview.isFetching} onClick={() => preview.refetch()}>Check again</Button>
+            <Button variant="ghost" size="sm" onClick={cancel}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-md border border-border bg-bg3 p-3 text-sm text-text-secondary">
+            <dt>Wallets cleared</dt>
+            <dd className="font-mono text-text-bright">{data.walletsToClear ?? "Unavailable"}</dd>
+            <dt>Balance cleared</dt>
+            <dd className="font-mono text-text-bright">{pointsText(data.balanceCleared)}</dd>
+            <dt>Debt cleared</dt>
+            <dd className="font-mono text-text-bright">{pointsText(data.debtCleared)}</dd>
+            <dt>Standings frozen</dt>
+            <dd className="font-mono text-text-bright">{data.standings ?? "Unavailable"}</dd>
+          </dl>
+          <SettingsRow label="New season name">
+            {field => (
+              <Input {...field} value={name} maxLength={PREDICTION_SEASON_NAME_MAX} disabled={attempt !== null}
+                onChange={e => setName(e.target.value)} placeholder="Winter 2027" />
+            )}
+          </SettingsRow>
+          <div className="flex flex-wrap gap-2">
+            <ConfirmButton
+              title={attempt ? "Retry starting the new season?" : `End ${data.season.name} and start ${trimmed}?`}
+              description="Every balance resets to zero and players re-enroll for new starting points. The current standings are frozen as final. This cannot be undone."
+              confirmLabel={attempt ? "Retry" : "Start new season"}
+              disabled={rolling.isPending || (!attempt && !trimmed)}
+              onConfirm={apply}
+              trigger={<Button variant="destructive" size="sm" disabled={rolling.isPending || (!attempt && !trimmed)}>{attempt ? "Retry" : "Start new season"}</Button>}
+            />
+            <Button variant="ghost" size="sm" disabled={rolling.isPending} onClick={cancel}>Cancel</Button>
+          </div>
+        </div>
+      )}
+      <ErrorLine message={rolling.error ? errorMessage(rolling.error) : null} />
     </div>
   );
 }

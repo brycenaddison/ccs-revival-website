@@ -1,6 +1,7 @@
 /**
  * Every reader-facing label for prediction wire values: event states, review and skip reasons,
- * ledger kinds and site operations. Components never print a raw wire value.
+ * ledger kinds, site operations and reward cadences and modes. Components never print a raw wire
+ * value.
  *
  * Keyed by the API enums in `api/predictions.ts`, so a new upstream value is a type error here
  * rather than an underscored code on screen. The mapper drops values it does not recognize.
@@ -10,6 +11,8 @@ import {
   NO_WINNING_POOL,
   type PredictionLedgerKind,
   type PredictionReviewReason,
+  type PredictionRewardCadence,
+  type PredictionRewardMode,
   type PredictionSkipReason,
   type PredictionState,
   type PredictionSwitch,
@@ -52,21 +55,33 @@ export const SKIP_REASON_LABEL: Record<PredictionSkipReason, string> = {
   play_recorded: "Games already recorded",
 };
 
+/** `daily` is the reward ledger kind for both cadences, so it reads "Reward". */
 export const LEDGER_KIND_LABEL: Record<PredictionLedgerKind, string> = {
   starting: "Starting points",
-  daily: "Daily reward",
+  daily: "Reward",
   stake: "Prediction placed",
   settlement: "Payout",
   correction: "Correction",
   transfer: "Transfer",
   adjustment: "Adjustment",
+  season_close: "Season reset",
 };
 
 export const SWITCH_LABEL: Record<PredictionSwitch, { label: string; detail: string }> = {
-  publicationEnabled: { label: "Publishing", detail: "League staff can publish new matches for predictions." },
+  publicationEnabled: { label: "Publishing", detail: "League staff can publish new predictions." },
   stakingEnabled: { label: "Placing predictions", detail: "Participants can place new predictions." },
   settlementEnabled: { label: "Automatic settlement", detail: "Finished matches pay out automatically." },
-  rewardsEnabled: { label: "Daily rewards", detail: "Participants can claim their daily points." },
+  rewardsEnabled: { label: "Rewards", detail: "Participants can claim their reward points." },
+};
+
+export const CADENCE_LABEL: Record<PredictionRewardCadence, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
+};
+
+export const MODE_LABEL: Record<PredictionRewardMode, { label: string; detail: string }> = {
+  flat: { label: "Flat", detail: "Every claim pays the same amount." },
+  scaling: { label: "Growing", detail: "Each claim in a streak pays one more step, up to the cap." },
 };
 
 /** An automatic void has a label; a staff void shows the reason they entered, verbatim. */

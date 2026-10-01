@@ -1,6 +1,7 @@
 /**
  * The hub header's points: a sign-in or start button, or the viewer's available points with a
- * claim button while today's reward is waiting. Reads the summary only.
+ * claim button while this period's reward is waiting. Reads the summary only. After a season
+ * rollover the summary reads not enrolled, so the start button returns.
  */
 
 import { Button } from "@/components/ui/button";

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ErrorLine } from "../admin/adminUi";
 import { RiotAccountCard, RiotAccountCards } from "../profile/RiotAccountCards";
@@ -11,7 +11,7 @@ import {
   type RosterRiotAcceptance, type RosterDiscordAcceptance, type LinkedAccount,
 } from "../../lib/api";
 import { splitRiotId } from "../../lib/riotId";
-import { PlayerIdentity, PlayerResultRow } from "./PlayerIdentity";
+import { PlayerIdentity, PlayerResultRow, type DisplayPlayer } from "./PlayerIdentity";
 import { PlayerSearchPanel, PlayerResultGroup, SearchStatus } from "./PlayerSearchPanel";
 import {
   pickerContext, type PlayerPickerMode, type PlayerPickerOptions, type PickerQueryOptions,
@@ -215,6 +215,40 @@ function RiotPreview({ source, onPick, onBack, player, accounts, exact, loading,
 }
 
 function DiscordPicker({ source, ...props }: Callbacks & { source: DiscordPlayerSource }) {
+  const resolve = useAcceptance<RosterDiscordAcceptance>(source.accept, props.onPick);
+  const denied = resolve.error instanceof ApiError && [401, 403].includes(resolve.error.status);
+  return (
+    <DiscordSearch source={source} placed={props.placed} placedText={props.placedText}
+      busy={resolve.isPending} hidden={denied} onTerm={() => resolve.reset()}
+      onSelect={hit => resolve.submit(hit.acceptance)} onCancel={props.onCancel}>
+      {resolve.isPending && <SearchStatus>Selecting player…</SearchStatus>}
+      <ErrorLine message={resolve.error ? errorMessage(resolve.error) : null} />
+    </DiscordSearch>
+  );
+}
+
+/** One Discord search hit: the roster acceptance it maps to, and the account it names. */
+export interface DiscordHit {
+  acceptance: RosterDiscordAcceptance;
+  discordUserId: string;
+  player: DisplayPlayer;
+  handle: string | null;
+}
+
+/**
+ * The Discord search body, shared by roster resolution and callers that need the chosen account
+ * itself (an esub is granted to a Discord user, not a profile). The caller owns what a hit does.
+ */
+export function DiscordSearch({ source, placed, placedText = "already selected", busy = false, hidden = false, onTerm, onSelect, onCancel, children }: PlayerPickerOptions & {
+  source: Pick<DiscordPlayerSource, "enabled" | "searchOptions">;
+  busy?: boolean;
+  /** Withholds cached private hits, e.g. after the caller's request was refused. */
+  hidden?: boolean;
+  onTerm?: () => void;
+  onSelect: (hit: DiscordHit) => void;
+  onCancel: () => void;
+  children?: ReactNode;
+}) {
   const [term, setTerm] = useState("");
   const [exactLookup, setExactLookup] = useState<string | null>(null);
   const query = useDebounced(term, 300).trim();
@@ -223,19 +257,17 @@ function DiscordPicker({ source, ...props }: Callbacks & { source: DiscordPlayer
   const searchTerm = isSnowflake ? exactLookup ?? "" : query;
   const options = source.searchOptions(requested ? searchTerm : "");
   const result = useQuery({ ...options, enabled: source.enabled && options.enabled });
-  const resolve = useAcceptance<RosterDiscordAcceptance>(source.accept, props.onPick);
   const current = requested && term.trim() === searchTerm && searchTerm.length >= PROFILE_SEARCH_MIN;
-  const denied = resolve.error instanceof ApiError && [401, 403].includes(resolve.error.status);
   // On any request error, even a background 401/403, do not display cached private hits.
-  const data = current && !denied && !result.error && !result.isFetching && !result.isPlaceholderData
+  const data = current && !hidden && !result.error && !result.isFetching && !result.isPlaceholderData
     ? result.data : undefined;
-  const annotation = (id: number | null) => id !== null && props.placed?.has(id) ? props.placedText ?? "already selected" : undefined;
+  const annotation = (id: number | null) => id !== null && placed?.has(id) ? placedText : undefined;
 
   if (!source.enabled) return <ErrorLine message="Player selection is unavailable for this session." />;
   return (
-    <PlayerSearchPanel label="Website name, Discord name or user ID" term={term} busy={resolve.isPending}
-      onTerm={next => { setTerm(next); setExactLookup(null); resolve.reset(); }} onCancel={props.onCancel}>
-      {isSnowflake && <Button variant="outline" size="sm" type="button" className="mt-2" disabled={resolve.isPending || result.isFetching}
+    <PlayerSearchPanel label="Website name, Discord name or user ID" term={term} busy={busy}
+      onTerm={next => { setTerm(next); setExactLookup(null); onTerm?.(); }} onCancel={onCancel}>
+      {isSnowflake && <Button variant="outline" size="sm" type="button" className="mt-2" disabled={busy || result.isFetching}
         onClick={() => { setExactLookup(term.trim()); if (requested && current) void result.refetch(); }}>Look up Discord user ID</Button>}
       {term.trim() && term.trim().length < PROFILE_SEARCH_MIN && <SearchStatus>Keep typing — {PROFILE_SEARCH_MIN} characters minimum.</SearchStatus>}
       {requested && searchTerm.length >= PROFILE_SEARCH_MIN && (!current || result.isFetching) && <SearchStatus>Searching…</SearchStatus>}
@@ -248,25 +280,27 @@ function DiscordPicker({ source, ...props }: Callbacks & { source: DiscordPlayer
               : data.profiles.results.map(hit => (
                 <li key={hit.profileId}><PlayerResultRow player={hit}
                   detail={hit.handle ? `@${hit.handle}` : null}
-                  annotation={annotation(hit.profileId)} disabled={resolve.isPending}
-                  onSelect={() => resolve.submit({ profileId: hit.profileId })} /></li>
+                  annotation={annotation(hit.profileId)} disabled={busy}
+                  onSelect={() => onSelect({ acceptance: { profileId: hit.profileId }, discordUserId: hit.discordUserId, player: hit, handle: hit.handle })} /></li>
               ))}
           </PlayerResultGroup>
           <PlayerResultGroup label="Discord server">
             {data.guild.status === "unavailable" ? <li className="px-3 pb-3"><ErrorLine message={data.guild.error} /></li>
               : data.guild.results.length === 0 ? <li className="p-3 text-xs text-text-dim">No Discord members match that.</li>
-              : data.guild.results.map(hit => (
-                <li key={hit.userId}><PlayerResultRow player={hit.profile ?? { profileId: hit.profileId, name: hit.displayName,
-                  avatar: discordAvatarUrl(hit.userId, hit.avatar), verified: hit.verified }}
-                  detail={hit.username ? `@${hit.username}` : null}
-                  annotation={annotation(hit.profileId)} disabled={resolve.isPending}
-                  onSelect={() => resolve.submit({ discordUserId: hit.userId })} /></li>
-              ))}
+              : data.guild.results.map(hit => {
+                const player = hit.profile ?? { profileId: hit.profileId, name: hit.displayName,
+                  avatar: discordAvatarUrl(hit.userId, hit.avatar), verified: hit.verified };
+                return (
+                  <li key={hit.userId}><PlayerResultRow player={player}
+                    detail={hit.username ? `@${hit.username}` : null}
+                    annotation={annotation(hit.profileId)} disabled={busy}
+                    onSelect={() => onSelect({ acceptance: { discordUserId: hit.userId }, discordUserId: hit.userId, player, handle: hit.username || null })} /></li>
+                );
+              })}
           </PlayerResultGroup>
         </>
       )}
-      {resolve.isPending && <SearchStatus>Selecting player…</SearchStatus>}
-      <ErrorLine message={resolve.error ? errorMessage(resolve.error) : null} />
+      {children}
     </PlayerSearchPanel>
   );
 }

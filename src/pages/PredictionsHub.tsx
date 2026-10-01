@@ -1,10 +1,11 @@
 /**
- * The predictions hub: one layout route for Matches (`/predictions`), Leaderboard
+ * The predictions hub: one layout route for All predictions (`/predictions`), Leaderboard
  * (`/predictions/leaderboard`) and My predictions (`/my-predictions`).
  *
  * A layout rather than a header each page renders, so the header, and with it the enroll and claim
- * commands, stays mounted while the reader switches tabs. A claim started on Matches still lands if
- * the reader opens Leaderboard before it returns. Tabs read the wallet through `usePredictionsHub`.
+ * commands, stays mounted while the reader switches tabs. A claim started on All predictions still
+ * lands if the reader opens Leaderboard before it returns. Tabs read the wallet through
+ * `usePredictionsHub`.
  *
  * The tab pages are lazy, so the outlet has its own Suspense boundary: without it a tab switch would
  * suspend up to `SiteLayout` and blank the header too.

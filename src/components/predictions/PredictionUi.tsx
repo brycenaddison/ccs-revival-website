@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from "react";
+import type { PredictionEvent } from "../../lib/api";
 
 /** Advance the API clock for labels only, so a countdown starts from `serverNow`, not the device. */
 export function usePredictionClock(serverNow: string | null): string {
@@ -41,8 +42,16 @@ export function absoluteInstant(instant: string | null, zone?: string | null): s
   }
 }
 
-/** Open events close at the fixture's kickoff upstream, so "closes" and "kickoff" are one instant. */
-export function closesText(closesAt: string | null, now: string): string {
-  const relative = relativeInstant(closesAt, now);
-  return relative ? `Closes ${relative}` : "Closes at kickoff";
+/** What closes a market, for copy such as "Estimates change … until kickoff". */
+export function closingPoint(kind: PredictionEvent["kind"]): string {
+  return kind === "custom" ? "the deadline" : "kickoff";
+}
+
+/**
+ * Match markets close at the fixture's kickoff upstream, so "closes" and "kickoff" are one instant;
+ * custom markets close at the deadline staff set.
+ */
+export function closesText(event: Pick<PredictionEvent, "kind" | "closesAt">, now: string): string {
+  const relative = relativeInstant(event.closesAt, now);
+  return relative ? `Closes ${relative}` : event.kind === "custom" ? "Closes at the deadline" : "Closes at kickoff";
 }

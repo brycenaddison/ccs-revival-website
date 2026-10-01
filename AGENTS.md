@@ -52,7 +52,8 @@ Do not edit that repository or derive data the API already answers.
 - Reuse `PageShell`, `SectionFrame` and `SettingsRow`. Controls are shadcn/ui primitives adapted
   through tokens with their upstream structure kept: `Button` (`default` primary, `outline`,
   `destructive`, `size="sm"`; `quiet` + `size="inline"` beside a caption), `Input`, `Textarea`,
-  `NativeSelect` (+`NativeSelectOption`), `Checkbox`, `RadioGroup`, `Switch` (immediate, reversible
+  `NativeSelect` (+`NativeSelectOption`), `Checkbox`, `RadioGroup` (`RadioOptions` for a labelled
+  list of named options with details), `Switch` (immediate, reversible
   Booleans only), `Label`/`Field`, `Badge` (`muted` for absent/secondary states), `Alert` for
   persistent notices and failed reads, `Empty`, `Spinner`/`Skeleton`, `Table` for ordinary tables
   (a truncating name column takes `w-full` on its head and `max-w-0` on its cells, so it gets the
@@ -277,7 +278,7 @@ Do not edit that repository or derive data the API already answers.
   `api/season.ts` reads site-admin structure `GET /:conf/phases`, preserving nulls meaning
   inherit. They are not interchangeable: an editor using resolved values turns inheritance into overrides.
 - `pages/LeagueAdmin.tsx` filters section registries before SettingsShell. Info, Applications and
-  Accolades need league admin; Teams needs roster; Schedule/Bracket/Predictions need schedule; site
+  Accolades need league admin; Teams and Discord need roster; Schedule/Bracket/Predictions need schedule; site
   admins see all.
   Hidden direct links redirect to the first allowed section; no allowed sections shows a notice.
   The API permits roster on application review, while this UI requires admin; UI filtering is not
@@ -334,11 +335,21 @@ Do not edit that repository or derive data the API already answers.
   profile matches. Failed acceptance requires fresh preview; never fall back to expectation-free
   resolution. Display primaryRiotId separately from matchedRiotIds and never assume a match is primary
   or load accounts per result. Discord mode preserves independent source errors. There is no picker
-  league-membership checkbox; the accolade conference filter is separate.
+  league-membership checkbox; the accolade conference filter is separate. `DiscordSearch` is the
+  Discord mode's search body; callers that need the chosen account rather than a resolved profile
+  (esubs) use it directly.
 - `league/teams/TeamsSection.tsx` uses Riot mode for starters/subs and Discord for owner/contacts.
   `useRosterPlayerSources.ts` owns authorization, private query cleanup and resolver invalidation.
   `rosterInput` is ID-only for writes/dirty checks; refreshed summaries update presentation by ID
   without replacing unsaved identities/order. Retain legacy selections; mobile logo/name has its own row.
+- `league/discord/DiscordSection.tsx` is League Admin > Discord over `api/teamDiscord.ts` and the
+  private `queries.teamDiscord` status read (under the teams root, refreshing while syncs are
+  queued). Roster staff provision and grant esubs; staff roles and teardown need `admin`. The API's
+  worker keeps provisioned teams in step, so roster saves never trigger a sync from here. Members
+  render through served `profile`/`handle` and esubs name `grantedByProfile`; staff roles are named
+  from served `staffRoles` and picked from `assignableRoles`. Per-person warnings' `profileIds` are
+  named through `lib/roster.ts`'s `rosterNames` over `queries.teamsForConf`, as delivery reports are.
+  Teardown sends the typed conference code and offers force only after a `season_active` refusal.
 - `api/teamAdmin.ts` owns team writes and roster adapters. Private lookups are no-store,
   viewer/conf keyed, zero retention and no automatic retry. Public profile-search keys include mode.
   Discord wire group website maps to profiles; guild results carry nested profile presentation.
@@ -391,36 +402,56 @@ Do not edit that repository or derive data the API already answers.
   Event pools and wallet amounts are `{ minor, display }`; use `minor` as a string and keep
   display/input logic and quick-amount presets in `lib/predictionPoints.ts`. Never calculate
   payouts; pool shares are display only.
-  `outcomes[0]`/`result.score.teamA` are team A. Review, skip and ledger-kind values are enums and
-  unknown values drop; a candidate with any served skip reason stays unavailable. Read camelCase
-  result/worker fields. `components/predictions/predictionLabels.ts` owns every label.
-- The hub (`pages/PredictionsHub.tsx`) renders `PredictionsHeader` (wallet chip, Link tabs) over
-  Matches (`Predictions.tsx`), `PredictionLeaderboard.tsx` and `MyPredictions.tsx`; tabs read the
-  wallet through `usePredictionsHub`. `usePredictionWallet` reads only `me/summary` and owns
-  enroll/claim. Matches follows the nav season picker: per conf, open by `sort=closesAt`, then
-  closed states by `sort=-closesAt` with Show more; division headings only with several confs.
+  Events have a `kind`: `match` markets have exactly two outcomes, `outcomes[0]`/
+  `result.score.teamA` being team A; `custom` markets are staff questions with a title, plain-text
+  details and 2 to 16 outcomes in served position order. Stakes, estimates, positions and winners
+  are keyed by `outcomeId` (`winnerOutcomeId`); `teamId` is only a match projection. Review, skip
+  and ledger-kind values are enums and unknown values drop; a candidate with any served skip
+  reason stays unavailable. Read camelCase result/worker fields.
+  `components/predictions/predictionLabels.ts` owns every label; `outcomeLabels.ts` owns plain-text
+  outcome/event names and `rewardPolicyText`. `OutcomeLabel` (in `MatchupLabel.tsx`) renders any
+  outcome with its team or player link; `OutcomeShares` (in `PoolBar.tsx`) is a custom market's
+  pool, while `PoolBar` stays the two-sided match bar.
+- The hub (`pages/PredictionsHub.tsx`) renders `PredictionsHeader` (wallet chip, Link tabs, the
+  public reward rule from `/settings`) over All predictions (`Predictions.tsx`),
+  `PredictionLeaderboard.tsx` and `MyPredictions.tsx`; tabs read the wallet through
+  `usePredictionsHub`. `usePredictionWallet` reads only `me/summary` and owns enroll/claim;
+  enrollment is per leaderboard season. All predictions follows the nav season picker: per conf,
+  match and custom markets together, open by `sort=closesAt`, then closed states by
+  `sort=-closesAt` with Show more, with no `kind` filter; division headings only with several confs.
   "Your pick" comes from `me/positions` per loaded page (`usePredictionPositions`), never public
-  reads. My predictions lists `/me` holdings with picks from positions, then the ledger; settled
-  events live in Matches' Results. Detail, leaderboard and My predictions are seasonless in the nav.
-- `PredictionDetail.tsx` uses `MatchupHeader`, `PredictPanel` (the only place that places a
-  prediction; the estimate is the debounced read-only `queries.predictionEstimate`) and
-  `PositionBreakdown`. Uncertain stake, claim, publish, action and correction failures keep their
-  request ID for an identical retry; 4xx answers drop it. `PredictionCard` (full/compact),
-  `PoolBar` and `PredictionStatusChip` are shared by the hub, Home's `home/OpenPredictions.tsx`
-  (same `queries.openPredictions` keys, hidden when empty or failing) and admin rows.
+  reads. My predictions lists `/me` holdings with picks from positions, then the ledger; its reward
+  tile follows the served cadence, mode, streak cap and upcoming policy. Settled events live in All
+  predictions' Results. The leaderboard's `?season=` (omitted for the open season) selects a closed
+  season's frozen board from `queries.predictionSeasons`. Detail, leaderboard and My predictions
+  are seasonless in the nav.
+- `PredictionDetail.tsx` uses `MatchupHeader` for match markets and its own header card for custom
+  ones, `PredictPanel` (the only place that places a prediction; the estimate is the debounced
+  read-only `queries.predictionEstimate`) and `PositionBreakdown`. Uncertain stake, claim, publish,
+  action, settlement and rollover failures keep their request ID for an identical retry; 4xx
+  answers drop it. `PredictionCard` (full/compact), `PoolBar`/`OutcomeShares` and
+  `PredictionStatusChip` are shared by the hub, Home's `home/OpenPredictions.tsx` (same
+  `queries.openPredictions` keys, hidden when empty or failing) and admin rows.
   `MatchPredictionPanel` shows a fixture's prediction on the match Preview tab via the anonymous
   `queries.predictionForMatch`. All keys are under `queryRoots.predictions`; private keys include the
   viewer ID and auth changes remove old private prediction caches.
-- `league/predictions/PredictionsSection.tsx` is a shell over `WeekNavigator`, `PublishPanel` and
-  `EventsPanel` (with `EventActionDialog`/`CorrectionDialog`). `lib/predictionWeek.ts` derives
+- `league/predictions/PredictionsSection.tsx` is a shell over `WeekNavigator`, `PublishPanel`,
+  `CustomMarketPanel` (custom market publication with local checks mirroring the API's rules) and
+  `EventsPanel` (with `EventActionDialog`, whose custom reopen sends a new `closesAt`, and
+  `SettlementDialog`, which resolves unpaid custom markets and corrects paid results through a
+  preview token). Publication needs a listed conference, so a hidden league
+  (`useAdminAccess().isListed`) shows a warning and read-only Publish/Custom panels; event actions
+  stay available. `lib/predictionWeek.ts` derives
   Monday labels from public `/settings`; the API owns exact week instants. Publication sends only
   `scheduleMatchId` and the candidate's `expectedRevision`; `publication_preview_changed` clears
   the selection and reloads. Site admins get a link to the switch; league staff do not. The API lets
   `schedule` staff read the week and publish; retrying processing and event actions need `admin`,
   so the section hides those controls unless `hasScope(league, "admin")` or a site admin.
   `admin/PredictionsSettingsSection.tsx` is Site Admin > Predictions: operation and per-league
-  rules are `Switch` rows (immediate, no confirmation) and timezone changes are previewed; every
-  write is version-checked.
+  rules are `Switch` rows (immediate, no confirmation); timezone and reward policy changes are
+  previewed and share the next reset as their boundary (a pending policy can be replaced); the
+  season rollover loads `queries.predictionRolloverPreview` only on request, lists blocking
+  markets, and is a destructive confirmation. Every write is version-checked.
 
 ## Matches, schedules and games
 

@@ -137,6 +137,18 @@ export function fmtMonth(iso: string | null | undefined): string {
 }
 
 /**
+ * A calendar date with the year: `Oct 3, 2026`. For the ends of a span that can cross years, such
+ * as a prediction season. Empty string for absent or unparseable.
+ */
+export function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+/**
  * Just the clock: `7:00 PM`.
  *
  * For a row that already sits under a date heading, where `fmtRelativeDay`'s "Today" repeats what the

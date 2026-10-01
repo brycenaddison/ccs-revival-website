@@ -8,6 +8,7 @@
  */
 
 import { useQueries } from "@tanstack/react-query";
+import { outcomeById, outcomeName } from "./outcomeLabels";
 import { useAuth } from "../../lib/authContext";
 import { PREDICTION_POSITIONS_MAX, type PredictionEvent, type PredictionPosition } from "../../lib/api";
 import { isPositivePoints } from "../../lib/predictionPoints";
@@ -30,14 +31,17 @@ export function usePredictionPositions(pages: readonly (readonly number[])[]): {
   return { byEvent, error: results.find(result => result.error)?.error ?? null };
 }
 
-/** The teams the viewer put points on: outcomes with nonzero principal. Both sides are allowed. */
-export function pickedTeamIds(position: PredictionPosition | null | undefined): number[] {
-  return (position?.outcomes ?? []).filter(pick => isPositivePoints(pick.paid)).map(pick => pick.teamId);
+/** The outcomes the viewer put points on: those with nonzero principal. Several are allowed. */
+export function pickedOutcomeIds(position: PredictionPosition | null | undefined): number[] {
+  return (position?.outcomes ?? []).filter(pick => isPositivePoints(pick.paid)).map(pick => pick.outcomeId);
 }
 
-/** "Alpha" or "Alpha and Bravo", from the event's own team names. Null without a pick. */
+/** "Alpha", "Alpha and Bravo" or "A, B and C", from the event's own outcome names. Null without a pick. */
 export function pickNames(event: PredictionEvent, position: PredictionPosition | null | undefined): string | null {
-  const names = pickedTeamIds(position).map(teamId =>
-    event.outcomes.find(outcome => outcome.teamId === teamId)?.team?.name ?? "a team");
-  return names.length ? names.join(" and ") : null;
+  const names = pickedOutcomeIds(position).map(outcomeId => {
+    const outcome = outcomeById(event, outcomeId);
+    return outcome ? outcomeName(event, outcome) : "another outcome";
+  });
+  if (names.length === 0) return null;
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
