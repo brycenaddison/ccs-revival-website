@@ -16,7 +16,7 @@
  *     two disagree, this one is right.
  *
  * The feed is anonymous. Series detail sends the session so the server can include tournament codes
- * for eligible viewers and unpublished fixtures for editors. That response must never be cached in
+ * and the draft room for eligible viewers and unpublished fixtures for editors. That response must never be cached in
  * the browser or shared between viewers in React Query.
  */
 
@@ -35,6 +35,7 @@ import type { MatchKind, PhaseKind } from "./season";
 import type { TeamRecord } from "./types";
 import { mapTeamRecord } from "./client";
 import { mapMatchCode, type MatchCode } from "./schedule";
+import { draftLink } from "./drafts";
 
 // ---------------------------------------------------------------- vocabulary
 
@@ -338,6 +339,12 @@ export interface SeriesDetail {
   games: SeriesGame[];
   /** Confirmed codes supplied only to eligible viewers. An omitted wire field normalizes to []. */
   codes: MatchCode[];
+  /**
+   * The ready draft room, under the same viewer and status rule as `codes` but independent of them:
+   * a room can be served before codes exist. Withheld when the registration no longer matches the
+   * fixture. Null when omitted.
+   */
+  draftUrl: string | null;
 }
 
 // ----------------------------------------------------------------- normalizing
@@ -547,6 +554,7 @@ function mapDetail(raw: unknown): SeriesDetail | null {
     result: mapOutcome(body.result),
     games: arr(body.games).map(mapGame),
     codes: arr(body.codes).map(code => mapMatchCode(code, scheduleMatchId)),
+    draftUrl: draftLink(body.draftUrl),
   };
 }
 

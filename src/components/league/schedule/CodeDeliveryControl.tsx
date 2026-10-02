@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import { ErrorLine } from "../../admin/adminUi";
 import { PlayerLink } from "../../profile/PlayerLink";
 import { rosterNames } from "../../../lib/roster";
+import { scheduleMatchLabel } from "./codeReports";
 import {
   codeDeliveryIssues,
   errorMessage,
@@ -23,6 +24,7 @@ type Target = { conf: string; seasonDay: number } | { matchId: number };
 const ISSUE_TEXT: Record<string, string> = {
   missing_teams: "Both teams must be assigned before sending codes.",
   no_codes: "No confirmed, unplayed codes are available. Mint or confirm codes before sending.",
+  no_draft: "No ready draft room matches this match. Create its draft room before sending.",
   no_recipients: "No recipients are listed. Add players, substitutes, contacts or an owner to the teams.",
   no_discord: "This player needs a saved Discord account before codes can be sent.",
 };
@@ -64,11 +66,7 @@ export function CodeDeliveryControl({
   });
   const issues = codeDeliveryIssues(delivery.error);
   const people = rosterNames(teams);
-  const matchLabel = (id: number) => {
-    const match = matches.find(match => match.id === id);
-    if (!match) return "View match";
-    return `${match.teamA?.name ?? "TBD"} ${match.kind === "bye" ? "— bye" : `vs ${match.teamB?.name ?? "TBD"}`}`;
-  };
+  const matchLabel = (id: number) => scheduleMatchLabel(matches, id);
   const player = (id: number) => (
     <PlayerLink profileId={id} className="text-brand hover:underline">
       {people.get(id) ?? "Unnamed player"}
@@ -91,7 +89,8 @@ export function CodeDeliveryControl({
       </div>
       <p className="mt-2 text-xs text-text-dim">
         Sends confirmed, unplayed codes to both teams&apos; players, substitutes, contacts and owners.
-        Mint codes first. Successful deliveries are skipped when you retry the same code set.
+        Each DM links the match&apos;s draft room, so mint codes and create draft rooms first. Successful
+        deliveries are skipped when you retry the same codes and room.
       </p>
 
       {issues !== null ? (
@@ -138,7 +137,7 @@ export function CodeDeliveryControl({
           ))}
           <p className="text-xs text-text-dim">
             Send again to retry failed deliveries. Uncertain or reserved deliveries need inspection by
-            a site admin; retrying does not resend them. Changing the confirmed codes allows a new delivery.
+            a site admin; retrying does not resend them. Changing the confirmed codes or room allows a new delivery.
           </p>
         </div>
       )}

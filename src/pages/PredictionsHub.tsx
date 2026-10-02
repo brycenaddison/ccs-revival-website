@@ -9,16 +9,26 @@
  *
  * The tab pages are lazy, so the outlet has its own Suspense boundary: without it a tab switch would
  * suspend up to `SiteLayout` and blank the header too.
+ *
+ * When the API answers `predictions_unavailable` on the public calendar or the viewer's summary,
+ * the hub shows one notice in place of the tabs rather than an error under every read that fails.
  */
 
 import { Suspense } from "react";
 import { Outlet, useLocation, useOutletContext } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { PageShell } from "../components/layout/PageShell";
 import { PredictionsHeader, type PredictionsTab } from "../components/predictions/PredictionsHeader";
+import { PredictionsUnavailable } from "../components/predictions/PredictionsUnavailable";
 import { usePredictionWallet, type PredictionWallet } from "../components/predictions/usePredictionWallet";
+import { isPredictionsUnavailable } from "../lib/api";
+import { queries } from "../lib/queries";
 
 export default function PredictionsHub() {
   const wallet = usePredictionWallet();
+  // The header's key, so this shares its request.
+  const calendar = useQuery(queries.predictionSiteCalendar());
+  const unavailable = isPredictionsUnavailable(calendar.error) || isPredictionsUnavailable(wallet.summary.error);
   const { pathname } = useLocation();
   const tab: PredictionsTab = pathname.startsWith("/my-predictions")
     ? "mine"
@@ -26,10 +36,12 @@ export default function PredictionsHub() {
 
   return (
     <PageShell maxWidth={1100}>
-      <PredictionsHeader wallet={wallet} tab={tab} />
-      <Suspense fallback={<p role="status" className="py-10 text-center text-sm text-text-dim">Loading…</p>}>
-        <Outlet context={wallet} />
-      </Suspense>
+      <PredictionsHeader wallet={wallet} tab={tab} unavailable={unavailable} />
+      {unavailable ? <PredictionsUnavailable /> : (
+        <Suspense fallback={<p role="status" className="py-10 text-center text-sm text-text-dim">Loading…</p>}>
+          <Outlet context={wallet} />
+        </Suspense>
+      )}
     </PageShell>
   );
 }

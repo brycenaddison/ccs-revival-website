@@ -23,11 +23,11 @@ import { OutcomeLabel } from "./MatchupLabel";
 import { shareText } from "./PoolBar";
 import { closingPoint } from "./PredictionUi";
 import { outcomeById, outcomeName } from "./outcomeLabels";
-import { REVIEW_REASON_LABEL, voidReasonText } from "./predictionLabels";
+import { predictionErrorText, REVIEW_REASON_LABEL, voidReasonText } from "./predictionLabels";
 import type { PredictionWallet } from "./usePredictionWallet";
 import { useDebounced } from "../../hooks/useDebounced";
 import { useAuth } from "../../lib/authContext";
-import { ApiError, errorMessage, placePrediction, type PredictionEvent } from "../../lib/api";
+import { ApiError, placePrediction, type PredictionEvent } from "../../lib/api";
 import { toBadge } from "../../lib/leagueAdapters";
 import {
   exceedsPoints,
@@ -207,7 +207,7 @@ function PredictForm({ event, viewerId, available, onPlaced }: {
       {outcomeId !== null && estimateAmount !== null && (
         <div className="mt-4 rounded-md border border-border bg-bg3 p-3" aria-live="polite">
           {estimate.isPending ? <p role="status" className="text-sm text-text-dim">Estimating…</p>
-            : estimate.error ? <ErrorLine message={errorMessage(estimate.error)} />
+            : estimate.error ? <ErrorLine message={predictionErrorText(estimate.error)} />
             : estimate.data && <>
               <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
                 <dt className="text-text-secondary">Your points</dt>
@@ -231,7 +231,7 @@ function PredictForm({ event, viewerId, available, onPlaced }: {
       >
         {placing.isPending ? "Placing…" : locked ? "Retry" : "Place prediction"}
       </Button>
-      {placing.error && <ErrorLine message={errorMessage(placing.error)} />}
+      {placing.error && <ErrorLine message={predictionErrorText(placing.error)} />}
     </section>
   );
 }

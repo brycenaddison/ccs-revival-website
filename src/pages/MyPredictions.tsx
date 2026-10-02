@@ -20,13 +20,13 @@ import { LedgerTable } from "../components/predictions/LedgerTable";
 import { PositionList } from "../components/predictions/PositionList";
 import { absoluteInstant, relativeInstant, usePredictionClock } from "../components/predictions/PredictionUi";
 import { rewardPolicyText } from "../components/predictions/outcomeLabels";
-import { CADENCE_LABEL } from "../components/predictions/predictionLabels";
+import { CADENCE_LABEL, predictionErrorText } from "../components/predictions/predictionLabels";
 import { usePredictionPositions } from "../components/predictions/usePredictionPositions";
 import type { PredictionWallet } from "../components/predictions/usePredictionWallet";
 import { StatTile } from "../components/stats/StatTile";
 import { Button } from "@/components/ui/button";
 import { useCursorPage } from "../hooks/useCursorPage";
-import { errorMessage, PREDICTION_HOLDINGS_MAX, type PredictionRewards } from "../lib/api";
+import { PREDICTION_HOLDINGS_MAX, type PredictionRewards } from "../lib/api";
 import { pointsText } from "../lib/predictionPoints";
 import { queries } from "../lib/queries";
 import { usePredictionsHub } from "./PredictionsHub";
@@ -121,14 +121,14 @@ function ActivePredictions({ viewerId }: { viewerId: number | null }) {
     <section>
       <h2 className={SECTION_HEADING}>Active predictions</h2>
       {portfolio.isPending ? <p role="status" className="text-sm text-text-dim">Loading your predictions…</p>
-        : portfolio.error ? <ErrorLine message={errorMessage(portfolio.error)} />
+        : portfolio.error ? <ErrorLine message={predictionErrorText(portfolio.error)} />
         : holdings.length === 0 ? <p className="text-sm text-text-secondary">No active predictions. Settled ones, with their returns, are under All predictions.</p>
         : <>
           {portfolio.data?.truncated && <p className="mb-3 text-xs text-text-dim">Showing your first {PREDICTION_HOLDINGS_MAX} active predictions.</p>}
           <PositionList rows={holdings.map(holding => ({
             eventId: holding.eventId, event: holding.event, position: byEvent.get(holding.eventId) ?? null, paid: holding.paid,
           }))} />
-          {!!error && <ErrorLine message={errorMessage(error)} />}
+          {!!error && <ErrorLine message={predictionErrorText(error)} />}
         </>}
     </section>
   );
@@ -147,7 +147,7 @@ function History({ viewerId }: { viewerId: number | null }) {
         : entries.length === 0 && !failed ? <p className="text-sm text-text-secondary">No point history yet.</p>
         : <>
           {entries.length > 0 && <LedgerTable entries={entries} />}
-          {failed && <ErrorLine message={errorMessage(failed.error)} />}
+          {failed && <ErrorLine message={predictionErrorText(failed.error)} />}
           <ShowMore pages={pages} nextCursor={results[results.length - 1]?.data?.nextCursor ?? null} loading={results.some(result => result.isPending)} />
         </>}
     </section>

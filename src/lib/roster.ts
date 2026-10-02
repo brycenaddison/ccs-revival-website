@@ -45,6 +45,8 @@ export interface RosterEntry<S extends PlayerStats = PlayerStats> {
   profileId: number;
   /** Never blank — see `label`. */
   name: string;
+  /** The served slot, for its presentation. `null` for an entry built from a stat line. */
+  slot: RosterSlot | null;
   /** For a starter, the slot's role. For a sub, the role they actually played, if any. */
   role: Role | null;
   starter: boolean;
@@ -98,6 +100,7 @@ export function joinRoster<S extends PlayerStats>(
         key: p.rowKey,
         profileId: p.id,
         name: label(p.name, null, p.id),
+        slot: null,
         role: p.role,
         starter: true,
         stats: p,
@@ -136,6 +139,7 @@ export function joinRoster<S extends PlayerStats>(
       key: `${key}:${slot.profileId}`,
       profileId: slot.profileId,
       name: label(slot.name, row?.name, slot.profileId),
+      slot,
       role,
       starter: true,
       stats: row,
@@ -149,6 +153,7 @@ export function joinRoster<S extends PlayerStats>(
       key: `sub${i}:${slot.profileId}`,
       profileId: slot.profileId,
       name: label(slot.name, row?.name, slot.profileId),
+      slot,
       role: row?.role ?? null,
       starter: false,
       stats: row,

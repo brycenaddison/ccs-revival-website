@@ -20,6 +20,8 @@ import { isBracketPhase } from "../../lib/api";
 import { GroupPhaseView } from "../season/GroupPhaseView";
 import { BracketPhaseView } from "../season/BracketPhaseView";
 import { PhaseTabs } from "../season/PhaseTabs";
+import { DivisionPicker } from "../league/DivisionPicker";
+import { LEAGUE_VIEW_COLUMN } from "./leagueViewColumn";
 
 interface Props {
   isMobile: boolean;
@@ -41,27 +43,10 @@ export function StandingsView({ isMobile }: Props) {
   const labels = useMemo(() => groupLabels(tournaments, selectedConfs), [tournaments, selectedConfs]);
 
   return (
-    <div className="mx-auto max-w-[1200px]">
+    <div className={LEAGUE_VIEW_COLUMN}>
       <h2 className="mb-4 font-display text-[22px] text-text-bright">Standings</h2>
 
-      {/* `overflow-y-hidden` because `overflow-x` being set at all makes `overflow-y` compute to
-          `auto`, and a single row of buttons has no business owning a vertical scrollbar. */}
-      {selectedConfs.length > 1 && (
-        <div className="mb-4 flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden">
-          {selectedConfs.map(c => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setConfPick(c)}
-              className={`shrink-0 cursor-pointer border-none bg-transparent p-0 font-heading text-[12px] ${
-                c === conf ? "text-text-bright" : "text-text-muted"
-              }`}
-            >
-              {labels.get(c) ?? c.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      )}
+      <DivisionPicker confs={selectedConfs} selected={conf} labels={labels} onSelect={setConfPick} />
 
       {/*
         Keyed on the conf so switching one throws away the phase selection, the bracket's scroll

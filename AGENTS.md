@@ -49,7 +49,7 @@ Do not edit that repository or derive data the API already answers.
 - Anything that could be a shared component should be one. Search for an existing component before
   writing markup; never copy a pattern into a second file. When a second caller appears, move the
   first copy into a shared module and migrate every caller in the same change.
-- Reuse `PageShell`, `SectionFrame` and `SettingsRow`. Controls are shadcn/ui primitives adapted
+- Reuse `PageShell`, `SectionFrame`, `SettingsGroup` and `SettingsRow`. Controls are shadcn/ui primitives adapted
   through tokens with their upstream structure kept: `Button` (`default` primary, `outline`,
   `destructive`, `size="sm"`; `quiet` + `size="inline"` beside a caption), `Input`, `Textarea`,
   `NativeSelect` (+`NativeSelectOption`), `Checkbox`, `RadioGroup` (`RadioOptions` for a labelled
@@ -68,6 +68,8 @@ Do not edit that repository or derive data the API already answers.
   `ConfirmButton`; confirmations that need input first use `FormDialog`.
 - Shared page pieces: `BackLink` is every page-level back link (history-aware `fallback`, or an
   explicit `to` + label); in-panel back buttons use `BackButton` from `admin/adminUi.tsx`.
+  `league/DivisionPicker.tsx` is the single-choice Toggle Group that picks one concurrent division
+  on Standings, Teams and Stats (held locally, never `setSelection`).
   `UnderlineTabs` is the brand-underlined strip (Link mode for URLs, button mode for local state;
   hidden under two tabs); `PillTabs` is the bordered switch inside admin sections. Local view and
   filter switches (`PillTabs`, `stats/FilterBar`'s `PillGroup`, `ViewToggle`, `StatGroupSwitcher`)
@@ -107,7 +109,8 @@ Do not edit that repository or derive data the API already answers.
   `PageShell.tsx` publishes page width/extra bottom padding; pages never mount the ticker.
   The inner content scroller must stay `relative` so hidden absolute inputs/menu triggers cannot
   escape its overflow boundary. Keep flex/grid children shrinkable and overflow inside the page.
-  Scroll the actual content container, not the window. `FullBleedScroller` uses the nearest
+  Scroll the actual content container, not the window; it reserves a stable scrollbar gutter so
+  the centered column never changes width with page height. `FullBleedScroller` uses the nearest
   scrolling ancestor's client width; `ScrollRail` supplies shared horizontal scrolling.
 - `RouteErrorBoundary.tsx` resets by pathname; stale chunk recovery reloads once. The deployment
   retains old hashed assets for seven days so open tabs survive a release.
@@ -366,6 +369,17 @@ Do not edit that repository or derive data the API already answers.
   refresh. `ranked: []` means unranked; `ranked: null` means unavailable. Refresh keeps cached
   data visible and distinguishes every status. Profile documents/accounts share queryRoots.profiles,
   with one-minute document and ten-minute account freshness.
+- `api/opgg.ts` maps the OP.GG `links` served on profiles and every hydrated team (lists, team
+  page, both match sides). Team links cover the five starters only; `opggComplete` is Riot ID
+  resolution, not slot coverage. `OpggLink` is a team's card-header link (team page Roster card,
+  match Preview Starters cards, Teams tab cards); the profile Accounts card keeps its branded OP.GG
+  button. `views/TeamsView.tsx` reads only the picked division's `queries.teamsForConf` (Home loads the
+  league for its Home tab only) and renders at most three cards a row in `LEAGUE_VIEW_COLUMN`,
+  the column it shares with Standings: roster, then owner/contacts as Staff. Each row shows the
+  slot's avatar, pronouns, `VerifiedMark`, cached Discord `handle` and `primaryRiotId` (wrapping,
+  not truncating), and a fixed-width solo rank badge: tier and division without LP, colored by
+  `lib/riot/rankTiers.ts` from the `--tier-*` tokens, or Unranked; `unavailable` leaves the slot
+  empty. Every field is omitted when null; a missing handle proves nothing.
 - Career teams use full TeamRecord/mapTeamRecord; opponents use compact TeamMetadata plus
   opponentCode. Lane matchups stay per-conf in the API mapper and are keyed by conf/profileId.
   Accolades remain career-wide even when conf scopes statistics.
@@ -382,7 +396,8 @@ Do not edit that repository or derive data the API already answers.
   G1-first games. Both teams and score are separate link targets; team chip hitboxes hug names.
 - `profile/RiotAccountCards.tsx` renders the highest-ranked verified account tall, others compact.
   `primaryAccount`/`rankScore` own ranking; tierLabel hides meaningless apex I. Peak rank is not
-  available because no history is stored. ProfileHeader uses the primary verified account's icon.
+  available because no history is stored. ProfileHeader uses the primary verified account's icon
+  and shows the served cached Discord `@handle` (no visible caption) beside pronouns and pronunciation.
   Exported RiotAccountCard also serves single-account previews. Claims in unverifiedAccounts cannot
   establish roster identity or verification.
 - `profile/ProfilePresentationForm.tsx` is the only nickname/pronouns/pronunciation editor,
@@ -425,6 +440,12 @@ Do not edit that repository or derive data the API already answers.
   predictions' Results. The leaderboard's `?season=` (omitted for the open season) selects a closed
   season's frozen board from `queries.predictionSeasons`. Detail, leaderboard and My predictions
   are seasonless in the nav.
+- `predictions_unavailable` (503: no prediction settings or no open season) is site-wide, not per
+  league (`predictions_disabled` is), and public event reads keep working through it.
+  `isPredictionsUnavailable` reads it from either transport (both parse the JSON error envelope) and
+  stops query retries. The hub (calendar or summary) and leaderboard show `PredictionsUnavailable`,
+  detail replaces only `PredictPanel`, staff sections show its `audience="staff"` Alert, and
+  prediction error lines go through `predictionErrorText`.
 - `PredictionDetail.tsx` uses `MatchupHeader` for match markets and its own header card for custom
   ones, `PredictPanel` (the only place that places a prediction; the estimate is the debounced
   read-only `queries.predictionEstimate`) and `PositionBreakdown`. Uncertain stake, claim, publish,
@@ -455,23 +476,38 @@ Do not edit that repository or derive data the API already answers.
 
 ## Matches, schedules and games
 
-- `pages/MatchDetail.tsx` + `match/TournamentCodes.tsx` render API tournament codes below the
-  header (`match/MatchupHeader.tsx`) in served game order. The Preview tab adds the fixture's
+- `pages/MatchDetail.tsx` + `match/MatchLobby.tsx` render the served `draftUrl` and API tournament
+  codes below the header (`match/MatchupHeader.tsx`), codes in served game order. The two are
+  independent: a room can be served before codes. The Preview tab adds the fixture's
   prediction panel when one is published. `api/feed.ts` result reads send the session with no-store;
-  queries.matchResult is keyed by viewer ID with zero retention. Omitted codes render nothing.
+  queries.matchResult is keyed by viewer ID with zero retention. Omitted codes/room render nothing.
   `api/schedule.ts` shares mapMatchCode with admin reads; `CopyAction.tsx` owns copy feedback.
 - `home/UpcomingSchedule.tsx` takes the first viewer fixture from the five served upcoming
   matches. Reuse queries.teamsForConf and join teams by conf/code; `lib/roster.ts`'s teamMembers
   includes starters, subs, contacts and owners and is also used by delivery reports.
   Anonymous/nonmember viewers get no extra card. Remove the featured fixture by feedMatchKey and
   hide an empty remainder. UpcomingMatchCard shows team badges/names, phase, relative match day and
-  best-of; only that card checks viewer-scoped tournament-code availability. No draft URL is served;
-  never infer one from a code.
+  best-of; only that card checks viewer-scoped code and draft room availability. Only the served
+  `draftUrl` is a draft link; never infer one from a code or registration.
 - `league/schedule/CodeDeliveryControl.tsx` shares day/match Discord actions and reports.
   sendDayCodes/sendMatchCodes POST an empty object and do not mint codes. A 409 not_ready means
-  nothing sent; show readiness issues. HTTP 200 may have partial failures, so retain every recipient
+  nothing sent; show readiness issues (`no_draft` when no matching ready room exists, since DMs
+  link the room). HTTP 200 may have partial failures, so retain every recipient
   status. Explicit retries skip successes; unknown/in_progress need inspection, not automatic retry.
   Delivery changes no read model. Key DayPanel by conf/day so reports cannot follow another selection.
+  `codeReports.ts`'s `scheduleMatchLabel` names a day's matches in every schedule report.
+- Drafter rooms: `api/drafts.ts` maps settings, fixture registrations, flattened game rows, day
+  batches, rechecks and the issues inbox; refusals are category codes read by `draftRefusal` and
+  worded by `drafts/draftLabels.ts` (unknown codes verbatim). Links pass `draftLink` (HTTPS only).
+  `league/schedule/DraftPanel.tsx` (per match, `queries.fixtureDraft` under the schedule root, viewer
+  keyed, zero retention) creates a room with explicit labels and the schedule's resolved best-of,
+  shares it, rechecks results and lists games through `drafts/DraftGames.tsx` (physical sides, null
+  bans as no-ban art). `DayDraftsControl.tsx` posts `{}` for the day and reports per fixture.
+  A fixture holds one registration and the API cannot replace it: failed, uncertain and mismatched
+  rooms end at a notice, and room creation never retries automatically. Site Admin > Drafts
+  (`admin/drafts/`) saves the revisioned global settings (409 reloads) and pages receipts and
+  creations independently; only receipts can be reprocessed. Room writes invalidate the schedule
+  and drafts roots.
 - `match/TeamMatchHistory.tsx` uses served scheduleMatchId/phase without an extra schedule read;
   legacy matching falls back to seasonDay/opponent. Match result rows keep a consistent grid and
   contained overflow. SeriesTotals computes rates from totals, not averages of rates.

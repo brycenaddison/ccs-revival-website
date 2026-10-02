@@ -34,6 +34,16 @@ export function SectionFrame({ section, children }: { section: Section; children
   );
 }
 
+/** A titled group of related settings inside one section. */
+export function SettingsGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h3 className="mb-3 font-heading text-sm text-text-bright">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 /** The props a row hands its one control, so the label, hint and error are wired to it. */
 export interface FieldControlProps {
   id: string;

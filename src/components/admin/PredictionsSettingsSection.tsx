@@ -24,7 +24,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ConfirmButton } from "../ConfirmButton";
 import { TimeZonePicker } from "../TimeZonePicker";
-import { ReadOnlyValue, SettingsRow } from "../settings/SettingsSection";
+import { ReadOnlyValue, SettingsGroup, SettingsRow } from "../settings/SettingsSection";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ErrorLine } from "./adminUi";
@@ -32,11 +32,12 @@ import { predictionPath } from "../predictions/PredictionCard";
 import { PredictionStatusChip } from "../predictions/PredictionStatusChip";
 import { absoluteInstant } from "../predictions/PredictionUi";
 import { rewardPolicyText } from "../predictions/outcomeLabels";
-import { CADENCE_LABEL, MODE_LABEL, SWITCH_LABEL } from "../predictions/predictionLabels";
+import { CADENCE_LABEL, MODE_LABEL, predictionErrorText, SWITCH_LABEL } from "../predictions/predictionLabels";
+import { PredictionsUnavailable } from "../predictions/PredictionsUnavailable";
 import { useAuth } from "../../lib/authContext";
 import {
   ApiError,
-  errorMessage,
+  isPredictionsUnavailable,
   PREDICTION_REWARD_CADENCES,
   PREDICTION_REWARD_MODES,
   PREDICTION_SEASON_NAME_MAX,
@@ -78,25 +79,17 @@ export function PredictionsSettingsSection() {
   return (
     <div className="flex flex-col gap-8">
       {settings.isPending ? <p role="status" className="text-sm text-text-dim">Loading prediction settings…</p>
-        : settings.error ? <ErrorLine message={errorMessage(settings.error)} />
+        : isPredictionsUnavailable(settings.error) ? <PredictionsUnavailable audience="staff" />
+        : settings.error ? <ErrorLine message={predictionErrorText(settings.error, "staff")} />
         : settings.data && <>
-          <Group title="Operations"><Operations settings={settings.data} onDone={toast.success} /></Group>
+          <SettingsGroup title="Operations"><Operations settings={settings.data} onDone={toast.success} /></SettingsGroup>
           {/* Shares its effective boundary with the reward policy: both change at the next announced reset. */}
-          <Group title="Site timezone"><TimeZone settings={settings.data} onDone={toast.success} /></Group>
-          <Group title="Rewards"><RewardPolicy settings={settings.data} onDone={toast.success} /></Group>
+          <SettingsGroup title="Site timezone"><TimeZone settings={settings.data} onDone={toast.success} /></SettingsGroup>
+          <SettingsGroup title="Rewards"><RewardPolicy settings={settings.data} onDone={toast.success} /></SettingsGroup>
         </>}
-      <Group title="Leaderboard season"><SeasonRollover viewerId={viewerId} onDone={toast.success} /></Group>
-      <Group title="Leagues"><Leagues viewerId={viewerId} onDone={toast.success} /></Group>
+      <SettingsGroup title="Leaderboard season"><SeasonRollover viewerId={viewerId} onDone={toast.success} /></SettingsGroup>
+      <SettingsGroup title="Leagues"><Leagues viewerId={viewerId} onDone={toast.success} /></SettingsGroup>
     </div>
-  );
-}
-
-function Group({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section>
-      <h3 className="mb-3 font-heading text-sm text-text-bright">{title}</h3>
-      {children}
-    </section>
   );
 }
 
@@ -181,7 +174,7 @@ function Operations({ settings, onDone }: { settings: PredictionSiteSettings; on
         })}
       </ul>
       <p className="mt-2 text-xs text-text-dim">Refunds and staff corrections still work while automatic settlement is paused.</p>
-      <ErrorLine message={write.error ? errorMessage(write.error) : null} />
+      <ErrorLine message={write.error ? predictionErrorText(write.error, "staff") : null} />
     </>
   );
 }
@@ -248,7 +241,7 @@ function TimeZone({ settings, onDone }: { settings: PredictionSiteSettings; onDo
               />
             </div>
           )}
-          <ErrorLine message={previewing.error ? errorMessage(previewing.error) : save.error ? errorMessage(save.error) : null} />
+          <ErrorLine message={previewing.error ? predictionErrorText(previewing.error, "staff") : save.error ? predictionErrorText(save.error, "staff") : null} />
         </div>
       )}
     </div>
@@ -390,7 +383,7 @@ function RewardPolicy({ settings, onDone }: { settings: PredictionSiteSettings; 
               />
             </div>
           )}
-          <ErrorLine message={previewing.error ? errorMessage(previewing.error) : save.error ? errorMessage(save.error) : null} />
+          <ErrorLine message={previewing.error ? predictionErrorText(previewing.error, "staff") : save.error ? predictionErrorText(save.error, "staff") : null} />
         </div>
       )}
     </div>
@@ -440,14 +433,14 @@ function SeasonRollover({ viewerId, onDone }: { viewerId: number | null; onDone:
       <ReadOnlyValue>
         {seasons.isPending ? "Loading…" : open ? <>{open.name}{open.startedAt && <span className="text-text-dim"> · since {fmtDate(open.startedAt)}</span>}</> : "Unavailable"}
       </ReadOnlyValue>
-      <ErrorLine message={seasons.error ? errorMessage(seasons.error) : null} />
+      <ErrorLine message={seasons.error ? predictionErrorText(seasons.error, "staff") : null} />
       {!started ? (
         <Button variant="outline" size="sm" className="mt-3" onClick={() => setStarted(true)}>Start a new season</Button>
       ) : preview.isPending ? (
         <p role="status" className="mt-3 text-sm text-text-dim">Checking outstanding predictions…</p>
       ) : preview.error || !data ? (
         <div className="mt-3">
-          <ErrorLine message={preview.error ? errorMessage(preview.error) : "The rollover preview is unavailable."} />
+          <ErrorLine message={preview.error ? predictionErrorText(preview.error, "staff") : "The rollover preview is unavailable."} />
           <Button variant="ghost" size="sm" className="mt-2" onClick={cancel}>Cancel</Button>
         </div>
       ) : blockers.length > 0 ? (
@@ -506,7 +499,7 @@ function SeasonRollover({ viewerId, onDone }: { viewerId: number | null; onDone:
           </div>
         </div>
       )}
-      <ErrorLine message={rolling.error ? errorMessage(rolling.error) : null} />
+      <ErrorLine message={rolling.error ? predictionErrorText(rolling.error, "staff") : null} />
     </div>
   );
 }
@@ -523,7 +516,7 @@ function Leagues({ viewerId, onDone }: { viewerId: number | null; onDone: (messa
   );
 
   if (rules.isPending) return <p role="status" className="text-sm text-text-dim">Loading leagues…</p>;
-  if (rules.error) return <ErrorLine message={errorMessage(rules.error)} />;
+  if (rules.error) return <ErrorLine message={predictionErrorText(rules.error, "staff")} />;
   const rows = rules.data ?? [];
   if (rows.length === 0) return <p className="text-sm text-text-dim">No leagues yet.</p>;
 
@@ -550,7 +543,7 @@ function Leagues({ viewerId, onDone }: { viewerId: number | null; onDone: (messa
         })}
       </ul>
       <p className="mt-2 text-xs text-text-dim">Published predictions keep running when a league is turned off.</p>
-      <ErrorLine message={write.error ? errorMessage(write.error) : null} />
+      <ErrorLine message={write.error ? predictionErrorText(write.error, "staff") : null} />
     </>
   );
 }

@@ -16,10 +16,10 @@ import { DateTimePicker } from "../../DateTimePicker";
 import { FormDialog } from "../../FormDialog";
 import { ErrorLine } from "../../admin/adminUi";
 import { eventName } from "../../predictions/outcomeLabels";
+import { predictionErrorText } from "../../predictions/predictionLabels";
 import { Button } from "@/components/ui/button";
 import {
   ApiError,
-  errorMessage,
   predictionAction,
   PREDICTION_REASON_MAX,
   type PredictionEvent,
@@ -135,7 +135,7 @@ export function EventActionDialog({ conf, event, action, onClose, onDone }: {
         onChange={e => setReason(e.target.value)}
         placeholder="Recorded in the audit log"
       />
-      <ErrorLine message={acting.error ? errorMessage(acting.error) : null} />
+      <ErrorLine message={acting.error ? predictionErrorText(acting.error, "staff") : null} />
     </FormDialog>
   );
 }

@@ -2,7 +2,7 @@ import React, { lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ApiError } from './lib/api'
+import { ApiError, isPredictionsUnavailable } from './lib/api'
 import Home from './pages/Home'
 import { LeagueProvider } from './lib/leagueContext'
 import { AuthProvider } from './lib/authContext'
@@ -60,6 +60,8 @@ const queryClient = new QueryClient({
         // A 4xx is a bad request, not a blip — an unknown conf will still be unknown on the third
         // try. Absence never reaches here: the client resolves a 404 to empty rather than throwing.
         if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
+        // A 503 that is a configuration state rather than an outage; the third try answers the same.
+        if (isPredictionsUnavailable(error)) return false;
         return attempt < 2;
       },
     },

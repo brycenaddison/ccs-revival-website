@@ -35,8 +35,10 @@ export default function Home() {
   const isMobile = w < 768;
   const isTablet = w >= 768 && w < 1024;
   const { tournaments, selectedConfs, loading: leagueLoading } = useLeague();
-  const { teams, standings, rosters, splits, loading: dataLoading, error, refresh } =
-    useLeagueData({ confs: selectedConfs, tournaments });
+  // Every selected conf's teams, for the Home tab only. Standings reads each division's season and
+  // Teams each division's teams when picked, so neither waits on, or pays for, the others.
+  const { teams, splits, loading: dataLoading, error, refresh } =
+    useLeagueData({ confs: tab === "Home" ? selectedConfs : [], tournaments });
 
   // The banner, the article rail and the social feed, in one request shared by three components.
   //
@@ -70,7 +72,6 @@ export default function Home() {
   // is showing, so it is the only thing that knows which season to ask for; it calls `useSeason`
   // itself and lands on the same query key the Standings tab uses.
   const { players } = usePlayers({ confs: tab === "Home" ? selectedConfs : [], teams });
-  const loading = leagueLoading || dataLoading;
 
   // The ticker's own window, read through the same query key — so this shares its request rather than
   // opening a second one. It is here for one reason: a live series is ingesting games, which moves the
@@ -93,7 +94,13 @@ export default function Home() {
 
   return (
     <PageShell maxWidth={1440}>
-      {loading ? (
+      {leagueLoading ? (
+        <div className="py-16 text-center text-text-subtle">Loading...</div>
+      ) : tab === "Standings" ? (
+        <StandingsView isMobile={isMobile} />
+      ) : tab === "Teams" ? (
+        <TeamsView />
+      ) : dataLoading ? (
         <div className="py-16 text-center text-text-subtle">Loading...</div>
       ) : error ? (
         <div className="max-w-[500px] mx-auto mt-16 text-center px-5">
@@ -113,64 +120,58 @@ export default function Home() {
           <p className="text-sm text-text-muted leading-relaxed">No teams registered for this season yet.</p>
         </div>
       ) : (
-        <>
-          {tab === "Standings" ? <StandingsView isMobile={isMobile} />
-          : tab === "Teams" ? <TeamsView teams={teams} standings={standings} rosters={rosters} isMobile={isMobile} />
-          : (
-            <div className={`grid ${isMobile ? "grid-cols-1" : isTablet ? "grid-cols-1" : "grid-cols-[280px_1fr_280px]"}`} style={{ gap: isMobile ? 16 : 24 }}>
-              {/* LEFT COLUMN — Articles + social feed */}
-              <div className="flex flex-col gap-5">
-                {tiers.hero && <HeroArticle article={tiers.hero} isMobile={isMobile} />}
-                {(tiers.features.length > 0 || tiers.news.length > 0) && (
-                  <>
-                    <div className="flex justify-between items-center">
-                      <span className="font-display text-text-bright "style={{ fontSize: isMobile ? 16 : 18 }}>Top stories</span>
-                      <Link
-                        to="/news"
-                        className="font-heading text-[10px] text-text-dim hover:text-text-bright no-underline"
-                      >
-                        All news →
-                      </Link>
-                    </div>
-                    <NewsFeed features={tiers.features} news={tiers.news} isMobile={isMobile} />
-                  </>
-                )}
-                {!hasNews && (
-                  <div className="bg-bg2 rounded-md border border-border p-6 text-center">
-                    {/* A failed `/home` and a quiet week are not the same thing, and this column
-                        showing "No news yet." for both is how a broken endpoint stays invisible.
-                        The rest of the page is unaffected either way — articles are not the league
-                        data, so a failure here must not take the standings down with it. */}
-                    <span className="text-text-dim text-[13px]">
-                      {homeError ? errorMessage(homeError) : "No news yet."}
-                    </span>
-                  </div>
-                )}
-                <SocialFeed items={posts} />
+        <div className={`grid ${isMobile ? "grid-cols-1" : isTablet ? "grid-cols-1" : "grid-cols-[280px_1fr_280px]"}`} style={{ gap: isMobile ? 16 : 24 }}>
+          {/* LEFT COLUMN — Articles + social feed */}
+          <div className="flex flex-col gap-5">
+            {tiers.hero && <HeroArticle article={tiers.hero} isMobile={isMobile} />}
+            {(tiers.features.length > 0 || tiers.news.length > 0) && (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="font-display text-text-bright "style={{ fontSize: isMobile ? 16 : 18 }}>Top stories</span>
+                  <Link
+                    to="/news"
+                    className="font-heading text-[10px] text-text-dim hover:text-text-bright no-underline"
+                  >
+                    All news →
+                  </Link>
+                </div>
+                <NewsFeed features={tiers.features} news={tiers.news} isMobile={isMobile} />
+              </>
+            )}
+            {!hasNews && (
+              <div className="bg-bg2 rounded-md border border-border p-6 text-center">
+                {/* A failed `/home` and a quiet week are not the same thing, and this column
+                    showing "No news yet." for both is how a broken endpoint stays invisible.
+                    The rest of the page is unaffected either way — articles are not the league
+                    data, so a failure here must not take the standings down with it. */}
+                <span className="text-text-dim text-[13px]">
+                  {homeError ? errorMessage(homeError) : "No news yet."}
+                </span>
               </div>
+            )}
+            <SocialFeed items={posts} />
+          </div>
 
-              {/* MIDDLE COLUMN — Announcement + stream + schedule */}
-              <div className="flex flex-col gap-5">
-                <AnnouncementCard
-                  announcement={homeData?.announcement ?? null}
-                  teamCount={teams.length}
-                  splitName={split?.name}
-                  isMobile={isMobile}
-                />
-                <TwitchStreams parentDomain={parentDomain} />
-                <UpcomingSchedule isMobile={isMobile} />
-                <OpenPredictions />
-                <VideoGrid videos={videos} isMobile={isMobile} />
-              </div>
+          {/* MIDDLE COLUMN — Announcement + stream + schedule */}
+          <div className="flex flex-col gap-5">
+            <AnnouncementCard
+              announcement={homeData?.announcement ?? null}
+              teamCount={teams.length}
+              splitName={split?.name}
+              isMobile={isMobile}
+            />
+            <TwitchStreams parentDomain={parentDomain} />
+            <UpcomingSchedule isMobile={isMobile} />
+            <OpenPredictions />
+            <VideoGrid videos={videos} isMobile={isMobile} />
+          </div>
 
-              {/* RIGHT COLUMN — Standings + Stats */}
-              <div className="flex flex-col gap-5">
-                <StandingsWidget confs={selectedConfs} />
-                <PlayerLeaders players={players} isMobile={isMobile} />
-              </div>
-            </div>
-          )}
-        </>
+          {/* RIGHT COLUMN — Standings + Stats */}
+          <div className="flex flex-col gap-5">
+            <StandingsWidget confs={selectedConfs} />
+            <PlayerLeaders players={players} isMobile={isMobile} />
+          </div>
+        </div>
       )}
     </PageShell>
   );

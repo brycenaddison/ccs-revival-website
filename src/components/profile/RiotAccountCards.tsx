@@ -36,26 +36,10 @@ import {
   type UnverifiedAccount,
 } from "../../lib/api";
 import { metricText, winRateTone } from "./profileUi";
+import { tierLabel } from "../../lib/riot/rankTiers";
 import { PlayerAvatar } from "../players/PlayerIdentity";
 
 const QUEUE_LABEL: Record<AccountRank["queue"], string> = { solo: "Solo/Duo", flex: "Flex" };
-
-/**
- * Riot reports a division for every tier, including the three that don't have one.
- *
- * Master, Grandmaster and Challenger are single-division tiers separated purely by LP, and Riot
- * still sends `rank: "I"` for all of them — so rendering tier-and-division verbatim produces
- * "CHALLENGER I", which is not a thing. Below Master the division is load-bearing and stays.
- */
-const APEX_TIERS = new Set(["MASTER", "GRANDMASTER", "CHALLENGER"]);
-
-/** Riot serves tiers shouted (`EMERALD`); a person writes Emerald. */
-const tierName = (tier: string): string => tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase();
-
-function tierLabel(rank: AccountRank): string {
-  if (!rank.division || APEX_TIERS.has(rank.tier.toUpperCase())) return tierName(rank.tier);
-  return `${tierName(rank.tier)} ${rank.division}`;
-}
 
 /**
  * The tier crest, from Community Dragon.
@@ -153,7 +137,7 @@ function RankBlock({ rank }: { rank: AccountRank }) {
 
       <span className="flex min-w-0 items-baseline gap-1.5">
         <span className="truncate font-heading text-sm text-text-bright">
-          {tierLabel(rank)}
+          {tierLabel(rank.tier, rank.division)}
         </span>
         {rank.hotStreak && (
           <Flame size={11} className="shrink-0 self-center text-ccs-orange" aria-label="On a win streak" />
@@ -204,7 +188,7 @@ function CompactCard({ account }: { account: LinkedAccount }) {
             className="h-[18px] w-[18px] shrink-0 object-contain"
           />
           <span className="shrink-0 truncate font-heading text-[10px] text-text-secondary">
-            {tierLabel(rank)}
+            {tierLabel(rank.tier, rank.division)}
           </span>
           <span className="shrink-0 whitespace-nowrap font-mono text-[10px] text-text-dim">
             {winLossText(rank)}

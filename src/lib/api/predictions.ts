@@ -149,6 +149,15 @@ export function predictionErrorReason(error: unknown): string | null {
   return error instanceof ApiError ? string(raw(error.body).reason) : null;
 }
 
+/**
+ * True for `predictions_unavailable` (503): the deployment has no prediction settings or no open
+ * leaderboard season. It is site-wide rather than per league (a league that is off answers
+ * `predictions_disabled`), no retry changes it, and public event reads keep working through it.
+ */
+export function isPredictionsUnavailable(error: unknown): boolean {
+  return predictionErrorReason(error) === "predictions_unavailable";
+}
+
 // --------------------------------------------------------------------------------------- events
 
 export interface PredictionOutcome {

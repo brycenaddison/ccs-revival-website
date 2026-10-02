@@ -20,6 +20,9 @@ import {
   article,
   articles,
   championStats,
+  draftIssues,
+  draftSettings,
+  fixtureDraft,
   globalDefinitions,
   leagueAccolades,
   myApplications,
@@ -76,6 +79,7 @@ import {
   tournaments,
   unscheduledGames,
   type ArticleQuery,
+  type DraftIssueQuery,
   type PredictionFilters,
   CLOSED_PREDICTION_STATES,
   type FeedPage,
@@ -779,6 +783,21 @@ export const queries = {
       staleTime: 0,
     }),
 
+  /**
+   * A fixture's draft registration and imported games, for schedule staff. Private and no-store
+   * upstream, so it is keyed by viewer and dropped once unobserved. Under the schedule root because a
+   * structure save can delete the fixture and a match edit can make the room mismatched.
+   */
+  fixtureDraft: (matchId: number, viewerId: number | null) =>
+    query({
+      queryKey: ["schedule", "drafts", matchId, viewerId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => fixtureDraft(matchId, { signal }),
+      enabled: viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+    }),
+
   /** Played games with no scheduled match. Lists forever for legacy seasons; a worklist, not an alarm. */
   unscheduledGames: (conf: string) =>
     query({
@@ -941,6 +960,31 @@ export const queries = {
         q.state.status !== "error" && (q.state.data?.queue.depth ?? 0) > 0 ? 15_000 : false,
     }),
 
+  /** The global draft settings document, site admin only. Read fresh because it backs a revisioned form. */
+  draftSettings: (viewerId: number | null) =>
+    query({
+      queryKey: ["drafts", "settings", viewerId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => draftSettings({ signal }),
+      enabled: viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+    }),
+
+  /**
+   * One page each of unresolved receipts and creations. The two lists page independently, so both
+   * cursors are in the key. Site admin only.
+   */
+  draftIssues: (viewerId: number | null, q: DraftIssueQuery) =>
+    query({
+      queryKey: ["drafts", "issues", viewerId, q.cursor, q.creationCursor] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => draftIssues(q, { signal }),
+      enabled: viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+    }),
+
   /** Explicitly requested POST preview; no automatic provider retries or background refreshes. */
   rosterRiotPreview: (conf: string, viewerId: number | null, input: RiotAccountInput) =>
     query({
@@ -1084,6 +1128,11 @@ export const queryRoots = {
    * exist.
    */
   schedule: ["schedule"] as const,
+  /**
+   * Draft settings and the repair inbox. Fixture rooms sit under `schedule`; a room write refreshes
+   * both, since a failed or uncertain creation lands in the inbox.
+   */
+  drafts: ["drafts"] as const,
 };
 
 /**

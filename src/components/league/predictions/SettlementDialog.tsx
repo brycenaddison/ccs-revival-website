@@ -22,12 +22,11 @@ import { ErrorLine } from "../../admin/adminUi";
 import { PlayerIdentity } from "../../players/PlayerIdentity";
 import { OutcomeLabel } from "../../predictions/MatchupLabel";
 import { eventName, outcomeById } from "../../predictions/outcomeLabels";
-import { voidReasonText } from "../../predictions/predictionLabels";
+import { predictionErrorText, voidReasonText } from "../../predictions/predictionLabels";
 import { Button } from "@/components/ui/button";
 import {
   ApiError,
   applyPredictionSettlement,
-  errorMessage,
   PREDICTION_REASON_MAX,
   previewPredictionSettlement,
   type PredictionCorrectionKind,
@@ -216,7 +215,7 @@ export function SettlementDialog({ conf, event, mode, onClose, onDone }: {
           )}
         </div>
       )}
-      <ErrorLine message={previewing.error ? errorMessage(previewing.error) : applying.error ? errorMessage(applying.error) : null} />
+      <ErrorLine message={previewing.error ? predictionErrorText(previewing.error, "staff") : applying.error ? predictionErrorText(applying.error, "staff") : null} />
     </FormDialog>
   );
 }

@@ -20,12 +20,11 @@ import { ErrorLine } from "../../admin/adminUi";
 import { MatchupLabel } from "../../predictions/MatchupLabel";
 import { predictionPath } from "../../predictions/PredictionCard";
 import { absoluteInstant } from "../../predictions/PredictionUi";
-import { SKIP_REASON_LABEL } from "../../predictions/predictionLabels";
+import { predictionErrorText, SKIP_REASON_LABEL } from "../../predictions/predictionLabels";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   ApiError,
-  errorMessage,
   placementLabel,
   PREDICTION_BATCH_MAX,
   predictionErrorReason,
@@ -181,7 +180,7 @@ export function PublishPanel({ conf, manage, readOnly = false, onPublished }: {
         />
       </div>}
       {notice && <p role="status" className="mt-3 text-sm text-text-secondary">{notice}</p>}
-      {publishing.error && !notice && <ErrorLine message={errorMessage(publishing.error)} />}
+      {publishing.error && !notice && <ErrorLine message={predictionErrorText(publishing.error, "staff")} />}
     </div>
   );
 }

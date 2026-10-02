@@ -1,12 +1,19 @@
 /**
- * How a code operation reports what it did.
+ * How a schedule operation reports what it did.
  *
  * Shared because three call sites report the same `IngestedGame[]` — confirming a code, re-checking
  * one match, and re-checking a whole day — and three copies of "1 new game recorded" would drift
  * apart on the pluralization if nothing else.
  */
 
-import type { CodeSweep, IngestedGame } from "../../../lib/api";
+import type { CodeSweep, IngestedGame, ScheduleMatch } from "../../../lib/api";
+
+/** How a report names a match on the selected day, for code delivery and draft room batches alike. */
+export function scheduleMatchLabel(matches: readonly ScheduleMatch[], id: number): string {
+  const match = matches.find(match => match.id === id);
+  if (!match) return "View match";
+  return `${match.teamA?.name ?? "TBD"} ${match.kind === "bye" ? "(bye)" : `vs ${match.teamB?.name ?? "TBD"}`}`;
+}
 
 /**
  * What a set of ingest results amounts to.

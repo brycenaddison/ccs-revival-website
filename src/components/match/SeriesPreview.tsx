@@ -33,6 +33,7 @@ import { PlayerLink } from "../profile/PlayerLink";
 import { TeamBadge } from "../TeamBadge";
 import { TeamLink } from "../league/TeamLink";
 import { ChampionIcon } from "../ChampionIcon";
+import { OpggLink } from "../OpggLink";
 import { HeadToHead, asOne, asPct, asRatio, compare, compareText, type ComparisonRow } from "./HeadToHead";
 import { MatchResultList } from "./MatchResultList";
 
@@ -206,12 +207,16 @@ function Starters({ team, conf }: { team: TeamDetail; conf: string }) {
     <div className="mb-4 overflow-hidden rounded-lg border border-border bg-bg2">
       <div className="flex items-center gap-2 border-b border-border bg-bg3 px-4 py-2.5">
         <TeamBadge team={toBadge(team)} size={20} />
-        <TeamLink conf={conf} code={team.code} className="min-w-0 no-underline [&:hover_*]:text-brand">
-          <span className="truncate font-heading text-xs font-semibold text-text hover:text-brand">
-            {team.name}
-          </span>
-        </TeamLink>
-        <span className="ml-auto font-heading text-[10px] text-text-dim">Starters</span>
+        {/* The label shares the name's size and baseline; the right edge belongs to the OP.GG link. */}
+        <div className="flex min-w-0 items-baseline gap-2">
+          <TeamLink conf={conf} code={team.code} className="min-w-0 truncate no-underline [&:hover_*]:text-brand">
+            <span className="font-heading text-xs font-semibold text-text hover:text-brand">{team.name}</span>
+          </TeamLink>
+          <span className="shrink-0 font-heading text-xs text-text-dim">Starters</span>
+        </div>
+        <div className="ml-auto">
+          <OpggLink links={team.links} team={team.name} />
+        </div>
       </div>
 
       {starters.length === 0 ? (

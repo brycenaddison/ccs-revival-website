@@ -66,6 +66,8 @@ export interface ChampionLookup {
    * id as a string, an internal alias, or a display name.
    */
   get(ref: number | string | null | undefined): ChampionInfo | undefined;
+  /** Every playable champion, by display name, for pickers. Excludes the no-ban sentinel. */
+  all(): readonly ChampionInfo[];
 }
 
 interface SummaryEntry {
@@ -93,7 +95,10 @@ function buildLookup(entries: readonly SummaryEntry[]): ChampionLookup {
     if (raw.name) byText.set(raw.name.toLowerCase(), info);
   }
 
+  const all = [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name));
+
   return {
+    all: () => all,
     get(ref) {
       if (isNoBanChampion(ref)) return NO_BAN_CHAMPION;
       if (ref === null || ref === undefined || ref === "" || ref === 0) return undefined;

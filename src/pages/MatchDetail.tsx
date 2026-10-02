@@ -40,7 +40,7 @@ import { MatchPredictionPanel } from "../components/predictions/MatchPredictionP
 import { SeriesGameCard } from "../components/match/SeriesGameCard";
 import { SeriesPreview } from "../components/match/SeriesPreview";
 import { SeriesTotals } from "../components/match/SeriesTotals";
-import { TournamentCodes } from "../components/match/TournamentCodes";
+import { MatchLobby } from "../components/match/MatchLobby";
 import type { TeamNamer } from "../components/match/TeamNameLink";
 
 type Tab = "preview" | "results";
@@ -96,7 +96,7 @@ export default function MatchDetail() {
       <BackLink fallback="/" fallbackLabel="Home" />
       <div>
         <SeriesHeader match={data} />
-        <TournamentCodes key={`${matchId}-${profile?.id ?? "guest"}`} codes={data.codes} />
+        <MatchLobby key={`${matchId}-${profile?.id ?? "guest"}`} codes={data.codes} draftUrl={data.draftUrl} />
 
         {/*
           Only the undated case is worth saying. "No games recorded yet" on a fixture whose kickoff is in

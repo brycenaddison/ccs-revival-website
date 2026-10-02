@@ -22,7 +22,7 @@
  *    field pointers is not a sentence.
  */
 
-import { API_BASE, ApiError, type RequestOpts } from "./http";
+import { API_BASE, ApiError, errorBody, errorDetail, type RequestOpts } from "./http";
 
 // ---------------------------------------------------------------------- issues
 
@@ -72,35 +72,6 @@ export function issuesOf(e: unknown): ValidationIssue[] | null {
 type Raw = Record<string, unknown>;
 
 const asRaw = (v: unknown): Raw => (v && typeof v === "object" ? (v as Raw) : {});
-
-/** The message to show, whichever of the two non-422 error shapes it arrived in. */
-function detailOf(text: string): string {
-  const body = text.trim();
-  if (!body.startsWith("{")) return body.slice(0, 300);
-  try {
-    const parsed = JSON.parse(body) as { error?: unknown };
-    return typeof parsed.error === "string" ? parsed.error : body.slice(0, 300);
-  } catch {
-    return body.slice(0, 300);
-  }
-}
-
-/**
- * The error body as data, for the failures that carry more than a sentence.
- *
- * `undefined` rather than `null` when there is nothing to parse, so `ApiError`'s optional field
- * stays absent: a plain-text param error has no body to speak of, and an empty object would
- * invite a call site to read fields off it.
- */
-function bodyOf(text: string): unknown {
-  const body = text.trim();
-  if (!body.startsWith("{")) return undefined;
-  try {
-    return JSON.parse(body) as unknown;
-  } catch {
-    return undefined;
-  }
-}
 
 function toIssues(raw: unknown): ValidationIssue[] {
   const list = asRaw(raw).issues;
@@ -169,7 +140,7 @@ export async function credentialedRequest(
   }
 
   if (!res.ok) {
-    throw new ApiError(res.status, path, detailOf(text) || res.statusText, bodyOf(text));
+    throw new ApiError(res.status, path, errorDetail(text) || res.statusText, errorBody(text));
   }
   if (text.trim() === "") return null;
 

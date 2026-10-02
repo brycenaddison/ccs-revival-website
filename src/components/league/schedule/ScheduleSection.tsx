@@ -24,13 +24,15 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { CalendarDays, Flag, KeyRound, Link2, Pencil, RefreshCw } from "lucide-react";
+import { CalendarDays, Flag, KeyRound, Link2, Pencil, RefreshCw, Swords } from "lucide-react";
 import { toast } from "sonner";
 import { PillTabs, type PillTab } from "../../PillTabs";
 import { ErrorLine } from "../../admin/adminUi";
 import { MatchEditor } from "./MatchEditor";
 import { MatchCodes } from "./MatchCodes";
 import { CodeDeliveryControl } from "./CodeDeliveryControl";
+import { DayDraftsControl } from "./DayDraftsControl";
+import { DraftPanel } from "./DraftPanel";
 import { ForfeitPanel } from "./ForfeitPanel";
 import { LinkingPanel } from "./LinkingPanel";
 import { describeSweep } from "./codeReports";
@@ -172,6 +174,7 @@ function DayPanel({
   const qc = useQueryClient();
   const [editing, setEditing] = useState<number | null>(null);
   const [showCodes, setShowCodes] = useState<number | null>(null);
+  const [showDraft, setShowDraft] = useState<number | null>(null);
   const [showForfeit, setShowForfeit] = useState<number | null>(null);
   const [resync, setResync] = useState<string | null>(null);
 
@@ -299,6 +302,14 @@ function DayPanel({
       <ErrorLine message={recheck.isError ? errorMessage(recheck.error) : null} />
       <ErrorLine message={propagate.isError ? errorMessage(propagate.error) : null} />
 
+      {/* Before delivery: each code DM links the match's room, so rooms must exist first. */}
+      <DayDraftsControl
+        conf={conf}
+        seasonDay={day.seasonDay}
+        matches={day.matches}
+        disabled={mint.isPending || recheck.isPending || propagate.isPending}
+      />
+
       <CodeDeliveryControl
         target={{ conf, seasonDay: day.seasonDay }}
         matches={day.matches}
@@ -331,6 +342,16 @@ function DayPanel({
                   <KeyRound size={13} aria-hidden="true" />
                   Codes
                 </Button>
+                {match.kind !== "bye" && (
+                  <Button
+                    variant="outline" size="sm"
+                    type="button"
+                    onClick={() => setShowDraft(showDraft === match.id ? null : match.id)}
+                  >
+                    <Swords size={13} aria-hidden="true" />
+                    Draft
+                  </Button>
+                )}
                 {/*
                   A forfeit is a *result*, not a schedule change — its own panel rather than a field in
                   the editor, because `PATCH` semantics don't apply to it and it is not something to
@@ -363,6 +384,8 @@ function DayPanel({
               )}
 
               {showCodes === match.id && <MatchCodes match={match} teams={teams} onSaved={onSaved} />}
+
+              {showDraft === match.id && <DraftPanel match={match} onSaved={onSaved} />}
             </li>
           ))}
         </ul>

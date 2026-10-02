@@ -8,6 +8,8 @@
  */
 
 import {
+  errorMessage,
+  isPredictionsUnavailable,
   NO_WINNING_POOL,
   type PredictionLedgerKind,
   type PredictionReviewReason,
@@ -83,6 +85,20 @@ export const MODE_LABEL: Record<PredictionRewardMode, { label: string; detail: s
   flat: { label: "Flat", detail: "Every claim pays the same amount." },
   scaling: { label: "Growing", detail: "Each claim in a streak pays one more step, up to the cap." },
 };
+
+export const PREDICTIONS_UNAVAILABLE_TEXT = "Predictions aren't running right now. Check back soon.";
+/** Staff can act on the cause, which the public sentence leaves out. */
+export const PREDICTIONS_UNAVAILABLE_STAFF_TEXT =
+  "The API has no prediction settings or no open leaderboard season, so predictions cannot be read or published.";
+
+/**
+ * The sentence for a failed prediction read or command: the unavailable state in words, and every
+ * other failure verbatim through `errorMessage`.
+ */
+export function predictionErrorText(error: unknown, audience: "public" | "staff" = "public"): string {
+  if (!isPredictionsUnavailable(error)) return errorMessage(error);
+  return audience === "staff" ? PREDICTIONS_UNAVAILABLE_STAFF_TEXT : PREDICTIONS_UNAVAILABLE_TEXT;
+}
 
 /** An automatic void has a label; a staff void shows the reason they entered, verbatim. */
 export function voidReasonText(reason: string | null): string | null {

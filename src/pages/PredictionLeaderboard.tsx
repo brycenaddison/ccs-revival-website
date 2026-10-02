@@ -19,7 +19,8 @@ import { CursorPager } from "../components/CursorPager";
 import { PlayerIdentity } from "../components/players/PlayerIdentity";
 import { StatTile } from "../components/stats/StatTile";
 import { useCursorPage } from "../hooks/useCursorPage";
-import { errorMessage, type PredictionSeason } from "../lib/api";
+import { PredictionsUnavailable } from "../components/predictions/PredictionsUnavailable";
+import { errorMessage, isPredictionsUnavailable, type PredictionSeason } from "../lib/api";
 import { pointsText, signedPointsText, signedPointsTone } from "../lib/predictionPoints";
 import { queries } from "../lib/queries";
 import { fmtDate } from "../lib/utils";
@@ -90,6 +91,7 @@ function Board({ season, viewerId }: { season: number | null; viewerId: number |
   const closed = page?.season?.endedAt ? page.season : null;
 
   return board.isPending ? <p role="status" className="py-6 text-sm text-text-dim">Loading the leaderboard…</p>
+    : isPredictionsUnavailable(board.error) ? <PredictionsUnavailable />
     : board.error ? <ErrorLine message={errorMessage(board.error)} />
     : <>
       {closed && (

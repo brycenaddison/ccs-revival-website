@@ -9,9 +9,14 @@ import { fmtKickoff } from "../../lib/utils";
 import { TeamBadge } from "../TeamBadge";
 
 export function UpcomingMatchCard({ match, profileId }: { match: FeedMatch; profileId: number }) {
-  // Only the featured fixture needs this read: the public feed cannot reveal code availability.
+  // Only the featured fixture needs this read: the public feed cannot reveal code or room availability.
   const { data } = useQuery(queries.matchResult(match.scheduleMatchId, profileId));
   const hasCodes = (data?.codes.length ?? 0) > 0;
+  const hasDraft = (data?.draftUrl ?? null) !== null;
+  const prompt = hasDraft && hasCodes ? "Click for the draft room and tournament codes."
+    : hasDraft ? "Click for the draft room."
+    : hasCodes ? "Click for tournament codes."
+    : "Click to view match details.";
 
   const body = (
     <>
@@ -53,7 +58,7 @@ export function UpcomingMatchCard({ match, profileId }: { match: FeedMatch; prof
 
       {match.scheduleMatchId !== null && (
         <p className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-3 font-heading text-xs text-text-secondary">
-          <span>{hasCodes ? "Click for tournament codes." : "Click to view match details."}</span>
+          <span>{prompt}</span>
           <ArrowRight size={16} className="shrink-0" aria-hidden="true" />
         </p>
       )}

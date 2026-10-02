@@ -7,6 +7,7 @@
  * upstream (divide-by-zero in the views, and ban-only champions from a FULL JOIN).
  */
 
+import type { OpggLinks } from "./opgg";
 import type { PhaseRef } from "./phaseRef";
 import type { Role } from "./normalize";
 
@@ -70,7 +71,30 @@ export type RoleKey = "top" | "jg" | "mid" | "bot" | "sup";
  * name themselves. That stopped being possible when Riot removed summoner-v4 `by-name`, so
  * rosters now key on profiles and the API serves the name it already knows.
  */
-export type RosterSlot = import("./playerSummary").PlayerSummary;
+export type RosterSlot = import("./playerSummary").PlayerSummary & {
+  /** Cached Discord username, `null` when none is recorded. Not evidence of an association. */
+  handle: string | null;
+  /** Saved public pronouns, `null` when the player has set none. */
+  pronouns: string | null;
+  /**
+   * Cached `gameName#tagLine` of the API-selected primary verified account. `null` when that account
+   * has no cached ID; never another account's.
+   */
+  primaryRiotId: string | null;
+  /** Solo rank status of that account; `null` for a value this client does not know. */
+  rankStatus: RosterRankStatus | null;
+  /**
+   * The solo tier and division, present only when `ranked`. The served label and LP are not kept:
+   * the cards show tier and division alone.
+   */
+  soloRank: { tier: string; division: string | null } | null;
+};
+
+/**
+ * `unranked` is a complete saved response with no solo entry, flex-only included. `unavailable` is
+ * no verified account, an incomplete cache or an unknown tier, which says nothing about the player.
+ */
+export type RosterRankStatus = "ranked" | "unranked" | "unavailable";
 
 /**
  * A team's declared roster.
@@ -188,6 +212,8 @@ export interface TeamRecord extends TeamRoster {
    * Carries no streak and no rank: for those, ask `GET /standings/:conf` (`StandingRow`).
    */
   record: SeasonRecord | null;
+  /** The starters' OP.GG multisearch. See `./opgg` for what it covers. */
+  links: OpggLinks;
 }
 
 export interface Champ {
@@ -460,6 +486,8 @@ export interface TeamDetail extends Partial<Omit<TeamStats, "code" | "name" | "c
   bannedAgainst: BanCount[];
   bannedBy: BanCount[];
   matchlist: MatchlistEntry[];
+  /** The starters' OP.GG multisearch, served whether or not the team has played. */
+  links: OpggLinks;
 }
 
 /**

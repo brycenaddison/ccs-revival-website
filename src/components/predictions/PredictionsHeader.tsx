@@ -8,7 +8,8 @@
  * span every league.
  *
  * The reward rule comes from the public `/settings` read, so anonymous visitors see it too. A
- * failure there hides the rule rather than adding a second error line.
+ * failure there hides the rule rather than adding a second error line. `unavailable` leaves only
+ * the heading, since the hub's notice replaces the points, the errors and the tabs.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -16,14 +17,18 @@ import { ErrorLine } from "../admin/adminUi";
 import { UnderlineTabs } from "../UnderlineTabs";
 import { WalletChip } from "./WalletChip";
 import { rewardPolicyText } from "./outcomeLabels";
+import { predictionErrorText } from "./predictionLabels";
 import type { PredictionWallet } from "./usePredictionWallet";
-import { errorMessage } from "../../lib/api";
 import { useSeasonLink } from "../../lib/leagueContext";
 import { queries } from "../../lib/queries";
 
 export type PredictionsTab = "matches" | "leaderboard" | "mine";
 
-export function PredictionsHeader({ wallet, tab }: { wallet: PredictionWallet; tab: PredictionsTab }) {
+export function PredictionsHeader({ wallet, tab, unavailable }: {
+  wallet: PredictionWallet;
+  tab: PredictionsTab;
+  unavailable: boolean;
+}) {
   const seasonLink = useSeasonLink();
   const calendar = useQuery(queries.predictionSiteCalendar());
   const rewards = calendar.data?.rewards;
@@ -44,10 +49,14 @@ export function PredictionsHeader({ wallet, tab }: { wallet: PredictionWallet; t
             Predict match winners and league questions with points.{rule && ` ${rule}`}
           </p>
         </div>
-        <WalletChip wallet={wallet} />
+        {!unavailable && <WalletChip wallet={wallet} />}
       </header>
-      {error && <div className="-mt-2 mb-3"><ErrorLine message={errorMessage(error)} /></div>}
-      <UnderlineTabs label="Predictions" tabs={tabs} selected={tab} />
+      {!unavailable && (
+        <>
+          {error && <div className="-mt-2 mb-3"><ErrorLine message={predictionErrorText(error)} /></div>}
+          <UnderlineTabs label="Predictions" tabs={tabs} selected={tab} />
+        </>
+      )}
     </>
   );
 }

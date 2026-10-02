@@ -26,6 +26,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TeamBadge } from "../TeamBadge";
 import { TeamLink } from "../league/TeamLink";
+import { TooltipHint } from "../TooltipHint";
 import { useSeason } from "../../hooks/useSeason";
 import { useLeague } from "../../lib/leagueContext";
 import { groupLabels, toBadge } from "../../lib/leagueAdapters";
@@ -160,13 +161,16 @@ function ConfPanel({ conf }: { conf: string }) {
         (`Home.tsx`), the table lays out automatically, and **`W-L` breaks at its hyphen** — as does
         a record like `5-2`. So a group whose longest team name is a few characters longer than the
         next group's squeezes the column until the heading splits over two lines. Pinning it makes
-        the team column absorb the pressure instead, which it can: it truncates.
+        the team column absorb the pressure instead. That column only can because of `w-full` on its
+        head and `max-w-0` on its cells: under automatic layout `truncate` alone leaves the cell at
+        its content's minimum width, so a long name widens the table past the panel and the
+        `overflow-hidden` frame clips the record column.
       */}
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th className="border-b border-border px-3 py-2 text-left font-heading text-[10px] font-normal text-text-muted">
-              TEAM
+            <th className="w-full border-b border-border px-3 py-2 text-left font-heading text-[10px] font-normal text-text-muted">
+              Team
             </th>
             <th className="whitespace-nowrap border-b border-border px-3 py-2 text-right font-heading text-[10px] font-normal text-text-muted">
               W-L
@@ -187,14 +191,15 @@ function ConfPanel({ conf }: { conf: string }) {
                   background: tone?.bg,
                 }}
               >
-                <td className="px-3.5 py-2.5">
+                <td className="max-w-0 px-3.5 py-2.5">
                   <TeamLink
                     conf={conf}
                     code={row.code}
                     className="group flex min-w-0 items-center gap-2 no-underline"
                   >
+                    {/* A tied place like `T-1` breaks at its hyphen just as `W-L` does. */}
                     <span
-                      className="min-w-[14px] text-right font-mono text-[10px] font-bold"
+                      className="min-w-[14px] shrink-0 whitespace-nowrap text-right font-mono text-[10px] font-bold"
                       style={{ color: tone?.fg ?? "var(--text-muted)" }}
                     >
                       {row.place}
@@ -204,30 +209,24 @@ function ConfPanel({ conf }: { conf: string }) {
                       <span className="truncate font-heading text-[13px] font-medium text-text group-hover:text-brand">
                         {row.name}
                       </span>
-                      {row.scenario && (
-                        <span
-                          className="truncate font-heading text-[8px] font-bold "
-                          style={{ color: tone?.fg }}
-                          title={row.tied ? "Tied on rank — not settled yet" : row.scenario.subtitle || undefined}
-                        >
-                          {row.scenario.title}
-                          {row.tied && "†"}
-                        </span>
-                      )}
+                      {row.scenario && <ScenarioLine scenario={row.scenario} tied={row.tied} color={tone?.fg} />}
                     </div>
                   </TeamLink>
                 </td>
-                <td
-                  className="whitespace-nowrap px-3 text-right font-mono text-[13px] text-text-secondary"
-                  // The games are still worth having somewhere, and a hover is somewhere: it costs no
-                  // width, and the column it was cut from is the one being hovered.
-                  title={
-                    row.gameWins + row.gameLosses === 0
-                      ? "No games played yet"
-                      : `${row.gameWins}-${row.gameLosses} in games`
-                  }
-                >
-                  {row.seriesWins}-{row.seriesLosses}
+                <td className="whitespace-nowrap px-3 text-right font-mono text-[13px] text-text-secondary">
+                  {/* The games are still worth having somewhere, and a hover is somewhere: it costs no
+                      width, and the column it was cut from is the one being hovered. */}
+                  <TooltipHint
+                    content={
+                      row.gameWins + row.gameLosses === 0
+                        ? "No games played yet"
+                        : `${row.gameWins}-${row.gameLosses} in games`
+                    }
+                  >
+                    <span>
+                      {row.seriesWins}-{row.seriesLosses}
+                    </span>
+                  </TooltipHint>
                 </td>
               </tr>
             );
@@ -236,6 +235,18 @@ function ConfPanel({ conf }: { conf: string }) {
       </table>
     </>
   );
+}
+
+/** The scenario caption under a team name, with its subtitle (or the tie warning) on hover. */
+function ScenarioLine({ scenario, tied, color }: { scenario: SeasonScenario; tied: boolean; color?: string }) {
+  const line = (
+    <span className="truncate font-heading text-[8px] font-bold" style={{ color }}>
+      {scenario.title}
+      {tied && "†"}
+    </span>
+  );
+  const hint = tied ? "Tied on rank, not settled yet" : scenario.subtitle;
+  return hint ? <TooltipHint content={hint}>{line}</TooltipHint> : line;
 }
 
 function Empty() {

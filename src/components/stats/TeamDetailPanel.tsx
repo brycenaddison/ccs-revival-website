@@ -14,6 +14,7 @@ import { isNoBanChampion } from "../../lib/championData";
 import { joinRoster, type JoinedRoster } from "../../lib/roster";
 import { teamGradientFor } from "../../lib/teamStyle";
 import { ChampionIcon } from "../ChampionIcon";
+import { OpggLink } from "../OpggLink";
 import { TeamLink } from "../league/TeamLink";
 import { TeamMatchHistory } from "../match/TeamMatchHistory";
 import { PlayerLink } from "../profile/PlayerLink";
@@ -131,11 +132,19 @@ function RosterHead() {
  * slot-holder's second role — kept in their own table so they read as appearances rather than
  * as roster members.
  */
-function RosterPanel({ entries, extras, code }: JoinedRoster<PlayerStatsRanked> & { code: string }) {
+function RosterPanel({
+  entries,
+  extras,
+  team,
+}: JoinedRoster<PlayerStatsRanked> & { team: TeamDetail }) {
+  const { code } = team;
   return (
     <>
       <div className="bg-bg2 border border-border rounded-md p-4 mb-5">
-        <h3 className="font-display text-sm text-text-bright mb-3">Roster</h3>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 className="font-display text-sm text-text-bright">Roster</h3>
+          <OpggLink links={team.links} team={team.name} />
+        </div>
         {entries.length === 0 ? (
           <div className="py-2 text-xs text-text-dim">No roster set for this team.</div>
         ) : (
@@ -264,7 +273,7 @@ export function TeamDetailPanel({ conf, code, publicPage = false }: Props) {
 
       {/* Outside the `hasStats` branch: the roster comes from `teams`, so a team that has
           never played still has one to show. */}
-      <RosterPanel {...roster} code={team.code} />
+      <RosterPanel {...roster} team={team} />
 
       {team.hasStats && (
         <>

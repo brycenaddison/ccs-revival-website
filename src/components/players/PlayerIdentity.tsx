@@ -50,6 +50,15 @@ export function PlayerAvatar({ src, size = "normal", square = false, className, 
 export type DisplayPlayer = Omit<PlayerSummary, "profileId" | "avatarSource"> & { profileId: number | null };
 const VERIFIED_LABEL = "Discord linked · Riot account verified";
 
+/** The served `verified` flag as a brand shield, named for assistive technology. */
+export function VerifiedMark() {
+  return (
+    <span className="inline-flex shrink-0 text-brand" role="img" aria-label={VERIFIED_LABEL} title={VERIFIED_LABEL}>
+      <ShieldCheck size={14} aria-hidden="true" />
+    </span>
+  );
+}
+
 /** Selection buttons opt out of navigation; selected values and preview headings use PlayerLink. */
 export function PlayerIdentity({ player, linked = true, small = false }: {
   player: DisplayPlayer;
@@ -63,11 +72,7 @@ export function PlayerIdentity({ player, linked = true, small = false }: {
       {linked ? (
         <PlayerLink profileId={player.profileId} className="min-w-0 truncate hover:underline" title={name}>{name}</PlayerLink>
       ) : <span className="min-w-0 truncate" title={name}>{name}</span>}
-      {player.verified && (
-        <span className="inline-flex shrink-0 text-brand" role="img" aria-label={VERIFIED_LABEL} title={VERIFIED_LABEL}>
-          <ShieldCheck size={14} aria-hidden="true" />
-        </span>
-      )}
+      {player.verified && <VerifiedMark />}
     </span>
   );
 }

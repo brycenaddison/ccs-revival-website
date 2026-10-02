@@ -45,9 +45,15 @@ export function ProfileHeader({
               {profile.nickname}
             </h1>
             <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1 text-sm text-text-secondary">
-              {profile.pronouns && <span>{profile.pronouns}</span>}
-              {profile.pronouns && profile.pronunciation && <span>•</span>}
-              {profile.pronunciation && <span className="italic">{profile.pronunciation}</span>}
+              {[
+                profile.pronouns && <span key="pronouns">{profile.pronouns}</span>,
+                profile.pronunciation && <span key="pronunciation" className="italic">{profile.pronunciation}</span>,
+                profile.handle && (
+                  <span key="handle" className="min-w-0 truncate">
+                    <span className="sr-only">Discord: </span>@{profile.handle}
+                  </span>
+                ),
+              ].filter(Boolean).flatMap((part, i) => (i === 0 ? [part] : [<span key={`sep${i}`} aria-hidden="true">•</span>, part]))}
             </div>
           </div>
         </div>

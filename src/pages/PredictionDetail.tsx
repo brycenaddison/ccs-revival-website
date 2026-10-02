@@ -33,8 +33,10 @@ import { PredictionStatusChip } from "../components/predictions/PredictionStatus
 import { usePredictionPositions } from "../components/predictions/usePredictionPositions";
 import { usePredictionWallet } from "../components/predictions/usePredictionWallet";
 import { usePageMetadata } from "../components/seo/MetadataProvider";
+import { PredictionsUnavailable } from "../components/predictions/PredictionsUnavailable";
+import { predictionErrorText } from "../components/predictions/predictionLabels";
 import { ErrorLine } from "../components/admin/adminUi";
-import { errorMessage, type PredictionEvent } from "../lib/api";
+import { errorMessage, isPredictionsUnavailable, type PredictionEvent } from "../lib/api";
 import { groupLabels } from "../lib/leagueAdapters";
 import { useLeague } from "../lib/leagueContext";
 import { pointsText } from "../lib/predictionPoints";
@@ -80,12 +82,15 @@ export default function PredictionDetail() {
       {event.kind === "custom" ? <CustomHeader event={event} league={league} /> : <MatchHeader event={event} league={league} />}
 
       <div className="space-y-5">
-        <div>
-          <PredictPanel event={event} wallet={wallet} onPlaced={message => toast.success(message)} />
-          {!!(wallet.summary.error ?? wallet.enrollError) && (
-            <ErrorLine message={errorMessage(wallet.summary.error ?? wallet.enrollError)} />
-          )}
-        </div>
+        {/* The event is a public read and still loads; only participation is unavailable. */}
+        {isPredictionsUnavailable(wallet.summary.error) ? <PredictionsUnavailable /> : (
+          <div>
+            <PredictPanel event={event} wallet={wallet} onPlaced={message => toast.success(message)} />
+            {!!(wallet.summary.error ?? wallet.enrollError) && (
+              <ErrorLine message={predictionErrorText(wallet.summary.error ?? wallet.enrollError)} />
+            )}
+          </div>
+        )}
         {position && <PositionBreakdown event={event} position={position} />}
       </div>
     </PageShell>

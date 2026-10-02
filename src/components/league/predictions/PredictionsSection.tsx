@@ -30,6 +30,8 @@ import { PillTabs } from "../../PillTabs";
 import { toast } from "sonner";
 import { ErrorLine } from "../../admin/adminUi";
 import { relativeInstant } from "../../predictions/PredictionUi";
+import { PredictionsUnavailable } from "../../predictions/PredictionsUnavailable";
+import { predictionErrorText } from "../../predictions/predictionLabels";
 import { Button } from "@/components/ui/button";
 import { CustomMarketPanel } from "./CustomMarketPanel";
 import { EventsPanel } from "./EventsPanel";
@@ -37,7 +39,7 @@ import { PublishPanel } from "./PublishPanel";
 import { WeekNavigator } from "./WeekNavigator";
 import { useAdminAccess } from "../../../lib/adminAccess";
 import { useAuth } from "../../../lib/authContext";
-import { errorMessage, hasScope, reconcilePredictions, type PredictionManage } from "../../../lib/api";
+import { errorMessage, hasScope, isPredictionsUnavailable, reconcilePredictions, type PredictionManage } from "../../../lib/api";
 import { currentPredictionWeek } from "../../../lib/predictionWeek";
 import { queries, queryRoots } from "../../../lib/queries";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -69,6 +71,7 @@ export function PredictionsSection() {
   });
 
   if (calendar.isPending) return <p role="status" className="text-sm text-text-dim">Loading the site calendar…</p>;
+  if (isPredictionsUnavailable(calendar.error)) return <PredictionsUnavailable audience="staff" />;
   if (calendar.error || !calendar.data) return <ErrorLine message={calendar.error ? errorMessage(calendar.error) : "The site calendar is unavailable."} />;
   const data = manage.data;
 
@@ -95,7 +98,7 @@ export function PredictionsSection() {
           onRetry={canManageEvents ? () => reconcile.mutate() : null}
         />
       )}
-      <ErrorLine message={reconcile.error ? errorMessage(reconcile.error) : null} />
+      <ErrorLine message={reconcile.error ? predictionErrorText(reconcile.error, "staff") : null} />
 
       <WeekNavigator
         weekStart={weekStart}
@@ -117,6 +120,7 @@ export function PredictionsSection() {
 
       {tab === "custom" ? <CustomMarketPanel key={conf} conf={conf} readOnly={hidden} />
         : manage.isPending ? <p role="status" className="text-sm text-text-dim">Loading the week…</p>
+        : isPredictionsUnavailable(manage.error) ? <PredictionsUnavailable audience="staff" />
         : manage.error ? <ErrorLine message={errorMessage(manage.error)} />
         : !data ? null
         : tab === "publish"

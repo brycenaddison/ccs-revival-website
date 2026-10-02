@@ -89,6 +89,34 @@ export interface RequestOpts {
   credentialed?: boolean;
 }
 
+/**
+ * The message to show for a failed response. Guards and prediction routes answer a JSON envelope
+ * (`{ status, reason, error }`) and param validation answers plain text; an envelope shows its
+ * `error`, anything else its text.
+ */
+export function errorDetail(text: string): string {
+  const body = errorBody(text) as { error?: unknown } | undefined;
+  return typeof body?.error === "string" ? body.error : text.trim().slice(0, 300);
+}
+
+/**
+ * The error body as data, for the failures that carry more than a sentence (a machine `reason`,
+ * the match holding a code).
+ *
+ * `undefined` rather than `null` when there is nothing to parse, so `ApiError`'s optional field
+ * stays absent: a plain-text param error has no body to speak of, and an empty object would
+ * invite a call site to read fields off it.
+ */
+export function errorBody(text: string): unknown {
+  const body = text.trim();
+  if (!body.startsWith("{")) return undefined;
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Sentinel for a route that does not exist upstream (i.e. a not-yet-built endpoint). */
 const MISSING_ROUTE = Symbol("missing-route");
 
@@ -100,11 +128,11 @@ async function request(path: string, opts?: RequestOpts): Promise<unknown | type
     signal: opts?.signal,
   });
 
-  // Read once, unconditionally — error bodies are plain text.
+  // Read once, unconditionally: error bodies are plain text or a JSON envelope.
   const text = await res.text();
 
   if (res.status === 404) return MISSING_ROUTE;
-  if (!res.ok) throw new ApiError(res.status, path, text.slice(0, 300) || res.statusText);
+  if (!res.ok) throw new ApiError(res.status, path, errorDetail(text) || res.statusText, errorBody(text));
   if (text.trim() === "") return null;
 
   try {
@@ -147,7 +175,7 @@ export async function post<T>(path: string, body?: unknown, opts?: RequestOpts):
   });
   const text = await res.text();
   if (res.status === 404) return null;
-  if (!res.ok) throw new ApiError(res.status, path, text.slice(0, 300) || res.statusText);
+  if (!res.ok) throw new ApiError(res.status, path, errorDetail(text) || res.statusText, errorBody(text));
   if (text.trim() === "") return null;
   try {
     return JSON.parse(text) as T;

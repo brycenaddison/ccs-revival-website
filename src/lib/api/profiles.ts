@@ -63,6 +63,7 @@
  */
 
 import { mapTeamRecord } from "./client";
+import { mapOpggLinks, type OpggLinks } from "./opgg";
 import { mapPlayerSummary, type PlayerSummary } from "./playerSummary";
 import { mapPhaseRef, type PhaseRef } from "./phaseRef";
 import { credentialedRequest } from "./credentialed";
@@ -124,7 +125,7 @@ export interface LinkedAccount {
  * above it. Apex tiers (`MASTER` and up) have no meaningful division: Riot reports `I` for all of
  * them and separates players by LP alone.
  */
-const TIER_ORDER = [
+export const TIER_ORDER = [
   "IRON",
   "BRONZE",
   "SILVER",
@@ -136,6 +137,7 @@ const TIER_ORDER = [
   "GRANDMASTER",
   "CHALLENGER",
 ] as const;
+export type RankTier = typeof TIER_ORDER[number];
 
 /** `IV` is the entry step of a tier and `I` the last one — Riot counts down, so this counts up. */
 const DIVISION_ORDER = ["IV", "III", "II", "I"] as const;
@@ -218,7 +220,7 @@ export interface ProfileAccounts {
   profileId: number;
   accounts: LinkedAccount[];
   unverifiedAccounts: UnverifiedAccount[];
-  links: ProfileLinks;
+  links: OpggLinks;
 }
 
 /**
@@ -301,6 +303,11 @@ export interface ProfilePresentation {
   nickname: string;
   pronouns: string | null;
   pronunciation: string | null;
+  /**
+   * Last saved Discord username, served on the profile page. `null` when none is saved, and on the
+   * settings save result, which does not carry it. Not a live lookup.
+   */
+  handle: string | null;
 }
 
 export interface ProfilePresentationInput {
@@ -521,12 +528,6 @@ export interface ProfileMatch {
   gameIds: string[];
 }
 
-export interface ProfileLinks {
-  opggMultisearch: string | null;
-  opggComplete: boolean;
-  unresolvedPuuids: string[];
-}
-
 export interface PlayerProfile {
   profile: ProfilePresentation;
   filter: { conf: string | null; availableConferences: string[] };
@@ -534,7 +535,7 @@ export interface PlayerProfile {
   /** Display-only claims. Never identity — see the header. */
   unverifiedAccounts: UnverifiedAccount[];
   /** Built from the verified accounts **and** the claims, which is why it can be ahead of `accounts`. */
-  links: ProfileLinks;
+  links: OpggLinks;
   /** Career-wide regardless of `?conf=`. See the header. */
   accolades: ProfileAccolade[];
   career: {
@@ -569,7 +570,7 @@ export interface ProfileAccountRefresh {
   /** Carried through unchanged: a claim has nothing to refresh, and dropping it would empty the list. */
   unverifiedAccounts: UnverifiedAccount[];
   refresh: { puuid: string; status: AccountRefreshStatus }[];
-  links: ProfileLinks;
+  links: OpggLinks;
 }
 
 function mapRank(value: unknown): AccountRank[] {
@@ -644,15 +645,6 @@ function metrics(value: unknown): ProfileMetrics {
   return Object.fromEntries(Object.entries(asRaw(value)).map(([key, v]) => [key, metric(v)]));
 }
 
-function mapLinks(value: unknown): ProfileLinks {
-  const r = asRaw(value);
-  return {
-    opggMultisearch: strOrNull(r.opggMultisearch),
-    opggComplete: bool(r.opggComplete),
-    unresolvedPuuids: strings(r.unresolvedPuuids),
-  };
-}
-
 function mapPresentation(value: unknown): ProfilePresentation | null {
   const r = asRaw(value);
   const id = intOrNull(r.id);
@@ -662,6 +654,7 @@ function mapPresentation(value: unknown): ProfilePresentation | null {
     nickname: strOrNull(r.nickname) ?? "Unknown player",
     pronouns: strOrNull(r.pronouns),
     pronunciation: strOrNull(r.pronunciation),
+    handle: strOrNull(r.handle),
   };
 }
 
@@ -904,7 +897,7 @@ function mapPlayerProfile(value: unknown): PlayerProfile | null {
     filter: { conf: strOrNull(filter.conf), availableConferences: strings(filter.availableConferences) },
     accounts: Array.isArray(r.accounts) ? r.accounts.flatMap(mapAccount) : [],
     unverifiedAccounts: mapUnverifiedAccounts(r.unverifiedAccounts),
-    links: mapLinks(r.links),
+    links: mapOpggLinks(r.links),
     accolades: mapAccolades(r.accolades),
     career: {
       totals: metrics(career.totals),
@@ -944,7 +937,7 @@ export async function profileAccounts(
     profileId: int(data.profileId, profileId),
     accounts: Array.isArray(data.accounts) ? data.accounts.flatMap(mapAccount) : [],
     unverifiedAccounts: mapUnverifiedAccounts(data.unverifiedAccounts),
-    links: mapLinks(data.links),
+    links: mapOpggLinks(data.links),
   };
 }
 
@@ -1127,7 +1120,7 @@ export async function refreshProfileAccounts(profileId: number): Promise<Profile
           return puuid && isRefreshStatus(item.status) ? [{ puuid, status: item.status }] : [];
         })
       : [],
-    links: mapLinks(r.links),
+    links: mapOpggLinks(r.links),
   };
 }
 

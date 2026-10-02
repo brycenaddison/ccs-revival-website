@@ -28,6 +28,7 @@ import { COMPARE_DOCK_MAX } from "../components/stats/CompareDock";
 import { TeamPanel } from "../components/stats/TeamPanel";
 import { ChampionPanel } from "../components/stats/ChampionPanel";
 import { RecordsPanel } from "../components/stats/RecordsPanel";
+import { DivisionPicker } from "../components/league/DivisionPicker";
 import { groupLabels } from "../lib/leagueAdapters";
 import { useLeague } from "../lib/leagueContext";
 
@@ -64,21 +65,12 @@ export default function Stats() {
     <PageShell extraBottom={compareCount > 0 ? COMPARE_DOCK_MAX : undefined}>
       <h2 className="font-display text-[22px] text-text-bright mb-4">Stats</h2>
 
-      {selectedConfs.length > 1 && (
-        <div className="flex gap-1 mb-4 flex-wrap">
-          {selectedConfs.map((c, i) => (
-            <button
-              key={c}
-              onClick={() => setConfIndex(i)}
-              className={`py-1.5 px-3 text-[11px] font-heading rounded border ${
-                i === confIndex ? "bg-brand text-white border-brand" : "bg-bg2 text-text-secondary border-border"
-              }`}
-            >
-              {labels.get(c) ?? c}
-            </button>
-          ))}
-        </div>
-      )}
+      <DivisionPicker
+        confs={selectedConfs}
+        selected={conf}
+        labels={labels}
+        onSelect={c => setConfIndex(selectedConfs.indexOf(c))}
+      />
 
       {conf && <TotalsBar conf={conf} isMobile={isMobile} />}
 

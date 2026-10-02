@@ -25,6 +25,7 @@ import { ErrorLine } from "../../admin/adminUi";
 import { PlayerSlot } from "../../players/PlayerSlot";
 import type { PickedPlayer } from "../../players/PlayerIdentity";
 import { predictionPath } from "../../predictions/PredictionCard";
+import { predictionErrorText } from "../../predictions/predictionLabels";
 import { SettingsRow } from "../../settings/SettingsSection";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
@@ -264,7 +265,7 @@ export function CustomMarketPanel({ conf, readOnly = false }: {
         onConfirm={publish}
         trigger={<Button disabled={publishing.isPending || (!attempt && invalid)}>{attempt ? "Retry publishing" : "Publish"}</Button>}
       />}
-      {publishing.error && <ErrorLine message={errorMessage(publishing.error)} />}
+      {publishing.error && <ErrorLine message={predictionErrorText(publishing.error, "staff")} />}
     </div>
   );
 }

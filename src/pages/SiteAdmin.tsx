@@ -14,7 +14,7 @@
  */
 
 import { useParams } from "react-router-dom";
-import { Award, CalendarRange, Coins, Import, Megaphone, ShieldCheck, Trophy } from "lucide-react";
+import { Award, CalendarRange, Coins, Import, Megaphone, ShieldCheck, Swords, Trophy } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
@@ -25,6 +25,7 @@ import { LeaguesSection } from "../components/admin/LeaguesSection";
 import { RolesSection } from "../components/admin/RolesSection";
 import { SeasonStructureSection } from "../components/admin/season/SeasonStructureSection";
 import { PredictionsSettingsSection } from "../components/admin/PredictionsSettingsSection";
+import { DraftsSection } from "../components/admin/drafts/DraftsSection";
 import { SITE_ADMIN_ROLE } from "../lib/api";
 import { type SettingsArea } from "../lib/settingsAreas";
 
@@ -97,6 +98,15 @@ const AREA: SettingsArea = {
       icon: Coins,
       description: "Pause or resume prediction operations, set the site timezone and reward policy, start a new leaderboard season, and choose which leagues have predictions.",
       Component: PredictionsSettingsSection,
+    },
+    {
+      slug: "drafts",
+      label: "Drafts",
+      icon: Swords,
+      // Settings and the repair inbox are site admin only upstream. Creating a match's room is a
+      // schedule job and lives in League Admin > Schedule.
+      description: "Draft mode and disabled champions for new Drafter rooms, and deliveries or room creations that need repair.",
+      Component: DraftsSection,
     },
   ],
 };

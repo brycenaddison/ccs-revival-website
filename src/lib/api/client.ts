@@ -10,6 +10,7 @@
 
 import { getList, getOne, isAbort, post, type RequestOpts } from "./http";
 import { isNoBanChampion, NO_BAN_CHAMPION } from "../championData";
+import { mapOpggLinks } from "./opgg";
 import { mapPhaseRef } from "./phaseRef";
 import { mapPlayerSummary } from "./playerSummary";
 import {
@@ -38,6 +39,7 @@ import type {
   RecordUnit,
   RecordsResponse,
   RoleKey,
+  RosterRankStatus,
   RosterSlot,
   SeasonRecord,
   StandingRow,
@@ -107,8 +109,23 @@ const ROLE_KEYS: readonly RoleKey[] = ["top", "jg", "mid", "bot", "sup"];
  * A slot with no usable `profileId` is treated as unfilled: `profileId` is the only part that
  * joins to anything, so a slot without one cannot be rendered or looked up.
  */
+const ROSTER_RANK_STATUSES: readonly RosterRankStatus[] = ["ranked", "unranked", "unavailable"];
+
 function mapRosterSlot(raw: unknown): RosterSlot | null {
-  return mapPlayerSummary(raw);
+  const summary = mapPlayerSummary(raw);
+  if (!summary) return null;
+  const r = asRaw(raw);
+  const rankStatus = ROSTER_RANK_STATUSES.find(status => status === r.rankStatus) ?? null;
+  const rank = asRaw(r.currentRank);
+  const tier = rankStatus === "ranked" ? strOrNull(rank.tier) : null;
+  return {
+    ...summary,
+    handle: strOrNull(r.handle),
+    pronouns: strOrNull(r.pronouns),
+    primaryRiotId: strOrNull(r.primaryRiotId),
+    rankStatus,
+    soloRank: tier ? { tier, division: strOrNull(rank.division) } : null,
+  };
 }
 
 function mapRoster(raw: Raw): TeamRoster {
@@ -166,6 +183,7 @@ export function mapTeamRecord(raw: Raw): TeamRecord {
         }
       : {}),
     record: mapSeasonRecord(raw.record),
+    links: mapOpggLinks(raw.links),
     ...mapRoster(raw),
   };
 }
@@ -471,6 +489,9 @@ function buildTeamDetail(conf: string, code: string, raw: Raw, record: TeamRecor
     bannedAgainst: Array.isArray(raw.bannedAgainst) ? raw.bannedAgainst.map(mapBanCount) : [],
     bannedBy: Array.isArray(raw.bannedBy) ? raw.bannedBy.map(mapBanCount) : [],
     matchlist: sortMatchlist(Array.isArray(raw.matchlist) ? raw.matchlist.map(m => mapMatchlistEntry(asRaw(m))) : []),
+    // The page's own copy leads; the roster row carries the same projection, so it covers a
+    // deployment whose team page predates the field.
+    links: "links" in raw ? mapOpggLinks(raw.links) : record?.links ?? mapOpggLinks(null),
   };
 }
 

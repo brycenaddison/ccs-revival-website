@@ -96,6 +96,23 @@
   --scenario-edge: 45%;
 }
 
+/*
+ * Ranked tiers, Iron to Challenger, each in the hue Riot's own crest uses. Stated per theme like the
+ * scenario ramp: bright enough for near-black, a step darker to carry on white. `lib/riot/rankTiers.ts`
+ * maps a tier to its utilities.
+ */
+[data-theme="dark"] {
+  --tier-iron: #8f8a87; --tier-bronze: #c0825a; --tier-silver: #a8b5c2; --tier-gold: #e0b44c;
+  --tier-platinum: #4cc3b5; --tier-emerald: #34c47c; --tier-diamond: #7b97ff; --tier-master: #b874e6;
+  --tier-grandmaster: #ef5a62; --tier-challenger: #f4d06f;
+}
+
+[data-theme="light"] {
+  --tier-iron: #625d5a; --tier-bronze: #8e5531; --tier-silver: #5f6d7b; --tier-gold: #9c7006;
+  --tier-platinum: #1a8579; --tier-emerald: #15844d; --tier-diamond: #3d5bd0; --tier-master: #8a3fbf;
+  --tier-grandmaster: #c22a33; --tier-challenger: #a37a00;
+}
+
 /* ── Base (inside layer so Tailwind utilities can override) ── */
 @layer base {
   body {
@@ -288,6 +305,17 @@ input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
   /* Map sides. `text-side-blue`, `bg-side-red/20`, `border-side-blue`. See the theme block above. */
   --color-side-blue: var(--side-blue);
   --color-side-red: var(--side-red);
+  /* Ranked tiers. `text-tier-gold`, `border-tier-diamond/50`. See the tier block above. */
+  --color-tier-iron: var(--tier-iron);
+  --color-tier-bronze: var(--tier-bronze);
+  --color-tier-silver: var(--tier-silver);
+  --color-tier-gold: var(--tier-gold);
+  --color-tier-platinum: var(--tier-platinum);
+  --color-tier-emerald: var(--tier-emerald);
+  --color-tier-diamond: var(--tier-diamond);
+  --color-tier-master: var(--tier-master);
+  --color-tier-grandmaster: var(--tier-grandmaster);
+  --color-tier-challenger: var(--tier-challenger);
 
   /* OP.GG's brand blue. Fixed in both themes: it identifies their product, not ours. */
   --color-opgg: #5383e8;
