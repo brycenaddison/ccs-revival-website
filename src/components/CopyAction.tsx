@@ -1,5 +1,5 @@
-/** Shared clipboard feedback for individual tournament codes and whole code sheets. */
-import { useEffect, useState } from "react";
+/** Shared clipboard feedback for codes, code sheets and player handles. */
+import { useEffect, useState, type ComponentType } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TooltipHint } from "./TooltipHint";
@@ -11,13 +11,15 @@ export function CopyAction({
   icon: Icon = Copy,
   label,
   onReport,
+  onError = onReport,
 }: {
   text: string;
   title: string;
   message: string;
-  icon?: typeof Copy;
+  icon?: ComponentType<{ size: number; "aria-hidden": "true" }>;
   label?: string;
   onReport: (message: string) => void;
+  onError?: (message: string) => void;
 }) {
   const [done, setDone] = useState(false);
 
@@ -30,7 +32,7 @@ export function CopyAction({
   const run = () => {
     const clip = navigator.clipboard;
     if (!clip) {
-      onReport("This browser won't give up the clipboard here — select the text and copy it by hand.");
+      onError("This browser won't give up the clipboard here. Select the text and copy it by hand.");
       return;
     }
     void clip.writeText(text).then(
@@ -38,7 +40,7 @@ export function CopyAction({
         setDone(true);
         onReport(message);
       },
-      () => onReport("Couldn't reach the clipboard, so nothing was copied. Select the text by hand."),
+      () => onError("Couldn't reach the clipboard, so nothing was copied. Select the text by hand."),
     );
   };
 

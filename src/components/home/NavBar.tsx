@@ -13,7 +13,7 @@ interface Props {
   isMobile: boolean;
 }
 
-const EXTERNAL_LINKS = [{ label: "Merch", href: "https://classicchampionshipseries.itemorder.com/shop/sale/" }];
+const EXTERNAL_LINKS = [{ label: "Merch", href: "https://ccsteamportal.itemorder.com/shop/home/" }];
 
 /**
  * The mark alone. The wordmark that sat beside it said what the image already says, so it went; the

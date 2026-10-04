@@ -24,26 +24,27 @@ import {
   errorMessage,
   removeEsub,
   type TeamDiscordMember,
-  type TeamDiscordResource,
   type TeamDiscordTeam,
 } from "../../../lib/api";
 import { PlayerLink } from "../../profile/PlayerLink";
-import { DRIFT_LABEL, RESOURCE_LABEL } from "./discordLabels";
+import { DRIFT_LABEL } from "./discordLabels";
+import { DiscordResourceBadge } from "./DiscordResourceBadge";
 import { IssueText, type RosterNames } from "./discordIssues";
 import { EsubGrant } from "./EsubGrant";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-export function TeamDiscordCard({ conf, team, canEdit, source, people, provisioning, onProvision }: {
+export function TeamDiscordCard({ conf, team, canEdit, source, people, working, onProvision, onResync }: {
   conf: string;
   team: TeamDiscordTeam;
-  /** Roster scope and a connected Discord; esubs and provisioning both need both. */
+  /** Roster scope and a connected Discord, required for every action here. */
   canEdit: boolean;
   source: DiscordPlayerSource;
   people: RosterNames;
-  provisioning: boolean;
+  working: boolean;
   /** Null when this viewer cannot provision right now. */
   onProvision: (() => void) | null;
+  onResync: (() => void) | null;
 }) {
   const [open, setOpen] = useState(false);
   const [granting, setGranting] = useState(false);
@@ -61,8 +62,8 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, provision
   });
 
   const resources = [team.role, team.text, team.voice] as const;
-  const incomplete = resources.some(resource => resource === null);
-  const attention = team.drift.length + team.warnings.length + (team.queued ? 1 : 0);
+  const attention = team.drift.length + team.warnings.length + (team.queued ? 1 : 0)
+    + resources.filter(resource => resource?.diagnostic === "uncertain" || resource?.exists === false).length;
   const esubs = team.members.filter(member => member.source === "esub");
   const roster = team.members.filter(member => member.source === "roster");
 
@@ -79,7 +80,7 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, provision
         <span className="min-w-0 flex-1 truncate text-sm text-text-bright">{team.name || team.code}</span>
         <span className="flex flex-wrap items-center gap-1.5">
           {(["role", "text", "voice"] as const).map((kind, index) => (
-            <ResourceBadge key={kind} kind={kind} resource={resources[index]} />
+            <DiscordResourceBadge key={kind} kind={kind} resource={resources[index]} />
           ))}
           {attention > 0 && <Badge variant="destructive">Needs attention</Badge>}
         </span>
@@ -87,12 +88,14 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, provision
 
       {open && (
         <div className="flex flex-col gap-4 border-t border-border p-4">
-          {incomplete && onProvision && (
+          {canEdit && (
             <div className="flex flex-wrap items-center gap-3">
-              <Button variant="outline" size="sm" type="button" disabled={provisioning} onClick={onProvision}>
-                {provisioning ? "Provisioning…" : "Provision this team"}
+              <Button variant="outline" size="sm" type="button" disabled={working || !onProvision} onClick={() => onProvision?.()}>
+                Provision this team
               </Button>
-              <span className="text-xs text-text-dim">Creates whatever this team is missing.</span>
+              <Button variant="outline" size="sm" type="button" disabled={working || !onResync} onClick={() => onResync?.()}>
+                Resync roles
+              </Button>
             </div>
           )}
 
@@ -120,6 +123,11 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, provision
                 {team.queued.attempts > 0 && <> · {team.queued.attempts} {team.queued.attempts === 1 ? "attempt" : "attempts"} so far</>}
                 {team.queued.retryAt && <> · next try {relativeInstant(team.queued.retryAt, null)}</>}
               </p>
+              {(team.queued.membership === true || team.queued.resources === true) && (
+                <p className="text-xs text-text-dim">
+                  Pending: {[team.queued.membership === true ? "role membership" : null, team.queued.resources === true ? "roles and channels" : null].filter(Boolean).join(", ")}
+                </p>
+              )}
               <ErrorLine message={team.queued.lastError} />
             </div>
           )}
@@ -192,15 +200,6 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, provision
       )}
     </section>
   );
-}
-
-function ResourceBadge({ kind, resource }: { kind: "role" | "text" | "voice"; resource: TeamDiscordResource | null }) {
-  const label = RESOURCE_LABEL[kind];
-  if (!resource) return <Badge variant="muted">{label}: not created</Badge>;
-  if (resource.status === "pending") return <Badge variant="muted">{label}: creating</Badge>;
-  if (resource.status === "archived") return <Badge variant="muted">{label}: archived</Badge>;
-  if (resource.exists === false) return <Badge variant="destructive">{label}: missing in Discord</Badge>;
-  return <Badge variant={resource.exists === null ? "muted" : "secondary"}>{label}</Badge>;
 }
 
 function memberLabel(member: Pick<TeamDiscordMember, "profile" | "handle">): string {

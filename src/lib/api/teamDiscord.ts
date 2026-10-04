@@ -1,6 +1,6 @@
 /**
  * Team Discord roles and channels: the conference status read, provisioning, the staff-role
- * setting, esubs and end-of-season teardown.
+ * setting, role membership resync, esubs and end-of-season teardown.
  *
  * Upstream behavior worth knowing:
  *
@@ -9,9 +9,12 @@
  *  - The status read always answers. Without Discord it serves the recorded objects with
  *    `available: false`, and `exists`, drift and preflight are then unknown rather than clean.
  *  - Once the conference category exists, a background worker keeps every team in step with roster,
- *    name, code, color and logo changes. Nothing here enqueues a sync; roster writes already do.
+ *    name, code, color and logo changes. Roster writes already enqueue their own sync.
  *  - Provision preflights the whole request and answers `409 not_ready` with every blocker before
  *    any Discord write. Its outcomes are per team, and an unfinished team is queued for the worker.
+ *  - Repeated provision updates recorded resources in place. Membership resync only reconciles
+ *    existing roles; missing roles require provision. Membership and resource retries are separate.
+ *  - Uncertain resource diagnostics require inspection; absence is only confirmed by an exact read.
  *  - The bot only removes the role from people it recorded granting it to, so a role given by hand
  *    in Discord never appears as a member here.
  *  - A role holder is named by the saved profile with their Discord account, otherwise by their
@@ -61,6 +64,12 @@ export type TeamDiscordDrift = (typeof TEAM_DISCORD_DRIFT)[number];
 export const TEAM_DISCORD_PROVISION_STATUSES = ["provisioned", "in_progress", "queued", "failed"] as const;
 export type TeamDiscordProvisionStatus = (typeof TEAM_DISCORD_PROVISION_STATUSES)[number];
 
+export const TEAM_DISCORD_ROLE_RESYNC_STATUSES = ["synced", "queued", "in_progress", "failed", "not_provisioned"] as const;
+export type TeamDiscordRoleResyncStatus = (typeof TEAM_DISCORD_ROLE_RESYNC_STATUSES)[number];
+
+export const TEAM_DISCORD_RESOURCE_DIAGNOSTICS = ["present", "missing", "uncertain", "pending"] as const;
+export type TeamDiscordResourceDiagnostic = (typeof TEAM_DISCORD_RESOURCE_DIAGNOSTICS)[number];
+
 export const TEAM_DISCORD_TEARDOWN_MODES = ["archive", "delete"] as const;
 export type TeamDiscordTeardownMode = (typeof TEAM_DISCORD_TEARDOWN_MODES)[number];
 
@@ -78,6 +87,7 @@ export interface TeamDiscordResource {
   snowflake: string | null;
   /** Whether the object is still in Discord; null when Discord could not be asked. */
   exists: boolean | null;
+  diagnostic: TeamDiscordResourceDiagnostic | null;
 }
 
 /** One preflight blocker or warning. `message` is written to be shown. */
@@ -126,6 +136,8 @@ export interface TeamDiscordQueued {
   attempts: number;
   retryAt: string | null;
   lastError: string | null;
+  membership: boolean | null;
+  resources: boolean | null;
 }
 
 export interface TeamDiscordTeam {
@@ -166,6 +178,7 @@ export interface TeamDiscordStatus {
   preflight: TeamDiscordPreflight | null;
   teardown: { remove: number; archive: number; pending: number };
   queue: { depth: number };
+  cleanupIssues: TeamDiscordIssue[];
 }
 
 export interface TeamDiscordProvisionTeam {
@@ -174,6 +187,10 @@ export interface TeamDiscordProvisionTeam {
   name: string;
   status: TeamDiscordProvisionStatus | null;
   created: TeamDiscordResourceKind[];
+  granted: number | null;
+  revoked: number | null;
+  membershipError: string | null;
+  resourceError: string | null;
   warnings: TeamDiscordIssue[];
   error: string | null;
 }
@@ -181,6 +198,22 @@ export interface TeamDiscordProvisionTeam {
 export interface TeamDiscordProvisionReport {
   warnings: TeamDiscordIssue[];
   teams: TeamDiscordProvisionTeam[];
+}
+
+export interface TeamDiscordRoleResyncTeam {
+  teamId: number;
+  code: string;
+  name: string;
+  status: TeamDiscordRoleResyncStatus | null;
+  granted: number | null;
+  revoked: number | null;
+  warnings: TeamDiscordIssue[];
+  error: string | null;
+}
+
+export interface TeamDiscordRoleResyncReport {
+  warnings: TeamDiscordIssue[];
+  teams: TeamDiscordRoleResyncTeam[];
 }
 
 export interface TeamDiscordEsub {
@@ -220,6 +253,10 @@ const raw = (value: unknown): Raw => value && typeof value === "object" && !Arra
 const string = (value: unknown): string | null => typeof value === "string" && value.trim() ? value : null;
 const integer = (value: unknown): number | null => typeof value === "number" && Number.isSafeInteger(value) ? value : null;
 const count = (value: unknown): number => Math.max(0, integer(value) ?? 0);
+const countOrNull = (value: unknown): number | null => {
+  const n = integer(value);
+  return n !== null && n >= 0 ? n : null;
+};
 const snowflake = (value: unknown): string | null =>
   typeof value === "string" && DISCORD_SNOWFLAKE.test(value) ? value : null;
 const rows = <T>(value: unknown, map: (value: unknown) => T | null): T[] =>
@@ -237,6 +274,7 @@ function resourceOf(value: unknown): TeamDiscordResource | null {
     id, kind, status,
     snowflake: snowflake(r.snowflake),
     exists: typeof r.exists === "boolean" ? r.exists : null,
+    diagnostic: enumValue(r.diagnostic, TEAM_DISCORD_RESOURCE_DIAGNOSTICS),
   };
 }
 
@@ -288,7 +326,11 @@ function roleOptionOf(value: unknown): TeamDiscordRoleOption | null {
 function queuedOf(value: unknown): TeamDiscordQueued | null {
   if (value == null) return null;
   const r = raw(value);
-  return { attempts: count(r.attempts), retryAt: string(r.retryAt), lastError: string(r.lastError) };
+  return {
+    attempts: count(r.attempts), retryAt: string(r.retryAt), lastError: string(r.lastError),
+    membership: typeof r.membership === "boolean" ? r.membership : null,
+    resources: typeof r.resources === "boolean" ? r.resources : null,
+  };
 }
 
 function teamOf(value: unknown): TeamDiscordTeam | null {
@@ -329,6 +371,7 @@ function statusOf(value: unknown, conf: string): TeamDiscordStatus {
     },
     teardown: { remove: count(teardown.remove), archive: count(teardown.archive), pending: count(teardown.pending) },
     queue: { depth: count(raw(r.queue).depth) },
+    cleanupIssues: rows(r.cleanupIssues, issueOf),
   };
 }
 
@@ -342,6 +385,26 @@ function provisionTeamOf(value: unknown): TeamDiscordProvisionTeam | null {
     name: string(r.name) ?? "",
     status: enumValue(r.status, TEAM_DISCORD_PROVISION_STATUSES),
     created: rows(r.created, entry => enumValue(entry, TEAM_DISCORD_RESOURCE_KINDS)),
+    granted: countOrNull(r.granted),
+    revoked: countOrNull(r.revoked),
+    membershipError: string(r.membershipError),
+    resourceError: string(r.resourceError),
+    warnings: rows(r.warnings, issueOf),
+    error: string(r.error),
+  };
+}
+
+function roleResyncTeamOf(value: unknown): TeamDiscordRoleResyncTeam | null {
+  const r = raw(value);
+  const teamId = integer(r.teamId);
+  if (teamId === null) return null;
+  return {
+    teamId,
+    code: string(r.code) ?? "",
+    name: string(r.name) ?? "",
+    status: enumValue(r.status, TEAM_DISCORD_ROLE_RESYNC_STATUSES),
+    granted: countOrNull(r.granted),
+    revoked: countOrNull(r.revoked),
     warnings: rows(r.warnings, issueOf),
     error: string(r.error),
   };
@@ -394,6 +457,18 @@ export async function provisionTeamDiscord(
     opts,
   ));
   return { warnings: rows(r.warnings, issueOf), teams: rows(r.teams, provisionTeamOf) };
+}
+
+/** Reconciles membership on existing roles, without changing roles, channels or categories. */
+export async function resyncTeamDiscordRoles(
+  conf: string, teamIds?: readonly number[], opts?: RequestOpts,
+): Promise<TeamDiscordRoleResyncReport> {
+  const r = raw(await credentialedRequest(
+    `${forConf(conf)}/discord/roles/resync`,
+    { method: "POST", body: teamIds ? { teamIds } : {}, cache: "no-store" },
+    opts,
+  ));
+  return { warnings: rows(r.warnings, issueOf), teams: rows(r.teams, roleResyncTeamOf) };
 }
 
 /** Replaces the whole list. In a provisioned conference the worker then re-permissions every channel. */
@@ -457,5 +532,5 @@ export async function teardownTeamDiscord(
 
 /** Namespaced for parity with the other modules' aggregates. */
 export const teamDiscordApi = {
-  teamDiscordStatus, provisionTeamDiscord, saveTeamDiscordStaffRoles, grantEsub, removeEsub, teardownTeamDiscord,
+  teamDiscordStatus, provisionTeamDiscord, resyncTeamDiscordRoles, saveTeamDiscordStaffRoles, grantEsub, removeEsub, teardownTeamDiscord,
 };

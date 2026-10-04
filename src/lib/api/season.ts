@@ -21,6 +21,11 @@
  * public rendering payload in `./client` — substitutes the resolved value instead, which is why an
  * editor must never load from it: echoing a resolved value back pins it as a per-match override, and
  * the phase default then moves nothing.
+ *
+ * Bracket summaries carry Boolean `bracketView`; group summaries omit it. List writes preserve an
+ * omitted choice and default new brackets to true. Manual rounds require every source to be cleared
+ * in a contents save before changing the summary to false, and then forbid new sources. The view
+ * itself never clears fixtures, wiring or results. Missing/invalid read values remain null.
  */
 
 import { credentialedRequest } from "./credentialed";
@@ -30,6 +35,11 @@ import type { RequestOpts } from "./http";
 
 export const PHASE_KINDS = ["group", "bracket"] as const;
 export type PhaseKind = (typeof PHASE_KINDS)[number];
+
+/** Persisted presentation choice: true draws a bracket, false draws manual rounds; absence stays null. */
+export function mapBracketView(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
 
 /** Riot mints codes per game, so a series length is odd. 1, 3 or 5 — nothing else. */
 export const BEST_OF_VALUES = [1, 3, 5] as const;
@@ -89,6 +99,8 @@ export function isSlotSeed(value: unknown): value is string {
 export interface PhaseSummary {
   id: number;
   kind: PhaseKind;
+  /** Site-admin presentation choice. Null until the server supports it, or for group phases. */
+  bracketView: boolean | null;
   name: string;
   /** 1-based position. Derived from array order on save; never sent. */
   ordinal: number;
@@ -114,6 +126,8 @@ export interface PhaseListEntry {
   /** Negative for a phase created client-side. */
   id: number;
   kind: PhaseKind;
+  /** Omission preserves the saved choice; new omitted brackets default to true upstream. */
+  bracketView?: boolean;
   name: string;
   matchDays: number;
   published: boolean;
@@ -390,6 +404,7 @@ function mapPhaseSummary(raw: unknown): PhaseSummary {
   return {
     id: int(p.id),
     kind: kind(p.kind),
+    bracketView: p.kind === "bracket" ? mapBracketView(p.bracketView) : null,
     name: str(p.name),
     ordinal: int(p.ordinal, 1),
     matchDays,
@@ -934,6 +949,7 @@ export function toListEntry(p: PhaseSummary): PhaseListEntry {
   return {
     id: p.id,
     kind: p.kind,
+    ...(p.kind === "bracket" && p.bracketView !== null ? { bracketView: p.bracketView } : {}),
     name: p.name,
     matchDays: p.matchDays,
     published: p.published,

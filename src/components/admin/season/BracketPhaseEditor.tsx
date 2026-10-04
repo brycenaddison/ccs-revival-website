@@ -10,6 +10,9 @@
  *  - **derived** — `src: { node, output }`. Propagation owns the team, so the picker is disabled;
  *    anything sent there is overwritten by the next result anyway.
  *
+ * Saved manual rounds (`bracketView: false`) forbid every source. The editor keeps team and seed
+ * controls but disables advancement choices; the API validates the same invariant on save.
+ *
  * **A column is a match day, and the round each card belongs to is derived from the wiring.** Those are
  * two different things and the editor needs both: the day is what a match is *scheduled* on and what the
  * kickoff tiers hang off, while the round is what feeds what. One round can straddle two days and one day
@@ -56,6 +59,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { ErrorLine } from "../adminUi";
 import { IssueList, invalidAt } from "./issues";
+import { PhaseViewField } from "./PhaseViewField";
 import { DayKickoffField, StrandedDaysNotice, withDayDefault } from "./DayKickoff";
 import { StandingsReference, type ReferenceTable } from "../../season/StandingsReference";
 import { queries, queryRoots } from "../../../lib/queries";
@@ -73,9 +77,11 @@ import {
   isSlotSeed,
   pinnedDaysAfter,
   savePhaseContents,
+  savePhaseList,
   seasonDayOf,
   shiftDayDefaults,
   strandedDayDefaults,
+  toListEntry,
   type BestOf,
   type BracketPhaseContents,
   type CandidatePhase,
@@ -147,10 +153,41 @@ export function BracketPhaseEditor({
   const qc = useQueryClient();
   const [draft, setDraft] = useState<BracketPhaseContents>(contents);
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
+  const [viewChoice, setViewChoice] = useState<{ base: boolean | null; value: boolean } | null>(null);
+  const [viewIssues, setViewIssues] = useState<ValidationIssue[]>([]);
+  const [viewPath, setViewPath] = useState("");
+  const view = viewChoice && viewChoice.base === phase.bracketView ? viewChoice.value : phase.bracketView;
+  const manualRounds = phase.bracketView === false;
+  const hasManualSources = manualRounds && draft.nodes.some(node => node.top.src !== null || node.bottom.src !== null);
 
   const candidates = useQuery(queries.phaseCandidates(conf, phase.id));
 
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(contents), [draft, contents]);
+  const savedSources = contents.nodes.some(node => node.top.src !== null || node.bottom.src !== null);
+
+  const saveView = useMutation({
+    retry: false,
+    mutationFn: async (bracketView: boolean) => {
+      // The API replaces the entire season list. Read it on this click to preserve other phases
+      // and their current settings instead of echoing the list cached when this editor opened.
+      const phases = await qc.fetchQuery(queries.seasonPhases(conf));
+      const index = phases.findIndex(p => p.id === phase.id);
+      if (index === -1) throw new Error("This phase no longer exists. Return to the season page.");
+      if (phases[index].bracketView === null) throw new Error("This server does not support saving a phase view yet.");
+      setViewPath(`phases.${index}.bracketView`);
+      return savePhaseList(conf, phases.map(p => toListEntry(p.id === phase.id ? { ...p, bracketView } : p)));
+    },
+    onSuccess: async () => {
+      setViewIssues([]);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: queryRoots.season }),
+        qc.invalidateQueries({ queryKey: queryRoots.schedule }),
+      ]);
+      setViewChoice(null);
+      onSaved(`Saved ${phase.name} view.`);
+    },
+    onError: (e: unknown) => setViewIssues(e instanceof SaveRejected ? e.issues : []),
+  });
 
   /**
    * Every `(node, output)` a slot already draws from, and which slot took it.
@@ -345,173 +382,215 @@ export function BracketPhaseEditor({
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="text-text-secondary text-sm max-w-2xl">
-        Each card is one match. Wire a slot to the winner or loser of an earlier match, or leave it as an
-        entry and place the team by hand — which is what a tie the standings will not break requires.
-        Saving fills in every team the results already imply.
-      </p>
-      <p className="text-text-secondary text-sm max-w-2xl">
-        A column is a match <em>day</em>, and the arrows on a card set its order within that day. The{" "}
-        <span className="text-text">round</span> is read off the wiring instead of being stored, so it
-        relabels itself as slots are wired — the card stays where you put it.
-      </p>
-
-      {/*
-        One column per match day, in a strip that scrolls sideways.
-
-        Not a wrapping grid. A bracket reads left to right — day 1 feeds day 2 — and wrapping day 3 onto
-        a second row breaks the one spatial cue the layout has. Fixed-width columns that overflow keep
-        that order at any number of days, and scrolling is the honest answer to a season longer than the
-        screen.
-
-        `-mx-5 px-5` cancels `SectionFrame`'s padding so the strip's scroll edge sits flush with the
-        card rather than clipping a column mid-padding, and the first and last columns still align with
-        everything above them.
-      */}
-      <div className="-mx-5 px-5 overflow-x-auto">
-        <div className="flex gap-4 pb-2 w-max">
-          {days.map(matchDay => {
-            // By `ordinal` alone. Never by the derived round — see the note at the top of the file: that
-            // moved a card the moment its own source dropdown was touched.
-            const onDay = nodesOnDay(draft.nodes, matchDay);
-
-            return (
-              <div
-                key={matchDay}
-                // `shrink-0` is what makes the strip overflow rather than squeezing every column thinner
-                // as days are added — which is the whole failure this replaced.
-                className="w-[22rem] shrink-0 bg-bg3 border border-border rounded-md p-3.5"
-              >
-                <div className="mb-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-display text-base text-text-bright ">
-                      Day {matchDay}
-                    </span>
-                    <Badge variant="muted">Season day {seasonDayOf(phase, matchDay)}</Badge>
-                    {/* Same reason as the group editor: a column of cards puts the button below the
-                        fold, so adding several means scrolling back after each one. */}
-                    <div className="ml-auto">
-                      <Button type="button" variant="outline" size="sm" onClick={() => addNode(matchDay)}>
-                        <Plus size={13} aria-hidden="true" />
-                        Add
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <DayKickoffField
-                      matchDay={matchDay}
-                      matchDays={phase.matchDays}
-                      pinned={pinnedFor(matchDay)}
-                      resolved={kickoffs[matchDay - 1] ?? null}
-                      inherited={unpinned[matchDay - 1] ?? null}
-                      onChange={startAt => setDayDefault(matchDay, startAt)}
-                      onShiftLater={offsetMs => shiftLater(matchDay, offsetMs)}
-                      laterPinned={pinnedDaysAfter(phase, draft.dayDefaults, matchDay)}
-                      onClearLater={() => clearLater(matchDay)}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2.5">
-                  {onDay.map((node, position) => (
-                    <NodeCard
-                      key={node.id}
-                      node={node}
-                      index={draft.nodes.findIndex(n => n.id === node.id)}
-                      nodes={draft.nodes}
-                      phase={phase}
-                      teams={teams}
-                      issues={issues}
-                      consumed={consumed}
-                      round={depths.get(node.id) ?? 0}
-                      isFirst={position === 0}
-                      isLast={position === onDay.length - 1}
-                      isTerminal={terminalNow.has(node.id)}
-                      wasTerminal={terminalNodes.includes(node.id)}
-                      isCyclic={cyclic.includes(node.id)}
-                      dayKickoff={kickoffs[matchDay - 1] ?? null}
-                      onChange={changes => update(node.id, changes)}
-                      onMove={by => moveNode(node.id, by)}
-                      onSetDay={day => setNodeDay(node.id, day)}
-                      onRemove={() => removeNode(node.id)}
-                    />
-                  ))}
-
-                  {onDay.length === 0 && (
-                    <p className="text-text-dim text-xs">No matches on this day.</p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <StrandedDaysNotice
-        phase={phase}
-        stranded={stranded}
-        onClear={() =>
-          setDraft(d => ({
-            ...d,
-            dayDefaults: d.dayDefaults.filter(x => x.matchDay <= phase.matchDays),
-          }))
-        }
-      />
-
-      {/* A cycle has no round — that is what a cycle means — so those cards sort as round 0 and are named
-          here. The save refuses it, so this is a blocker rather than a warning. */}
-      {cyclic.length > 0 && (
-        <p className="text-ccs-red text-sm">
-          {cyclic.length} {cyclic.length === 1 ? "match feeds" : "matches feed"} itself around a loop, so
-          {cyclic.length === 1 ? " it has" : " they have"} no round. Follow the wiring back and break it —
-          the save refuses a bracket that cannot be played in an order.
-        </p>
-      )}
-
-      {strandedNodes.length > 0 && (
-        <p className="text-ccs-red text-sm">
-          {strandedNodes.length} match(es) sit past day {phase.matchDays} and are not shown. Lengthen the
-          phase on the season page, or they can&apos;t be saved.
-        </p>
-      )}
-
-      <StandingsReference
-        loading={candidates.isPending}
-        error={candidates.isError ? errorMessage(candidates.error) : null}
-        tables={toReference(candidates.data ?? [])}
-      />
-
-      <IssueList issues={issues} />
-
-      <div className="flex items-center gap-3 border-t border-border pt-4">
-        <Button
-          type="button"
-          onClick={() => save.mutate()}
-          disabled={!dirty || stranded.length > 0 || cyclic.length > 0 || save.isPending}
-        >
-          <Check size={15} aria-hidden="true" />
-          {save.isPending ? "Saving…" : "Save bracket"}
-        </Button>
-        {dirty ? (
+      <div className="flex max-w-2xl flex-col gap-3 rounded-md border border-border bg-bg2 p-4">
+        <PhaseViewField
+          id={`phase-view-${phase.id}`}
+          value={view}
+          disabled={save.isPending || saveView.isPending}
+          invalid={viewPath ? invalidAt(viewIssues, viewPath) : undefined}
+          onChange={value => {
+            setViewChoice({ base: phase.bracketView, value });
+            setViewIssues([]);
+          }}
+        />
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"
             variant="outline"
-            onClick={() => {
-              setDraft(contents);
-              setIssues([]);
-            }}
-            disabled={save.isPending}
+            disabled={view === null || view === phase.bracketView || dirty || (view === false && savedSources) || save.isPending || saveView.isPending}
+            onClick={() => { if (view !== null) saveView.mutate(view); }}
           >
-            Discard changes
+            {saveView.isPending ? "Saving view…" : "Save phase view"}
           </Button>
-        ) : (
-          <span className="text-text-dim text-xs">No changes to save.</span>
-        )}
+          {dirty && <p className="text-xs text-text-dim">Save or discard the match changes before saving the phase view.</p>}
+          {view === false && savedSources && <p className="text-xs text-text-dim">Clear every advancement source and save the bracket first.</p>}
+        </div>
+        <IssueList issues={viewIssues} />
+        <ErrorLine message={saveView.isError && !(saveView.error instanceof SaveRejected) ? errorMessage(saveView.error) : null} />
       </div>
 
-      <ErrorLine
-        message={save.isError && !(save.error instanceof SaveRejected) ? errorMessage(save.error) : null}
-      />
+      <fieldset disabled={saveView.isPending} className="flex min-w-0 flex-col gap-5 border-0 p-0">
+        <p className="text-text-secondary text-sm max-w-2xl">
+          {manualRounds ? (
+            <>Each card is one match. Place teams by hand in each round. Results do not assign teams in
+              later rounds, and advancement sources are unavailable while this phase uses manual rounds.</>
+          ) : (
+            <>Each card is one match. Wire a slot to the winner or loser of an earlier match, or leave it as an
+              entry and place the team by hand. Saving fills in every team the results already imply.</>
+          )}
+        </p>
+        <p className="text-text-secondary text-sm max-w-2xl">
+          {manualRounds ? (
+            <>Each column is one round. The arrows on a card set its order within that round.
+              Use Phase view above to enable bracket wiring.</>
+          ) : (
+            <>A column is a match <em>day</em>, and the arrows on a card set its order within that day. The{" "}
+              <span className="text-text">round</span> follows the wiring while the card stays where you put it.
+              To switch to manual rounds, clear every advancement source and save here first.</>
+          )}
+        </p>
+
+        {/*
+          One column per match day, in a strip that scrolls sideways.
+
+          Not a wrapping grid. A bracket reads left to right — day 1 feeds day 2 — and wrapping day 3 onto
+          a second row breaks the one spatial cue the layout has. Fixed-width columns that overflow keep
+          that order at any number of days, and scrolling is the honest answer to a season longer than the
+          screen.
+
+          `-mx-5 px-5` cancels `SectionFrame`'s padding so the strip's scroll edge sits flush with the
+          card rather than clipping a column mid-padding, and the first and last columns still align with
+          everything above them.
+        */}
+        <div className="-mx-5 px-5 overflow-x-auto">
+          <div className="flex gap-4 pb-2 w-max">
+            {days.map(matchDay => {
+              // By `ordinal` alone. Never by the derived round — see the note at the top of the file: that
+              // moved a card the moment its own source dropdown was touched.
+              const onDay = nodesOnDay(draft.nodes, matchDay);
+
+              return (
+                <div
+                  key={matchDay}
+                  // `shrink-0` is what makes the strip overflow rather than squeezing every column thinner
+                  // as days are added — which is the whole failure this replaced.
+                  className="w-[22rem] shrink-0 bg-bg3 border border-border rounded-md p-3.5"
+                >
+                  <div className="mb-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-display text-base text-text-bright ">
+                        {manualRounds ? "Round" : "Day"} {matchDay}
+                      </span>
+                      <Badge variant="muted">Season day {seasonDayOf(phase, matchDay)}</Badge>
+                      {/* Same reason as the group editor: a column of cards puts the button below the
+                          fold, so adding several means scrolling back after each one. */}
+                      <div className="ml-auto">
+                        <Button type="button" variant="outline" size="sm" onClick={() => addNode(matchDay)}>
+                          <Plus size={13} aria-hidden="true" />
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <DayKickoffField
+                        matchDay={matchDay}
+                        matchDays={phase.matchDays}
+                        pinned={pinnedFor(matchDay)}
+                        resolved={kickoffs[matchDay - 1] ?? null}
+                        inherited={unpinned[matchDay - 1] ?? null}
+                        onChange={startAt => setDayDefault(matchDay, startAt)}
+                        onShiftLater={offsetMs => shiftLater(matchDay, offsetMs)}
+                        laterPinned={pinnedDaysAfter(phase, draft.dayDefaults, matchDay)}
+                        onClearLater={() => clearLater(matchDay)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2.5">
+                    {onDay.map((node, position) => (
+                      <NodeCard
+                        key={node.id}
+                        node={node}
+                        index={draft.nodes.findIndex(n => n.id === node.id)}
+                        nodes={draft.nodes}
+                        phase={phase}
+                        teams={teams}
+                        issues={issues}
+                        consumed={consumed}
+                        round={depths.get(node.id) ?? 0}
+                        isFirst={position === 0}
+                        isLast={position === onDay.length - 1}
+                        isTerminal={terminalNow.has(node.id)}
+                        wasTerminal={terminalNodes.includes(node.id)}
+                        isCyclic={cyclic.includes(node.id)}
+                        dayKickoff={kickoffs[matchDay - 1] ?? null}
+                        onChange={changes => update(node.id, changes)}
+                        onMove={by => moveNode(node.id, by)}
+                        onSetDay={day => setNodeDay(node.id, day)}
+                        onRemove={() => removeNode(node.id)}
+                      />
+                    ))}
+
+                    {onDay.length === 0 && (
+                      <p className="text-text-dim text-xs">No matches on this day.</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <StrandedDaysNotice
+          phase={phase}
+          stranded={stranded}
+          onClear={() =>
+            setDraft(d => ({
+              ...d,
+              dayDefaults: d.dayDefaults.filter(x => x.matchDay <= phase.matchDays),
+            }))
+          }
+        />
+
+        {/* A cycle has no round — that is what a cycle means — so those cards sort as round 0 and are named
+            here. The save refuses it, so this is a blocker rather than a warning. */}
+        {cyclic.length > 0 && (
+          <p className="text-ccs-red text-sm">
+            {cyclic.length} {cyclic.length === 1 ? "match feeds" : "matches feed"} itself around a loop, so
+            {cyclic.length === 1 ? " it has" : " they have"} no round. Follow the wiring back and break it —
+            the save refuses a bracket that cannot be played in an order.
+          </p>
+        )}
+
+        {hasManualSources && (
+          <p className="text-ccs-red text-sm">Manual rounds cannot contain advancement sources. Clear every source before saving.</p>
+        )}
+
+        {strandedNodes.length > 0 && (
+          <p className="text-ccs-red text-sm">
+            {strandedNodes.length} match(es) sit past day {phase.matchDays} and are not shown. Lengthen the
+            phase on the season page, or they can&apos;t be saved.
+          </p>
+        )}
+
+        <StandingsReference
+          loading={candidates.isPending}
+          error={candidates.isError ? errorMessage(candidates.error) : null}
+          tables={toReference(candidates.data ?? [])}
+        />
+
+        <IssueList issues={issues} />
+
+        <div className="flex items-center gap-3 border-t border-border pt-4">
+          <Button
+            type="button"
+            onClick={() => save.mutate()}
+            disabled={!dirty || stranded.length > 0 || cyclic.length > 0 || hasManualSources || save.isPending}
+          >
+            <Check size={15} aria-hidden="true" />
+            {save.isPending ? "Saving…" : manualRounds ? "Save rounds" : "Save bracket"}
+          </Button>
+          {dirty ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDraft(contents);
+                setIssues([]);
+              }}
+              disabled={save.isPending}
+            >
+              Discard changes
+            </Button>
+          ) : (
+            <span className="text-text-dim text-xs">No changes to save.</span>
+          )}
+        </div>
+
+        <ErrorLine
+          message={save.isError && !(save.error instanceof SaveRejected) ? errorMessage(save.error) : null}
+        />
+      </fieldset>
     </div>
   );
 }
@@ -615,7 +694,7 @@ function NodeCard({
           it is the wiring's answer, so the way to change it is to rewire a slot below. The arrows next to
           it move the card, which is a separate thing — position is `ordinal` and this is a label. */}
       <div className="flex items-center gap-2 mb-2.5">
-        <Badge variant="muted">{isCyclic ? "No round — looped" : roundName(round)}</Badge>
+        <Badge variant="muted">{phase.bracketView === false ? `Round ${node.match.matchDay}` : isCyclic ? "No round - looped" : roundName(round)}</Badge>
         <span className="text-text-dim text-xs">#{node.match.ordinal} on day {node.match.matchDay}</span>
         <div className="ml-auto flex items-center gap-1.5">
           <Button
@@ -647,7 +726,7 @@ function NodeCard({
         </p>
       )}
 
-      {isTerminal && !isCyclic && (
+      {phase.bracketView !== false && isTerminal && !isCyclic && (
         <p className="flex items-center gap-1.5 text-text-dim text-xs mb-2.5">
           <Flag size={12} aria-hidden="true" />
           Nothing consumes this result{wasTerminal ? "" : " yet"} — an end of the bracket.
@@ -665,6 +744,7 @@ function NodeCard({
         issues={issues}
         path={path}
         consumed={consumed}
+        allowSources={phase.bracketView !== false}
         onChange={(slot, teamId) => {
           const changes: Partial<NodeSave> = { top: slot };
           if (teamId !== undefined) changes.match = { ...node.match, teamAId: teamId };
@@ -680,6 +760,7 @@ function NodeCard({
         issues={issues}
         path={path}
         consumed={consumed}
+        allowSources={phase.bracketView !== false}
         onChange={(slot, teamId) => {
           const changes: Partial<NodeSave> = { bottom: slot };
           if (teamId !== undefined) changes.match = { ...node.match, teamBId: teamId };
@@ -780,6 +861,7 @@ function SlotEditor({
   issues,
   path,
   consumed,
+  allowSources,
   onChange,
 }: {
   side: SlotSide;
@@ -790,6 +872,7 @@ function SlotEditor({
   issues: readonly ValidationIssue[];
   path: string;
   consumed: ReadonlyMap<string, string>;
+  allowSources: boolean;
   onChange: (slot: SlotSave, teamId?: number | null) => void;
 }) {
   const teamId = side === "top" ? node.match.teamAId : node.match.teamBId;
@@ -846,6 +929,7 @@ function SlotEditor({
         <div className="flex-1 min-w-0">
           <NativeSelect
             value={value}
+            disabled={!allowSources && !derived}
             aria-label={`Where the ${side} team comes from`}
             aria-invalid={invalidAt(issues, `${path}.${side}.src`)}
             onChange={e => {
@@ -877,7 +961,7 @@ function SlotEditor({
                 const mine = value === key;
 
                 return (
-                  <NativeSelectOption key={key} value={key} disabled={holder !== undefined && !mine}>
+                  <NativeSelectOption key={key} value={key} disabled={!allowSources || (holder !== undefined && !mine)}>
                     {output === "winner" ? "Winner" : "Loser"} of {nameOf(source, sourceIndex)}
                     {holder !== undefined && !mine ? ` — taken by ${holder}` : ""}
                   </NativeSelectOption>

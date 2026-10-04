@@ -65,6 +65,7 @@ export function MatchEditor({ matchId, teams, onClose, onSaved }: Props) {
       setEdit({});
       await Promise.all([
         qc.invalidateQueries({ queryKey: queryRoots.schedule }),
+        qc.invalidateQueries({ queryKey: queryRoots.season }),
         // A team change moves the standings a group table is computed from.
         qc.invalidateQueries({ queryKey: queryRoots.standings }),
       ]);

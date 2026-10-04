@@ -30,6 +30,7 @@ import { DivisionPicker } from "../league/DivisionPicker";
 import { LEAGUE_VIEW_COLUMN } from "./leagueViewColumn";
 import { TeamLink } from "../league/TeamLink";
 import { PlayerAvatar, playerLabel, VerifiedMark } from "../players/PlayerIdentity";
+import { DiscordHandleCopy } from "../players/DiscordHandleCopy";
 import { PlayerLink } from "../profile/PlayerLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -63,21 +64,13 @@ function SoloRank({ slot }: { slot: RosterSlot }) {
 }
 
 /**
- * One person: name, pronouns and shield on the first line, Discord handle and Riot ID beneath, rank at
- * the right. The two IDs wrap onto separate lines rather than truncating when the row is narrow, and
- * each truncates only past the row's full width. A missing handle proves nothing: it is a login-time
+ * One person: name, pronouns, shield and Discord copy icon on the first line, Riot ID beneath, rank at
+ * the right. A missing handle proves nothing: it is a login-time
  * cache, not the association itself.
  */
 function MemberRow({ member }: { member: Member }) {
   const { slot } = member;
-  const details = [
-    slot.handle && (
-      <span key="discord" className="max-w-full truncate"><span className="sr-only">Discord: </span>@{slot.handle}</span>
-    ),
-    slot.primaryRiotId && (
-      <span key="riot" className="max-w-full truncate"><span className="sr-only">Riot ID: </span>{slot.primaryRiotId}</span>
-    ),
-  ].filter(Boolean);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   return (
     <li className="flex min-w-0 items-center gap-2.5 py-1.5">
@@ -93,10 +86,12 @@ function MemberRow({ member }: { member: Member }) {
           </PlayerLink>
           {slot.pronouns && <span className="shrink-0 text-[11px] text-text-dim">{slot.pronouns}</span>}
           {slot.verified && <VerifiedMark />}
+          {slot.handle && <DiscordHandleCopy handle={slot.handle} onError={setCopyError} />}
         </span>
-        {details.length > 0 && (
-          <span className="flex min-w-0 flex-wrap gap-x-3 text-xs text-text-secondary">{details}</span>
+        {slot.primaryRiotId && (
+          <span className="max-w-full truncate text-xs text-text-secondary"><span className="sr-only">Riot ID: </span>{slot.primaryRiotId}</span>
         )}
+        {copyError && <span role="alert" className="text-xs text-destructive">{copyError}</span>}
       </span>
       <SoloRank slot={slot} />
     </li>

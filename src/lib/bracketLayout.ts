@@ -117,6 +117,11 @@ export function sideProvenance(layout: BracketLayout, from: { node: number; outp
   return who ? `${verb} ${who}` : `${verb} an earlier match`;
 }
 
+/** Manual rounds have no advancement wiring, regardless of the phase's display name. */
+export function hasBracketFeeders(phase: SeasonBracketPhase): boolean {
+  return phase.rounds.some(round => round.matches.some(match => match.top.from || match.bottom.from));
+}
+
 export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
   // Sorted rather than taken as served: serve order is right today, but this is the axis the whole
   // layout hangs off, and a column strip that reads 1, 3, 2 is not a thing to discover at render time.

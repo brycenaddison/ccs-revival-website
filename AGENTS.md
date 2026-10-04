@@ -295,6 +295,24 @@ Do not edit that repository or derive data the API already answers.
   `RequireAuth` treats `allow: null` as loading, not denied.
   `league/bracket/BracketSection.tsx` owns the sticky standings reference, a Card + Scroll Area
   left of its bracket canvas (above it below `xl`).
+  Site Admin owns Boolean `bracketView` (true for bracket, false for manual rounds)
+  through the additive phase API contract. Missing or invalid values stay null in the client.
+  Its Phase view field stays disabled until the server supplies a valid saved value; saves omit
+  unsupported values. Omission preserves existing choices, including false; new brackets default to
+  true upstream. Manual rounds require all advancement sources to be removed and saved before changing
+  the view. `admin/season/BracketPhaseEditor.tsx` disables new sources for saved manual rounds.
+  `admin/season/PhaseViewField.tsx` appears only at the top of Bracket wiring, using `PillTabs` on the
+  shared shadcn Toggle Group. `PillTabs` supports disabled/unavailable selections and group labeling
+  for this saved setting. Its separate Save phase view action reads the current whole phase list
+  before replacing only that phase's choice, awaits season/schedule invalidation, and requires contents changes to be
+  saved or discarded first. View saves disable contents controls while pending.
+  `season/BracketPhaseView.tsx` follows that choice, with a wiring-based fallback
+  only for older servers and no viewer switch. Mobile uses round stacks. Rounds preserve served fixture
+  order and omit terminal emphasis. Both views reuse `BracketRoundHeading` and `BracketMatchCard`.
+  League Admin reuses the same immediate-save entry-slot team pickers in both layouts; there is no
+  separate round editor. Resync appears only with feeder wiring. Manual later-round slots must have no source wiring;
+  changing the presentation never clears wiring. Structure and byes remain API constraints.
+  MatchEditor saves await season, schedule and standings invalidation.
 - `league/info/InfoSection.tsx` edits a whole Info document. Preserve `applicationBody` on
   Info saves, and preserve other fields when application notes save; invalidate both relevant roots.
   `rulebookUrl` is required and prepended as the first public quick link, keeping remaining link
@@ -347,11 +365,19 @@ Do not edit that repository or derive data the API already answers.
   without replacing unsaved identities/order. Retain legacy selections; mobile logo/name has its own row.
 - `league/discord/DiscordSection.tsx` is League Admin > Discord over `api/teamDiscord.ts` and the
   private `queries.teamDiscord` status read (under the teams root, refreshing while syncs are
-  queued). Roster staff provision and grant esubs; staff roles and teardown need `admin`. The API's
+  queued). Roster staff provision, resync role membership and grant esubs; staff roles and teardown need `admin`. The API's
   worker keeps provisioned teams in step, so roster saves never trigger a sync from here. Members
   render through served `profile`/`handle` and esubs name `grantedByProfile`; staff roles are named
   from served `staffRoles` and picked from `assignableRoles`. Per-person warnings' `profileIds` are
   named through `lib/roster.ts`'s `rosterNames` over `queries.teamsForConf`, as delivery reports are.
+  Provision updates existing resources in place. `resyncTeamDiscordRoles` uses `/roles/resync` for
+  existing role membership only and remains available despite resource preflight blockers; missing
+  roles require provision. Both actions support all teams or one team, never retry automatically,
+  and await teams-root invalidation after success or failure. `DiscordOperationReport` shares
+  per-team status/counts/warnings and independent membership/resource errors; `DiscordResourceBadge`
+  shares resource diagnostics across categories and teams, preserving uncertain creates as needing
+  inspection. Status also exposes category cleanup issues and queued membership/resource scopes.
+  The Discord section is keyed by conference/viewer so reports cannot follow a league switch.
   Teardown sends the typed conference code and offers force only after a `season_active` refusal.
 - `api/teamAdmin.ts` owns team writes and roster adapters. Private lookups are no-store,
   viewer/conf keyed, zero retention and no automatic retry. Public profile-search keys include mode.
@@ -376,8 +402,9 @@ Do not edit that repository or derive data the API already answers.
   button. `views/TeamsView.tsx` reads only the picked division's `queries.teamsForConf` (Home loads the
   league for its Home tab only) and renders at most three cards a row in `LEAGUE_VIEW_COLUMN`,
   the column it shares with Standings: roster, then owner/contacts as Staff. Each row shows the
-  slot's avatar, pronouns, `VerifiedMark`, cached Discord `handle` and `primaryRiotId` (wrapping,
-  not truncating), and a fixed-width solo rank badge: tier and division without LP, colored by
+  slot's avatar, pronouns, `VerifiedMark`, cached Discord `handle` through the SVG
+  `players/DiscordHandleCopy` icon (tooltip and copy action), `primaryRiotId` on its own line,
+  and a fixed-width solo rank badge: tier and division without LP, colored by
   `lib/riot/rankTiers.ts` from the `--tier-*` tokens, or Unranked; `unavailable` leaves the slot
   empty. Every field is omitted when null; a missing handle proves nothing.
 - Career teams use full TeamRecord/mapTeamRecord; opponents use compact TeamMetadata plus

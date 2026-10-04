@@ -25,7 +25,7 @@
 
 import { getOne, type RequestOpts } from "./http";
 import { colorSecondaryOf, hexFromInt, httpsUrl, numOrNull } from "./normalize";
-import type { BestOf, SlotOutput, SlotSide } from "./season";
+import { mapBracketView, type BestOf, type SlotOutput, type SlotSide } from "./season";
 
 // ---------------------------------------------------------------- vocabulary
 
@@ -223,6 +223,8 @@ export interface SeasonGroupPhase extends SeasonPhaseCommon {
 
 export interface SeasonBracketPhase extends SeasonPhaseCommon {
   kind: "bracket";
+  /** Saved Site Admin choice; null on older servers. Never a viewer preference. */
+  bracketView: boolean | null;
   /**
    * Nodes whose result nothing consumes.
    *
@@ -450,6 +452,7 @@ function mapPhase(raw: unknown, index: number): SeasonPhase {
     return {
       ...common,
       kind: "bracket",
+      bracketView: mapBracketView(p.bracketView),
       terminalNodes: arr(p.terminalNodes).map(v => int(v)),
       rounds: arr(p.rounds).map(mapRound),
     };

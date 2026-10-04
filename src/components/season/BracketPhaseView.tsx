@@ -1,11 +1,8 @@
 /**
  * A bracket phase, drawn as a bracket.
  *
- * Two renderers, and the split is by axis rather than by size. On a wide screen the layout is the
- * *graph*: a column per match day, each card placed at the vertical center of the matches feeding
- * it, and a line along every advancement. On a narrow one it is a *list*: one section per match day,
- * full-width cards, no lines — because a graph you can see 1.2 columns of at a time is unreadable,
- * and connectors between stacked full-width cards are worse than none.
+ * Site Admin chooses the phase view. Older servers fall back to the presence of advancement wiring.
+ * Mobile uses round stacks for readability. Both views share cards and round headings.
  *
  * Nothing is lost in the narrow view, and nothing is lost by the drops going undrawn in the wide one
  * either. What a line would say is also written on every unresolved slot as "Winner of Semifinal 1",
@@ -17,11 +14,12 @@
 
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BracketMatchCard } from "./BracketMatchCard";
+import { BracketRoundsView } from "./BracketRoundsView";
+import { BracketRoundHeading } from "./BracketRoundHeading";
 import { BracketConnectors, useCardMeasurer } from "./BracketConnectors";
 import { ScrollRail } from "../ScrollRail";
 import { useDragScroll } from "../../hooks/useDragScroll";
-import { bracketLayout, type BracketLayout } from "../../lib/bracketLayout";
-import { fmtDay } from "../../lib/utils";
+import { bracketLayout, hasBracketFeeders, type BracketLayout } from "../../lib/bracketLayout";
 import type { SeasonBracketMatch, SeasonBracketPhase, SeasonBracketSide, SlotSide } from "../../lib/api";
 
 interface Props {
@@ -78,13 +76,6 @@ interface Gutters {
   right: number;
 }
 
-/** The day a column is played on, from the earliest kickoff on it. Empty when none is pinned yet. */
-function columnDate(matches: readonly SeasonBracketMatch[]): string {
-  const times = matches.map(m => m.scheduledAt).filter((t): t is string => t !== null);
-  if (times.length === 0) return "";
-  return fmtDay(times.reduce((a, b) => (a < b ? a : b)));
-}
-
 export function BracketPhaseView({
   phase,
   conf,
@@ -93,6 +84,7 @@ export function BracketPhaseView({
   rowPitch = DEFAULT_ROW_PITCH,
   bleed = true,
 }: Props) {
+  const graph = phase.bracketView ?? hasBracketFeeders(phase);
   const layout = useMemo(() => {
     const built = bracketLayout(phase);
     // A dangling source only survives a delete, so it means the bracket upstream is not what it
@@ -113,62 +105,42 @@ export function BracketPhaseView({
     return <div className="py-10 text-center text-[13px] text-text-dim">The bracket hasn&rsquo;t been drawn yet.</div>;
   }
 
-  if (isMobile) {
-    return (
-      <div className="flex flex-col gap-5">
-        {layout.columns
-          .filter(column => column.length > 0)
-          .map(column => (
-            <div key={column[0].matchDay}>
-              <div className="mb-2 flex items-baseline gap-2">
-                <span className="font-display text-[15px] text-text-bright">
-                  Round {column[0].matchDay}
-                </span>
-                <span className="text-[10px] text-text-dim">
-                  {columnDate(column.map(n => n.match))}
-                </span>
-              </div>
-              <div className="flex flex-col gap-2.5">
-                {column.map(placed => (
-                  <BracketMatchCard
-                    key={placed.node}
-                    match={placed.match}
-                    terminal={placed.terminal}
-                    layout={layout}
-                    conf={conf}
-                    slotControl={slotControl}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-      </div>
-    );
-  }
-
   return (
     <>
-      <BracketCanvas
-        layout={layout}
-        conf={conf}
-        rowPitch={rowPitch}
-        slotControl={slotControl}
-        bleed={bleed}
-      />
+      {isMobile || !graph ? (
+        <BracketRoundsView
+          key={phase.id}
+          phase={phase}
+          layout={layout}
+          conf={conf}
+          isMobile={isMobile}
+          slotControl={slotControl}
+        />
+      ) : (
+        <>
+          <BracketCanvas
+            layout={layout}
+            conf={conf}
+            rowPitch={rowPitch}
+            slotControl={slotControl}
+            bleed={bleed}
+          />
 
-      <div className="mt-3 flex items-center gap-4 text-[10px] text-text-muted">
-        <span className="flex items-center gap-1.5">
-          <svg width="22" height="2" aria-hidden="true">
-            <line x1="0" y1="1" x2="22" y2="1" stroke="var(--border2)" strokeWidth="2" />
-          </svg>
-          Winner advances
-        </span>
-        {/* Drops have no line — see the module header on `bracketLayout`. This is what says so. */}
-        <span className="flex items-center gap-1.5">
-          <span className="font-mono text-[11px] text-text-dim">↓</span>
-          Arrived by losing an earlier match
-        </span>
-      </div>
+          <div className="mt-3 flex items-center gap-4 text-[10px] text-text-muted">
+            <span className="flex items-center gap-1.5">
+              <svg width="22" height="2" aria-hidden="true">
+                <line x1="0" y1="1" x2="22" y2="1" stroke="var(--border2)" strokeWidth="2" />
+              </svg>
+              Winner advances
+            </span>
+            {/* Drops have no line; their slot provenance names the source instead. */}
+            <span className="flex items-center gap-1.5">
+              <span className="font-mono text-[11px] text-text-dim">↓</span>
+              Arrived by losing an earlier match
+            </span>
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -312,12 +284,7 @@ function BracketCanvas({
               className="absolute top-0"
               style={{ left: padL + index * (COLUMN_W + COLUMN_GAP), width: COLUMN_W }}
             >
-              <div className="font-display text-[14px] text-text-bright">
-                Round {column[0]?.matchDay ?? index + 1}
-              </div>
-              {/* The date, not the season day: that number is an internal ordinal, and a reader
-                  seeing "Day 14" next to "Round 4" reads it as a contradiction. */}
-              <div className="text-[10px] text-text-dim">{columnDate(column.map(n => n.match))}</div>
+              <BracketRoundHeading matchDay={column[0]?.matchDay ?? index + 1} matches={column.map(n => n.match)} />
             </div>
           ))}
 

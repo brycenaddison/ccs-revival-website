@@ -1,19 +1,16 @@
 /**
- * Bracket — the League Admin section for seeding a playoff bracket.
+ * League Admin seeding uses the configured bracket or manual-round layout.
  *
- * The public bracket, with a team picker in every **entry** slot. That is the entire write surface:
- * `PATCH /tournaments/schedule/:id` with `teamAId` / `teamBId`, the same call `MatchEditor` makes,
- * and the same one a league admin already has for any other match. Seeds, wiring, match days and
+ * Entry slots have the same team pickers in either layout. They write through
+ * `PATCH /tournaments/schedule/:id`, the same call a league admin has for any other match.
+ * Seeds, wiring, match days and
  * which nodes exist are structure, are site-admin only, and are not editable here — they are not
  * even rendered as though they might be.
  *
- * Deliberately the same component as the public view, given a `slotControl`. A second bracket layout
- * that had to be kept in agreement with the first is the thing this avoids: what an admin arranges is
- * pixel-for-pixel what a viewer will see.
+ * Both presentations use the public view with `slotControl`, so a slot is edited the same way
+ * regardless of the phase's presentation.
  *
- * **A derived slot gets no picker at all**, rather than a disabled one. It already reads "Winner of
- * Match 7", which says more than a grayed-out box could, and it is filled by propagation the moment
- * the source is decided — see the Resync button below.
+ * Derived slots show their provenance instead of a picker. Only source wiring owns propagation.
  *
  * Two things this screen cannot do, both downstream of one decision:
  *
@@ -40,6 +37,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipHint } from "../../TooltipHint";
 import { PhaseTabs } from "../../season/PhaseTabs";
 import { BracketPhaseView } from "../../season/BracketPhaseView";
+import { hasBracketFeeders } from "../../../lib/bracketLayout";
 import { StandingsReference, type ReferenceTable } from "../../season/StandingsReference";
 import { useSeason } from "../../../hooks/useSeason";
 import { useWindowSize } from "../../../hooks/useWindowSize";
@@ -76,6 +74,8 @@ export function BracketSection() {
 
   const brackets = useMemo(() => (season?.phases ?? []).filter(isBracketPhase), [season]);
   const phase = brackets.find(p => p.id === picked) ?? brackets[0] ?? null;
+  const connected = phase ? hasBracketFeeders(phase) : false;
+  const manualRounds = phase ? !(phase.bracketView ?? connected) : false;
 
   // Only group phases the bracket could actually be seeded from — a later one has not been played.
   const reference = useMemo<ReferenceTable[]>(
@@ -111,10 +111,14 @@ export function BracketSection() {
   return (
     <div className="flex flex-col gap-5">
       <p className="text-sm leading-relaxed text-text-secondary">
-        Pick who plays each seeded position. Slots fed by an earlier match fill in on their own once
-        it is decided — press <strong className="text-text-bright">Resync bracket</strong> after
-        recording a result. Which matches exist, how they are wired and what the seeds are called is
-        set in Site Admin.
+        {manualRounds ? (
+          <>Pick the teams in each round's matchups. Each selection saves immediately.
+            Results do not assign teams in later rounds.</>
+        ) : (
+          <>Pick who plays each seeded position.
+            {connected && <> Slots fed by an earlier match fill in automatically. Use Resync bracket after recording a result.</>}
+            {" "}The phase view is set in Site Admin.</>
+        )} Which matches exist and how they are wired is set in Site Admin.
       </p>
 
       <PhaseTabs
@@ -131,7 +135,7 @@ export function BracketSection() {
             {phase.matchDays} match {phase.matchDays === 1 ? "day" : "days"}
           </Badge>
         </div>
-        <Resync conf={conf} phaseId={phase.id} />
+        {connected && <Resync conf={conf} phaseId={phase.id} />}
       </div>
 
       {teams.isError && (
@@ -174,7 +178,7 @@ export function BracketSection() {
           own. `min-w-0` says the same thing as the track's `minmax(0, …)`, one level down.
         */}
         <div className="min-w-0">
-          {/* Keyed on the phase so switching one throws away every picker's in-flight state. */}
+          {/* Pickers belong to this phase's fixture IDs. */}
           <BracketPhaseView
             key={phase.id}
             phase={phase}

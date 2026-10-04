@@ -4,6 +4,7 @@ import type {
   TeamDiscordDrift,
   TeamDiscordProvisionStatus,
   TeamDiscordResourceKind,
+  TeamDiscordRoleResyncStatus,
   TeamDiscordTeardownMode,
   TeamDiscordTeardownResult,
 } from "../../../lib/api";
@@ -36,7 +37,15 @@ export const PROVISION_LABEL: Record<TeamDiscordProvisionStatus, string> = {
   provisioned: "Provisioned",
   in_progress: "In progress",
   queued: "Queued for background sync",
-  failed: "Failed, queued for background sync",
+  failed: "Failed",
+};
+
+export const ROLE_RESYNC_LABEL: Record<TeamDiscordRoleResyncStatus, string> = {
+  synced: "Roles synced",
+  queued: "Queued for background sync",
+  in_progress: "In progress",
+  failed: "Failed",
+  not_provisioned: "Role missing; provision this team first",
 };
 
 export const TEARDOWN_MODE: Record<TeamDiscordTeardownMode, { label: string; detail: string }> = {

@@ -82,6 +82,7 @@ function blank(kind: PhaseKind, id: number): PhaseSummary {
   return {
     id,
     kind,
+    bracketView: null,
     name: kind === "group" ? "Group Stage" : "Playoffs",
     ordinal: 1,
     matchDays: kind === "group" ? 8 : 3,
