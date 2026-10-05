@@ -17,9 +17,13 @@
  *  - Uncertain resource diagnostics require inspection; absence is only confirmed by an exact read.
  *  - The bot only removes the role from people it recorded granting it to, so a role given by hand
  *    in Discord never appears as a member here.
- *  - A role holder is named by the saved profile with their Discord account, otherwise by their
+ *  - `members` contains recorded recipients whose guild membership and team role were freshly
+ *    confirmed. `unconfirmedMembers` keeps the other records with `not_in_guild`, `missing_role`
+ *    or `unavailable`; a grant record alone does not prove role ownership. Refresh rechecks them.
+ *  - Recipients are named by the saved profile with their Discord account, otherwise by their
  *    server username. Neither is guaranteed: an esub granted with `/esub` usually has no profile,
- *    and without Discord a holder with no profile has no handle.
+ *    and without Discord a recipient with no profile has no handle. Individual member checks can
+ *    be unavailable even when the resource status read succeeds.
  *  - Staff roles are saved as Discord role ids. The status read names them from the server (null
  *    when a role has gone or Discord is unavailable) and lists the roles a picker can offer, which
  *    leave out `@everyone`, integration-managed roles and this conference's team roles.
@@ -52,6 +56,9 @@ export type TeamDiscordResourceStatus = (typeof TEAM_DISCORD_RESOURCE_STATUSES)[
 
 export const TEAM_DISCORD_MEMBER_SOURCES = ["roster", "esub"] as const;
 export type TeamDiscordMemberSource = (typeof TEAM_DISCORD_MEMBER_SOURCES)[number];
+
+export const TEAM_DISCORD_UNCONFIRMED_REASONS = ["not_in_guild", "missing_role", "unavailable"] as const;
+export type TeamDiscordUnconfirmedReason = (typeof TEAM_DISCORD_UNCONFIRMED_REASONS)[number];
 
 /** What the next sync would change on one team. */
 export const TEAM_DISCORD_DRIFT = [
@@ -99,7 +106,7 @@ export interface TeamDiscordIssue {
   profileIds: number[];
 }
 
-/** Someone the bot gave a team role to, and why. One person appears once per source. */
+/** A recorded team-role recipient. The containing list determines current role ownership. */
 export interface TeamDiscordMember {
   snowflake: string;
   source: TeamDiscordMemberSource;
@@ -107,6 +114,7 @@ export interface TeamDiscordMember {
   expiresAt: string | null;
   /** The profile that granted an esub. */
   grantedBy: number | null;
+  /** When the grant intent was recorded, not proof that Discord granted the role. */
   grantedAt: string | null;
   /** The saved profile with this Discord account. */
   profile: PlayerSummary | null;
@@ -114,6 +122,11 @@ export interface TeamDiscordMember {
   handle: string | null;
   /** The profile behind `grantedBy`. */
   grantedByProfile: PlayerSummary | null;
+}
+
+/** Kept for reconciliation and esub removal even when current role ownership is not confirmed. */
+export interface TeamDiscordUnconfirmedMember extends TeamDiscordMember {
+  reason: TeamDiscordUnconfirmedReason;
 }
 
 /** A saved staff role. `name` and `color` are null when the role has gone or Discord is unavailable. */
@@ -149,7 +162,9 @@ export interface TeamDiscordTeam {
   voice: TeamDiscordResource | null;
   drift: TeamDiscordDrift[];
   warnings: TeamDiscordIssue[];
+  /** Recorded recipients confirmed to currently hold this team's role. */
   members: TeamDiscordMember[];
+  unconfirmedMembers: TeamDiscordUnconfirmedMember[];
   queued: TeamDiscordQueued | null;
 }
 
@@ -307,6 +322,12 @@ function memberOf(value: unknown): TeamDiscordMember | null {
   };
 }
 
+function unconfirmedMemberOf(value: unknown): TeamDiscordUnconfirmedMember | null {
+  const member = memberOf(value);
+  const reason = enumValue(raw(value).reason, TEAM_DISCORD_UNCONFIRMED_REASONS);
+  return member && reason ? { ...member, reason } : null;
+}
+
 function staffRoleOf(value: unknown): TeamDiscordStaffRole | null {
   const r = raw(value);
   const id = snowflake(r.id);
@@ -347,6 +368,7 @@ function teamOf(value: unknown): TeamDiscordTeam | null {
     drift: rows(r.drift, entry => enumValue(entry, TEAM_DISCORD_DRIFT)),
     warnings: rows(r.warnings, issueOf),
     members: rows(r.members, memberOf),
+    unconfirmedMembers: rows(r.unconfirmedMembers, unconfirmedMemberOf),
     queued: queuedOf(r.queued),
   };
 }

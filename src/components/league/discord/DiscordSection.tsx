@@ -2,7 +2,8 @@
  * League Admin > Discord: team roles/channels and the league's results destination.
  *
  * One status read (`queries.teamDiscord`) drives the Teams panel: what the bot recorded per team, drift
- * against Discord, warnings, role holders, queued syncs, the provision preflight and teardown counts.
+ * against Discord, warnings, confirmed/unconfirmed recipients, queued syncs, the provision preflight
+ * and teardown counts.
  * Staff can provision resources or resync existing role memberships. The API's background worker
  * follows roster, name, code, color and logo changes once the conference category exists, so nothing
  * here resyncs a team after a roster save.
@@ -135,9 +136,9 @@ function TeamDiscordPanel({ conf }: { conf: string }) {
           <AlertTitle>Discord is not connected</AlertTitle>
           <AlertDescription>
             <p>
-              This is what the bot recorded. Whether each role and channel still exists, what the next
-              sync would change and the readiness checks are unknown until Discord answers. Changes are
-              unavailable until then.
+              This is what the bot recorded. Current role holders, whether each role and channel still
+              exists, what the next sync would change and the readiness checks are unknown until Discord
+              answers. Changes are unavailable until then.
             </p>
           </AlertDescription>
         </Alert>

@@ -1,34 +1,31 @@
 /**
  * One team in League Admin > Discord: its recorded role and channels, what the next sync would
- * change, warnings, any queued sync, and who holds the role.
+ * change, warnings, any queued sync, confirmed role holders and unconfirmed recipients.
  *
  * Role holders are served by Discord account. A holder with a saved website profile renders through
- * `PlayerIdentity`; one with only a server username shows the handle; otherwise the holder is an
- * Unnamed Discord member, never an id. Roster holders follow the roster and are changed in Teams;
- * only esubs are granted and removed here, and each esub names who granted it.
+ * `PlayerIdentity`; one with only a server username shows the handle; otherwise the recipient is an
+ * Unnamed Discord member, never an id. DiscordMemberList keeps both lists' presentation and esub
+ * removal shared. Unconfirmed records stay removable; roster recipients are changed in Teams.
  */
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { ConfirmButton } from "../../ConfirmButton";
 import { ErrorLine } from "../../admin/adminUi";
-import { PlayerIdentity, playerLabel } from "../../players/PlayerIdentity";
 import { relativeInstant } from "../../predictions/PredictionUi";
 import type { DiscordPlayerSource } from "../../players/pickerTypes";
 import { queries } from "../../../lib/queries";
 import { useAuth } from "../../../lib/authContext";
-import { fmtLocalDateTime } from "../../../lib/utils";
 import {
   errorMessage,
   removeEsub,
   type TeamDiscordMember,
   type TeamDiscordTeam,
 } from "../../../lib/api";
-import { PlayerLink } from "../../profile/PlayerLink";
 import { DRIFT_LABEL } from "./discordLabels";
 import { DiscordResourceBadge } from "./DiscordResourceBadge";
+import { DiscordMemberList, discordMemberLabel } from "./DiscordMemberList";
 import { IssueText, type RosterNames } from "./discordIssues";
 import { EsubGrant } from "./EsubGrant";
 import { Badge } from "@/components/ui/badge";
@@ -57,15 +54,19 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, working, 
     retry: false,
     onSuccess: async (_, member) => {
       await qc.invalidateQueries({ queryKey: statusKey });
-      toast.success(`Esub removed from ${team.name || team.code}: ${memberLabel(member)}.`);
+      toast.success(`Esub removed from ${team.name || team.code}: ${discordMemberLabel(member)}.`);
     },
   });
 
   const resources = [team.role, team.text, team.voice] as const;
-  const attention = team.drift.length + team.warnings.length + (team.queued ? 1 : 0)
+  const attention = team.drift.length + team.warnings.length + team.unconfirmedMembers.length + (team.queued ? 1 : 0)
     + resources.filter(resource => resource?.diagnostic === "uncertain" || resource?.exists === false).length;
-  const esubs = team.members.filter(member => member.source === "esub");
-  const roster = team.members.filter(member => member.source === "roster");
+  const memberListProps = {
+    teamName: team.name || team.code,
+    canRemove: canEdit,
+    removing: remove.isPending,
+    onRemove: (member: TeamDiscordMember) => remove.mutate(member),
+  };
 
   return (
     <section className="rounded-lg border border-border bg-bg2">
@@ -133,47 +134,24 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, working, 
           )}
 
           <div>
-            <p className="text-sm text-text-bright">Role holders</p>
+            <p className="text-sm text-text-bright">Confirmed role holders</p>
             {team.members.length === 0 ? (
-              <p className="mt-1 text-sm text-text-dim">Nobody holds this team&apos;s role yet.</p>
+              <p className="mt-1 text-sm text-text-dim">No confirmed role holders.</p>
             ) : (
-              <ul className="mt-2 flex flex-col gap-2">
-                {[...roster, ...esubs].map(member => (
-                  <li key={`${member.source}:${member.snowflake}`} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                    <MemberName member={member} />
-                    <Badge variant={member.source === "esub" ? "default" : "muted"}>
-                      {member.source === "esub" ? "Esub" : "Roster"}
-                    </Badge>
-                    {member.source === "esub" && (
-                      <span className="text-xs text-text-secondary">
-                        {member.expiresAt ? `Until ${fmtLocalDateTime(member.expiresAt)}` : "Until removed"}
-                        {member.grantedByProfile && (
-                          <>
-                            {" · Granted by "}
-                            <PlayerLink profileId={member.grantedByProfile.profileId} className="text-brand hover:underline">
-                              {playerLabel(member.grantedByProfile)}
-                            </PlayerLink>
-                            {member.grantedAt && ` on ${fmtLocalDateTime(member.grantedAt)}`}
-                          </>
-                        )}
-                      </span>
-                    )}
-                    {member.source === "esub" && canEdit && (
-                      <ConfirmButton
-                        title="Remove this esub?"
-                        description={`${memberLabel(member)} loses the ${team.name || team.code} role unless they are also on the roster.`}
-                        confirmLabel="Remove esub"
-                        disabled={remove.isPending}
-                        onConfirm={() => remove.mutate(member)}
-                        trigger={<Button variant="quiet" size="inline" type="button">Remove</Button>}
-                      />
-                    )}
-                  </li>
-                ))}
-              </ul>
+              <DiscordMemberList {...memberListProps} members={team.members} />
             )}
-            <ErrorLine message={remove.error ? errorMessage(remove.error) : null} />
           </div>
+
+          {team.unconfirmedMembers.length > 0 && (
+            <div>
+              <p className="text-sm text-text-bright">Unconfirmed recipients</p>
+              <p className="mt-1 text-xs text-text-dim">
+                These recorded recipients do not have a confirmed team role. Check again to refresh their status.
+              </p>
+              <DiscordMemberList {...memberListProps} members={team.unconfirmedMembers} />
+            </div>
+          )}
+          <ErrorLine message={remove.error ? errorMessage(remove.error) : null} />
 
           {canEdit && team.role && (
             granting ? (
@@ -200,13 +178,4 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, working, 
       )}
     </section>
   );
-}
-
-function memberLabel(member: Pick<TeamDiscordMember, "profile" | "handle">): string {
-  return member.profile?.name ?? (member.handle ? `@${member.handle}` : "Unnamed Discord member");
-}
-
-function MemberName({ member }: { member: TeamDiscordMember }) {
-  if (member.profile) return <PlayerIdentity player={member.profile} small />;
-  return <span className="min-w-0 truncate text-text">{memberLabel(member)}</span>;
 }

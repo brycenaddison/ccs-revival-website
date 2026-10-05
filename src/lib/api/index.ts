@@ -337,6 +337,8 @@ export type {
   TeamDiscordTeardownReport,
   TeamDiscordTeardownResult,
   TeamDiscordTeardownRow,
+  TeamDiscordUnconfirmedMember,
+  TeamDiscordUnconfirmedReason,
 } from "./teamDiscord";
 export {
   accoladesApi,

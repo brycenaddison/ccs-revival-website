@@ -7,7 +7,14 @@ import type {
   TeamDiscordRoleResyncStatus,
   TeamDiscordTeardownMode,
   TeamDiscordTeardownResult,
+  TeamDiscordUnconfirmedReason,
 } from "../../../lib/api";
+
+export const UNCONFIRMED_MEMBER_LABEL: Record<TeamDiscordUnconfirmedReason, string> = {
+  not_in_guild: "Not in Discord server",
+  missing_role: "Missing team role",
+  unavailable: "Could not verify role",
+};
 
 export const RESOURCE_LABEL: Record<TeamDiscordResourceKind, string> = {
   category: "Category",

@@ -368,7 +368,11 @@ Do not edit that repository or derive data the API already answers.
   queued). Roster staff provision, resync role membership and grant esubs; staff roles and teardown need `admin`. The API's
   worker keeps provisioned teams in step, so roster saves never trigger a sync from here. Members
   render through served `profile`/`handle` and esubs name `grantedByProfile`; staff roles are named
-  from served `staffRoles` and picked from `assignableRoles`. Per-person warnings' `profileIds` are
+  from served `staffRoles` and picked from `assignableRoles`. `members` are freshly confirmed role
+  holders; `unconfirmedMembers` carry `not_in_guild`, `missing_role` or `unavailable`, including
+  individual lookup failures while Discord is connected. `DiscordMemberList` shares both lists'
+  presentation and esub removal in served order. Unconfirmed recipients flag collapsed team cards
+  for attention; Check again rechecks membership. Per-person warnings' `profileIds` are
   named through `lib/roster.ts`'s `rosterNames` over `queries.teamsForConf`, as delivery reports are.
   Provision updates existing resources in place. `resyncTeamDiscordRoles` uses `/roles/resync` for
   existing role membership only and remains available despite resource preflight blockers; missing
