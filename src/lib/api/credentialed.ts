@@ -12,8 +12,8 @@
  *  - `POST`, `PUT` and `PATCH` answer `415` without `Content-Type:
  *    application/json`. That is load-bearing rather than decoration — the header
  *    forces a CORS preflight, and the preflight is the CSRF defense these routes
- *    rely on under `COOKIE_SAMESITE=none`. `DELETE` is exempt upstream because it
- *    carries no body, so no content type is sent for one.
+ *    rely on under `COOKIE_SAMESITE=none`. Bodyless `DELETE` needs no content type;
+ *    routes with a JSON DELETE body use the same header as other writes.
  *  - Failures arrive in three shapes, not one: the auth and role guards answer a
  *    JSON envelope (`{ status, code, error }`), param validation answers plain
  *    text (`"zzz" is not a valid conf`), and a refused save answers `422` with a
@@ -102,7 +102,7 @@ export interface Init {
   method?: string;
   /** Private directory lookups must never reuse the browser's HTTP cache. */
   cache?: "no-store";
-  /** Omit entirely for a GET or DELETE — presence is what adds the content type. */
+  /** Omit for bodyless requests; presence adds the JSON content type, including on DELETE. */
   body?: unknown;
 }
 
@@ -136,7 +136,10 @@ export async function credentialedRequest(
       // unexplained one. Better an empty issue list than a thrown parse error
       // that loses the status.
     }
-    throw new SaveRejected(path, toIssues(parsed));
+    // Discord refusals use { error } rather than field issues. Preserve their verbatim code.
+    if (Array.isArray(asRaw(parsed).issues) || typeof asRaw(parsed).error !== "string") {
+      throw new SaveRejected(path, toIssues(parsed));
+    }
   }
 
   if (!res.ok) {

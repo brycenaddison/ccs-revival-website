@@ -1,7 +1,7 @@
 /**
- * League Admin > Discord: each team's role and private text and voice channels in the CCS server.
+ * League Admin > Discord: team roles/channels and the league's results destination.
  *
- * One status read (`queries.teamDiscord`) drives the section: what the bot recorded per team, drift
+ * One status read (`queries.teamDiscord`) drives the Teams panel: what the bot recorded per team, drift
  * against Discord, warnings, role holders, queued syncs, the provision preflight and teardown counts.
  * Staff can provision resources or resync existing role memberships. The API's background worker
  * follows roster, name, code, color and logo changes once the conference category exists, so nothing
@@ -10,6 +10,8 @@
  * Provision, role resync and esubs need the `roster` scope. Staff roles and teardown need
  * `admin`, so roster-only staff see those panels read-only. Hiding controls is presentation; the API
  * is the boundary.
+ * Results has its own admin-only reads and revisioned writes in ResultsPanel, independent of team
+ * provisioning. Keep both tab panels mounted so switching views cannot detach a pending mutation.
  *
  * Without Discord the read still answers with the recorded objects, but drift, existence and the
  * preflight are unknown rather than clean, and every write answers 503. The section says so and
@@ -44,9 +46,11 @@ import { DiscordOperationReport, type DiscordOperationResult } from "./DiscordOp
 import { StaffRolesPanel } from "./StaffRolesPanel";
 import { TeamDiscordCard } from "./TeamDiscordCard";
 import { TeardownPanel } from "./TeardownPanel";
+import { ResultsPanel } from "./ResultsPanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function DiscordSection() {
   const { conf = "" } = useParams();
@@ -56,6 +60,32 @@ export function DiscordSection() {
 }
 
 function DiscordConference({ conf }: { conf: string }) {
+  const { profile } = useAuth();
+  const { leagues, isSiteAdmin } = useAdminAccess();
+  const league = leagues.find(l => l.conf === conf);
+  const canRoster = isSiteAdmin || hasScope(league, "roster");
+  const canAdmin = isSiteAdmin || hasScope(league, "admin");
+  if (!canAdmin) return canRoster ? <TeamDiscordPanel conf={conf} /> : null;
+  if (!canRoster) return <ResultsPanel conf={conf} viewerId={profile?.id ?? null} />;
+
+  return (
+    <Tabs defaultValue="teams" className="gap-5">
+      <TabsList aria-label="Discord settings">
+        <TabsTrigger value="teams">Teams</TabsTrigger>
+        <TabsTrigger value="results">Results</TabsTrigger>
+      </TabsList>
+      {/* Mutations outlive tab changes, retaining pending observers and unresolved request IDs. */}
+      <TabsContent value="teams" forceMount className="data-[state=inactive]:hidden">
+        <TeamDiscordPanel conf={conf} />
+      </TabsContent>
+      <TabsContent value="results" forceMount className="data-[state=inactive]:hidden">
+        <ResultsPanel conf={conf} viewerId={profile?.id ?? null} />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function TeamDiscordPanel({ conf }: { conf: string }) {
   const { profile } = useAuth();
   const { leagues, isSiteAdmin } = useAdminAccess();
   const league = leagues.find(l => l.conf === conf);

@@ -379,6 +379,21 @@ Do not edit that repository or derive data the API already answers.
   inspection. Status also exposes category cleanup issues and queued membership/resource scopes.
   The Discord section is keyed by conference/viewer so reports cannot follow a league switch.
   Teardown sends the typed conference code and offers force only after a `season_active` refusal.
+- Discord's Results panel (`league/discord/ResultsPanel.tsx`, `api/resultsWebhooks.ts`) requires
+  league `admin` or site admin; admin-only grants can reach Discord without roster scope.
+  Teams and Results use local Radix tabs and stay mounted across tab changes so pending mutations
+  and request IDs survive. Results reads are private no-store, viewer/conf keyed, zero retention
+  and explicit refresh under `queryRoots.resultsWebhooks`, independent of team provisioning.
+  Generate from served channel availability/permissions or paste a canonical Discord webhook link;
+  the secret stays in the field only and clears after save. Every configuration write sends the
+  saved revision; DELETE carries a JSON body. The current destination stays visible during creation.
+  Generation and test UUIDs retain their exact bodies after uncertain failures; checking those
+  requests never repeats a committed attempt. `ResultsOperations.tsx` reads attempt status and
+  explicitly rechecks original audit evidence, never creates another webhook. Unresolved creations
+  block replacement until resolved or disconnected. Uncertain tests require Discord inspection
+  before an explicitly confirmed new test. Configuration changes never replay old results.
+  `credentialed.ts` keeps field-issue 422s as `SaveRejected` and other `{ error }` refusals as
+  `ApiError` so Discord error codes render verbatim.
 - `api/teamAdmin.ts` owns team writes and roster adapters. Private lookups are no-store,
   viewer/conf keyed, zero retention and no automatic retry. Public profile-search keys include mode.
   Discord wire group website maps to profiles; guild results carry nested profile presentation.
@@ -462,7 +477,17 @@ Do not edit that repository or derive data the API already answers.
   match and custom markets together, open by `sort=closesAt`, then closed states by
   `sort=-closesAt` with Show more, with no `kind` filter; division headings only with several confs.
   "Your pick" comes from `me/positions` per loaded page (`usePredictionPositions`), never public
-  reads. My predictions lists `/me` holdings with picks from positions, then the ledger; its reward
+  reads. `PublicPositions.tsx` shows anonymous participant picks on prediction detail as one
+  column per outcome, through the proposed `GET /predictions/:eventId/picks` contract (backend
+  pending; the deployed `/positions` pages by profile ID and cannot rank an outcome). The API ranks
+  each column by paid points; never sort locally. `queries.publicPredictionPicks` reads every
+  outcome's first page, polls successful open-event reads every 15 seconds and stops on
+  errors/absence; stake invalidation refreshes it. Each column's Show more pages
+  `queries.publicPredictionOutcomePicks` without polling and keeps a player's first row. Absent
+  routes render an unavailable notice, not an empty list. Picks are public immediately, including
+  existing and closed-event picks; only paid principal is public, not private wallet/ledger data.
+  `PUBLIC_PICKS_NOTICE` appears before participation. `/me/positions` remains session-only.
+  My predictions lists `/me` holdings with picks from positions, then the ledger; its reward
   tile follows the served cadence, mode, streak cap and upcoming policy. Settled events live in All
   predictions' Results. The leaderboard's `?season=` (omitted for the open season) selects a closed
   season's frozen board from `queries.predictionSeasons`. Detail, leaderboard and My predictions

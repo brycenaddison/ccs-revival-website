@@ -87,12 +87,12 @@ const SECTIONS: readonly LeagueAdminSection[] = [
   },
   {
     slug: "discord",
-    // Provisioning and esubs need `roster`; staff roles and teardown need `admin` and are gated by
-    // the section itself.
+    // Team setup needs roster. Admin-only grants also reach results configuration; the section
+    // gates its panels independently so neither scope reads the other's private endpoints.
     scope: "roster",
     label: "Discord",
     icon: MessagesSquare,
-    description: "Each team's role and private channels in the CCS Discord server.",
+    description: "Team roles and private channels, and the league's results destination in Discord.",
     Component: DiscordSection,
   },
   {
@@ -138,7 +138,7 @@ export default function LeagueAdmin() {
   const { leagues, isSiteAdmin, canAdminLeague, ready } = useAdminAccess();
   const league = leagues.find(l => l.conf === conf);
   const visibleSections = useMemo(
-    () => SECTIONS.filter(s => isSiteAdmin || hasScope(league, s.scope)),
+    () => SECTIONS.filter(s => isSiteAdmin || hasScope(league, s.scope) || (s.slug === "discord" && hasScope(league, "admin"))),
     [isSiteAdmin, league],
   );
 

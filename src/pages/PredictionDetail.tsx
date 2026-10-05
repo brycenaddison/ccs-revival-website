@@ -6,6 +6,7 @@
  * details (served as text, not Markdown), deadline and outcome shares. Below either, the predict
  * panel (or the result once closed) and the viewer's position, which `me/positions` serves after
  * settlement too, so a settled page still says what you got back.
+ * PublicPositions lists every participant's paid picks immediately through its own anonymous read.
  *
  * The public event read and the private reads stay separate: the event is identical for every
  * caller, and nothing viewer-specific rides on it.
@@ -27,6 +28,7 @@ import {
 import { OutcomeShares, PoolBar } from "../components/predictions/PoolBar";
 import { eventName } from "../components/predictions/outcomeLabels";
 import { PositionBreakdown } from "../components/predictions/PositionList";
+import { PublicPositions } from "../components/predictions/PublicPositions";
 import { PredictPanel } from "../components/predictions/PredictPanel";
 import { predictionCaption } from "../components/predictions/PredictionCard";
 import { PredictionStatusChip } from "../components/predictions/PredictionStatusChip";
@@ -92,6 +94,7 @@ export default function PredictionDetail() {
           </div>
         )}
         {position && <PositionBreakdown event={event} position={position} />}
+        <PublicPositions key={event.id} event={event} />
       </div>
     </PageShell>
   );

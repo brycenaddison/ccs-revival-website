@@ -6,7 +6,7 @@ export type { GameContext, GameContextParticipant } from "./game";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
 export {
   predictions, prediction, predictionSummary, enrollPredictions, claimPredictionReward,
-  predictionPositions, myPredictions, previewPrediction, placePrediction,
+  predictionPositions, publicPredictionPicks, myPredictions, previewPrediction, placePrediction,
   predictionHistory, predictionSeasons, predictionLeaderboard, managePredictions, publishPredictions,
   publishCustomPrediction, predictionAction, reconcilePredictions,
   previewPredictionSettlement, applyPredictionSettlement,
@@ -19,7 +19,7 @@ export {
   PREDICTION_STATES, CLOSED_PREDICTION_STATES, PREDICTION_SORTS, PREDICTION_REVIEW_REASONS,
   PREDICTION_SKIP_REASONS, PREDICTION_KINDS, PREDICTION_LEDGER_KINDS, PREDICTION_SWITCHES, NO_WINNING_POOL,
   PREDICTION_REWARD_CADENCES, PREDICTION_REWARD_MODES,
-  PREDICTION_PAGE_SIZE, PREDICTION_POSITIONS_MAX, PREDICTION_HOLDINGS_MAX, PREDICTION_BATCH_MAX,
+  PREDICTION_PAGE_SIZE, PREDICTION_POSITIONS_MAX, PREDICTION_PUBLIC_PICKS_PAGE_SIZE, PREDICTION_HOLDINGS_MAX, PREDICTION_BATCH_MAX,
   PREDICTION_REASON_MAX, CUSTOM_TITLE_MAX, CUSTOM_DETAILS_MAX, CUSTOM_OUTCOMES_MIN, CUSTOM_OUTCOMES_MAX,
   CUSTOM_LABEL_MAX, CUSTOM_DEADLINE_DAYS, REWARD_AMOUNT_MIN_MINOR, REWARD_AMOUNT_MAX_MINOR,
   REWARD_STREAK_CAP_MAX, PREDICTION_SEASON_NAME_MAX,
@@ -30,6 +30,7 @@ export type {
   PredictionLedgerKind, PredictionRewards, PredictionRewardCadence, PredictionRewardMode,
   PredictionRewardPolicy, PendingRewardPolicy, PredictionStanding, PredictionSummary, PredictionPick,
   PredictionPosition, PredictionHolding, PredictionPortfolio, PredictionEstimate,
+  PredictionPlayerPick, PredictionOutcomePicks,
   PredictionHistoryEvent, PredictionHistoryEntry, PredictionSeason, PredictionLeader, PredictionCandidate,
   PredictionWorker, PredictionManage, PublicationSelection, CustomOutcomeInput, CustomPredictionInput,
   PredictionEventAction, PredictionCorrectionKind, PredictionSettlementCommand,
@@ -286,6 +287,28 @@ export {
   ESUB_DAYS_MIN,
   TEAM_DISCORD_STAFF_ROLES_MAX,
 } from "./teamDiscord";
+export {
+  resultsWebhookStatus,
+  resultsWebhookChannels,
+  resultsWebhookOperation,
+  generateResultsWebhook,
+  saveResultsWebhook,
+  disconnectResultsWebhook,
+  recheckResultsWebhook,
+  testResultsWebhook,
+  RESULTS_WEBHOOK_URL,
+} from "./resultsWebhooks";
+export type {
+  ResultsOperation,
+  ResultsOperationStatus,
+  ResultsDestination,
+  ResultsWebhookStatus,
+  ResultsChannels,
+  ResultsChannel,
+  ResultsTest,
+  ResultsTestInput,
+  ResultsGenerateInput,
+} from "./resultsWebhooks";
 export type {
   TeamDiscordDrift,
   TeamDiscordEsub,

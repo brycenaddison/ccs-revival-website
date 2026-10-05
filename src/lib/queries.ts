@@ -48,6 +48,7 @@ import {
   prediction,
   predictionSummary,
   predictionPositions,
+  publicPredictionPicks,
   myPredictions,
   previewPrediction,
   predictionHistory,
@@ -73,6 +74,9 @@ import {
   statTotals,
   teamDetail,
   teamDiscordStatus,
+  resultsWebhookStatus,
+  resultsWebhookChannels,
+  resultsWebhookOperation,
   teamStats,
   teams,
   teamsForConf,
@@ -94,6 +98,10 @@ import {
 } from "./api";
 
 const MINUTE = 60_000;
+
+// Revisioned private results reads require explicit refresh after writes or inspection. Never
+// automatically retry Discord requests, retain private data, or imply that a snapshot is live.
+const RESULTS_READ_OPTIONS = { staleTime: 0, gcTime: 0, retry: false, refetchOnWindowFocus: false } as const;
 
 /**
  * How long league data stays fresh.
@@ -213,6 +221,28 @@ export const queries = {
       enabled: eventId !== null,
       staleTime: 15_000,
       ...holdOnError(30_000),
+    }),
+  /**
+   * Every outcome's first page of public picks. Paid picks change while open, so a loaded board
+   * polls; anonymous no-store reads also refresh on stake invalidation.
+   */
+  publicPredictionPicks: (eventId: number, live = false) =>
+    query({
+      queryKey: ["predictions", "public", "picks", eventId, "first"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => publicPredictionPicks(eventId, null, { signal }),
+      staleTime: 15_000,
+      ...holdOnError(),
+      // Do not poll an endpoint that has not deployed. Focus/navigation can discover its arrival.
+      refetchInterval: (query: QueryStatus & { state: { data?: unknown } }): number | false =>
+        live && query.state.status === "success" && query.state.data != null ? 15_000 : false,
+    }),
+  /** A later page of one outcome. It does not poll, so a cursor from an older board stays usable. */
+  publicPredictionOutcomePicks: (eventId: number, outcomeId: number, cursor: string) =>
+    query({
+      queryKey: ["predictions", "public", "picks", eventId, outcomeId, cursor] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => publicPredictionPicks(eventId, { outcomeId, cursor }, { signal }),
+      staleTime: 15_000,
+      ...holdOnError(),
     }),
   /** Leaderboard seasons only change on rollover, which invalidates the predictions root. */
   predictionSeasons: () =>
@@ -962,6 +992,30 @@ export const queries = {
         q.state.status !== "error" && (q.state.data?.queue.depth ?? 0) > 0 ? 15_000 : false,
     }),
 
+  /** Results settings are independent of team provisioning; only admin-scoped callers mount them. */
+  resultsWebhook: (conf: string, viewerId: number | null) =>
+    query({
+      queryKey: ["resultsWebhooks", conf, viewerId, "status"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => resultsWebhookStatus(conf, { signal }),
+      enabled: conf !== "" && viewerId !== null,
+      ...RESULTS_READ_OPTIONS,
+    }),
+  resultsWebhookChannels: (conf: string, viewerId: number | null) =>
+    query({
+      queryKey: ["resultsWebhooks", conf, viewerId, "channels"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => resultsWebhookChannels(conf, { signal }),
+      enabled: conf !== "" && viewerId !== null,
+      ...RESULTS_READ_OPTIONS,
+    }),
+  resultsWebhookOperation: (conf: string, viewerId: number | null, operationId: string | null) =>
+    query({
+      queryKey: ["resultsWebhooks", conf, viewerId, "operation", operationId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => operationId === null
+        ? Promise.resolve(null) : resultsWebhookOperation(conf, operationId, { signal }),
+      enabled: conf !== "" && viewerId !== null && operationId !== null,
+      ...RESULTS_READ_OPTIONS,
+    }),
+
   /** The global draft settings document, site admin only. Read fresh because it backs a revisioned form. */
   draftSettings: (viewerId: number | null) =>
     query({
@@ -1052,6 +1106,7 @@ export const queries = {
 
 /** Key prefixes, for invalidating a whole family on refresh. */
 export const queryRoots = {
+  resultsWebhooks: ["resultsWebhooks"] as const,
   predictions: ["predictions"] as const,
   rosterPlayers: ["rosterPlayers"] as const,
   teams: ["teams"] as const,

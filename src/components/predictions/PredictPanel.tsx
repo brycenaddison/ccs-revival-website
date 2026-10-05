@@ -23,7 +23,7 @@ import { OutcomeLabel } from "./MatchupLabel";
 import { shareText } from "./PoolBar";
 import { closingPoint } from "./PredictionUi";
 import { outcomeById, outcomeName } from "./outcomeLabels";
-import { predictionErrorText, REVIEW_REASON_LABEL, voidReasonText } from "./predictionLabels";
+import { predictionErrorText, PUBLIC_PICKS_NOTICE, REVIEW_REASON_LABEL, voidReasonText } from "./predictionLabels";
 import type { PredictionWallet } from "./usePredictionWallet";
 import { useDebounced } from "../../hooks/useDebounced";
 import { useAuth } from "../../lib/authContext";
@@ -58,7 +58,7 @@ export function PredictPanel({ event, wallet, onPlaced }: {
     return (
       <section className={PANEL}>
         <h2 className={TITLE}>Make your prediction</h2>
-        <p className="mb-4 text-sm text-text-secondary">Sign in to predict with your points.</p>
+        <p className="mb-4 text-sm text-text-secondary">Sign in to predict with your points. {PUBLIC_PICKS_NOTICE}</p>
         <Button variant="outline" onClick={wallet.login}>Sign in</Button>
       </section>
     );
@@ -70,7 +70,7 @@ export function PredictPanel({ event, wallet, onPlaced }: {
     return (
       <section className={PANEL}>
         <h2 className={TITLE}>Make your prediction</h2>
-        <p className="mb-4 text-sm text-text-secondary">Get this season's starting points to make this prediction.</p>
+        <p className="mb-4 text-sm text-text-secondary">Get this season's starting points to make this prediction. {PUBLIC_PICKS_NOTICE}</p>
         <Button disabled={wallet.enrolling} onClick={wallet.enroll}>Start predicting</Button>
       </section>
     );
@@ -136,6 +136,7 @@ function PredictForm({ event, viewerId, available, onPlaced }: {
   return (
     <section className={PANEL}>
       <h2 className={TITLE}>Make your prediction</h2>
+      <p className="mb-4 text-sm text-text-secondary">{PUBLIC_PICKS_NOTICE}</p>
 
       <div
         role="radiogroup"

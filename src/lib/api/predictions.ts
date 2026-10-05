@@ -29,6 +29,11 @@
  *    because the reason's presence, not its label, is what makes it unpublishable.
  *  - `GET /predictions/me` omits per-outcome principal, so which side a viewer picked comes from
  *    `GET /predictions/me/positions`, which also covers settled events.
+ *  - Public picks come from the proposed `GET /predictions/:eventId/picks`, grouped by outcome and
+ *    ranked by paid points, because `GET /predictions/:eventId/positions` pages participants by
+ *    profile ID and cannot rank an outcome's backers. Picks are public immediately, including
+ *    closed events, and omit wallet, reward and ledger information; a missing route stays null
+ *    until the backend deploys the additive contract.
  *  - The worker status serves camelCase aliases; the snake_case keys are deprecated fallbacks.
  *  - Site settings (`/admin/settings`) are served in snake_case. Tournament code pick type shares
  *    their version; its isolated PATCH applies immediately without a calendar preview or boundary.
@@ -118,6 +123,8 @@ export const NO_WINNING_POOL = "no_winning_pool";
 /** Event list page size, which is also the positions read's ID limit. */
 export const PREDICTION_PAGE_SIZE = 50;
 export const PREDICTION_POSITIONS_MAX = 50;
+/** Picks per outcome page of the proposed public event-picks endpoint. */
+export const PREDICTION_PUBLIC_PICKS_PAGE_SIZE = 20;
 /** `GET /predictions/me` holdings cap; `truncated` says more exist. */
 export const PREDICTION_HOLDINGS_MAX = 100;
 /** Publication selections per batch. */
@@ -428,6 +435,48 @@ export async function predictionPositions(eventIds: readonly number[], opts?: Re
   const r = required(await credentialedRequest(`/predictions/me/positions${params({ eventIds: eventIds.join(",") })}`,
     { cache: "no-store" }, opts), "your predictions");
   return rows(r.positions, positionOf);
+}
+
+/** One participant's paid principal on one outcome. */
+export interface PredictionPlayerPick {
+  player: PlayerSummary;
+  paid: string;
+}
+/** One outcome's page of picks, ranked by paid points, highest first. */
+export interface PredictionOutcomePicks {
+  outcomeId: number;
+  /** Everyone holding this outcome, beyond this page; null when not served. */
+  participants: number | null;
+  picks: PredictionPlayerPick[];
+  nextCursor: string | null;
+}
+const playerPickOf = (value: unknown): PredictionPlayerPick | null => {
+  const r = raw(value), player = mapPlayerSummary(r.profile), paid = amount(r.paid);
+  return player === null || paid === null ? null : { player, paid };
+};
+const outcomePicksOf = (value: unknown): PredictionOutcomePicks | null => {
+  const r = raw(value), outcomeId = id(r.outcomeId);
+  return outcomeId === null ? null : {
+    outcomeId, participants: count(r.participants), picks: rows(r.picks, playerPickOf), nextCursor: cursorOf(r.nextCursor),
+  };
+};
+
+/**
+ * Anonymous, live picks for one visible event, grouped by outcome. Without `page` the API serves
+ * every outcome's first page; with it, only that outcome's page after the cursor. Null means the
+ * route or event is absent.
+ */
+export async function publicPredictionPicks(eventId: number, page?: { outcomeId: number; cursor: string } | null, opts?: RequestOpts): Promise<PredictionOutcomePicks[] | null> {
+  const value = await getOne<unknown>(`/predictions/${eventId}/picks${params({
+    outcomeId: page ? String(page.outcomeId) : null, cursor: page?.cursor,
+  })}`, { ...opts, anonymous: true, noStore: true });
+  if (value === null) return null;
+  const r = raw(value);
+  // A broken deployment must not look like an event with no participants.
+  if (id(r.eventId) !== eventId || !Array.isArray(r.outcomes)) {
+    throw new Error("The API did not return valid public prediction picks.");
+  }
+  return rows(r.outcomes, outcomePicksOf);
 }
 
 export interface PredictionHolding {

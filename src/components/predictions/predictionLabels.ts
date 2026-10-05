@@ -20,6 +20,8 @@ import {
   type PredictionSwitch,
 } from "../../lib/api";
 
+export const PUBLIC_PICKS_NOTICE = "Your picks and points placed will be public immediately.";
+
 export const STATE_LABEL: Record<PredictionState, string> = {
   scheduled: "Scheduled",
   open: "Open",
