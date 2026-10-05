@@ -11,6 +11,7 @@ export {
   publishCustomPrediction, predictionAction, reconcilePredictions,
   previewPredictionSettlement, applyPredictionSettlement,
   publicPredictionSiteSettings, predictionSiteSettings,
+  saveTournamentCodePickType, TOURNAMENT_CODE_PICK_TYPES,
   previewPredictionSiteTimeZone, savePredictionSiteTimeZone, savePredictionSiteSwitch,
   previewPredictionRewardPolicy, savePredictionRewardPolicy,
   predictionLeagueRules, savePredictionLeagueRule, predictionErrorReason, isPredictionsUnavailable,
@@ -34,6 +35,7 @@ export type {
   PredictionEventAction, PredictionCorrectionKind, PredictionSettlementCommand,
   PredictionCorrectionAffected, PredictionSettlementPreview,
   PublicPredictionCalendar, PredictionSwitch, PredictionSiteSettings, CalendarPreview,
+  TournamentCodePickType,
   RewardPolicyChanges, RewardPolicyPreview, PredictionLeagueRule,
   PredictionRolloverBlocker, PredictionRolloverPreview, PredictionRolloverInput,
 } from "./predictions";

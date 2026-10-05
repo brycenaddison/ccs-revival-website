@@ -30,7 +30,8 @@
  *  - `GET /predictions/me` omits per-outcome principal, so which side a viewer picked comes from
  *    `GET /predictions/me/positions`, which also covers settled events.
  *  - The worker status serves camelCase aliases; the snake_case keys are deprecated fallbacks.
- *  - Site settings (`/admin/settings`) are served in snake_case.
+ *  - Site settings (`/admin/settings`) are served in snake_case. Tournament code pick type shares
+ *    their version; its isolated PATCH applies immediately without a calendar preview or boundary.
  */
 
 import { credentialedRequest } from "./credentialed";
@@ -776,6 +777,9 @@ export async function publicPredictionSiteSettings(opts?: RequestOpts): Promise<
 export const PREDICTION_SWITCHES = ["publicationEnabled", "stakingEnabled", "settlementEnabled", "rewardsEnabled"] as const;
 export type PredictionSwitch = typeof PREDICTION_SWITCHES[number];
 
+export const TOURNAMENT_CODE_PICK_TYPES = ["BLIND_PICK", "TOURNAMENT_DRAFT"] as const;
+export type TournamentCodePickType = typeof TOURNAMENT_CODE_PICK_TYPES[number];
+
 export interface PredictionSiteSettings extends Record<PredictionSwitch, boolean | null> {
   siteTimeZone: string | null;
   pendingTimeZone: string | null;
@@ -785,6 +789,7 @@ export interface PredictionSiteSettings extends Record<PredictionSwitch, boolean
   /** A scheduled policy change, replaceable until `pendingRewardEffectiveAt`. */
   pendingRewardPolicy: PredictionRewardPolicy | null;
   pendingRewardEffectiveAt: string | null;
+  tournamentCodePickType: TournamentCodePickType | null;
 }
 export async function predictionSiteSettings(opts?: RequestOpts): Promise<PredictionSiteSettings> {
   const r = required(await credentialedRequest("/admin/settings", { cache: "no-store" }, opts), "the site settings");
@@ -798,7 +803,13 @@ export async function predictionSiteSettings(opts?: RequestOpts): Promise<Predic
     }),
     pendingRewardPolicy: rewardPolicyOf(r.pending_reward_policy),
     pendingRewardEffectiveAt: string(r.pending_reward_effective_at),
+    tournamentCodePickType: enumValue(r.tournament_code_pick_type, TOURNAMENT_CODE_PICK_TYPES),
   };
+}
+
+/** Changes only future code generation; omitted prediction/calendar settings remain untouched. */
+export async function saveTournamentCodePickType(tournamentCodePickType: TournamentCodePickType, expectedVersion: number): Promise<void> {
+  await credentialedRequest("/admin/settings", { method: "PATCH", body: { tournamentCodePickType, expectedVersion, preview: false } });
 }
 
 export interface CalendarPreview {

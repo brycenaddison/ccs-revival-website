@@ -14,7 +14,7 @@
  */
 
 import { useParams } from "react-router-dom";
-import { Award, CalendarRange, Coins, Import, Megaphone, ShieldCheck, Swords, Trophy } from "lucide-react";
+import { Award, CalendarRange, Coins, Import, Megaphone, ShieldCheck, Swords, Ticket, Trophy } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
@@ -26,6 +26,7 @@ import { RolesSection } from "../components/admin/RolesSection";
 import { SeasonStructureSection } from "../components/admin/season/SeasonStructureSection";
 import { PredictionsSettingsSection } from "../components/admin/PredictionsSettingsSection";
 import { DraftsSection } from "../components/admin/drafts/DraftsSection";
+import { TournamentCodesSection } from "../components/admin/TournamentCodesSection";
 import { SITE_ADMIN_ROLE } from "../lib/api";
 import { type SettingsArea } from "../lib/settingsAreas";
 
@@ -98,6 +99,13 @@ const AREA: SettingsArea = {
       icon: Coins,
       description: "Pause or resume prediction operations, set the site timezone and reward policy, start a new leaderboard season, and choose which leagues have predictions.",
       Component: PredictionsSettingsSection,
+    },
+    {
+      slug: "tournament-codes",
+      label: "Tournament codes",
+      icon: Ticket,
+      description: "Choose the pick type for newly generated tournament codes. Existing codes keep their configuration.",
+      Component: TournamentCodesSection,
     },
     {
       slug: "drafts",

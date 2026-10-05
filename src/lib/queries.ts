@@ -290,6 +290,8 @@ export const queries = {
       staleTime: 0,
       gcTime: 0,
     }),
+  // Predictions and Tournament codes share one versioned /admin/settings document. Always
+  // revalidate on entry and discard it on exit so another settings page's saves cannot stay stale.
   predictionSiteSettings: (viewerId: number | null) =>
     query({
       queryKey: ["predictions", "settings", viewerId] as const,

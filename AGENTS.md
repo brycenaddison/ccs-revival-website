@@ -500,6 +500,13 @@ Do not edit that repository or derive data the API already answers.
   previewed and share the next reset as their boundary (a pending policy can be replaced); the
   season rollover loads `queries.predictionRolloverPreview` only on request, lists blocking
   markets, and is a destructive confirmation. Every write is version-checked.
+- `admin/TournamentCodesSection.tsx` is Site Admin > Tournament codes (`/admin/tournament-codes`).
+  Blind pick and Tournament draft apply immediately to future code generation; existing codes keep
+  their configuration. It shares `queries.predictionSiteSettings` and the predictions root with
+  Predictions because `/admin/settings` has one version. The API boundary in `api/predictions.ts`
+  maps unknown/missing pick types to null and PATCHes only the pick type, expected version and
+  `preview: false`; no calendar preview or effective boundary is needed. Saves and 409s refresh the
+  shared root; missing pick type/version disables editing until the API supports it.
 
 ## Matches, schedules and games
 
