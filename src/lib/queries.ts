@@ -480,19 +480,22 @@ export const queries = {
       staleTime: LEAGUE_STALE,
     }),
 
-  /** One team's page. Fans out to `/teams/:c/:t` plus the conf listing, which is shared. */
-  teamDetail: (conf: string, code: string) =>
+  /**
+   * One team's page, keyed by `teams.id` under the teams root, so a tag or branding edit refreshes
+   * it in place through the same invalidation as the listings.
+   */
+  teamDetail: (teamId: number) =>
     query({
-      queryKey: ["teamDetail", conf, code] as const,
-      queryFn: ({ signal }: { signal: AbortSignal }) => teamDetail(conf, code, { signal }),
+      queryKey: ["teams", "detail", teamId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => teamDetail(teamId, { signal }),
       staleTime: LEAGUE_STALE,
     }),
 
   /** Public team pages and their metadata never reuse a staff-visible team response. */
-  publicTeamDetail: (conf: string, code: string) =>
+  publicTeamDetail: (teamId: number) =>
     query({
-      queryKey: ["teams", "public-detail", conf, code] as const,
-      queryFn: ({ signal }: { signal: AbortSignal }) => teamDetail(conf, code, { signal, anonymous: true }),
+      queryKey: ["teams", "public-detail", teamId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => teamDetail(teamId, { signal, anonymous: true }),
       staleTime: LEAGUE_STALE,
     }),
 

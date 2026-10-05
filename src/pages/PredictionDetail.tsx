@@ -106,7 +106,6 @@ function MatchHeader({ event, league }: { event: PredictionEvent; league: string
   const winnerId = event.state === "settled" ? event.result?.winnerOutcomeId ?? null : null;
   return (
     <MatchupHeader
-      conf={event.conf}
       teamA={a.team}
       teamB={b.team}
       wonA={winnerId !== null && a.id === winnerId}

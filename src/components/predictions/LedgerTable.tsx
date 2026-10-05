@@ -39,7 +39,7 @@ export function LedgerTable({ entries }: { entries: readonly PredictionHistoryEn
                 {entry.event && (
                   <Link to={predictionPath(entry.event.id)} className="block min-w-0 no-underline hover:underline">
                     {entry.event.teams.length === 2
-                      ? <MatchupLabel teamA={entry.event.teams[0]} teamB={entry.event.teams[1]} conf={entry.event.conf} linked={false} size={18} />
+                      ? <MatchupLabel teamA={entry.event.teams[0]} teamB={entry.event.teams[1]} linked={false} size={18} />
                       : <span className="block truncate font-heading text-sm text-text-bright">{entry.event.title ?? "League prediction"}</span>}
                   </Link>
                 )}

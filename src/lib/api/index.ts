@@ -297,6 +297,8 @@ export {
   recheckResultsWebhook,
   testResultsWebhook,
   RESULTS_WEBHOOK_URL,
+  RESULTS_WEBHOOK_NAME_MAX,
+  RESULTS_WEBHOOK_NAME_FORBIDDEN,
 } from "./resultsWebhooks";
 export type {
   ResultsOperation,

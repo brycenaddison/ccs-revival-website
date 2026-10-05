@@ -24,7 +24,7 @@ import { cn } from "../../lib/cn";
 import { accentHex } from "../../lib/teamStyle";
 import { fmtDay } from "../../lib/utils";
 import { patchOf, type RiotTeamId } from "../../lib/riot/matchV5";
-import { sideTeamCode } from "../../lib/game/participants";
+import { sideTeam } from "../../lib/game/participants";
 import { TeamBadge } from "../TeamBadge";
 import { TeamLink } from "../league/TeamLink";
 import { useGameView } from "./GameView";
@@ -86,8 +86,10 @@ function Caption({ children }: { children: ReactNode }) {
 function Side({ teamId, align }: { teamId: RiotTeamId; align: "left" | "right" }) {
   const { match, context, participants } = useGameView();
   const win = match.info.teams.find(t => t.teamId === teamId)?.win;
-  const code = sideTeamCode(participants, teamId);
-  const team: TeamMetadata | null = code !== null ? context?.teams[code] ?? null : null;
+  const side = sideTeam(participants, teamId);
+  const code = side?.code ?? null;
+  const team: TeamMetadata | null =
+    side?.leagueTeamId != null ? context?.teamsById[side.leagueTeamId] ?? null : null;
   const left = align === "left";
 
   const result =
@@ -101,8 +103,7 @@ function Side({ teamId, align }: { teamId: RiotTeamId; align: "left" | "right" }
     <div className={cn("flex min-w-0 flex-1 flex-col gap-2", left ? "items-end text-right" : "items-start")}>
       {team ? (
         <TeamLink
-          conf={team.conf ?? context?.conf}
-          code={team.code}
+          teamId={team.id}
           className={cn("group flex min-w-0 items-center gap-3 no-underline", left && "flex-row-reverse")}
         >
           <TeamBadge

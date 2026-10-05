@@ -111,7 +111,7 @@ function staffOf(team: TeamRecord): Member[] {
   ];
 }
 
-function TeamCard({ team, conf }: { team: TeamRecord; conf: string }) {
+function TeamCard({ team }: { team: TeamRecord }) {
   const roster: Member[] = rosterEntries(team).flatMap(e => e.slot
     ? [{ key: e.key, label: e.starter ? roleLabel(e.role, "") : "Sub", name: e.name, slot: e.slot }]
     : []);
@@ -120,8 +120,7 @@ function TeamCard({ team, conf }: { team: TeamRecord; conf: string }) {
   return (
     <article className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-bg2">
       <TeamLink
-        conf={conf}
-        code={team.code}
+        teamId={team.id}
         className="flex min-w-0 items-center gap-3.5 px-4 py-4 no-underline"
         style={{ background: teamGradientFor(team) }}
       >
@@ -208,7 +207,7 @@ export function TeamsView() {
           // Three a row at most, so the full column makes each card wider rather than adding a fourth:
           // the room goes to each person's names and IDs.
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {shown.map(t => <TeamCard key={t.id} team={t} conf={conf} />)}
+            {shown.map(t => <TeamCard key={t.id} team={t} />)}
           </div>
         )}
     </div>

@@ -24,7 +24,7 @@
  */
 
 import { getOne, type RequestOpts } from "./http";
-import { colorSecondaryOf, hexFromInt, httpsUrl, numOrNull } from "./normalize";
+import { colorSecondaryOf, hexFromInt, httpsUrl, numOrNull, teamIdOf } from "./normalize";
 import { mapBracketView, type BestOf, type SlotOutput, type SlotSide } from "./season";
 
 // ---------------------------------------------------------------- vocabulary
@@ -37,6 +37,8 @@ import { mapBracketView, type BestOf, type SlotOutput, type SlotSide } from "./s
  * that. See `hexFromInt`.
  */
 export interface SeasonTeam {
+  /** `teams.id`, what links and comparisons use. Null when the API could not attribute the team. */
+  id: number | null;
   code: string;
   name: string;
   /** Already upgraded to https — see `httpsUrl`. Absent rather than null, to suit an `<img src>`. */
@@ -80,6 +82,8 @@ export interface SeasonGroupRow {
   /** `rank` rendered: `"1"`, or `"T-2"` when shared. */
   place: string;
   tied: boolean;
+  /** `teams.id`. Rows are ranked upstream; this only links. */
+  teamId: number | null;
   code: string;
   name: string;
   logo?: string;
@@ -316,6 +320,7 @@ function mapTeam(raw: unknown): SeasonTeam | null {
   if (code === "") return null;
   const color = numOrNull(t.color as number | null);
   return {
+    id: teamIdOf(t.id),
     code,
     name: str(t.name, code),
     logo: httpsUrl(strOrNull(t.logo)),
@@ -356,6 +361,7 @@ function mapGroupRow(raw: unknown, index: number): SeasonGroupRow {
     rank,
     place: str(r.place, String(rank)),
     tied: r.tied === true,
+    teamId: teamIdOf(r.teamId),
     code: str(r.code),
     name: str(r.name, str(r.code)),
     logo: httpsUrl(strOrNull(r.logo)),

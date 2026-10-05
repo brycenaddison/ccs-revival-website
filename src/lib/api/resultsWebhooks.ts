@@ -3,6 +3,10 @@
  * Credentials are write-only; reads expose snapshots, not live Discord connectivity.
  * Generation/test UUIDs pin one attempt forever. Recheck recovers the original creation
  * from audit evidence without creating again. Changes never replay historical results.
+ *
+ * Generation can carry a webhook name, which is part of the pinned request. Strict validation
+ * upstream refuses unknown keys, so `webhookName` is sent only when `/channels` serves
+ * `defaultWebhookName`, the field that advertises support.
  */
 import { credentialedRequest } from "./credentialed";
 import { type RequestOpts } from "./http";
@@ -11,7 +15,10 @@ import { DISCORD_SNOWFLAKE } from "./teamDiscord";
 export const RESULTS_WEBHOOK_URL = /^https:\/\/discord\.com\/api\/webhooks\/[0-9]{17,20}\/[A-Za-z0-9_-]{60,200}$/;
 /** The backend reserves the top PostgreSQL integer value so a write can increment its revision. */
 const RESULTS_REVISION_MAX = 2147483646;
-export const RESULTS_OPERATION_STATUSES = ["creating", "ready", "uncertain", "failed", "active", "cancelled"] as const;
+/** Discord's webhook name rules: 1 to 80 characters after trimming, never containing these words. */
+export const RESULTS_WEBHOOK_NAME_MAX = 80;
+export const RESULTS_WEBHOOK_NAME_FORBIDDEN = ["clyde", "discord"] as const;
+export const RESULTS_OPERATION_STATUSES =["creating", "ready", "uncertain", "failed", "active", "cancelled"] as const;
 export type ResultsOperationStatus = (typeof RESULTS_OPERATION_STATUSES)[number];
 
 export interface ResultsOperation {
@@ -23,6 +30,7 @@ export interface ResultsOperation {
   guildId: string | null;
   status: ResultsOperationStatus | null;
   webhookId: string | null;
+  requestedWebhookName: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 }
@@ -62,10 +70,12 @@ export interface ResultsChannel {
 export interface ResultsChannels {
   guildId: string | null;
   channels: ResultsChannel[];
+  /** Null when the API cannot name a generated webhook yet. */
+  defaultWebhookName: string | null;
 }
 
 export interface ResultsTestInput { expectedRevision: number; requestId: string }
-export interface ResultsGenerateInput extends ResultsTestInput { channelId: string }
+export interface ResultsGenerateInput extends ResultsTestInput { channelId: string; webhookName?: string }
 
 type Raw = Record<string, unknown>;
 const raw = (v: unknown): Raw => v && typeof v === "object" && !Array.isArray(v) ? v as Raw : {};
@@ -81,6 +91,7 @@ function mapOperation(v: unknown): ResultsOperation | null {
   return {
     id, conf: str(r.conf), requestId: str(r.requestId), expectedRevision: revision(r.expectedRevision),
     channelId: snowflake(r.channelId), guildId: snowflake(r.guildId), webhookId: snowflake(r.webhookId),
+    requestedWebhookName: str(r.requestedWebhookName),
     status: RESULTS_OPERATION_STATUSES.find(s => s === r.status) ?? null,
     createdAt: str(r.createdAt), updatedAt: str(r.updatedAt),
   };
@@ -129,6 +140,7 @@ export async function resultsWebhookChannels(conf: string, opts?: RequestOpts): 
       return id ? [{ id, name: str(c.name), canGenerate: c.canGenerate === true,
         assignedConf: str(c.assignedConf), available: c.available === true }] : [];
     }),
+    defaultWebhookName: str(r.defaultWebhookName),
   };
 }
 

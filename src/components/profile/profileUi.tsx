@@ -155,15 +155,16 @@ export function TeamLogo({
   );
 }
 
-/** Logo plus name, linked to the team page. Falls back to the bare code when nothing is hydrated. */
+/** Logo plus name, linked to the team page by ID. Falls back to the bare code when nothing is hydrated. */
 export function TeamChip({
-  conf,
+  teamId,
   code,
   team,
   size = 22,
   className,
 }: {
-  conf: string;
+  /** `teams.id`. Null leaves the chip unlinked rather than guessing from the code. */
+  teamId: number | null;
   code: string;
   team: TeamMetadata | null;
   size?: number;
@@ -171,8 +172,7 @@ export function TeamChip({
 }) {
   return (
     <TeamLink
-      conf={conf}
-      code={code}
+      teamId={teamId}
       className={`flex min-w-0 items-center gap-2 no-underline ${className ?? ""}`}
     >
       <TeamLogo team={team} code={code} size={size} />
@@ -259,10 +259,10 @@ export function avgKdaText(row: { games: number; kills: number; deaths: number; 
 }
 
 /**
- * Resolve a `(conf, code)` pair to its hydrated team.
+ * Resolve a served `teamId` to its hydrated team.
  *
  * Built once per page from `career.teams`, which is by construction every team the player has
  * appeared for — so it answers for the *player's* side of any game or series row. It is not needed
  * for opponents: those carry their own `opponent` metadata on the row.
  */
-export type TeamIndex = (conf: string, code: string | null | undefined) => TeamRecord | null;
+export type TeamIndex = (teamId: number | null) => TeamRecord | null;

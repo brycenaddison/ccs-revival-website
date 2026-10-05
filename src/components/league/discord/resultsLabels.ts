@@ -1,4 +1,7 @@
-import type { ResultsOperation, ResultsOperationStatus } from "../../../lib/api";
+import {
+  RESULTS_WEBHOOK_NAME_FORBIDDEN, RESULTS_WEBHOOK_NAME_MAX,
+  type ResultsChannel, type ResultsOperation, type ResultsOperationStatus,
+} from "../../../lib/api";
 
 export const RESULTS_OPERATION_LABEL: Record<ResultsOperationStatus, string> = {
   creating: "Creation unresolved",
@@ -36,4 +39,20 @@ export function resultsTestLabel(status: string | null): string {
 export function resultsTestUncertain(status: string | null): boolean {
   return status === null || !["sent", "already_sent", "failed", "storage_failed", "unavailable",
     "permission_denied", "invalid_credentials", "invalid_destination", "destination_mismatch"].includes(status);
+}
+
+/** Why a channel cannot take a new webhook, or null when it can. */
+export function resultsChannelUnavailable(channel: ResultsChannel, leagueName: string | null): string | null {
+  if (!channel.available) return `Reserved by ${leagueName ?? "another league"}`;
+  if (!channel.canGenerate) return "Bot can't manage webhooks here";
+  return null;
+}
+
+/** Mirrors Discord's webhook name rules; the API's refusal stays authoritative. */
+export function resultsWebhookNameError(name: string): string | null {
+  const trimmed = name.trim();
+  if (trimmed === "") return "Enter a webhook name.";
+  if (trimmed.length > RESULTS_WEBHOOK_NAME_MAX) return `Use at most ${RESULTS_WEBHOOK_NAME_MAX} characters.`;
+  const word = RESULTS_WEBHOOK_NAME_FORBIDDEN.find(w => trimmed.toLowerCase().includes(w));
+  return word ? `Discord doesn't allow "${word}" in webhook names.` : null;
 }

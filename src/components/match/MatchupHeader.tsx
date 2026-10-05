@@ -16,10 +16,10 @@ import { TeamLink } from "../league/TeamLink";
 import { toBadge } from "../../lib/leagueAdapters";
 import type { TeamColors } from "../../lib/teamStyle";
 
-export type MatchupTeam = TeamColors & { code: string; name: string; logo?: string };
+/** `id` is `teams.id`, which the column links on; `code` is only the narrow-screen label. */
+export type MatchupTeam = TeamColors & { id: number; code: string; name: string; logo?: string };
 
 export function MatchupHeader({
-  conf,
   teamA,
   teamB,
   wonA = false,
@@ -30,7 +30,6 @@ export function MatchupHeader({
   caption,
   children,
 }: {
-  conf: string;
   teamA: MatchupTeam | null;
   teamB: MatchupTeam | null;
   wonA?: boolean;
@@ -45,9 +44,9 @@ export function MatchupHeader({
   return (
     <div className="mb-6 rounded-lg border border-border bg-bg2 p-6">
       <div className="flex items-center justify-center gap-6 md:gap-10">
-        <TeamColumn team={teamA} conf={conf} side="left" won={wonA} record={recordA} />
+        <TeamColumn team={teamA} side="left" won={wonA} record={recordA} />
         <div className="flex min-w-[90px] shrink-0 flex-col items-center gap-1">{center}</div>
-        <TeamColumn team={teamB} conf={conf} side="right" won={wonB} record={recordB} />
+        <TeamColumn team={teamB} side="right" won={wonB} record={recordB} />
       </div>
       {children}
       {caption && (
@@ -90,13 +89,11 @@ export const MATCHUP_CAPTION_LINK = "text-brand no-underline hover:underline";
 
 function TeamColumn({
   team,
-  conf,
   side,
   won,
   record,
 }: {
   team: MatchupTeam | null;
-  conf: string;
   side: "left" | "right";
   won: boolean;
   record?: string | null;
@@ -123,8 +120,7 @@ function TeamColumn({
 
   return (
     <TeamLink
-      conf={conf}
-      code={team.code}
+      teamId={team.id}
       className={`group flex min-w-0 flex-1 flex-col gap-1 no-underline ${side === "left" ? "items-end" : ""}`}
     >
       <div className="flex min-w-0 items-center gap-3">

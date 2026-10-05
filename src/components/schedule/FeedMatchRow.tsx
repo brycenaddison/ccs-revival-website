@@ -121,7 +121,7 @@ export function FeedMatchRow({ match, isMobile, showLeague = true }: Props) {
       </div>
 
       <div className={`flex items-center justify-center ${isMobile ? "gap-3" : "gap-6"}`}>
-        <Side team={teamA} side="left" won={played && result.winner === teamA?.code} isMobile={isMobile} />
+        <Side team={teamA} side="left" won={played && result.winnerTeamId !== null && result.winnerTeamId === teamA?.id} isMobile={isMobile} />
 
         <div className="flex min-w-[60px] shrink-0 items-center justify-center gap-2">
           {played ? (
@@ -149,7 +149,7 @@ export function FeedMatchRow({ match, isMobile, showLeague = true }: Props) {
           )}
         </div>
 
-        <Side team={teamB} side="right" won={played && result.winner === teamB?.code} isMobile={isMobile} />
+        <Side team={teamB} side="right" won={played && result.winnerTeamId !== null && result.winnerTeamId === teamB?.id} isMobile={isMobile} />
       </div>
     </>
   );

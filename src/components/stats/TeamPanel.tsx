@@ -74,6 +74,9 @@ const DEFAULT_SORT = "winrate";
 const streakRank = (streak: string | null | undefined) =>
   streak ? (streak.startsWith("W") ? 1 : -1) * (Number(streak.slice(1)) || 0) : 0;
 
+/** Row identity for keys and the expanded row: the team ID, or the tag on an unresolved legacy row. */
+const teamRowKey = (t: TeamStats): string => (t.teamId === null ? `tag:${t.code}` : String(t.teamId));
+
 export function TeamPanel({ conf, isMobile }: Props) {
   const [view, setView] = useState<StatView>("table");
   const [groupId, setGroupId] = useState(TEAM_STAT_GROUPS[0].id);
@@ -99,25 +102,33 @@ export function TeamPanel({ conf, isMobile }: Props) {
     const records = teamsQ.data ?? [];
     const players = playersQ.data ?? [];
 
-    const standingOf = new Map<string, StandingRow>(standings.map(r => [r.code, r]));
-    const recordOf = new Map<string, TeamRecord>(records.map(r => [r.code, r]));
-    const playersOf = new Map<string, PlayerStats[]>();
+    // Every join is on `teams.id`. A row without one is unresolved legacy evidence: it still lists,
+    // but it joins to nothing rather than borrowing a team through its code.
+    const standingById = new Map<number, StandingRow>();
+    for (const r of standings) if (r.teamId !== null) standingById.set(r.teamId, r);
+    const recordById = new Map<number, TeamRecord>(records.map(r => [r.id, r]));
+    const playersById = new Map<number, PlayerStats[]>();
     for (const p of players) {
-      const list = playersOf.get(p.team);
+      if (p.teamId === null) continue;
+      const list = playersById.get(p.teamId);
       if (list) list.push(p);
-      else playersOf.set(p.team, [p]);
+      else playersById.set(p.teamId, [p]);
     }
+    const standingOf = (t: TeamStats) => (t.teamId === null ? undefined : standingById.get(t.teamId));
+    const recordOf = (t: TeamStats) => (t.teamId === null ? null : recordById.get(t.teamId) ?? null);
+    const playersOf = (t: TeamStats) => (t.teamId === null ? [] : playersById.get(t.teamId) ?? []);
 
     // Standings order is authoritative — the API resolves series record, game win percentage and
     // head-to-head, the last of which cannot be reconstructed here. Teams with stats but no standings
     // row (shouldn't happen, but a forfeit-only team could) are appended rather than dropped.
-    const byCode = new Map(stats.map(s => [s.code, s]));
+    const byId = new Map<number, TeamStats>();
+    for (const s of stats) if (s.teamId !== null) byId.set(s.teamId, s);
     const ranked = standings.flatMap(r => {
-      const s = byCode.get(r.code);
+      const s = r.teamId === null ? undefined : byId.get(r.teamId);
       return s ? [s] : [];
     });
-    const seen = new Set(ranked.map(s => s.code));
-    const ordered = [...ranked, ...stats.filter(s => !seen.has(s.code))];
+    const seen = new Set(ranked);
+    const ordered = [...ranked, ...stats.filter(s => !seen.has(s))];
 
     return { ordered, standingOf, recordOf, playersOf };
   }, [teamStatsQ.data, standingsQ.data, teamsQ.data, playersQ.data]);
@@ -152,10 +163,10 @@ export function TeamPanel({ conf, isMobile }: Props) {
         key: "series",
         label: "Series",
         text: t => {
-          const s = standingOf.get(t.code);
+          const s = standingOf(t);
           return s ? `${s.seriesWins}-${s.seriesLosses}` : null;
         },
-        value: t => standingOf.get(t.code)?.seriesWins ?? null,
+        value: t => standingOf(t)?.seriesWins ?? null,
       },
       {
         key: "record",
@@ -168,17 +179,17 @@ export function TeamPanel({ conf, isMobile }: Props) {
       {
         key: "streak",
         label: "Streak",
-        text: t => standingOf.get(t.code)?.streak ?? null,
-        value: t => streakRank(standingOf.get(t.code)?.streak),
+        text: t => standingOf(t)?.streak ?? null,
+        value: t => streakRank(standingOf(t)?.streak),
       },
       {
         // Last five, most recent last. Sorts on wins in the window, which is the thing `streak` can't
         // tell you: "W1" after four losses and "L1" after four wins are opposite seasons.
         key: "form",
         label: "Form",
-        text: t => (standingOf.get(t.code)?.form ?? []).join("") || null,
+        text: t => (standingOf(t)?.form ?? []).join("") || null,
         value: t => {
-          const form = standingOf.get(t.code)?.form;
+          const form = standingOf(t)?.form;
           return form && form.length > 0 ? form.filter(r => r === "W").length : null;
         },
       },
@@ -282,7 +293,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
           onDirection={setBarDir}
           isMobile={isMobile}
           rowMeta={t => ({
-            key: t.code,
+            key: teamRowKey(t),
             name: t.name,
             sub: `${t.wins}-${t.losses} · ${fmtPct(t.winrate)}`,
             logo: t.logo,
@@ -295,7 +306,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
       ) : (
         <StatTable
           rows={sorted}
-          rowKey={t => t.code}
+          rowKey={teamRowKey}
           columns={columns}
           nameHeader="Team"
           isMobile={isMobile}
@@ -314,8 +325,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
            */
           renderName={t => (
             <TeamLink
-              conf={conf}
-              code={t.code}
+              teamId={t.teamId}
               stopPropagation
               className="flex items-center gap-2.5 no-underline group min-w-0"
             >
@@ -333,7 +343,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
             </TeamLink>
           )}
           renderExpanded={t => {
-            const roster = joinRoster(recordOf.get(t.code) ?? null, playersOf.get(t.code) ?? []);
+            const roster = joinRoster(recordOf(t), playersOf(t));
             const starters = roster.entries.filter(e => e.starter && e.stats !== null);
             return (
               <>

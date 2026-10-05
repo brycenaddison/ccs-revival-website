@@ -101,7 +101,7 @@ function OutcomeRow({ event, outcome, score, compact }: {
           {won && <Check size={14} aria-label="Winner" />}
         </span>
       )}
-      <TeamLabel team={outcome.team} conf={event.conf} size={28} className="flex-1 font-heading text-sm text-text-bright" />
+      <TeamLabel team={outcome.team} size={28} className="flex-1 font-heading text-sm text-text-bright" />
       {settled && score !== null && <span className="w-5 shrink-0 text-center font-display text-base text-text-bright">{score}</span>}
       {!compact && <span className="shrink-0 font-mono text-xs text-text-secondary">{pointsText(outcome.pool)} pts</span>}
       <span className="w-10 shrink-0 text-right font-mono text-xs text-text-secondary">{share ?? ""}</span>

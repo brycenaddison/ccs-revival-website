@@ -15,7 +15,6 @@ import { joinRoster, type JoinedRoster } from "../../lib/roster";
 import { teamGradientFor } from "../../lib/teamStyle";
 import { ChampionIcon } from "../ChampionIcon";
 import { OpggLink } from "../OpggLink";
-import { TeamLink } from "../league/TeamLink";
 import { TeamMatchHistory } from "../match/TeamMatchHistory";
 import { PlayerLink } from "../profile/PlayerLink";
 import { usePageMetadata } from "../seo/MetadataProvider";
@@ -23,9 +22,8 @@ import { useLeague } from "../../lib/leagueContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface Props {
-  conf: string;
-  code: string;
-  publicPage?: boolean;
+  /** `teams.id`, or null for a URL segment that cannot be one. */
+  teamId: number | null;
 }
 
 function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -192,20 +190,24 @@ function RosterPanel({
   );
 }
 
-export function TeamDetailPanel({ conf, code, publicPage = false }: Props) {
-  // Fans out to `/teams/:c/:t` plus the conf listing for the roster and record — and that listing
-  // is the same query the league loader uses, so arriving from the Teams tab reuses it.
-  const { data: team, isPending, error } = useQuery<TeamDetail | null>(publicPage ? queries.publicTeamDetail(conf, code) : queries.teamDetail(conf, code));
+export function TeamDetailPanel({ teamId }: Props) {
+  // Reads `/teams/by-id/:id`, then the team's conf listing for the roster and record. Anonymous,
+  // because this body and its metadata are public and a session can expose unpublished teams.
+  const { data: team, isPending, error } = useQuery<TeamDetail | null>({
+    ...queries.publicTeamDetail(teamId ?? 0),
+    enabled: teamId !== null,
+  });
   const { tournaments } = useLeague();
-  const league = tournaments.find(t => t.conf === conf)?.name;
+  const league = team ? tournaments.find(t => t.conf === team.conf)?.name : undefined;
+  const missing = teamId === null || (!isPending && !team);
   usePageMetadata({
     title: team ? `${team.name} | CCS` : "Team | CCS",
     description: team ? `Explore ${team.name}'s roster and results${league ? ` in ${league}` : " in CCS"}.` : "Explore CCS team rosters and results.",
     image: team?.logo ? { url: team.logo, alt: `${team.name} logo` } : undefined,
-    noindex: !!error || (!isPending && !team),
-  }, publicPage);
+    noindex: !!error || missing,
+  });
 
-  if (isPending) return <div className="text-center py-10 text-text-subtle">Loading team...</div>;
+  if (teamId !== null && isPending) return <div className="text-center py-10 text-text-subtle">Loading team...</div>;
   if (error) return <div className="text-center py-10 text-ccs-red">{errorMessage(error)}</div>;
   if (!team) return <div className="text-center py-10 text-text-dim">Team not found.</div>;
 
@@ -304,7 +306,7 @@ export function TeamDetailPanel({ conf, code, publicPage = false }: Props) {
               days — see `AGENTS.md`. */}
           <div>
             <h3 className="mb-3 font-display text-[22px] text-text-bright">Match history</h3>
-            <TeamMatchHistory matches={team.matchlist} conf={conf} />
+            <TeamMatchHistory matches={team.matchlist} conf={team.conf} />
           </div>
         </>
       )}

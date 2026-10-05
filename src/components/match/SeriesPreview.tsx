@@ -1,13 +1,13 @@
 /**
  * The Preview tab: what each side brings into this match.
  *
- * **Two extra requests, and only when this tab is open.** `GET /teams/:conf/:code` is five heavy queries
+ * **Two extra requests, and only when this tab is open.** `GET /teams/by-id/:id` is five heavy queries
  * upstream and is documented as a read for one team, fetched because a user asked for that team — so it
  * is never loaded speculatively. On a fixture with games the Results tab is the default and this fires
  * only on a click; on one without, a preview is the entire reason someone opened the page.
  *
- * It costs nothing twice over: the query key is the one the team pages use, so clicking a team from here
- * needs no fetch, and arriving from a team page warms this.
+ * Keyed by `teams.id`, so a rename between visits refreshes the same entry rather than orphaning it.
+ * It is not the team page's key: that page reads anonymously, while this one carries the session.
  *
  * **Nothing here is on the match endpoint and nothing needs to be.** Season statistics, per-player rates,
  * top champions and a match history are what the team read exists to serve, and duplicating them onto a
@@ -38,18 +38,17 @@ import { HeadToHead, asOne, asPct, asRatio, compare, compareText, type Compariso
 import { MatchResultList } from "./MatchResultList";
 
 interface Props {
-  conf: string;
-  codeA: string | null;
-  codeB: string | null;
+  teamIdA: number | null;
+  teamIdB: number | null;
 }
 
-export function SeriesPreview({ conf, codeA, codeB }: Props) {
+export function SeriesPreview({ teamIdA, teamIdB }: Props) {
   // One `useQueries` rather than two `useQuery` calls, so a fixture with only one side known still runs
   // the hook the same number of times.
-  const codes = [codeA, codeB].filter((c): c is string => c !== null);
-  const results = useQueries({ queries: codes.map(code => queries.teamDetail(conf, code)) });
+  const ids = [teamIdA, teamIdB].filter((id): id is number => id !== null);
+  const results = useQueries({ queries: ids.map(id => queries.teamDetail(id)) });
 
-  if (codes.length === 0) {
+  if (ids.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-bg2 px-4 py-6 text-center text-[13px] text-text-dim">
         Neither side is decided yet, so there is nothing to preview.
@@ -67,7 +66,7 @@ export function SeriesPreview({ conf, codeA, codeB }: Props) {
   }
 
   const a = results[0]?.data ?? null;
-  const b = codes.length > 1 ? (results[1]?.data ?? null) : null;
+  const b = ids.length > 1 ? (results[1]?.data ?? null) : null;
 
   if (a === null && b === null) {
     return (
@@ -81,10 +80,10 @@ export function SeriesPreview({ conf, codeA, codeB }: Props) {
     <>
       {a && b && <SeasonComparison a={a} b={b} />}
 
-      {[a, b].map(team => (team === null ? null : <Starters key={team.code} team={team} conf={conf} />))}
+      {[a, b].map(team => (team === null ? null : <Starters key={team.teamId} team={team} />))}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {[a, b].map(team => (team === null ? null : <RecentGames key={team.code} team={team} conf={conf} />))}
+        {[a, b].map(team => (team === null ? null : <RecentGames key={team.teamId} team={team} />))}
       </div>
     </>
   );
@@ -200,7 +199,7 @@ const CHAMPS_WIDTH = "w-[108px]";
  * `joinRoster` is the same join every team card uses. A starter with no recorded games is the whole
  * reason to read the roster rather than the statistics, so the row stays and says so.
  */
-function Starters({ team, conf }: { team: TeamDetail; conf: string }) {
+function Starters({ team }: { team: TeamDetail }) {
   const starters = joinRoster(team.roster, team.players).entries.filter(e => e.starter);
 
   return (
@@ -209,7 +208,7 @@ function Starters({ team, conf }: { team: TeamDetail; conf: string }) {
         <TeamBadge team={toBadge(team)} size={20} />
         {/* The label shares the name's size and baseline; the right edge belongs to the OP.GG link. */}
         <div className="flex min-w-0 items-baseline gap-2">
-          <TeamLink conf={conf} code={team.code} className="min-w-0 truncate no-underline [&:hover_*]:text-brand">
+          <TeamLink teamId={team.teamId} className="min-w-0 truncate no-underline [&:hover_*]:text-brand">
             <span className="font-heading text-xs font-semibold text-text hover:text-brand">{team.name}</span>
           </TeamLink>
           <span className="shrink-0 font-heading text-xs text-text-dim">Starters</span>
@@ -354,7 +353,7 @@ const RECENT = 12;
  * **name** and no icon — the one place on the site that resolves artwork from a name rather than an id,
  * and so the only place a name-keyed index being wrong was ever visible. See `lib/championData.ts`.
  */
-function RecentGames({ team, conf }: { team: TeamDetail; conf: string }) {
+function RecentGames({ team }: { team: TeamDetail }) {
   const recent = [...team.matchlist]
     .sort((x, y) => new Date(y.startTime).getTime() - new Date(x.startTime).getTime())
     .slice(0, RECENT);
@@ -362,7 +361,7 @@ function RecentGames({ team, conf }: { team: TeamDetail; conf: string }) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-bg2">
       <div className="flex items-baseline gap-2 border-b border-border bg-bg3 px-4 py-2.5">
-        <TeamLink conf={conf} code={team.code} className="min-w-0 no-underline [&:hover_*]:text-brand">
+        <TeamLink teamId={team.teamId} className="min-w-0 no-underline [&:hover_*]:text-brand">
           <span className="truncate font-heading text-xs font-semibold text-text hover:text-brand">
             {team.name}
           </span>
@@ -372,7 +371,7 @@ function RecentGames({ team, conf }: { team: TeamDetail; conf: string }) {
         </span>
       </div>
 
-      <MatchResultList matches={recent} conf={conf} />
+      <MatchResultList matches={recent} />
     </div>
   );
 }

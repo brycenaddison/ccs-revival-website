@@ -10,7 +10,7 @@
  * **Where the fixture comes from.** Every matchlist row carries `scheduleMatchId` and `phase`, the same
  * projections `GET /profiles/:id` serves on a game, so a series is keyed on its fixture id and labeled
  * from its phase with no second read. Both are `null` on a legacy season's rows, which predate the
- * schedule and the phase list, and there the grouping falls back to `(seasonDay, opponent)`, which is
+ * schedule and the phase list, and there the grouping falls back to `(seasonDay, opponentTeamId)`, which is
  * the `series` view's key and merges a double-header, as `/matches/:conf` does. A fixture id keeps two
  * series between one pair on one day apart, which is the reason to prefer it. This component used to
  * rebuild both fields by joining the rows to `GET /tournaments/:conf/schedule`; that join is gone, and
@@ -39,6 +39,7 @@ const LANES: readonly MatchlistRoleKey[] = ["top", "jg", "mid", "bot", "sup"];
 interface Series {
   key: string;
   opponent: string;
+  opponentTeamId: number | null;
   seasonDay: number;
   scheduleMatchId: number | null;
   phase: PhaseRef | null;
@@ -52,12 +53,16 @@ interface Series {
 function groupSeries(matches: readonly MatchlistEntry[]): Series[] {
   const byKey = new Map<string, Series>();
   for (const m of matches) {
-    const key = m.scheduleMatchId !== null ? `fixture:${m.scheduleMatchId}` : `${m.seasonDay}:${m.opponent}`;
+    // A legacy row without an opponent ID still groups on its recorded tag, which only orders this
+    // team's own games and never resolves a team.
+    const opponentKey = m.opponentTeamId ?? `tag:${m.opponent}`;
+    const key = m.scheduleMatchId !== null ? `fixture:${m.scheduleMatchId}` : `${m.seasonDay}:${opponentKey}`;
     let series = byKey.get(key);
     if (!series) {
       series = {
         key,
         opponent: m.opponent,
+        opponentTeamId: m.opponentTeamId,
         seasonDay: m.seasonDay,
         scheduleMatchId: m.scheduleMatchId,
         phase: m.phase,
@@ -87,8 +92,8 @@ export function TeamMatchHistory({ matches, conf }: { matches: readonly Matchlis
   const { data: teams } = useQuery(queries.teamsForConf(conf));
   const series = useMemo(() => groupSeries(matches), [matches]);
   const teamOf = useMemo(() => {
-    const index = new Map<string, TeamRecord>((teams ?? []).map(t => [t.code, t]));
-    return (code: string): TeamRecord | null => index.get(code) ?? null;
+    const index = new Map<number, TeamRecord>((teams ?? []).map(t => [t.id, t]));
+    return (teamId: number | null): TeamRecord | null => (teamId === null ? null : index.get(teamId) ?? null);
   }, [teams]);
 
   if (series.length === 0) {
@@ -126,7 +131,7 @@ export function TeamMatchHistory({ matches, conf }: { matches: readonly Matchlis
                 </span>
                 <span className="font-heading text-xs text-text-muted">vs</span>
                 <span className="-mx-1 flex min-w-0 overflow-hidden px-1">
-                  <TeamChip conf={conf} code={s.opponent} team={teamOf(s.opponent)} className="pointer-events-auto w-fit max-w-full rounded px-1 hover:bg-brand/20" />
+                  <TeamChip teamId={s.opponentTeamId} code={s.opponent} team={teamOf(s.opponentTeamId)} className="pointer-events-auto w-fit max-w-full rounded px-1 hover:bg-brand/20" />
                 </span>
                 <span className="min-w-0 truncate text-right text-[11px] text-text-dim">
                   {placement && <span className="text-text-secondary">{placement} · </span>}

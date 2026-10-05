@@ -66,7 +66,7 @@ assert.equal(canonicalPath("/news/page/2/", "?conf=old&utm_source=discord"), "/n
 assert.equal(canonicalPath("/news/story-1", "?conf=old"), "/news/story-1");
 assert.equal(canonicalPath("/standings", "?conf=old&utm_source=x"), "/standings?conf=old");
 assert.equal(canonicalPath("/players/1", "?conf=old&utm_source=x"), "/players/1?conf=old");
-assert.equal(canonicalPath("/teams/old/ABC", "?conf=unrelated"), "/teams/old/ABC");
+assert.equal(canonicalPath("/teams/42", "?conf=unrelated"), "/teams/42");
 assert.equal(canonicalPath("/news/page/1"), "/news");
 for (const page of ["0", "-1", "01", "1.5", "abc", "999999999999999999"]) assert.equal(parseNewsPage(page), null);
 assert.equal(parseNewsPage(undefined), 1);
@@ -81,9 +81,11 @@ assert.equal(shell["og:url"], undefined);
 assert.equal(shell.robots, undefined);
 assert.equal(shell["og:image"], `${origin}/android-chrome-512x512.png`);
 assert.equal(shell["og:image:width"], "512");
-for (const path of ["/settings/profile", "/admin", "/league/a/admin", "/content/articles", "/register", "/setup", "/login", "/my-applications", "/team-invitations", "/missing"]) {
+for (const path of ["/settings/profile", "/admin", "/league/a/admin", "/content/articles", "/register", "/setup", "/login", "/my-applications", "/team-invitations", "/missing", "/teams/old/ABC"]) {
   assert.equal(routeMetadata(path, "", origin).noindex, true);
 }
+assert.equal(routeMetadata("/teams/42", "?conf=old", origin).path, "/teams/42");
+assert.equal(routeMetadata("/teams/42", "", origin).noindex, undefined);
 assert.equal(routeMetadata("/", "", origin).structuredData?.["@type"], "WebSite");
 assert.equal(routeMetadata("/news", "", origin).structuredData, undefined);
 assert.equal(routeMetadata("/news", "?conf=old", origin).path, "/news");

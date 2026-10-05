@@ -9,6 +9,9 @@
  *
  * `createOption` offers the typed text itself as a value when nothing matches, for the case where
  * the option list is unavailable and the server validates the value.
+ *
+ * A `disabled` option stays listed with its `detail` saying why, so an option the server reports
+ * as unavailable does not silently vanish from the search.
  */
 
 import { useState } from "react"
@@ -29,6 +32,10 @@ export interface ComboboxOption {
   label: string
   /** Extra terms the search should match, such as a full name behind a short label. */
   keywords?: string[]
+  /** Listed but not selectable, such as an option the server reports as unavailable. */
+  disabled?: boolean
+  /** Secondary text after the label, such as why the option is disabled. */
+  detail?: string
 }
 
 export function Combobox({
@@ -111,13 +118,17 @@ export function Combobox({
                 key={option.value}
                 value={option.value}
                 keywords={[option.label, ...(option.keywords ?? [])]}
+                disabled={option.disabled}
                 onSelect={() => pick(option.value)}
               >
                 <CheckIcon
                   aria-hidden="true"
                   className={cn("size-4", option.value === value ? "opacity-100" : "opacity-0")}
                 />
-                {option.label}
+                <span className="truncate">{option.label}</span>
+                {option.detail && (
+                  <span className="ml-auto shrink-0 pl-2 text-xs text-text-dim">{option.detail}</span>
+                )}
               </CommandItem>
             ))}
           </CommandList>

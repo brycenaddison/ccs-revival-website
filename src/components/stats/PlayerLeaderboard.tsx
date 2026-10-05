@@ -115,7 +115,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
   }, [compare.length, onCompareCount]);
 
   /**
-   * Branding per team code.
+   * Branding per team ID.
    *
    * `hex` is only set when the team actually has a color: `hexFromInt` substitutes a dark gray for the
    * roughly half of teams with none, and a bar painted that gray is invisible. Leaving it undefined lets
@@ -126,21 +126,23 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
     () =>
       new Map(
         (teamsQuery.data ?? []).map(t => [
-          t.code,
+          t.id,
           { name: t.name, logo: t.logo, hex: t.color ? t.colorHex : undefined, hexEnd: secondaryHex(t) },
         ]),
       ),
     [teamsQuery.data],
   );
 
-  /** Codes that actually appear in the stat rows, labeled with the full team name. */
-  const teamOptions = useMemo(
-    () =>
-      [...new Set(players.map(p => p.team))]
-        .map(code => ({ code, name: branding.get(code)?.name ?? code }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [players, branding],
-  );
+  const brandOf = (p: { teamId: number | null }) => (p.teamId === null ? undefined : branding.get(p.teamId));
+
+  /** Teams that actually appear in the stat rows, by ID, labeled with the full team name. */
+  const teamOptions = useMemo(() => {
+    const names = new Map<number, string>();
+    for (const p of players) {
+      if (p.teamId !== null && !names.has(p.teamId)) names.set(p.teamId, branding.get(p.teamId)?.name ?? p.team);
+    }
+    return [...names].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [players, branding]);
 
   /**
    * Rows passing every filter.
@@ -154,7 +156,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
       if (p.games < minGames) return false;
       if (p.role !== null && !roles.has(p.role)) return false;
       if (p.role === null && roles.size !== ROLE_ORDER.length) return false;
-      if (team !== "ALL" && p.team !== team) return false;
+      if (team !== "ALL" && String(p.teamId) !== team) return false;
       if (q && !p.name.toLowerCase().includes(q) && !p.team.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -259,7 +261,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
         <FilterField label="Team">
           <NativeSelect value={team} onChange={e => setTeam(e.target.value)}>
             <NativeSelectOption value="ALL">All Teams</NativeSelectOption>
-            {teamOptions.map(t => <NativeSelectOption key={t.code} value={t.code}>{t.name}</NativeSelectOption>)}
+            {teamOptions.map(t => <NativeSelectOption key={t.id} value={String(t.id)}>{t.name}</NativeSelectOption>)}
           </NativeSelect>
         </FilterField>
 
@@ -302,9 +304,9 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
             profileId: p.id,
             name: p.name,
             sub: isMobile ? p.team : `${p.team} · ${roleLabel(p.role)} · ${p.games}G`,
-            logo: branding.get(p.team)?.logo,
-            color: branding.get(p.team)?.hex,
-            colorEnd: branding.get(p.team)?.hexEnd,
+            logo: brandOf(p)?.logo,
+            color: brandOf(p)?.hex,
+            colorEnd: brandOf(p)?.hexEnd,
           })}
         />
       ) : (
@@ -324,7 +326,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
             {sorted.length} of {players.length} players · click a row for the full stat line, or the dot to compare
           </>}
           renderName={p => {
-            const brand = branding.get(p.team);
+            const brand = brandOf(p);
             return (
               <div className="flex items-center gap-2.5">
                 {brand?.logo

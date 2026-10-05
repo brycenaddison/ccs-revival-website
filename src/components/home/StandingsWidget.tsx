@@ -41,6 +41,7 @@ interface Props {
 
 /** What a row needs to render, whichever source it came from. */
 interface PanelRow {
+  teamId: number | null;
   code: string;
   name: string;
   logo?: string;
@@ -109,6 +110,7 @@ function ConfPanel({ conf }: { conf: string }) {
     group && group.standings.length > 0
       ? group.standings.map(row => ({ ...row, scenario: row.scenario, tied: row.tied }))
       : (seasonWide ?? []).map(row => ({
+          teamId: row.teamId,
           code: row.code,
           name: row.name,
           logo: row.logo ?? undefined,
@@ -185,7 +187,7 @@ function ConfPanel({ conf }: { conf: string }) {
 
             return (
               <tr
-                key={`${row.code}-${row.place}`}
+                key={`${row.teamId ?? row.code}-${row.place}`}
                 style={{
                   borderLeft: `4px solid ${tone?.line ?? "transparent"}`,
                   background: tone?.bg,
@@ -193,8 +195,7 @@ function ConfPanel({ conf }: { conf: string }) {
               >
                 <td className="max-w-0 px-3.5 py-2.5">
                   <TeamLink
-                    conf={conf}
-                    code={row.code}
+                    teamId={row.teamId}
                     className="group flex min-w-0 items-center gap-2 no-underline"
                   >
                     {/* A tied place like `T-1` breaks at its hyphen just as `W-L` does. */}

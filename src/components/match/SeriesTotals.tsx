@@ -5,7 +5,7 @@
  * scoreline (a 3-2 where one team out-killed the other two to one is a different match from a 3-2 that
  * went the distance), and who the series belonged to individually.
  *
- * Everything here is `lib/seriesStats.ts` over data already loaded — **added up by team code, not by
+ * Everything here is `lib/seriesStats.ts` over data already loaded — **added up by team ID, not by
  * side**, because teams swap ends between games. It is deliberately not a second opinion on the result:
  * `MatchOutcome` is counted upstream from the fixture's own games and the header renders that.
  *
@@ -22,6 +22,7 @@ import {
   mean,
   perMinute,
   seriesStats,
+  type FixtureTeam,
   type SeriesPlayerTotals,
   type SeriesStats,
 } from "../../lib/seriesStats";
@@ -34,13 +35,13 @@ const signed = (v: number): string => `${v > 0 ? "+" : ""}${Math.round(v).toLoca
 
 interface Props {
   games: readonly SeriesGame[];
-  codeA: string;
-  codeB: string;
+  teamA: FixtureTeam;
+  teamB: FixtureTeam;
   nameOf: TeamNamer;
 }
 
-export function SeriesTotals({ games, codeA, codeB, nameOf }: Props) {
-  const stats = seriesStats(games, codeA, codeB);
+export function SeriesTotals({ games, teamA, teamB, nameOf }: Props) {
+  const stats = seriesStats(games, teamA, teamB);
 
   // Nothing to add up. The games list below still has something to say about each one — a forfeit, or a
   // game Riot never served — so this removes itself rather than printing two columns of zeroes.
@@ -50,7 +51,7 @@ export function SeriesTotals({ games, codeA, codeB, nameOf }: Props) {
     // Totals wider than leaders: fifteen paired values need the room, and a leader row is a name and a
     // number. `items-start` so the shorter card doesn't stretch to match the taller one.
     <div className="mb-4 grid grid-cols-1 items-start gap-4 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <TotalsCard stats={stats} codeA={codeA} codeB={codeB} nameOf={nameOf} />
+      <TotalsCard stats={stats} nameOf={nameOf} />
       <LeadersCard stats={stats} nameOf={nameOf} />
     </div>
   );
@@ -58,17 +59,7 @@ export function SeriesTotals({ games, codeA, codeB, nameOf }: Props) {
 
 // --------------------------------------------------------------------- totals
 
-function TotalsCard({
-  stats,
-  codeA,
-  codeB,
-  nameOf,
-}: {
-  stats: SeriesStats;
-  codeA: string;
-  codeB: string;
-  nameOf: TeamNamer;
-}) {
+function TotalsCard({ stats, nameOf }: { stats: SeriesStats; nameOf: TeamNamer }) {
   const { a, b } = stats;
 
   const rows: ComparisonRow[] = [
@@ -103,8 +94,8 @@ function TotalsCard({
 
       <div className="px-4 py-3">
         <div className="mb-1 flex items-baseline justify-between gap-2 font-heading text-[11px] font-bold text-text-secondary">
-          <TeamNameLink code={codeA} nameOf={nameOf} className="text-text-secondary" />
-          <TeamNameLink code={codeB} nameOf={nameOf} className="text-text-secondary" />
+          <TeamNameLink teamId={a.teamId} code={a.code} nameOf={nameOf} className="text-text-secondary" />
+          <TeamNameLink teamId={b.teamId} code={b.code} nameOf={nameOf} className="text-text-secondary" />
         </div>
         <HeadToHead rows={rows} />
       </div>
@@ -222,7 +213,7 @@ function Leader({
   value: string;
   nameOf: TeamNamer;
 }) {
-  const team = nameOf(player.team);
+  const team = nameOf(player.teamId);
 
   return (
     <div className="flex items-baseline gap-2 border-b border-border/50 py-1.5 last:border-b-0">

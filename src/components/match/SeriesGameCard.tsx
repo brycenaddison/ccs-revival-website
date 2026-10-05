@@ -15,7 +15,7 @@
  *
  * Not `GameSummary` itself. That takes a `RiotMatch` — the raw match-v5 payload, which is what a
  * tournament-code preview has in hand and all it has — and this takes the server's own box score, which
- * knows the team codes, the objectives and each player's profile. Sharing a component would mean one of
+ * knows each side's team, the objectives and each player's profile. Sharing a component would mean one of
  * the two pretending to be the other's shape.
  */
 
@@ -25,6 +25,7 @@ import { fmtSec } from "../../lib/api";
 import type { SeriesGame, SeriesSide } from "../../lib/api";
 import { useChampions } from "../../hooks/useChampions";
 import type { ChampionLookup } from "../../lib/championData";
+import type { FixtureTeam } from "../../lib/seriesStats";
 import { ChampionIcon } from "../ChampionIcon";
 import { PlayerLink } from "../profile/PlayerLink";
 import { BanIcons } from "./BanIcons";
@@ -32,13 +33,13 @@ import { TeamNameLink, type TeamNamer } from "./TeamNameLink";
 
 interface Props {
   game: SeriesGame;
-  /** The fixture's own codes, for naming the winner of a game that has no box score. */
-  codeA: string;
-  codeB: string;
+  /** The fixture's own teams, for naming the winner of a game that has no box score. */
+  teamA: FixtureTeam;
+  teamB: FixtureTeam;
   nameOf: TeamNamer;
 }
 
-export function SeriesGameCard({ game, codeA, codeB, nameOf }: Props) {
+export function SeriesGameCard({ game, teamA, teamB, nameOf }: Props) {
   const champions = useChampions();
   const hasBoxScore = game.blue !== null || game.red !== null;
 
@@ -74,11 +75,11 @@ export function SeriesGameCard({ game, codeA, codeB, nameOf }: Props) {
       )}
 
       {!hasBoxScore ? (
-        <NoBoxScore game={game} codeA={codeA} codeB={codeB} />
+        <NoBoxScore game={game} teamA={teamA} teamB={teamB} />
       ) : (
         <div className="grid grid-cols-1 divide-y divide-border lg:grid-cols-2 lg:divide-x lg:divide-y-0">
-          <SideTable side={game.blue} fallbackCode={codeA} nameOf={nameOf} champions={champions} />
-          <SideTable side={game.red} fallbackCode={codeB} nameOf={nameOf} champions={champions} />
+          <SideTable side={game.blue} fallback={teamA} nameOf={nameOf} champions={champions} />
+          <SideTable side={game.red} fallback={teamB} nameOf={nameOf} champions={champions} />
         </div>
       )}
     </div>
@@ -93,8 +94,11 @@ export function SeriesGameCard({ game, codeA, codeB, nameOf }: Props) {
  * series, the standings and the bracket, which is the part worth saying — an earlier version rendered
  * these as an empty table, which read as the game being broken.
  */
-function NoBoxScore({ game, codeA, codeB }: { game: SeriesGame; codeA: string; codeB: string }) {
-  const loser = game.winner === null ? null : game.winner === codeA ? codeB : codeA;
+function NoBoxScore({ game, teamA, teamB }: { game: SeriesGame; teamA: FixtureTeam; teamB: FixtureTeam }) {
+  // Decided by ID. A winner neither side matches, or one with no ID, is named alone.
+  const winnerId = game.winnerTeamId;
+  const loser =
+    winnerId === null ? null : winnerId === teamA.id ? teamB.code : winnerId === teamB.id ? teamA.code : null;
 
   return (
     <p className="px-4 py-4 text-xs text-text-secondary">
@@ -136,22 +140,23 @@ const COLUMNS = [
 /** One side: who they were, whether they won, what they took, and five labeled lines. */
 function SideTable({
   side,
-  fallbackCode,
+  fallback,
   nameOf,
   champions,
 }: {
   side: SeriesSide | null;
   /** Which of the fixture's two teams this column stands for when nothing was recorded for it. */
-  fallbackCode: string;
+  fallback: FixtureTeam;
   nameOf: TeamNamer;
   champions: ChampionLookup | null;
 }) {
-  const code = side?.team ?? fallbackCode;
+  const teamId = side ? side.teamId : fallback.id;
+  const code = side?.team ?? fallback.code;
 
   if (side === null) {
     return (
       <div className="px-4 py-3">
-        <TeamNameLink code={code} nameOf={nameOf} className="font-heading text-sm font-bold text-text-bright" />
+        <TeamNameLink teamId={teamId} code={code} nameOf={nameOf} className="font-heading text-sm font-bold text-text-bright" />
         <p className="mt-1 text-xs text-text-dim">Nothing recorded for this side.</p>
       </div>
     );
@@ -163,7 +168,7 @@ function SideTable({
         <span className={`shrink-0 font-display ${side.win ? "text-ccs-green" : "text-text-muted"}`}>
           {side.win ? "Victory" : "Defeat"}
         </span>
-        <TeamNameLink code={code} nameOf={nameOf} className="min-w-0 truncate font-heading text-text-bright" />
+        <TeamNameLink teamId={teamId} code={code} nameOf={nameOf} className="min-w-0 truncate font-heading text-text-bright" />
 
       </div>
 

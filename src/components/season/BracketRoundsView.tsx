@@ -9,13 +9,12 @@ import type { SeasonBracketMatch, SeasonBracketPhase, SeasonBracketSide, SlotSid
 interface Props {
   phase: SeasonBracketPhase;
   layout: BracketLayout;
-  conf: string;
   isMobile: boolean;
   slotControl?: (slot: SlotSide, side: SeasonBracketSide, match: SeasonBracketMatch) => ReactNode | null;
 }
 
 export function BracketRoundsView({
-  phase, layout, conf, isMobile, slotControl,
+  phase, layout, isMobile, slotControl,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -41,7 +40,6 @@ export function BracketRoundsView({
                       match={match}
                       terminal={false}
                       layout={layout}
-                      conf={conf}
                       slotControl={slotControl}
                     />
                   </div>

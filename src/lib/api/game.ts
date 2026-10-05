@@ -23,6 +23,7 @@
 
 import { getOne, type RequestOpts } from "./http";
 import { mapPhaseRef, mapTeamMetadata, type PhaseRef, type TeamMetadata } from "./profiles";
+import { teamIdOf } from "./normalize";
 import type { RiotMatch, RiotTimeline } from "../riot/matchV5";
 
 type Raw = Record<string, unknown>;
@@ -50,6 +51,8 @@ export interface GameContextParticipant {
   name: string | null;
   /** Team code, from the performance row. `null` if upstream could not attribute the line. */
   team: string | null;
+  /** `teams.id` of that line, and the key into `GameContext.teamsById`. Not Riot's 100/200 side. */
+  teamId: number | null;
 }
 
 export interface GameContext {
@@ -67,8 +70,13 @@ export interface GameContext {
   phase: PhaseRef | null;
   winner: string | null;
   loser: string | null;
-  /** Keyed by team code. A code whose team row is gone is simply absent; fall back to the code. */
-  teams: Record<string, TeamMetadata>;
+  winnerTeamId: number | null;
+  loserTeamId: number | null;
+  /**
+   * Keyed by `teams.id`. A team whose row is gone is simply absent; fall back to the recorded code.
+   * The code-keyed `teams` the wire also carries is not read: a code can pass to another team.
+   */
+  teamsById: Record<number, TeamMetadata>;
   participants: GameContextParticipant[];
 }
 
@@ -81,15 +89,16 @@ function mapParticipant(value: unknown): GameContextParticipant | null {
     profileId: intOrNull(r.profileId),
     name: strOrNull(r.name),
     team: strOrNull(r.team),
+    teamId: teamIdOf(r.teamId),
   };
 }
 
-function mapTeams(value: unknown): Record<string, TeamMetadata> {
-  const out: Record<string, TeamMetadata> = {};
-  const raw = asRaw(value);
-  for (const [code, team] of Object.entries(raw)) {
+function mapTeamsById(value: unknown): Record<number, TeamMetadata> {
+  const out: Record<number, TeamMetadata> = {};
+  // Keyed by each value's own `id` rather than the object key, which arrives as a string.
+  for (const team of Object.values(asRaw(value))) {
     const mapped = mapTeamMetadata(team);
-    if (mapped !== null) out[code] = { ...mapped, code: mapped.code || code };
+    if (mapped !== null) out[mapped.id] = mapped;
   }
   return out;
 }
@@ -111,7 +120,9 @@ export function mapGameContext(value: unknown): GameContext | null {
     phase: mapPhaseRef(r.phase),
     winner: strOrNull(r.winner),
     loser: strOrNull(r.loser),
-    teams: mapTeams(r.teams),
+    winnerTeamId: teamIdOf(r.winnerTeamId),
+    loserTeamId: teamIdOf(r.loserTeamId),
+    teamsById: mapTeamsById(r.teamsById),
     participants: arr(r.participants)
       .map(mapParticipant)
       .filter((p): p is GameContextParticipant => p !== null),

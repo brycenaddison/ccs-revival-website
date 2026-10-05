@@ -144,7 +144,7 @@ export function PublishPanel({ conf, manage, readOnly = false, onPublished }: {
                   ) : <span className="text-text-dim" aria-hidden="true">–</span>}
                 </TableCell>
                 <TableCell className="max-w-0">
-                  <MatchupLabel teamA={candidate.teamA} teamB={candidate.teamB} conf={conf} />
+                  <MatchupLabel teamA={candidate.teamA} teamB={candidate.teamB} />
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-text-secondary">{placementLabel(candidate.phase, 0) ?? ""}</TableCell>
                 <TableCell className="whitespace-nowrap text-text-secondary">{candidate.bestOf ? `Bo${candidate.bestOf}` : ""}</TableCell>

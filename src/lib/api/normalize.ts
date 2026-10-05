@@ -105,6 +105,16 @@ export function colorSecondaryOf(raw: Record<string, unknown>): { colorSecondary
   return "colorSecondary" in raw ? { colorSecondary: numOrNull(raw.colorSecondary as Numeric) } : {};
 }
 
+/**
+ * A served `teams.id` (`teamId`, `winnerTeamId`, `opponentTeamId` and the like), or null.
+ *
+ * Null is unresolved legacy evidence or a deployment without the field. It is never permission to
+ * recover the team from its code, so every team-shaped mapper reads IDs through this one rule.
+ */
+export function teamIdOf(v: unknown): number | null {
+  return typeof v === "number" && Number.isSafeInteger(v) && v > 0 ? v : null;
+}
+
 /** Lighten a #rrggbb color toward white, for deriving a gradient's second stop when a team has none. */
 export function lighten(hex: string, amount = 0.35): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex);

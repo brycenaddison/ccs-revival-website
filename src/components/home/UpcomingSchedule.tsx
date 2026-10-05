@@ -1,7 +1,7 @@
 /**
  * The next few fixtures, for Home's middle column.
  *
- * Its own narrow window on the feed rather than a filter over the ticker's: "the next five" and "two
+ * Its own narrow window on the feed rather than a filter over the ticker's: "the next ten" and "two
  * days either side of now" are different questions, and deriving one from the other empties this
  * widget on any night busy enough to fill the ticker's page.
  */
@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 import { useQueries } from "@tanstack/react-query";
 import { TeamBadge } from "../TeamBadge";
 import { UpcomingMatchCard } from "./UpcomingMatchCard";
-import { teamKey, toBadge } from "../../lib/leagueAdapters";
+import { toBadge } from "../../lib/leagueAdapters";
 import { fmtTime } from "../../lib/utils";
 import { useScheduleFeed, type FeedWindow } from "../../hooks/useScheduleFeed";
 import { feedMatchKey, type FeedMatch } from "../../lib/api";
@@ -19,12 +19,12 @@ import { queries } from "../../lib/queries";
 import { teamMembers } from "../../lib/roster";
 
 /**
- * From now on, upcoming only, five of them.
+ * From now on, upcoming only, ten of them.
  *
  * `from: 0` excludes undated fixtures, which is right for a widget that leads with a time — and it
  * also excludes anything already live, which the ticker directly above is showing.
  */
-const WINDOW: FeedWindow = { from: 0, statuses: ["upcoming"], order: "asc", limit: 5 };
+const WINDOW: FeedWindow = { from: 0, statuses: ["upcoming"], order: "asc", limit: 10 };
 
 export function UpcomingSchedule({ isMobile }: { isMobile: boolean }) {
   const { data } = useScheduleFeed(WINDOW);
@@ -56,14 +56,14 @@ function useUpcomingTeamMatch(matches: readonly FeedMatch[], profileId: number |
   // An unread roster could contain an earlier match. Wait until all candidates can be checked.
   if (profileId === null || rosters.some(result => result.data === undefined)) return undefined;
 
-  const myTeams = new Set(rosters.flatMap((result, index) =>
+  const myTeams = new Set(rosters.flatMap(result =>
     (result.data ?? [])
       .filter(team => teamMembers(team).some(person => person.profileId === profileId))
-      .map(team => teamKey(confs[index], team.code)),
+      .map(team => team.id),
   ));
-  // The API already orders this list by kickoff; preserve its order and scope to these five matches.
+  // The API already orders this list by kickoff; preserve its order and scope to these ten matches.
   return matches.find(match =>
-    [match.teamA, match.teamB].some(team => team !== null && myTeams.has(teamKey(match.conf, team.code))),
+    [match.teamA, match.teamB].some(team => team?.id != null && myTeams.has(team.id)),
   );
 }
 

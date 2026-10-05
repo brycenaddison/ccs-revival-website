@@ -24,10 +24,9 @@ export function TeamHistoryCard({ teams }: { teams: readonly ProfileTeamBreakdow
           {teams.map(row => {
             const winPercent = row.games > 0 ? row.wins / row.games : null;
             return (
-              <li key={`${row.conf}:${row.teamCode}`}>
+              <li key={row.teamId ?? `${row.conf}:${row.teamCode}`}>
                 <TeamLink
-                  conf={row.conf}
-                  code={row.teamCode}
+                  teamId={row.teamId}
                   className="flex items-start gap-2.5 px-3 py-2.5 no-underline hover:bg-bg3"
                 >
                   <TeamLogo team={row.team} code={row.teamCode} size={28} />

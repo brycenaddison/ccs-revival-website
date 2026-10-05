@@ -13,11 +13,10 @@ import type { SeasonGroupPhase } from "../../lib/api";
 
 interface Props {
   phase: SeasonGroupPhase;
-  conf: string;
   isMobile: boolean;
 }
 
-export function GroupPhaseView({ phase, conf, isMobile }: Props) {
+export function GroupPhaseView({ phase, isMobile }: Props) {
   const legend = useMemo(
     () =>
       Object.values(phase.scenarios).sort(
@@ -39,7 +38,6 @@ export function GroupPhaseView({ phase, conf, isMobile }: Props) {
         <GroupTable
           key={`${group.ordinal}-${group.name}`}
           group={group}
-          conf={conf}
           showName={phase.groups.length > 1}
           isMobile={isMobile}
         />

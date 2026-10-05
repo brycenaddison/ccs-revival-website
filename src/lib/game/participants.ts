@@ -4,7 +4,7 @@
  * Built once by `pages/GameDetail.tsx` and passed to every tab, because the join it does is the one
  * every component would otherwise repeat: the Riot payload identifies a player by `puuid` and
  * `participantId` (the timeline's key), while the league knows them by `profileId` and their team by
- * code, and only `GET /m/:matchId/context` connects the two. When that read is absent, or a puuid is
+ * `teams.id`, and only `GET /m/:matchId/context` connects the two. When that read is absent, or a puuid is
  * not linked to a profile, the fallback to a Riot ID is decided **here and nowhere else**, so a name
  * cannot read one way on the scoreboard and another in the event list.
  *
@@ -29,8 +29,13 @@ export interface GameParticipant {
   profileId: number | null;
   /** The profile's display name when the context has one, otherwise `riotName`. */
   displayName: string;
-  /** Team code from the context, otherwise `null`. */
+  /** Team code from the context, otherwise `null`. Display only. */
   team: string | null;
+  /**
+   * `teams.id` from the context, otherwise `null`. Named apart from `teamId`, which is Riot's 100/200
+   * side and a separate identity.
+   */
+  leagueTeamId: number | null;
   /** The participant row itself, for the components that read its statistics. */
   raw: RiotParticipant;
 }
@@ -65,6 +70,7 @@ export function buildParticipants(match: RiotMatch, context: GameContext | null)
       profileId: linked?.profileId ?? null,
       displayName: linked?.name?.trim() || riotName,
       team: linked?.team ?? null,
+      leagueTeamId: linked?.teamId ?? null,
       raw,
     };
   }
@@ -78,14 +84,18 @@ export function sidePlayers(participants: Participants, teamId: RiotTeamId): Gam
 }
 
 /**
- * The team code of a side, when the context knows it.
+ * A side's league team, when the context knows it: its `teams.id` and the code it was recorded under.
  *
  * Read off the players rather than off `winner`/`loser`, because the context says who won and not
  * which end of the map they started on; the payload says the latter and the players are the bridge.
+ * The first attributed player decides both fields, so the ID and the label never come from two lines.
  */
-export function sideTeamCode(participants: Participants, teamId: RiotTeamId): string | null {
+export function sideTeam(
+  participants: Participants,
+  teamId: RiotTeamId,
+): { leagueTeamId: number | null; code: string } | null {
   for (const p of Object.values(participants)) {
-    if (p.teamId === teamId && p.team !== null) return p.team;
+    if (p.teamId === teamId && p.team !== null) return { leagueTeamId: p.leagueTeamId, code: p.team };
   }
   return null;
 }

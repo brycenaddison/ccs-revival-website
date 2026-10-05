@@ -31,7 +31,8 @@
  * bests alike. The code is what the result was recorded with and always survives; `opponent` is
  * null when a historical team's metadata is gone, which is exactly when the code is the only label
  * left. Reading them the other way round — code as the fallback *of* the object — is the bug this
- * pairing exists to prevent.
+ * pairing exists to prevent. Identity is neither: `teamId`/`opponentTeamId` are what rows join and
+ * link on, and null there means unresolved legacy evidence that stays unlinked.
  *
  * **`career.laneMatchups` is per conference and is never merged across them.** Two rows for one
  * opponent in two seasons is the served answer, not a duplicate to fold: upstream builds them from
@@ -74,6 +75,7 @@ import {
   httpsUrl,
   normalizeRole,
   numOrNull,
+  teamIdOf,
   type Numeric,
   type Role,
 } from "./normalize";
@@ -382,6 +384,8 @@ export interface ProfileBestGame {
   opponentCode: string | null;
   /** Its metadata, or null when that team no longer has any — fall back to `opponentCode`. */
   opponent: TeamMetadata | null;
+  /** The opposing `teams.id`. Null on unresolved legacy rows, which stay unlinked. */
+  opponentTeamId: number | null;
 }
 
 export interface ProfilePersonalBest {
@@ -403,6 +407,8 @@ export interface ProfileTeamBreakdown {
   conf: string;
   /** The bare code, always present. The label of last resort when `team` is null. */
   teamCode: string;
+  /** `teams.id`, what the rest of the payload's rows join to. */
+  teamId: number | null;
   /** Hydrated identity, or null for a historical stats row whose team no longer exists. */
   team: TeamRecord | null;
   games: number;
@@ -428,6 +434,7 @@ export interface ProfileLaneMatchup {
   profileId: number;
   name: string | null;
   team: string;
+  teamId: number | null;
   games: number;
   wins: number;
   losses: number;
@@ -483,6 +490,7 @@ export interface ProfileChampionBreakdown {
 export interface ProfileGame extends ProfileBestGame {
   durationS: number;
   team: string;
+  teamId: number | null;
   win: boolean;
   blueside: boolean | null;
   role: Role | null;
@@ -519,8 +527,10 @@ export interface ProfileMatch {
    */
   phase: PhaseRef | null;
   team: string;
+  teamId: number | null;
   opponentCode: string | null;
   opponent: TeamMetadata | null;
+  opponentTeamId: number | null;
   gameWins: number;
   gameLosses: number;
   gamesPlayed: number;
@@ -675,6 +685,7 @@ function mapBestGame(value: unknown): ProfileBestGame | null {
     champ: strOrNull(r.champ),
     opponentCode: strOrNull(r.opponentCode),
     opponent: mapTeamMetadata(r.opponent),
+    opponentTeamId: teamIdOf(r.opponentTeamId),
   };
 }
 
@@ -755,6 +766,7 @@ function mapTeams(value: unknown): ProfileTeamBreakdown[] {
     return [{
       conf,
       teamCode,
+      teamId: teamIdOf(r.teamId),
       team: mapTeamOrNull(r.team),
       games: int(r.games),
       wins: int(r.wins),
@@ -778,6 +790,7 @@ function mapLaneMatchups(value: unknown): ProfileLaneMatchup[] {
       profileId,
       name: strOrNull(r.name),
       team: strOrNull(r.team) ?? "",
+      teamId: teamIdOf(r.teamId),
       games: int(r.games),
       wins: int(r.wins),
       losses: int(r.losses),
@@ -846,6 +859,7 @@ function mapGames(value: unknown): ProfileGame[] {
       ...base,
       durationS: int(r.durationS),
       team,
+      teamId: teamIdOf(r.teamId),
       win: bool(r.win),
       blueside: typeof r.blueside === "boolean" ? r.blueside : null,
       role: normalizeRole(strOrNull(r.role)),
@@ -875,8 +889,10 @@ function mapMatches(value: unknown): ProfileMatch[] {
       seasonDay: int(r.seasonDay),
       phase: mapPhaseRef(r.phase),
       team,
+      teamId: teamIdOf(r.teamId),
       opponentCode: strOrNull(r.opponentCode),
       opponent: mapTeamMetadata(r.opponent),
+      opponentTeamId: teamIdOf(r.opponentTeamId),
       gameWins: int(r.gameWins),
       gameLosses: int(r.gameLosses),
       gamesPlayed: int(r.gamesPlayed),

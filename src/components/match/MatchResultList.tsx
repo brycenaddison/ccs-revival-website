@@ -20,11 +20,10 @@ const LANES: readonly MatchlistRoleKey[] = ["top", "jg", "mid", "bot", "sup"];
 
 interface Props {
   matches: readonly MatchlistEntry[];
-  conf: string;
   emptyMessage?: string;
 }
 
-export function MatchResultList({ matches, conf, emptyMessage = "No games played yet." }: Props) {
+export function MatchResultList({ matches, emptyMessage = "No games played yet." }: Props) {
   const champions = useChampions();
 
   if (matches.length === 0) return <p className="px-4 py-3 text-xs text-text-dim">{emptyMessage}</p>;
@@ -59,8 +58,7 @@ export function MatchResultList({ matches, conf, emptyMessage = "No games played
               </Link>
 
               <TeamLink
-                conf={conf}
-                code={match.opponent}
+                teamId={match.opponentTeamId}
                 className="min-w-0 max-w-full justify-self-start no-underline @4xl:col-start-2 @4xl:row-start-1"
               >
                 <span className="block truncate font-heading text-xs text-text hover:text-brand">

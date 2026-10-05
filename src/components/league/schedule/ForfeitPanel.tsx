@@ -43,7 +43,6 @@ import {
   type ForfeitRecorded,
   type ScheduleMatch,
   type SeriesSnapshot,
-  type TeamRecord,
 } from "../../../lib/api";
 import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -52,20 +51,14 @@ import { TooltipHint } from "../../TooltipHint";
 
 export function ForfeitPanel({
   match,
-  teams,
   onSaved,
 }: {
   match: ScheduleMatch;
-  /**
-   * The conference's teams, for the one thing the schedule read cannot give: **`loserTeamId` is an
-   * id**, and a match names its teams by code. Already loaded for this screen's pickers, so resolving
-   * it here costs nothing — and an unresolvable code disables the button rather than posting a guess.
-   */
-  teams: readonly TeamRecord[];
   onSaved: (message: string) => void;
 }) {
   const qc = useQueryClient();
-  const [loserCode, setLoserCode] = useState("");
+  // Which side forfeits, by position. The request names it by the side's served team ID.
+  const [loserSide, setLoserSide] = useState<"" | "a" | "b">("");
   const [arming, setArming] = useState(false);
 
   /**
@@ -86,7 +79,7 @@ export function ForfeitPanel({
   const record = useMutation({
     mutationFn: (loserTeamId: number) => forfeitMatch(match.id, loserTeamId),
     onSuccess: async result => {
-      setLoserCode("");
+      setLoserSide("");
       await refresh();
       onSaved(describeForfeit(result));
     },
@@ -135,11 +128,10 @@ export function ForfeitPanel({
    */
   const settled = decided || hasForfeit;
 
-  const loser =
-    sides === null ? null : loserCode === sides.a.code ? sides.a : loserCode === sides.b.code ? sides.b : null;
-  const winner = loser === null || sides === null ? null : loser === sides.a ? sides.b : sides.a;
-  const loserId = loser === null ? null : idOf(teams, loser.code);
-  const clinch = loser === null || needed === null ? null : clinchOf(match, loser.code, needed);
+  const loser = sides === null || loserSide === "" ? null : sides[loserSide];
+  const winner = loser === null || sides === null ? null : loserSide === "a" ? sides.b : sides.a;
+  const loserId = loser?.id ?? null;
+  const clinch = loser === null || needed === null ? null : clinchOf(match, loserSide === "a", needed);
 
   /**
    * The walkover that already exists — a statement of what happened, not a prediction of what would.
@@ -187,16 +179,19 @@ export function ForfeitPanel({
               </Label>
               <NativeSelect
                 id={`forfeit-${match.id}`}
-                value={loserCode}
-                onChange={e => setLoserCode(e.target.value)}
+                value={loserSide}
+                onChange={e => {
+                  const side = e.target.value;
+                  setLoserSide(side === "a" || side === "b" ? side : "");
+                }}
               >
                 <NativeSelectOption value="">Choose a team…</NativeSelectOption>
                 {/*
                   Both sides offered rather than only the one behind: a no-show is not always the team
                   that is losing, and upstream validates the pair either way.
                 */}
-                <NativeSelectOption value={sides.a.code}>{sides.a.code} forfeits</NativeSelectOption>
-                <NativeSelectOption value={sides.b.code}>{sides.b.code} forfeits</NativeSelectOption>
+                <NativeSelectOption value="a">{sides.a.code} forfeits</NativeSelectOption>
+                <NativeSelectOption value="b">{sides.b.code} forfeits</NativeSelectOption>
               </NativeSelect>
             </div>
 
@@ -223,7 +218,7 @@ export function ForfeitPanel({
 
           {loser !== null && loserId === null && (
             <p className="text-ccs-red text-xs mt-1.5">
-              {loser.code} isn&apos;t in the loaded team list, so its id is unknown — reload the page
+              {loser.code} has no team ID on this read, so a walkover cannot name it. Reload the page
               and try again.
             </p>
           )}
@@ -280,17 +275,15 @@ export function ForfeitPanel({
  */
 function clinchOf(
   match: ScheduleMatch,
-  loserCode: string,
+  loserIsA: boolean,
   needed: number,
 ): { winnerWins: number; loserWins: number; rows: number; played: number } {
   // `winsA` is oriented to the *match's* `teamA` by the schedule read, not to the sorted pair the
   // `series` view keys on — so nothing here needs flipping.
   const winsA = match.result?.winsA ?? 0;
   const winsB = match.result?.winsB ?? 0;
-  const isA = loserCode === match.teamA?.code;
-
-  const loserWins = isA ? winsA : winsB;
-  const winnerWins = isA ? winsB : winsA;
+  const loserWins = loserIsA ? winsA : winsB;
+  const winnerWins = loserIsA ? winsB : winsA;
 
   return { winnerWins: needed, loserWins, rows: needed - winnerWins, played: winsA + winsB };
 }
@@ -314,11 +307,6 @@ function clinchNote(loser: string, played: number, rows: number): string {
   const awarded = rows === 1 ? "one more game is" : `${rows} more games are`;
 
   return `${stands}, and ${awarded} awarded against ${loser}`;
-}
-
-/** The team id behind a code, or `null` when the list doesn't cover it. */
-function idOf(teams: readonly TeamRecord[], code: string): number | null {
-  return teams.find(t => t.code === code)?.id ?? null;
 }
 
 /**
@@ -358,7 +346,7 @@ function describeCleared(result: ForfeitCleared): string {
     .join(" ");
 }
 
-/** The snapshot's own orientation — its pair is sorted by code, so don't re-order it. */
+/** The snapshot's own orientation — its pair is ordered by team ID, so don't re-order it. */
 function score(s: SeriesSnapshot): string {
   return `${s.teamA} ${s.winsA}–${s.winsB} ${s.teamB}`;
 }

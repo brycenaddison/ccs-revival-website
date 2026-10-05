@@ -43,6 +43,7 @@ export function ResultsOperations({ conf, viewerId, operations, channels, workin
             <div key={op.id} className="min-w-0 space-y-2 rounded-md border border-border p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-text-bright">{name ? `#${name}` : "Results channel"}</span>
+                {op.requestedWebhookName && <span className="text-sm text-text-secondary">{op.requestedWebhookName}</span>}
                 <Badge variant={op.status === "active" ? "default" : "muted"}>
                   {op.status ? RESULTS_OPERATION_LABEL[op.status] : "Unknown creation state"}
                 </Badge>

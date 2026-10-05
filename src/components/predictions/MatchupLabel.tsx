@@ -20,10 +20,8 @@ import { toBadge } from "../../lib/leagueAdapters";
 
 const LINK_CLASS = "min-w-0 truncate no-underline hover:text-brand hover:underline";
 
-export function TeamLabel({ team, conf, linked = true, size = 20, className = "" }: {
+export function TeamLabel({ team, linked = true, size = 20, className = "" }: {
   team: TeamMetadata | null;
-  /** The event's conf, used when the team row carries none. */
-  conf: string;
   linked?: boolean;
   size?: number;
   className?: string;
@@ -34,7 +32,7 @@ export function TeamLabel({ team, conf, linked = true, size = 20, className = ""
     <span className={`inline-flex min-w-0 items-center gap-1.5 ${className}`}>
       <TeamBadge team={toBadge(team)} size={size} />
       {linked
-        ? <TeamLink conf={team.conf ?? conf} code={team.code} className={LINK_CLASS}>{name}</TeamLink>
+        ? <TeamLink teamId={team.id} className={LINK_CLASS}>{name}</TeamLink>
         : name}
     </span>
   );
@@ -47,14 +45,14 @@ export function OutcomeLabel({ event, outcome, linked = true, size = 20, classNa
   size?: number;
   className?: string;
 }) {
-  if (event.kind === "match") return <TeamLabel team={outcome.team} conf={event.conf} linked={linked} size={size} className={className} />;
+  if (event.kind === "match") return <TeamLabel team={outcome.team} linked={linked} size={size} className={className} />;
   const name = <span className="min-w-0 truncate">{outcomeName(event, outcome)}</span>;
   const { team, profile } = outcome;
   if (team) {
     return (
       <span className={`inline-flex min-w-0 items-center gap-1.5 ${className}`}>
         <TeamBadge team={toBadge(team)} size={size} />
-        {linked ? <TeamLink conf={team.conf ?? event.conf} code={team.code} className={LINK_CLASS}>{name}</TeamLink> : name}
+        {linked ? <TeamLink teamId={team.id} className={LINK_CLASS}>{name}</TeamLink> : name}
       </span>
     );
   }
@@ -69,10 +67,9 @@ export function OutcomeLabel({ event, outcome, linked = true, size = 20, classNa
   return <span className={`inline-flex min-w-0 items-center ${className}`}>{name}</span>;
 }
 
-export function MatchupLabel({ teamA, teamB, conf, linked = true, size = 20, picked }: {
+export function MatchupLabel({ teamA, teamB, linked = true, size = 20, picked }: {
   teamA: TeamMetadata | null;
   teamB: TeamMetadata | null;
-  conf: string;
   linked?: boolean;
   size?: number;
   /** The viewer's picks by team ID. When given, the other team is muted so the pick stands out. */
@@ -82,9 +79,9 @@ export function MatchupLabel({ teamA, teamB, conf, linked = true, size = 20, pic
     picked && picked.length > 0 && !(team && picked.includes(team.id)) ? "text-text-muted" : "";
   return (
     <span className="inline-flex min-w-0 max-w-full items-center gap-2 font-heading text-sm text-text-bright">
-      <TeamLabel team={teamA} conf={conf} linked={linked} size={size} className={tone(teamA)} />
+      <TeamLabel team={teamA} linked={linked} size={size} className={tone(teamA)} />
       <span className="shrink-0 text-xs text-text-dim">vs</span>
-      <TeamLabel team={teamB} conf={conf} linked={linked} size={size} className={tone(teamB)} />
+      <TeamLabel team={teamB} linked={linked} size={size} className={tone(teamB)} />
     </span>
   );
 }

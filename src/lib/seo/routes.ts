@@ -23,7 +23,7 @@ export function routeMetadata(pathname: string, search: string, origin: string):
   const page = publicPages[clean];
   if (page) return { title: `${page[0]} | CCS`, description: page[1], path };
   const family = /^\/news\/page\/[^/]+$/.test(clean) ? "News" : /^\/news\/[^/]+$/.test(clean) ? "Article"
-    : /^\/players\/[^/]+$/.test(clean) ? "Player profile" : /^\/teams\/[^/]+\/[^/]+$/.test(clean) ? "Team"
+    : /^\/players\/[^/]+$/.test(clean) ? "Player profile" : /^\/teams\/\d+$/.test(clean) ? "Team"
     : /^\/match\/[^/]+$/.test(clean) ? "Match" : /^\/game\/[^/]+(?:\/[^/]+)?$/.test(clean) ? "Game"
     : /^\/predictions\/[^/]+$/.test(clean) ? "Prediction" : null;
   if (family) return { title: `${family} | CCS`, description: defaultMetadata().description, path };

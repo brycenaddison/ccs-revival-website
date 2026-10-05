@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { errorMessage, type TeamRecord, type Tournament } from "../lib/api";
-import { groupLabels, teamKey, toRosters, toSplits, toStandingsFromTeams, toTeam } from "../lib/leagueAdapters";
+import { groupLabels, toRosters, toSplits, toStandingsFromTeams, toTeam } from "../lib/leagueAdapters";
 import { queries, queryRoots, resultsKey } from "../lib/queries";
 import type { LeagueData, Roster, Split, Standing, Team } from "../types/league";
 
@@ -28,8 +28,8 @@ interface ConfBundle {
  * `useSeason` for phase-scoped standings and brackets, `usePlayers` for leaderboards.
  */
 function bundleConf(conf: string, records: readonly TeamRecord[], groupName: string | undefined): ConfBundle {
-  // `teams.conf` is nullable, and every identity downstream is keyed on (conf, code), so pin
-  // the conf we asked for before anything derives a key from it.
+  // `teams.conf` is nullable, and the view models carry a conf for labels, so pin
+  // the conf we asked for before building them.
   const confRecords = records.map(r => ({ ...r, conf: r.conf ?? conf }));
   const teams = confRecords.map(r => toTeam(r, groupName));
   const teamsById = new Map(teams.map(t => [t.id, t]));
@@ -104,10 +104,4 @@ export function useLeagueData({ confs, tournaments }: Options): LeagueData {
   }, [client]);
 
   return useMemo(() => ({ ...value, refresh }), [value, refresh]);
-}
-
-/** Look up a team by conf and code — the same identity the adapters produce. */
-export function findTeam(teams: readonly Team[], conf: string, code: string): Team | undefined {
-  const id = teamKey(conf, code);
-  return teams.find(t => t.id === id);
 }

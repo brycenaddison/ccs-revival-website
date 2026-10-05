@@ -503,16 +503,20 @@ function TeamDetailsForm({ conf, team, onDone, onCancel }: DetailsProps) {
         : updateTeam(conf, team.id, branding);
     },
     onSuccess: async (result: TeamRecord) => {
+      // Every cached read keys this team by ID, so a tag or branding change refreshes it in place.
+      // The season document and the schedule reads carry live branding beside the team rows; the
+      // statistics views refresh their copy upstream on their own schedule.
       await Promise.all([
         qc.invalidateQueries({ queryKey: queryRoots.teams }),
         qc.invalidateQueries({ queryKey: queryRoots.standings }),
+        qc.invalidateQueries({ queryKey: queryRoots.season }),
+        qc.invalidateQueries({ queryKey: queryRoots.schedule }),
       ]);
       onDone(isNew ? `Added ${result.name}.` : `Saved ${result.name}.`);
     },
   });
 
   const canSave = trimmedName !== "" && trimmedCode !== "";
-  const renamingCode = team !== null && trimmedCode !== "" && trimmedCode !== team.code;
 
   return (
     <form
@@ -548,17 +552,6 @@ function TeamDetailsForm({ conf, team, onDone, onCancel }: DetailsProps) {
           />
         )}
       </SettingsRow>
-
-      {/* Not a hint on the field, because it only applies to one edit and it is the expensive kind
-          of mistake: the stats tables record a team by its code, so a tag changed mid-season leaves
-          the games already played behind under the old one. Worth saying out loud, once. */}
-      {renamingCode && (
-        <p className="-mt-3 mb-5 text-xs text-ccs-orange">
-          Changing the tag from <span className="font-mono">{team.code}</span> to{" "}
-          <span className="font-mono">{trimmedCode}</span> after games have been played can detach
-          this team from the statistics already recorded against the old one.
-        </p>
-      )}
 
       <SettingsRow label="Logo" hint="A square image works best.">
         <ImageUpload value={logo} onChange={setLogo} maxLength={TEAM_LOGO_MAX} label="Logo" />

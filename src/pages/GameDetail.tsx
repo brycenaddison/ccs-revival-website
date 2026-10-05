@@ -75,7 +75,7 @@ export default function GameDetail() {
     () => (renderable ? buildParticipants(renderable, context.data ?? null) : null),
     [renderable, context.data],
   );
-  const teamNames = Object.values(context.data?.teams ?? {}).map(team => team.name).filter(Boolean);
+  const teamNames = Object.values(context.data?.teamsById ?? {}).map(team => team.name).filter(Boolean);
   const gameTitle = teamNames.length === 2 ? `${teamNames.join(" vs ")} — Game${context.data?.game ? ` ${context.data.game}` : ""}` : "Game statistics";
   usePageMetadata({
     title: `${gameTitle} | CCS`,

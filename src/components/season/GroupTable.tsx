@@ -20,7 +20,6 @@ import type { SeasonGroup, SeasonGroupRow } from "../../lib/api";
 
 interface Props {
   group: SeasonGroup;
-  conf: string;
   /** Suppressed when the phase has exactly one group — an unnamed single group *is* the phase. */
   showName: boolean;
   isMobile: boolean;
@@ -31,7 +30,7 @@ function games(row: SeasonGroupRow): string {
   return row.gameWins + row.gameLosses === 0 ? "—" : `${row.gameWins}-${row.gameLosses}`;
 }
 
-export function GroupTable({ group, conf, showName, isMobile }: Props) {
+export function GroupTable({ group, showName, isMobile }: Props) {
   const anyTied = group.standings.some(r => r.tied);
   const headers: string[] = isMobile ? ["#", "TEAM", "W", "L", "GAMES"] : ["#", "TEAM", "W", "L", "WIN%", "GAMES"];
 
@@ -83,7 +82,7 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
 
               return (
                 <tr
-                  key={`${row.code}-${row.position}`}
+                  key={`${row.teamId ?? row.code}-${row.position}`}
                   style={{
                     borderLeft: `4px solid ${tone?.line ?? "transparent"}`,
                     background: tone?.bg,
@@ -108,8 +107,7 @@ export function GroupTable({ group, conf, showName, isMobile }: Props) {
                       and `truncate` never engages — the name pushes the record off screen instead.
                     */}
                     <TeamLink
-                      conf={conf}
-                      code={row.code}
+                      teamId={row.teamId}
                       className="group flex min-w-0 items-center gap-2.5 no-underline"
                     >
                       <TeamBadge team={toBadge(row)} size={28} />

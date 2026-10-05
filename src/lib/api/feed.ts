@@ -28,6 +28,7 @@ import {
   normalizeRole,
   num,
   numOrNull,
+  teamIdOf,
   type Numeric,
   type Role,
 } from "./normalize";
@@ -66,6 +67,8 @@ export const MATCH_STATUSES: readonly MatchStatus[] = ["completed", "live", "upc
  * know that. Shaped so `toBadge` in `lib/leagueAdapters.ts` takes it unchanged.
  */
 export interface FeedTeam {
+  /** `teams.id`. Null on a legacy row the API could not attribute, which stays unlinked. */
+  id: number | null;
   code: string;
   name: string;
   logo?: string;
@@ -85,7 +88,7 @@ export interface FeedTeam {
  * double-header right.
  *
  * Deliberately neither of the two neighbours it resembles. `ScheduleResult` (`./schedule`) carries no
- * `games`, and `SeriesSnapshot` is the `series` view's own row, whose pair is sorted by code rather
+ * `games`, and `SeriesSnapshot` is the `series` view's own row, whose pair is ordered by team ID rather
  * than oriented to a fixture.
  */
 export interface MatchOutcome {
@@ -95,6 +98,8 @@ export interface MatchOutcome {
   games: number;
   /** The winning team's **code**, or null while the series is level — mid-series, or a genuine split. */
   winner: string | null;
+  /** The winner's `teams.id`: what deciding a side compares. Display uses `winner`. */
+  winnerTeamId: number | null;
   hasForfeit: boolean;
 }
 
@@ -242,6 +247,8 @@ export interface SeriesPlayer {
 export interface SeriesSide {
   /** Team code. */
   team: string;
+  /** `teams.id`, which orients the side to the fixture. */
+  teamId: number | null;
   win: boolean;
   /**
    * Which side of the map this was, when it is known.
@@ -290,6 +297,7 @@ export interface SeriesGame {
   duration: number | null;
   /** Team code. */
   winner: string | null;
+  winnerTeamId: number | null;
   blue: SeriesSide | null;
   red: SeriesSide | null;
 }
@@ -381,6 +389,7 @@ function mapFeedTeam(raw: unknown): FeedTeam | null {
   if (code === "") return null;
   const color = intOrNull(t.color);
   return {
+    id: teamIdOf(t.id),
     code,
     name: str(t.name, code),
     logo: httpsUrl(t.logo as string),
@@ -398,6 +407,7 @@ function mapOutcome(raw: unknown): MatchOutcome | null {
     winsB: int(r.winsB),
     games: int(r.games),
     winner: strOrNull(r.winner),
+    winnerTeamId: teamIdOf(r.winnerTeamId),
     hasForfeit: r.hasForfeit === true,
   };
 }
@@ -408,7 +418,7 @@ function mapOutcome(raw: unknown): MatchOutcome | null {
  */
 export function feedMatchKey(m: FeedMatch): string {
   if (m.scheduleMatchId !== null) return `fixture-${m.scheduleMatchId}`;
-  return `series-${m.conf}-${m.seasonDay}-${m.teamA?.code ?? "?"}-${m.teamB?.code ?? "?"}`;
+  return `series-${m.conf}-${m.seasonDay}-${m.teamA?.id ?? m.teamA?.code ?? "?"}-${m.teamB?.id ?? m.teamB?.code ?? "?"}`;
 }
 
 function mapFeedMatch(raw: unknown): FeedMatch {
@@ -494,6 +504,7 @@ function mapSide(raw: unknown): SeriesSide | null {
 
   return {
     team: str(s.team),
+    teamId: teamIdOf(s.teamId),
     win: s.win === true,
     // Three-valued on purpose: `null` means the side label is a guess, and coercing it to false
     // would silently promote that guess to a fact.
@@ -516,6 +527,7 @@ function mapGame(raw: unknown): SeriesGame {
     startTime: strOrNull(g.startTime),
     duration: intOrNull(g.duration),
     winner: strOrNull(g.winner),
+    winnerTeamId: teamIdOf(g.winnerTeamId),
     blue: mapSide(g.blue),
     red: mapSide(g.red),
   };

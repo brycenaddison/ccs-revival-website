@@ -21,6 +21,7 @@ import {
   num,
   numOrNull,
   ratio,
+  teamIdOf,
   type Numeric,
   type Role,
 } from "./normalize";
@@ -203,6 +204,7 @@ function mapForm(v: unknown): ("W" | "L")[] {
 function mapStandingRow(raw: Raw): StandingRow {
   const color = numOrNull(raw.color as Numeric);
   return {
+    teamId: teamIdOf(raw.teamId),
     conf: str(raw.conf),
     code: str(raw.code),
     name: str(raw.name),
@@ -289,18 +291,19 @@ const PLAYER_RATIOS = [
 function mapPlayerStats(raw: Raw): PlayerStats {
   const id = num(raw.id as Numeric);
   const role = normalizeRole(raw.role as string);
-  const team = str(raw.team);
+  const teamId = teamIdOf(raw.teamId);
   const conf = str(raw.conf);
   return {
     name: str(raw.name),
     id,
-    team,
+    team: str(raw.team),
+    teamId,
     conf,
     role,
     logo: httpsUrl(raw.logo as string),
     kda: ratio(raw.kda as Numeric),
     champs: Array.isArray(raw.champs) ? raw.champs.map(mapChamp) : [],
-    rowKey: `${id}:${role ?? "?"}:${team}:${conf}`,
+    rowKey: `${id}:${role ?? "?"}:${teamId ?? "?"}:${conf}`,
     ...pickCounts(raw, PLAYER_COUNTS),
     ...pickRatios(raw, PLAYER_RATIOS),
   };
@@ -380,7 +383,7 @@ const TEAM_RATIOS = [
 function mapTeamStats(raw: Raw): TeamStats {
   const color = numOrNull(raw.color as Numeric);
   return {
-    id: num(raw.id as Numeric),
+    teamId: teamIdOf(raw.teamId),
     code: str(raw.code),
     name: str(raw.name),
     conf: str(raw.conf),
@@ -428,7 +431,9 @@ function mapMatchlistEntry(raw: Raw): MatchlistEntry {
     scheduleMatchId: numOrNull(raw.scheduleMatchId as Numeric),
     phase: mapPhaseRef(raw.phase),
     team: str(raw.team),
+    teamId: teamIdOf(raw.teamId),
     opponent: str(raw.opponent),
+    opponentTeamId: teamIdOf(raw.opponentTeamId),
     game: num(raw.game as Numeric, 1),
     win: raw.win === true,
     time: num(raw.time as Numeric),
@@ -460,28 +465,25 @@ function sortMatchlist(entries: MatchlistEntry[]): MatchlistEntry[] {
 /**
  * @param record This team's row from `GET /teams/:conf`, when it could be fetched.
  *
- * That row supplies three things the aggregated endpoint doesn't: the roster, the series record,
- * and identity fields for a team that hasn't played — upstream spreads a null `teamstats` row, so
- * such a team arrives with no `code`, `name`, color or logo at all.
+ * Identity (code, name, conf, logo, colors) comes from the team row upstream, so the page carries
+ * it whether or not the team has played. The statistics are a spread `teamstats` row that a team
+ * with no games lacks, so `games` is what says whether there are any. The conf listing row
+ * supplies the two things the page doesn't: the roster and the series record.
  */
-function buildTeamDetail(conf: string, code: string, raw: Raw, record: TeamRecord | undefined): TeamDetail {
-  const hasStats = typeof raw.code === "string";
-  const stats = hasStats ? mapTeamStats(raw) : null;
-  const color = stats?.color ?? record?.color ?? null;
-  // The `teamstats` view predates the column, so the roster row is where a secondary usually comes
-  // from — and it stays absent, not `null`, when neither side carried one.
-  const colorSecondary = stats?.colorSecondary ?? record?.colorSecondary;
-
-  const base: Partial<TeamStats> = stats ?? {};
+function buildTeamDetail(teamId: number, raw: Raw, record: TeamRecord | undefined): TeamDetail {
+  const hasStats = numOrNull(raw.games as Numeric) !== null;
+  const team = mapTeamStats(raw);
+  const base: Partial<TeamStats> = hasStats ? team : {};
   return {
     ...base,
-    code: stats?.code ?? record?.code ?? code,
-    name: stats?.name ?? record?.name ?? code,
-    conf,
-    logo: stats?.logo ?? record?.logo,
-    color,
-    colorHex: hexFromInt(color),
-    ...(colorSecondary !== undefined ? { colorSecondary } : {}),
+    teamId,
+    code: team.code,
+    name: team.name || team.code,
+    conf: team.conf,
+    logo: team.logo,
+    color: team.color,
+    colorHex: team.colorHex,
+    ...colorSecondaryOf(raw),
     hasStats,
     roster: record ? rosterOf(record) : null,
     record: record?.record ?? null,
@@ -489,12 +491,9 @@ function buildTeamDetail(conf: string, code: string, raw: Raw, record: TeamRecor
     bannedAgainst: Array.isArray(raw.bannedAgainst) ? raw.bannedAgainst.map(mapBanCount) : [],
     bannedBy: Array.isArray(raw.bannedBy) ? raw.bannedBy.map(mapBanCount) : [],
     matchlist: sortMatchlist(Array.isArray(raw.matchlist) ? raw.matchlist.map(m => mapMatchlistEntry(asRaw(m))) : []),
-    // The page's own copy leads; the roster row carries the same projection, so it covers a
-    // deployment whose team page predates the field.
-    links: "links" in raw ? mapOpggLinks(raw.links) : record?.links ?? mapOpggLinks(null),
+    links: mapOpggLinks(raw.links),
   };
 }
-
 // ------------------------------------------------------------ champion stats
 
 const CHAMPION_COUNTS = [
@@ -524,6 +523,7 @@ function mapChampionStats(raw: Raw): ChampionStats {
     kda: ratio(raw.kda as Numeric),
     bestPlayerName: strOrNull(raw.bestPlayerName),
     bestPlayerTeam: strOrNull(raw.bestPlayerTeam),
+    bestPlayerTeamId: teamIdOf(raw.bestPlayerTeamId),
     bestPlayerLogo: httpsUrl(raw.bestPlayerLogo as string),
     bestPlayerGames: numOrNull(raw.bestPlayerGames as Numeric),
     bestPlayerKda: numOrNull(raw.bestPlayerKda as Numeric),
@@ -577,10 +577,12 @@ function mapRecordRow(raw: unknown): RecordRow {
     profileId: numOrNull(r.profileId as Numeric),
     name: str(r.name),
     team: str(r.team),
+    teamId: teamIdOf(r.teamId),
     champ: strOrNull(r.champ),
     champImg: httpsUrl(r.champImg as string) ?? null,
     role: normalizeRole(r.role as string),
     opponent: str(r.opponent),
+    opponentTeamId: teamIdOf(r.opponentTeamId),
     seasonDay: num(r.seasonDay as Numeric),
     game: num(r.game as Numeric),
     matchId: str(r.matchId),
@@ -650,23 +652,24 @@ export function teamsForConf(conf: string, opts?: RequestOpts): Promise<TeamReco
 /**
  * Everything a team page needs, from the two endpoints that hold it.
  *
- * The conf listing is fetched in parallel for the roster and series record — `/teams/:c/:t`
- * carries stats but neither. A failure there is swallowed: both are supplementary, and losing
- * them should not take down a page whose main content arrived fine. Aborts still propagate, so a
- * caller that navigated away isn't handed a half-built result.
+ * `GET /teams/by-id/:id` carries identity and stats but neither the roster nor the series record,
+ * so this team's row is then read from the conference the page names. A listing failure is
+ * swallowed: the roster and record are supplementary, and losing them should not take down a page
+ * whose main content arrived fine. Aborts still propagate, so a caller that navigated away isn't
+ * handed a half-built result. A 404 (missing or hidden) is null.
  */
-export async function teamDetail(conf: string, code: string, opts?: RequestOpts): Promise<TeamDetail | null> {
-  const [raw, records] = await Promise.all([
-    getOne<Raw>(`/teams/${encodeURIComponent(conf)}/${encodeURIComponent(code)}`, withSession(opts)),
-    teamsForConf(conf, opts).catch((e: unknown) => {
-      if (isAbort(e)) throw e;
-      return [] as TeamRecord[];
-    }),
-  ]);
+export async function teamDetail(teamId: number, opts?: RequestOpts): Promise<TeamDetail | null> {
+  const raw = await getOne<Raw>(`/teams/by-id/${teamId}`, withSession(opts));
   if (raw === null) return null;
-  return buildTeamDetail(conf, code, raw, records.find(t => t.code === code));
+  const conf = strOrNull(raw.conf);
+  const records = conf === null
+    ? []
+    : await teamsForConf(conf, opts).catch((e: unknown) => {
+        if (isAbort(e)) throw e;
+        return [] as TeamRecord[];
+      });
+  return buildTeamDetail(teamId, raw, records.find(t => t.id === teamId));
 }
-
 /**
  * The conf's standings, already ranked.
  *

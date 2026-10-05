@@ -112,7 +112,6 @@ export function BracketPhaseView({
           key={phase.id}
           phase={phase}
           layout={layout}
-          conf={conf}
           isMobile={isMobile}
           slotControl={slotControl}
         />
@@ -120,7 +119,6 @@ export function BracketPhaseView({
         <>
           <BracketCanvas
             layout={layout}
-            conf={conf}
             rowPitch={rowPitch}
             slotControl={slotControl}
             bleed={bleed}
@@ -154,13 +152,11 @@ export function BracketPhaseView({
  */
 function BracketCanvas({
   layout,
-  conf,
   rowPitch,
   slotControl,
   bleed,
 }: {
   layout: BracketLayout;
-  conf: string;
   rowPitch: number;
   slotControl: Props["slotControl"];
   bleed: boolean;
@@ -302,7 +298,6 @@ function BracketCanvas({
                 match={placed.match}
                 terminal={placed.terminal}
                 layout={layout}
-                conf={conf}
                 measureRef={measurer.register(placed.node)}
                 slotControl={slotControl}
               />

@@ -380,7 +380,7 @@ function DayPanel({
               )}
 
               {showForfeit === match.id && (
-                <ForfeitPanel match={match} teams={teams} onSaved={onSaved} />
+                <ForfeitPanel match={match} onSaved={onSaved} />
               )}
 
               {showCodes === match.id && <MatchCodes match={match} teams={teams} onSaved={onSaved} />}

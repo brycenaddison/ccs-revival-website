@@ -144,9 +144,9 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
             <>
               <span className="-mx-1 flex min-w-0 overflow-hidden px-1">
                 <TeamChip
-                  conf={match.conf}
+                  teamId={match.teamId}
                   code={match.team}
-                  team={teamIndex(match.conf, match.team)}
+                  team={teamIndex(match.teamId)}
                   className="pointer-events-auto w-fit max-w-full rounded px-1 hover:bg-brand/20"
                 />
               </span>
@@ -161,8 +161,7 @@ function SeriesCard({ group, teamIndex }: { group: Group; teamIndex: TeamIndex }
 
               <span className="-mx-1 flex min-w-0 overflow-hidden px-1">
                 <TeamLink
-                  conf={match.conf}
-                  code={match.opponentCode}
+                  teamId={match.opponentTeamId}
                   className="pointer-events-auto flex w-fit min-w-0 max-w-full items-center gap-2 rounded px-1 no-underline hover:bg-brand/20"
                 >
                   <TeamLogo team={match.opponent} code={match.opponentCode ?? "?"} size={22} />

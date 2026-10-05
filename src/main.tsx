@@ -145,10 +145,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   {/* The three data pages that used to be full-bleed. They wear the nav now, because a
                       reader who arrives from a Discord embed or a shared link has no other way to the
                       rest of the site; each still carries a small back link at the top of its content.
-                      `:id` on `/match` is a `schedule_match` id. The viewer's tabs are URL segments
-                      (`lib/game/tabs.ts`); its bare path is fixed by the bot's embeds and eight in-app
-                      links. */}
-                  <Route path="/teams/:conf/:code" element={<TeamPage />} />
+                      `:teamId` on `/teams` is `teams.id`; former `/teams/:conf/:code` URLs fall through
+                      to the catch-all. `:id` on `/match` is a `schedule_match` id. The viewer's tabs are
+                      URL segments (`lib/game/tabs.ts`); its bare path is fixed by the bot's embeds and
+                      eight in-app links. */}
+                  <Route path="/teams/:teamId" element={<TeamPage />} />
                   <Route path="/match/:id" element={<MatchDetail />} />
                   <Route path="/game/:matchId" element={<GameDetail />} />
                   <Route path="/game/:matchId/:tab" element={<GameDetail />} />

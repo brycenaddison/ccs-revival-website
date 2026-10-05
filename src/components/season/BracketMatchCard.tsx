@@ -22,7 +22,6 @@ interface Props {
   /** Nothing consumes this result — an end of the bracket. Emphasis only. */
   terminal: boolean;
   layout: BracketLayout;
-  conf: string;
   /** Registers the card element so the connector overlay can measure where it landed. */
   measureRef?: (el: HTMLDivElement | null) => void;
   /**
@@ -42,7 +41,6 @@ function SideRow({
   lost,
   showScore,
   layout,
-  conf,
   control,
 }: {
   slot: SlotSide;
@@ -52,7 +50,6 @@ function SideRow({
   lost: boolean;
   showScore: boolean;
   layout: BracketLayout;
-  conf: string;
   control: ReactNode | null;
 }) {
   const provenance = side.from ? sideProvenance(layout, side.from) : null;
@@ -86,8 +83,7 @@ function SideRow({
         <div className="min-w-0 flex-1">{control}</div>
       ) : side.team ? (
         <TeamLink
-          conf={conf}
-          code={side.team.code}
+          teamId={side.team.id}
           title={provenance ?? undefined}
           className="group flex min-w-0 flex-1 items-center gap-2 no-underline"
         >
@@ -117,7 +113,7 @@ function SideRow({
   );
 }
 
-export function BracketMatchCard({ match, terminal, layout, conf, measureRef, slotControl }: Props) {
+export function BracketMatchCard({ match, terminal, layout, measureRef, slotControl }: Props) {
   const result = match.result;
   const showScore = match.status === "played" && result !== null;
   const winner: SlotSide | null = result?.winner ?? null;
@@ -193,7 +189,6 @@ export function BracketMatchCard({ match, terminal, layout, conf, measureRef, sl
         lost={winner === "bottom"}
         showScore={showScore}
         layout={layout}
-        conf={conf}
         control={slotControl?.("top", match.top, match) ?? null}
       />
       <div className="border-t border-border" />
@@ -205,7 +200,6 @@ export function BracketMatchCard({ match, terminal, layout, conf, measureRef, sl
         lost={winner === "top"}
         showScore={showScore}
         layout={layout}
-        conf={conf}
         control={slotControl?.("bottom", match.bottom, match) ?? null}
       />
 

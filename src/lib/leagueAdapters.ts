@@ -7,40 +7,19 @@
  * from `GET /matches/:conf`, not yet loaded.
  */
 
-import {
-  fmtRatio,
-  hexFromInt,
-  type PlayerStats,
-  type StandingRow,
-  type TeamRecord,
-  type TeamStats,
-  type Tournament,
-} from "./api";
+import { fmtRatio, hexFromInt, type PlayerStats, type TeamRecord, type Tournament } from "./api";
 import { rosterEntries } from "./roster";
 import { accentHex, type TeamColors } from "./teamStyle";
 import type { Player, Roster, Split, Standing, Team } from "../types/league";
 
 /**
- * Stable team identity across the app.
+ * Stable team identity across the app: `teams.id`, which survives a tag or branding change.
  *
- * Team codes are unique per conf, not globally, so the conf has to be part of the key —
- * otherwise two concurrently-active divisions sharing a code would collide.
+ * Codes are display strings. They are unique only within a conf and can pass to another team, so
+ * nothing keys, joins or links on one.
  */
-export function teamKey(conf: string, code: string): string {
-  return `${conf}:${code}`;
-}
-
-export interface ParsedTeamKey {
-  conf: string;
-  code: string;
-}
-
-/** Inverse of `teamKey`. Conf ids contain no colon, so split on the first one. */
-export function parseTeamKey(id: string | null | undefined): ParsedTeamKey | null {
-  if (!id) return null;
-  const i = id.indexOf(":");
-  if (i <= 0 || i === id.length - 1) return null;
-  return { conf: id.slice(0, i), code: id.slice(i + 1) };
+export function teamKey(teamId: number): string {
+  return String(teamId);
 }
 
 /*
@@ -50,6 +29,7 @@ export function parseTeamKey(id: string | null | undefined): ParsedTeamKey | nul
  * disagree about the same team.
  */
 function toTeamBase(
+  teamId: number,
   code: string,
   name: string,
   conf: string,
@@ -58,7 +38,9 @@ function toTeamBase(
   groupName?: string,
 ): Team {
   return {
-    id: teamKey(conf, code),
+    id: teamKey(teamId),
+    teamId,
+    conf,
     name,
     abbreviation: code,
     color_primary: colors.colorHex,
@@ -71,9 +53,9 @@ function toTeamBase(
 /**
  * The props `TeamBadge` wants, from anything carrying a name, a logo and a resolved color.
  *
- * The season document has no team ids and needs none — `TeamLink` takes conf and code directly — so
- * building a whole synthetic `Team` just to draw a badge would be inventing an identity nobody asked
- * for. Same `accentHex` as `toTeamBase`, so a badge looks the same whichever read it came from.
+ * A badge needs no identity, and `TeamLink` takes the served team ID directly, so building a whole
+ * synthetic `Team` just to draw one would be inventing an identity nobody asked for. Same `accentHex`
+ * as `toTeamBase`, so a badge looks the same whichever read it came from.
  */
 export function toBadge(
   team: TeamColors & { name: string; logo?: string },
@@ -87,50 +69,10 @@ export function toBadge(
 }
 
 export function toTeam(rec: TeamRecord, groupName?: string): Team {
-  return toTeamBase(rec.code, rec.name, rec.conf ?? "", rec, rec.logo, groupName);
-}
-
-export function toTeamFromStats(s: TeamStats, groupName?: string): Team {
-  return toTeamBase(s.code, s.name, s.conf, s, s.logo, groupName);
-}
-
-export function toTeamFromStanding(s: StandingRow, groupName?: string): Team {
-  return toTeamBase(s.code, s.name, s.conf, s, s.logo, groupName);
+  return toTeamBase(rec.id, rec.code, rec.name, rec.conf ?? "", rec, rec.logo, groupName);
 }
 
 // ------------------------------------------------------------------- standings
-
-/**
- * Standings as the API ranks them.
- *
- * Order is preserved: `rank` and `place` come from the server, which resolves series record, game
- * win percentage and head-to-head — the last of which no other endpoint here can reconstruct.
- * Callers must render these in the order given and must not renumber rows by index, because ties
- * share a rank and a shared rank consumes the positions it covers.
- */
-export function toStandings(
-  rows: readonly StandingRow[],
-  teamsById: ReadonlyMap<string, Team>,
-  groupName?: string,
-): Standing[] {
-  return rows.map((r): Standing => {
-    const id = teamKey(r.conf, r.code);
-    return {
-      id,
-      team_id: id,
-      split_id: r.conf,
-      wins: r.seriesWins,
-      losses: r.seriesLosses,
-      gameWins: r.gameWins,
-      gameLosses: r.gameLosses,
-      gameWinPct: r.gameWinPct,
-      rank: r.rank,
-      place: r.place,
-      ...(r.streak ? { streak: r.streak } : {}),
-      teams: teamsById.get(id) ?? toTeamFromStanding(r, groupName),
-    };
-  });
-}
 
 /**
  * Standings read off the team rows, for where a record is wanted but a rank is not.
@@ -151,7 +93,7 @@ export function toStandingsFromTeams(
     if (!rec.record) return [];
     // One row per team, so the team's own identity is also the standing's.
     const conf = rec.conf ?? "";
-    const id = teamKey(conf, rec.code);
+    const id = teamKey(rec.id);
     return [{
       id,
       team_id: id,
@@ -181,7 +123,7 @@ export function toPlayers(stats: readonly PlayerStats[], teamsById: ReadonlyMap<
     id: p.rowKey,
     name: p.name,
     role: p.role ?? undefined,
-    team: teamsById.get(teamKey(p.conf, p.team)),
+    team: p.teamId === null ? undefined : teamsById.get(teamKey(p.teamId)),
     gp: p.games,
     kills: p.kills,
     deaths: p.deaths,
@@ -226,7 +168,7 @@ export function toRosters(
 
   return records.flatMap((rec): Roster[] => {
     const conf = rec.conf ?? "";
-    const id = teamKey(conf, rec.code);
+    const id = teamKey(rec.id);
     const base = { team_id: id, split_id: conf, is_captain: false, teams: teamsById.get(id), ...split };
 
     return rosterEntries(rec).map((e): Roster => ({

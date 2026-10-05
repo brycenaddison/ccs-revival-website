@@ -74,7 +74,7 @@ export function EventsPanel({ conf, manage, canAct, onDone }: {
                 <div className="min-w-0 flex-1">
                   {event.kind === "custom"
                     ? <span className="block min-w-0 truncate font-heading text-sm text-text-bright">{event.title}</span>
-                    : <MatchupLabel teamA={event.outcomes[0].team} teamB={event.outcomes[1].team} conf={conf} />}
+                    : <MatchupLabel teamA={event.outcomes[0].team} teamB={event.outcomes[1].team} />}
                 </div>
                 <PredictionStatusChip state={event.state} />
                 <span className="font-mono text-xs text-text-secondary">{pointsText(event.totalPool)} pts</span>

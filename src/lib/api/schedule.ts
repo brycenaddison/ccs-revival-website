@@ -15,13 +15,16 @@
 
 import { credentialedRequest } from "./credentialed";
 import { ApiError, getOne, type RequestOpts } from "./http";
+import { teamIdOf } from "./normalize";
 import type { BestOf, MatchKind, PhaseKind, PropagationUpdate, SlotSide } from "./season";
 import type { RiotMatch } from "./types";
 
 // ---------------------------------------------------------------- the schedule
 
-/** A team as the schedule names one. Codes, not ids — this payload is also the public read. */
+/** A team as the schedule names one: its `teams.id` and its current branding. */
 export interface ScheduleTeam {
+  /** `teams.id`. Null when the API could not attribute the team. */
+  id: number | null;
   code: string;
   name: string;
   logo: string | null;
@@ -32,6 +35,8 @@ export interface ScheduleResult {
   winsB: number;
   /** The winning team's **code**, or null while the series is undecided. */
   winner: string | null;
+  /** The winner's `teams.id`, what deciding a side compares. */
+  winnerTeamId: number | null;
   hasForfeit: boolean;
 }
 
@@ -142,7 +147,7 @@ export interface MatchEdit {
 /**
  * The series as the `series` view reports it.
  *
- * **`teamA`/`teamB` are the two codes sorted, and are not home and away.** The view keys on
+ * **`teamA`/`teamB` are the two codes ordered by team ID, and are not home and away.** The view keys on
  * `LEAST`/`GREATEST` so that every game of a series groups under one row whichever side won; they are
  * here to say which half of `winsA`/`winsB` is which, and for nothing else.
  *
@@ -372,7 +377,7 @@ export interface PreviewError {
 }
 
 /**
- * Which two teams Riot's own report of a game names — **team codes**, not ids or puuids.
+ * Which two teams Riot's own report of a game names, by team ID with the current tags for display.
  *
  * Resolved upstream from the winner and loser puuids `games/by-code` returned, through the same
  * roster vote ingest itself runs, so **this is what confirming will record**. That makes it worth
@@ -380,10 +385,13 @@ export interface PreviewError {
  * "pasted against the wrong match" mistake, caught by the result rather than by the metadata.
  */
 export interface ReportedTeams {
-  /** The winning team's code. */
+  /** The winning team's current tag. Display only. */
   winner: string;
-  /** The losing team's code. */
+  /** The losing team's current tag. Display only. */
   loser: string;
+  /** What a comparison with the scheduled match uses. */
+  winnerTeamId: number;
+  loserTeamId: number;
 }
 
 /**
@@ -544,7 +552,7 @@ function mapTeam(raw: unknown): ScheduleTeam | null {
   const t = asRaw(raw);
   const code = str(t.code);
   if (code === "") return null;
-  return { code, name: str(t.name, code), logo: strOrNull(t.logo) };
+  return { id: teamIdOf(t.id), code, name: str(t.name, code), logo: strOrNull(t.logo) };
 }
 
 function mapResult(raw: unknown): ScheduleResult | null {
@@ -554,6 +562,7 @@ function mapResult(raw: unknown): ScheduleResult | null {
     winsA: int(r.winsA),
     winsB: int(r.winsB),
     winner: strOrNull(r.winner),
+    winnerTeamId: teamIdOf(r.winnerTeamId),
     hasForfeit: r.hasForfeit === true,
   };
 }
@@ -802,7 +811,7 @@ export function clearForfeit(id: number, opts?: RequestOpts): Promise<ForfeitCle
   });
 }
 
-/** The `series` view's own row: the pair sorted by code, with the counts that go with it. */
+/** The `series` view's own row: the pair ordered by team ID, with the counts that go with it. */
 function mapSeries(raw: unknown): SeriesSnapshot {
   const r = asRaw(raw);
   return {
@@ -994,7 +1003,7 @@ export function checkCode(
 /**
  * One game's reported teams, or `null`.
  *
- * Both codes or neither. A pair missing a side names no result — nothing to show and nothing to
+ * Both teams or neither. A pair missing a side names no result — nothing to show and nothing to
  * compare the scheduled match against — and reporting half of one as a winner with no opponent would
  * read as a bye.
  */
@@ -1003,8 +1012,12 @@ function mapReportedTeams(raw: unknown): ReportedTeams | null {
   const t = asRaw(raw);
   const winner = strOrNull(t.winner);
   const loser = strOrNull(t.loser);
+  const winnerTeamId = teamIdOf(t.winnerTeamId);
+  const loserTeamId = teamIdOf(t.loserTeamId);
 
-  return winner === null || loser === null ? null : { winner, loser };
+  return winner === null || loser === null || winnerTeamId === null || loserTeamId === null
+    ? null
+    : { winner, loser, winnerTeamId, loserTeamId };
 }
 
 /**

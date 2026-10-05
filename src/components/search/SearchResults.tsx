@@ -177,8 +177,8 @@ export default function SearchResults({ onNavigate }: { onNavigate: () => void }
         {matchingTeams.length > 0 && (
           <CommandGroup heading="Teams · All seasons">
             {matchingTeams.slice(0, teamLimit).map(team => (
-              <CommandLinkItem key={`${team.conf}:${team.code}`} value={`team:${team.conf}:${team.code}`} onNavigate={onNavigate}>
-                <TeamLink conf={team.conf!} code={team.code}>
+              <CommandLinkItem key={team.id} value={`team:${team.id}`} onNavigate={onNavigate}>
+                <TeamLink teamId={team.id}>
                   <TeamLogo team={team} code={team.code} size={30} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{team.name || team.code}</span>

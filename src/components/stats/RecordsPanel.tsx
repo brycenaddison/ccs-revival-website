@@ -58,11 +58,12 @@ export function RecordsPanel({ conf, isMobile }: Props) {
 
   const { data, isPending, error } = useQuery(queries.records(conf, limit));
   // Team boards carry no champion art — `champImg` is null on them and `name` holds the team code — so
-  // without this lookup they rendered a bare color block where the crest should be.
+  // without this lookup they rendered a bare color block where the crest should be. Keyed by
+  // `teamId`, which every board row carries.
   const teamsQuery = useQuery(queries.teamsForConf(conf));
 
   const logoOf = useMemo(
-    () => new Map((teamsQuery.data ?? []).map(t => [t.code, t.logo])),
+    () => new Map((teamsQuery.data ?? []).map(t => [t.id, t.logo])),
     [teamsQuery.data],
   );
 
@@ -126,9 +127,9 @@ export function RecordsPanel({ conf, isMobile }: Props) {
               // A null value never ranks upstream, so this is defensive rather than expected.
               value: r.value ?? 0,
               display: r.value === null ? "—" : format(r.value),
-              // Champion art on a player board; the team crest on a team board, where `name` is the code.
+              // Champion art on a player board; the team crest on a team board.
               champion: r.champ,
-              logo: r.champImg ?? logoOf.get(r.team) ?? logoOf.get(r.name),
+              logo: r.champImg ?? (r.teamId === null ? undefined : logoOf.get(r.teamId)),
               color: rampColor(1 - i / last),
             }));
 

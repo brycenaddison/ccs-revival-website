@@ -643,7 +643,7 @@ function ResultOnlyGame({
  * `Provenance` catches it only for a code we minted — a `/code`-cut one carries no `scheduleMatchId`
  * to check against. This catches it from the other end, off the result, which works for any code:
  * upstream resolves the reported puuids through the same roster vote ingest runs, so these are the
- * codes confirming will write to `matchlist`.
+ * teams confirming will write to `matchlist`.
  *
  * Renders nothing when the two agree, and nothing when either side is unknown — see `teamsAgree`.
  */
@@ -670,16 +670,17 @@ function WrongTeams({ reported, match }: { reported: ReportedTeams | null; match
  * cover. Reading either as a disagreement would put a red warning on every code registered before a
  * bracket resolves.
  *
- * Unordered, because which of the two won is the result and not a mismatch.
+ * Unordered, because which of the two won is the result and not a mismatch. Compared by team ID, so
+ * a rename between scheduling and confirming is not a mismatch.
  */
 function teamsAgree(reported: ReportedTeams | null, match: ScheduleMatch): boolean | null {
-  const a = match.teamA?.code;
-  const b = match.teamB?.code;
-  if (reported === null || a === undefined || b === undefined) return null;
+  const a = match.teamA?.id ?? null;
+  const b = match.teamB?.id ?? null;
+  if (reported === null || a === null || b === null) return null;
 
   return (
-    (reported.winner === a && reported.loser === b) ||
-    (reported.winner === b && reported.loser === a)
+    (reported.winnerTeamId === a && reported.loserTeamId === b) ||
+    (reported.winnerTeamId === b && reported.loserTeamId === a)
   );
 }
 

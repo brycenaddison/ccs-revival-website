@@ -40,6 +40,12 @@ Do not edit that repository or derive data the API already answers.
   instant a repeated time means. `suggested` opens an inheriting field on the inherited time.
 - `profileId` is durable identity. Any player name with a usable ID uses `PlayerLink`;
   otherwise render plain content. Reuse `TeamLink`, `ChampionIcon` and profile/account components.
+- `teams.id` is durable team identity: selections, keys, joins, links and query keys use it
+  (`teamId`, `winnerTeamId`, `opponentTeamId`, a team row's `id`), read through `normalize.ts`'s
+  `teamIdOf`. Codes are display strings that renames change and other teams can reuse; never join,
+  link or decide a side on one. A null ID is unresolved legacy evidence and stays unlinked.
+  `TeamLink` takes `teamId` (or a view-model `team`) and links `/teams/:teamId`. `leagueTeamId` on
+  game participants is separate from Riot's 100/200 side `teamId`.
 - Every query key/options object lives in `src/lib/queries.ts`. Explain staleness choices and reuse
   owning roots. Mutations invalidate their root; await invalidation when the next step reads it.
   Never mutate in a mount effect: StrictMode can detach the mutation observer and strand pending UI.
@@ -78,7 +84,8 @@ Do not edit that repository or derive data the API already answers.
   card. `CursorPager`/`ShowMore` page cursor lists on `hooks/useCursorPage.ts`; numbered URL pages
   use `ui/pagination` (router links). `stats/StatTile.tsx` is the headline-number tile.
   `TimeZonePicker` is the searchable IANA zone picker on `ui/combobox` (Popover + Command), the
-  combobox for stable local option lists.
+  combobox for stable local option lists. Its options can be `disabled` with a `detail` reason so
+  server-reported unavailable choices stay listed.
 - Tailwind utilities use theme tokens; raw colors and inline color styles are only for established
   data-driven branding/stat visualizations. CCS `brand` is red; shadcn `accent` is the hover
   surface. `primary`/`destructive` share a hue, so distinguish actions by treatment, not hue alone.
@@ -101,8 +108,9 @@ Do not edit that repository or derive data the API already answers.
 
 - `src/main.tsx` owns providers and routes. Public data tabs use `SiteLayout ticker`; ordinary
   pages, including teams, match, game and register, use `SiteLayout`. Only login uses
-  `BareLayout`. Home is eager; other pages are lazy. Profiles are `/players/:profileId`;
-  first-time identity setup is `/setup`. The predictions hub (`/predictions`,
+  `BareLayout`. Home is eager; other pages are lazy. Profiles are `/players/:profileId` and teams
+  `/teams/:teamId`; former `/teams/:conf/:code` URLs are not found. First-time identity setup is
+  `/setup`. The predictions hub (`/predictions`,
   `/predictions/leaderboard`, `/my-predictions`) is one `PredictionsHub` layout route inside the
   ticker group, with its own Suspense around the outlet.
 - `components/layout/SiteLayout.tsx` owns ticker, nav, footer, mobile bar and Suspense.
@@ -215,14 +223,16 @@ Do not edit that repository or derive data the API already answers.
   `components/seo/MetadataProvider.tsx` is the only client head writer, outside SetupGate/lazy
   routes. Overrides are keyed by navigation identity; navigation clears stale tags, dates, image
   dimensions and JSON-LD. Private/unknown routes and content error states use client noindex.
-- Season/profile canonicals retain conf; news ignores it and tracking. `VITE_SITE_ORIGIN` is
+- Season/profile canonicals retain conf; news and team pages ignore it and tracking. `VITE_SITE_ORIGIN` is
   validated HTTPS with the public CCS origin as fallback, never the browser host.
   Vite fills the shell's CCS_METADATA marker with generic Open Graph/Twitter tags and the 512 px
   CCS logo. The shared shell has no canonical, og:url, noindex or homepage JSON-LD.
 - `queries.publicTeamDetail` is anonymous and separate under the teams root; TeamPage uses it
   for public body/metadata while staff panels retain their read. Sessions may expose unpublished
-  teams, so public metadata must omit cookies. Player artwork uses ProfileHeader's primary verified
-  account. Tournament codes never enter metadata.
+  teams, so public metadata must omit cookies. Both detail keys are `teams.id` under the teams root.
+  `api/client.ts`'s `teamDetail` reads `GET /teams/by-id/:id`, then the roster row from the conf
+  it names. Identity is always on the page; stats arrive once the team has played. Player artwork
+  uses ProfileHeader's primary verified account. Tournament codes never enter metadata.
 - `scripts/generate-sitemap.ts` imports pure `api/publicArticleInventory.ts` directly to
   avoid browser API initialization. Strict anonymous 50-row reads omit conf and require two
   matching complete inventories. HTTP/shape/duplicate/order/unstable-inventory failures abort before
@@ -363,6 +373,8 @@ Do not edit that repository or derive data the API already answers.
   `useRosterPlayerSources.ts` owns authorization, private query cleanup and resolver invalidation.
   `rosterInput` is ID-only for writes/dirty checks; refreshed summaries update presentation by ID
   without replacing unsaved identities/order. Retain legacy selections; mobile logo/name has its own row.
+  Tag edits are ordinary: history stays with the team ID, so there is no rename warning. Details
+  saves refresh the teams, standings, season and schedule roots.
 - `league/discord/DiscordSection.tsx` is League Admin > Discord over `api/teamDiscord.ts` and the
   private `queries.teamDiscord` status read (under the teams root, refreshing while syncs are
   queued). Roster staff provision, resync role membership and grant esubs; staff roles and teardown need `admin`. The API's
@@ -388,10 +400,14 @@ Do not edit that repository or derive data the API already answers.
   Teams and Results use local Radix tabs and stay mounted across tab changes so pending mutations
   and request IDs survive. Results reads are private no-store, viewer/conf keyed, zero retention
   and explicit refresh under `queryRoots.resultsWebhooks`, independent of team provisioning.
-  Generate from served channel availability/permissions or paste a canonical Discord webhook link;
-  the secret stays in the field only and clears after save. Every configuration write sends the
+  One destination card holds test and disconnect; setup picks Create or Paste. Create uses
+  `ResultsChannelPicker` (the Combobox, served order, ineligible channels disabled with the reason
+  and reserving league's name) and sends `webhookName` only when `/channels` serves
+  `defaultWebhookName`, since upstream refuses unknown keys. Results and tests post embed-only under
+  the webhook's own Discord name; tests use a sample series. Pasting takes a canonical Discord
+  webhook link; the secret stays in the field only and clears after save. Every configuration write sends the
   saved revision; DELETE carries a JSON body. The current destination stays visible during creation.
-  Generation and test UUIDs retain their exact bodies after uncertain failures; checking those
+  Generation (including its name) and test UUIDs retain their exact bodies after uncertain failures; checking those
   requests never repeats a committed attempt. `ResultsOperations.tsx` reads attempt status and
   explicitly rechecks original audit evidence, never creates another webhook. Unresolved creations
   block replacement until resolved or disconnected. Uncertain tests require Discord inspection
@@ -427,7 +443,7 @@ Do not edit that repository or derive data the API already answers.
   `lib/riot/rankTiers.ts` from the `--tier-*` tokens, or Unranked; `unavailable` leaves the slot
   empty. Every field is omitted when null; a missing handle proves nothing.
 - Career teams use full TeamRecord/mapTeamRecord; opponents use compact TeamMetadata plus
-  opponentCode. Lane matchups stay per-conf in the API mapper and are keyed by conf/profileId.
+  opponentCode. `TeamIndex` resolves rows' served `teamId` against `career.teams`. Lane matchups stay per-conf in the API mapper and are keyed by conf/profileId.
   Accolades remain career-wide even when conf scopes statistics.
 - `pages/PlayerProfile.tsx` renders the public cross-season profile from one payload and map
   lookups, never extra join fetches. Preserve served totals/bests/breakdowns/order.
@@ -545,8 +561,8 @@ Do not edit that repository or derive data the API already answers.
   prediction panel when one is published. `api/feed.ts` result reads send the session with no-store;
   queries.matchResult is keyed by viewer ID with zero retention. Omitted codes/room render nothing.
   `api/schedule.ts` shares mapMatchCode with admin reads; `CopyAction.tsx` owns copy feedback.
-- `home/UpcomingSchedule.tsx` takes the first viewer fixture from the five served upcoming
-  matches. Reuse queries.teamsForConf and join teams by conf/code; `lib/roster.ts`'s teamMembers
+- `home/UpcomingSchedule.tsx` takes the first viewer fixture from the ten served upcoming
+  matches. Reuse queries.teamsForConf and join teams by team ID; `lib/roster.ts`'s teamMembers
   includes starters, subs, contacts and owners and is also used by delivery reports.
   Anonymous/nonmember viewers get no extra card. Remove the featured fixture by feedMatchKey and
   hide an empty remainder. UpcomingMatchCard shows team badges/names, phase, relative match day and
@@ -572,8 +588,9 @@ Do not edit that repository or derive data the API already answers.
   creations independently; only receipts can be reprocessed. Room writes invalidate the schedule
   and drafts roots.
 - `match/TeamMatchHistory.tsx` uses served scheduleMatchId/phase without an extra schedule read;
-  legacy matching falls back to seasonDay/opponent. Match result rows keep a consistent grid and
-  contained overflow. SeriesTotals computes rates from totals, not averages of rates.
+  legacy matching falls back to seasonDay/opponentTeamId. Match result rows keep a consistent grid and
+  contained overflow. SeriesTotals computes rates from totals, not averages of rates. The box score,
+  totals and header orient sides on `lib/seriesStats.ts`'s `FixtureTeam` IDs; recorded codes only label.
   BanIcons preserves -1 as no ban and passes ChampionIcon both ID and source; SeriesGameCard labels
   each team's Victory/Defeat.
 - `pages/GameDetail.tsx` and `components/game/` render the match/timeline/context reads.

@@ -459,7 +459,7 @@ function SeasonPanel({ conf, applications, onSaved }: SeasonProps) {
           <ul className="flex flex-wrap gap-x-4 gap-y-1">
             {published.teams.map(team => (
               <li key={team.id} className="text-sm">
-                <TeamLink conf={team.conf} code={team.code} className="text-brand no-underline hover:underline">
+                <TeamLink teamId={team.id > 0 ? team.id : null} className="text-brand no-underline hover:underline">
                   {team.name} ({team.code})
                 </TeamLink>
               </li>

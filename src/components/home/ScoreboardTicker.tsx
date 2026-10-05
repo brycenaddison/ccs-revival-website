@@ -180,14 +180,14 @@ function TickerCard({
       <TickerSide
         team={match.teamA}
         wins={result?.winsA ?? null}
-        won={final && result?.winner === match.teamA?.code}
+        won={final && result?.winnerTeamId != null && result.winnerTeamId === match.teamA?.id}
         live={live}
         isMobile={isMobile}
       />
       <TickerSide
         team={match.teamB}
         wins={result?.winsB ?? null}
-        won={final && result?.winner === match.teamB?.code}
+        won={final && result?.winnerTeamId != null && result.winnerTeamId === match.teamB?.id}
         live={live}
         isMobile={isMobile}
         spaced

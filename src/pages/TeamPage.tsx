@@ -7,9 +7,9 @@ import { useSeasonLink } from "../lib/leagueContext";
 /**
  * A single team's page.
  *
- * This is the one place `/teams/:conf/:team` is used, and it's the endpoint's intended
+ * This is the one place `/teams/by-id/:id` is used, and it's the endpoint's intended
  * purpose: comprehensive data for one team, fetched because a user asked for that team.
- * A team is identified by (conf, code) — codes are only unique within a conf.
+ * A team is identified by `teams.id`, which survives a tag change; the conf comes from the team.
  *
  * The back link goes **back**, not home. A team page is reached from a dozen places — the Teams tab, a
  * standings row, a bracket card, a match page, a stats leaderboard — and sending every one of them to
@@ -18,18 +18,21 @@ import { useSeasonLink } from "../lib/leagueContext";
  * site nav like every other data page; the link is the shortcut, not the only way out.
  */
 export default function TeamPage() {
-  const { conf, code } = useParams<{ conf: string; code: string }>();
+  const { teamId: param } = useParams<{ teamId: string }>();
   // The fallback shouldn't reset which season the visitor was browsing.
   const seasonLink = useSeasonLink();
 
   return (
     <PageShell maxWidth={1200}>
       <BackLink fallback={seasonLink("/")} />
-      {conf && code ? (
-        <TeamDetailPanel conf={conf} code={code} publicPage />
-      ) : (
-        <div className="py-10 text-center text-text-dim">No team specified.</div>
-      )}
+      <TeamDetailPanel teamId={parseTeamId(param)} />
     </PageShell>
   );
+}
+
+/** A positive decimal ID, or null, so a malformed segment is not found without asking the API. */
+function parseTeamId(param: string | undefined): number | null {
+  if (!param || !/^\d+$/.test(param)) return null;
+  const id = Number(param);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
 }

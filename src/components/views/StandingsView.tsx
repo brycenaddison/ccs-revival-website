@@ -128,7 +128,7 @@ function SeasonPanel({ conf, isMobile }: { conf: string; isMobile: boolean }) {
       {isBracketPhase(phase) ? (
         <BracketPhaseView phase={phase} conf={conf} isMobile={isMobile} />
       ) : (
-        <GroupPhaseView phase={phase} conf={conf} isMobile={isMobile} />
+        <GroupPhaseView phase={phase} isMobile={isMobile} />
       )}
     </>
   );

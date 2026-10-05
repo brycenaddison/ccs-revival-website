@@ -12,7 +12,7 @@ import { cn } from "../../../lib/cn";
 import type { TeamMetadata } from "../../../lib/api";
 import { accentHex } from "../../../lib/teamStyle";
 import type { RiotTeamId } from "../../../lib/riot/matchV5";
-import { sideTeamCode } from "../../../lib/game/participants";
+import { sideTeam } from "../../../lib/game/participants";
 import { TeamBadge } from "../../TeamBadge";
 import { TeamLink } from "../../league/TeamLink";
 import { useGameView } from "../GameView";
@@ -28,8 +28,10 @@ export interface Switchers {
 export function TeamIdentity({ teamId, density }: { teamId: RiotTeamId; density: Density }) {
   const { match, context, participants } = useGameView();
   const team = match.info.teams.find(t => t.teamId === teamId);
-  const code = sideTeamCode(participants, teamId);
-  const meta: TeamMetadata | null = code !== null ? context?.teams[code] ?? null : null;
+  const side = sideTeam(participants, teamId);
+  const code = side?.code ?? null;
+  const meta: TeamMetadata | null =
+    side?.leagueTeamId != null ? context?.teamsById[side.leagueTeamId] ?? null : null;
   const win = team?.win;
 
   return (
@@ -40,7 +42,7 @@ export function TeamIdentity({ teamId, density }: { teamId: RiotTeamId; density:
         </span>
       )}
       {meta ? (
-        <TeamLink conf={meta.conf ?? context?.conf} code={meta.code} className="group flex min-w-0 items-center gap-2 no-underline">
+        <TeamLink teamId={meta.id} className="group flex min-w-0 items-center gap-2 no-underline">
           <TeamBadge
             team={{ name: meta.name, color_primary: meta.colorHex, color_accent: accentHex(meta), logo_url: meta.logo }}
             size={density.ban + 6}

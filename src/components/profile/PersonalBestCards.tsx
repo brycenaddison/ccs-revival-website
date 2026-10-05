@@ -120,7 +120,7 @@ function BestCard({
         <div className="mt-2 flex items-center gap-1.5 text-[11px] text-text-secondary">
           {line && (
             <>
-              <TeamLogo team={teamIndex(line.conf, line.team)} code={line.team} size={16} />
+              <TeamLogo team={teamIndex(line.teamId)} code={line.team} size={16} />
               <span className="truncate">{line.team}</span>
             </>
           )}

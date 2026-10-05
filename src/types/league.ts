@@ -7,8 +7,13 @@
  */
 
 export interface Team {
+  /** `teamKey(teamId)`, for maps and React keys. */
   id: string;
+  /** `teams.id`: what links, joins and selections use. */
+  teamId: number;
+  conf: string;
   name: string;
+  /** The team's current tag. Display only. */
   abbreviation: string;
   color_primary: string;
   /**

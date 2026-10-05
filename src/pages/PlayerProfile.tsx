@@ -4,7 +4,7 @@
  * One request answers the whole page. Everything below is composition plus two indexes built from
  * that single payload:
  *
- * - `teamIndex` — `career.teams` is by construction every `(conf, code)` the player has appeared
+ * - `teamIndex` — `career.teams` is by construction every team ID the player has appeared
  *   under, so it resolves the *player's* team on any game or series row without a second call.
  *   Opponents need no index: every row carries its own `opponent` metadata.
  * - `gamesById` — `games[]` holds the player's whole career, which is what lets the personal-best
@@ -96,12 +96,11 @@ function ProfileContent({
   const { career, games, matches, accolades } = data;
 
   const teamIndex = useMemo<TeamIndex>(() => {
-    const index = new Map<string, TeamRecord>();
+    const index = new Map<number, TeamRecord>();
     for (const row of career.teams) {
-      // Team codes are unique only within a conference, which is the key upstream joins on too.
-      if (row.team) index.set(`${row.conf}|${row.teamCode}`, row.team);
+      if (row.teamId !== null && row.team) index.set(row.teamId, row.team);
     }
-    return (c, code) => (code ? index.get(`${c}|${code}`) ?? null : null);
+    return teamId => (teamId === null ? null : index.get(teamId) ?? null);
   }, [career.teams]);
 
   const gamesById = useMemo(

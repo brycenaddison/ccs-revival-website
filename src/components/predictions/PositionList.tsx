@@ -95,7 +95,7 @@ function PositionRow({ row }: { row: PositionListRow }) {
       <div className="min-w-0 flex-1">
         {!event ? <span className="font-heading text-sm text-text-muted">Hidden prediction</span>
           : event.kind === "custom" ? <span className="block min-w-0 truncate font-heading text-sm text-text-bright">{event.title}</span>
-          : <MatchupLabel teamA={event.outcomes[0].team} teamB={event.outcomes[1].team} conf={event.conf} picked={pickedTeams} />}
+          : <MatchupLabel teamA={event.outcomes[0].team} teamB={event.outcomes[1].team} picked={pickedTeams} />}
       </div>
       <dl className="flex flex-wrap gap-6">
         <Amount term="Points in" value={pointsText(position?.paid ?? row.paid)} />

@@ -117,8 +117,8 @@ export interface TeamRoster {
 /**
  * A team's standings record.
  *
- * Joined on `(conf, code)` — the key `teams` is unique on — so it stays exact even on the
- * all-confs `/teams`, where two confs can share a team code. Forfeits are included, which is why
+ * Joined on `teams.id` upstream, so it stays exact even on the all-confs `/teams`, where two
+ * confs can share a team code. Forfeits are included, which is why
  * this is worth taking from the API: forfeits exist outside `matchlist`, so a record counted from
  * played games disagrees with it.
  */
@@ -141,6 +141,8 @@ export interface SeasonRecord {
  * anything else this client fetches.
  */
 export interface StandingRow extends SeasonRecord {
+  /** `teams.id`. Join and link on this, never on `code`. */
+  teamId: number | null;
   conf: string;
   code: string;
   name: string;
@@ -245,7 +247,10 @@ export interface PlayerStats {
   name: string;
   /** `profiles.id`. Not unique on its own — see `rowKey`. */
   id: number;
+  /** The tag recorded with the row. Display only. */
   team: string;
+  /** `teams.id`; part of the row key, with `id`, `role` and `conf`. */
+  teamId: number | null;
   conf: string;
   role: Role | null;
   logo?: string;
@@ -302,7 +307,7 @@ export interface PlayerStats {
   /**
    * Stable identity for a row.
    *
-   * `playerstats` is keyed on `(id, role, team, conf)` by design — stats are tracked
+   * `playerstats` is keyed on `(id, role, teamId, conf)` by design — stats are tracked
    * separately per role, so one person who played two roles legitimately has two rows and
    * appears twice on a leaderboard. Do not aggregate across roles. `id` alone is therefore
    * not a usable key for UI lists; use this.
@@ -319,7 +324,7 @@ export interface PlayerStatsRanked extends PlayerStats {
 }
 
 export interface TeamStats {
-  id: number;
+  teamId: number | null;
   code: string;
   name: string;
   conf: string;
@@ -417,7 +422,9 @@ export interface MatchlistEntry {
   /** The game's resolved place in the season structure. Null when no published phase covers it. */
   phase: PhaseRef | null;
   team: string;
+  teamId: number | null;
   opponent: string;
+  opponentTeamId: number | null;
   /** Game number within the series. */
   game: number;
   win: boolean;
@@ -449,21 +456,21 @@ export interface MatchlistEntry {
  *
  * The statistics are `Partial` on purpose: upstream spreads a possibly-`null` `teamstats`
  * row, so a team that exists but has not played returns an object with no statistics at
- * all. Identity fields are backfilled from `teams` by the client so `code`/`name` are
- * always present.
+ * all. Identity fields come from the team row upstream and are always present.
  */
 export interface TeamDetail extends Partial<Omit<TeamStats, "code" | "name" | "conf">> {
+  /** The team the page was read by. */
+  teamId: number;
   code: string;
   name: string;
   conf: string;
   /**
-   * Always resolved, unlike the rest of the inherited stats: `buildTeamDetail` takes them from the
-   * stats row or, for a team that hasn't played, from the roster row — so this is a `TeamColors` and
-   * badges the same way every other team read does.
+   * Always resolved, unlike the rest of the inherited stats, so this is a `TeamColors` and badges
+   * the same way every other team read does.
    */
   color: number | null;
   colorHex: string;
-  /** True when no `teamstats` row existed — i.e. the team has not played yet. */
+  /** False when no `teamstats` row existed: the team has not played yet. */
   hasStats: boolean;
   /**
    * The declared roster, from `GET /teams/:conf` — the aggregated team endpoint does not carry
@@ -574,10 +581,12 @@ export interface RecordRow {
   profileId: number | null;
   name: string;
   team: string;
+  teamId: number | null;
   champ: string | null;
   champImg: string | null;
   role: Role | null;
   opponent: string;
+  opponentTeamId: number | null;
   seasonDay: number;
   matchId: string;
   /** Which game of the series. */
@@ -682,6 +691,7 @@ export interface ChampionStats {
 
   bestPlayerName: string | null;
   bestPlayerTeam: string | null;
+  bestPlayerTeamId: number | null;
   bestPlayerLogo?: string;
   bestPlayerGames: number | null;
   bestPlayerKda: number | null;

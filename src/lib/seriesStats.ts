@@ -1,7 +1,7 @@
 /**
  * A best-of, added up.
  *
- * **Aggregated by team code, never by side.** Teams swap ends between games of a series, so summing
+ * **Aggregated by team ID, never by side.** Teams swap ends between games of a series, so summing
  * `blue` across four games adds two games of one team to two games of the other — which is the one
  * mistake this file exists to prevent.
  *
@@ -12,6 +12,13 @@
  */
 
 import type { SeriesGame, SeriesPlayer, SeriesSide } from "./api";
+
+/** One of the fixture's two teams: `id` orients the totals, `code` labels them. */
+export interface FixtureTeam {
+  /** `teams.id`. Null leaves this side with no games, since nothing else may stand in for it. */
+  id: number | null;
+  code: string;
+}
 
 /**
  * One team's contribution across the series. Counts only games that have a box score.
@@ -24,6 +31,7 @@ import type { SeriesGame, SeriesPlayer, SeriesSide } from "./api";
  * report `0`, which reads as "nobody got a solo kill" rather than "nothing was measured".
  */
 export interface SeriesTeamTotals {
+  teamId: number | null;
   code: string;
   /** Games this team won **among those counted**, which is not the series score. */
   wins: number;
@@ -68,7 +76,9 @@ export interface SeriesPlayerTotals {
   key: string;
   profileId: number | null;
   name: string;
+  /** The recorded tag, for display. */
   team: string;
+  teamId: number | null;
   games: number;
   /** Play time behind these totals, in seconds. */
   seconds: number;
@@ -114,7 +124,8 @@ export interface SeriesStats {
   players: SeriesPlayerTotals[];
 }
 
-const emptyTotals = (code: string): SeriesTeamTotals => ({
+const emptyTotals = ({ id, code }: FixtureTeam): SeriesTeamTotals => ({
+  teamId: id,
   code,
   wins: 0,
   kills: 0,
@@ -164,14 +175,14 @@ function addSide(into: SeriesTeamTotals, side: SeriesSide): void {
 function addPlayer(
   into: Map<string, SeriesPlayerTotals>,
   p: SeriesPlayer,
-  team: string,
+  side: SeriesSide,
   index: number,
   /** The game's duration in seconds, or null where it wasn't recorded. */
   duration: number | null,
 ): void {
   // A line with no profile and no name still has to be told apart from its four team-mates, and the
   // lane order is stable within a game — hence the index as the last resort.
-  const key = p.profileId !== null ? `p${p.profileId}` : p.name !== null ? `n${p.name}` : `${team}:${index}`;
+  const key = p.profileId !== null ? `p${p.profileId}` : p.name !== null ? `n${p.name}` : `${side.teamId ?? side.team}:${index}`;
   const existing = into.get(key);
 
   const row: SeriesPlayerTotals =
@@ -180,7 +191,8 @@ function addPlayer(
       key,
       profileId: p.profileId,
       name: p.name ?? "Unknown",
-      team,
+      team: side.team,
+      teamId: side.teamId,
       games: 0,
       seconds: 0,
       kills: 0,
@@ -224,14 +236,14 @@ function addPlayer(
 /**
  * The series added up, oriented to the fixture's own two teams.
  *
- * `codeA`/`codeB` come from the fixture, not from the games, so the two totals stay on the same side of
- * the page as the header's scoreline. A side whose code matches neither — which would mean the games
+ * `teamA`/`teamB` come from the fixture, not from the games, so the two totals stay on the same side of
+ * the page as the header's scoreline. A side whose team ID matches neither — which would mean the games
  * attached to this fixture are not this fixture's games — is dropped rather than folded into whichever
  * total it is closest to.
  */
-export function seriesStats(games: readonly SeriesGame[], codeA: string, codeB: string): SeriesStats {
-  const a = emptyTotals(codeA);
-  const b = emptyTotals(codeB);
+export function seriesStats(games: readonly SeriesGame[], teamA: FixtureTeam, teamB: FixtureTeam): SeriesStats {
+  const a = emptyTotals(teamA);
+  const b = emptyTotals(teamB);
   const players = new Map<string, SeriesPlayerTotals>();
 
   let counted = 0;
@@ -251,10 +263,10 @@ export function seriesStats(games: readonly SeriesGame[], codeA: string, codeB: 
     counted += 1;
 
     for (const side of sides) {
-      const into = side.team === codeA ? a : side.team === codeB ? b : null;
+      const into = side.teamId === null ? null : side.teamId === teamA.id ? a : side.teamId === teamB.id ? b : null;
       if (into === null) continue;
       addSide(into, side);
-      side.players.forEach((p, i) => addPlayer(players, p, side.team, i, game.duration));
+      side.players.forEach((p, i) => addPlayer(players, p, side, i, game.duration));
     }
   }
 

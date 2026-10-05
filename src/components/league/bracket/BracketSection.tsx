@@ -313,13 +313,10 @@ function SlotPicker({
 }) {
   const qc = useQueryClient();
 
-  // The season document names teams by code; a PATCH wants an id. Unknown code resolves to null,
-  // which shows as unset rather than as some other team.
-  const idOf = (code: string | undefined): number | null =>
-    (code === undefined ? undefined : teams.find(t => t.code === code)?.id) ?? null;
-
-  const current = idOf(side.team?.code);
-  const opposite = idOf((slot === "top" ? match.bottom : match.top).team?.code);
+  // The season document serves each slot's team ID, which is what a PATCH wants. A slot without one
+  // shows as unset rather than as whichever team holds its code now.
+  const current = side.team?.id ?? null;
+  const opposite = (slot === "top" ? match.bottom : match.top).team?.id ?? null;
 
   const save = useMutation({
     mutationFn: (id: number | null) => {

@@ -42,6 +42,7 @@ import { SeriesPreview } from "../components/match/SeriesPreview";
 import { SeriesTotals } from "../components/match/SeriesTotals";
 import { MatchLobby } from "../components/match/MatchLobby";
 import type { TeamNamer } from "../components/match/TeamNameLink";
+import type { FixtureTeam } from "../lib/seriesStats";
 
 type Tab = "preview" | "results";
 
@@ -121,11 +122,7 @@ export default function MatchDetail() {
           <>
             {/* Settled predictions stay here too: the Results tab is about the games. */}
             <MatchPredictionPanel scheduleMatchId={matchId} />
-            <SeriesPreview
-              conf={data.conf}
-              codeA={data.teamA?.code ?? null}
-              codeB={data.teamB?.code ?? null}
-            />
+            <SeriesPreview teamIdA={data.teamA?.id ?? null} teamIdB={data.teamB?.id ?? null} />
           </>
         )}
       </div>
@@ -151,7 +148,7 @@ function Missing({ message }: { message: string }) {
 // ------------------------------------------------------------------- the header
 
 function SeriesHeader({ match }: { match: SeriesDetail }) {
-  const { conf, result, teamA, teamB } = match;
+  const { result, teamA, teamB } = match;
   // `record` is the season record, forfeits included, and it comes on the same row as the team, so
   // it costs nothing here. Absent only on an API too old to serve it, where `0-0` would be a lie.
   const recordOf = (team: SeriesDetail["teamA"]) =>
@@ -159,11 +156,10 @@ function SeriesHeader({ match }: { match: SeriesDetail }) {
 
   return (
     <MatchupHeader
-      conf={conf}
       teamA={teamA}
       teamB={teamB}
-      wonA={result !== null && result.winner === teamA?.code}
-      wonB={result !== null && result.winner === teamB?.code}
+      wonA={result?.winnerTeamId != null && result.winnerTeamId === teamA?.id}
+      wonB={result?.winnerTeamId != null && result.winnerTeamId === teamB?.id}
       recordA={recordOf(teamA)}
       recordB={recordOf(teamB)}
       center={
@@ -244,30 +240,31 @@ function StatusChip({ match }: { match: SeriesDetail }) {
 function Results({ match }: { match: SeriesDetail }) {
   // A fallback that never appears on a real fixture with games — a game exists because two teams played
   // it — but the box score needs a name for the winner of a game with no sides recorded.
-  const codeA = match.teamA?.code ?? "Team A";
-  const codeB = match.teamB?.code ?? "Team B";
+  const teamA: FixtureTeam = { id: match.teamA?.id ?? null, code: match.teamA?.code ?? "Team A" };
+  const teamB: FixtureTeam = { id: match.teamB?.id ?? null, code: match.teamB?.code ?? "Team B" };
 
   /*
-   * The games identify a side by team code; the full name and the conference are on the fixture. Resolved
-   * here and handed down, so a card names a team the way the header does rather than reaching for the
-   * lookup itself — and so a code belonging to neither side (which `inferred` linkage can produce) stays
-   * a code instead of being mislabeled.
+   * The games identify a side by team ID; the full name is on the fixture. Resolved here and handed
+   * down, so a card names a team the way the header does rather than reaching for the lookup itself —
+   * and so a side belonging to neither team (which `inferred` linkage can produce) stays its recorded
+   * code instead of being mislabeled.
    */
-  const nameOf: TeamNamer = code => {
-    const team = code === match.teamA?.code ? match.teamA : code === match.teamB?.code ? match.teamB : null;
-    return team === null ? null : { name: team.name, conf: match.conf };
+  const nameOf: TeamNamer = teamId => {
+    if (teamId === null) return null;
+    const team = teamId === match.teamA?.id ? match.teamA : teamId === match.teamB?.id ? match.teamB : null;
+    return team === null ? null : { teamId: team.id, name: team.name };
   };
 
   return (
     <>
-      <SeriesTotals games={match.games} codeA={codeA} codeB={codeB} nameOf={nameOf} />
+      <SeriesTotals games={match.games} teamA={teamA} teamB={teamB} nameOf={nameOf} />
 
       {match.games.map(g => (
         <SeriesGameCard
           key={`${g.game}-${g.matchId ?? "ff"}`}
           game={g}
-          codeA={codeA}
-          codeB={codeB}
+          teamA={teamA}
+          teamB={teamB}
           nameOf={nameOf}
         />
       ))}
