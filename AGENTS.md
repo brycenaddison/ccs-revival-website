@@ -204,7 +204,8 @@ Do not edit that repository or derive data the API already answers.
   `TableSizePicker.tsx` shares an 8x8 pointer/keyboard grid in a Popover; dimensions include the
   header row. CodeMirror styling is scoped Tailwind; overriding unlayered defaults needs importance.
 - `components/Markdown.tsx` is the sole renderer for articles, Info, application notes and
-  previews. Raw HTML stays disabled. Exact image title `width=N` (1–9999) sets display width,
+  previews. Raw HTML stays disabled. `patches/` removes remark-gfm's email-autolink regex
+  lookbehind, which throws on Safari before 16.4; re-check it when upgrading. Exact image title `width=N` (1–9999) sets display width,
   capped by container with automatic height; other titles remain tooltips.
   `src/typeset.css` is imported unedited. Rhythm belongs in `index.css` presets, not individual
   rendered elements. Only Markdown output gets `.typeset`. Article output/previews cap the entire

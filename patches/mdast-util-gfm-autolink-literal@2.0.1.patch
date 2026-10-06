@@ -1,0 +1,14 @@
+diff --git a/lib/index.js b/lib/index.js
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -132,7 +132,9 @@ function transformGfmAutolinkLiterals(tree) {
+     tree,
+     [
+       [/(https?:\/\/|www(?=\.))([-.\w]+)([^ \t\r\n]*)/gi, findUrl],
+-      [/(?<=^|\s|\p{P}|\p{S})([-.\w+]+)@([-\w]+(?:\.[-\w]+)+)/gu, findEmail]
++      // Safari before 16.4 cannot compile regex lookbehind, so every Markdown render threw there.
++      // `findEmail` already rejects a match whose previous character is not whitespace or punctuation.
++      [/([-.\w+]+)@([-\w]+(?:\.[-\w]+)+)/g, findEmail]
+     ],
+     {ignore: ['link', 'linkReference']}
+   )
