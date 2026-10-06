@@ -107,8 +107,10 @@ function SiteChrome({ ticker = false }: Props) {
           descendants such as sr-only file inputs and menu triggers; otherwise their static positions
           can escape this scroller and create a second scrollbar on the document. The gutter is
           reserved here, beside the content only, so the centered column keeps one width whether or
-          not the page is tall enough to scroll: switching to a shorter tab never slides it sideways. */}
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-gutter:stable]">
+          not the page is tall enough to scroll: switching to a shorter tab never slides it sideways.
+          Overscroll is contained so a fling past either end cannot chain into the document, which
+          has nothing of its own to scroll. */}
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
         {/* The compare dock's reserve sits on this wrapper rather than on the scroller: trailing padding
             on a scroll container has a history of being dropped from the scrollable overflow. */}
         <div

@@ -119,7 +119,8 @@ Do not edit that repository or derive data the API already answers.
   The inner content scroller must stay `relative` so hidden absolute inputs/menu triggers cannot
   escape its overflow boundary. Keep flex/grid children shrinkable and overflow inside the page.
   Scroll the actual content container, not the window; it reserves a stable scrollbar gutter so
-  the centered column never changes width with page height. `FullBleedScroller` uses the nearest
+  the centered column never changes width with page height. `#root` has no `100vh` floor: on
+  phones that exceeds `h-dvh` while the toolbar shows and lets the document scroll. `FullBleedScroller` uses the nearest
   scrolling ancestor's client width; `ScrollRail` supplies shared horizontal scrolling.
 - `RouteErrorBoundary.tsx` resets by pathname; stale chunk recovery reloads once. The deployment
   retains old hashed assets for seven days so open tabs survive a release.

@@ -32,13 +32,14 @@ export function SeasonPicker({ tournaments, selection, onChange, activeConfs, co
   //
   // With several divisions running they deliberately share a name, so `CURRENT` stays generic and
   // each division is still listed: "all of the current season" and "this one division" are
-  // different selections rather than duplicates.
+  // different selections rather than duplicates. Its label invites narrowing to one league,
+  // because readers otherwise take the control for a static caption.
   const listed = soleActive ? tournaments.filter(t => t.conf !== soleActive.conf) : tournaments;
 
   const options = (
     <>
       {activeConfs.length > 0 && (
-        <NativeSelectOption value={CURRENT}>{soleActive ? soleActive.name : "Current season"}</NativeSelectOption>
+        <NativeSelectOption value={CURRENT}>{soleActive ? soleActive.name : "Filter by league…"}</NativeSelectOption>
       )}
       {listed.map(t => (
         <NativeSelectOption key={t.conf} value={t.conf}>

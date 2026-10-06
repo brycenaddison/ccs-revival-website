@@ -136,9 +136,15 @@
     min-width: 320px;
     transition: background 0.2s, color 0.2s;
   }
+  /*
+   * No height floor: each layout sizes itself (`SiteLayout` at `h-dvh`, `BareLayout` at
+   * `min-h-screen`). On mobile `100vh` is the viewport with the browser toolbar hidden, taller than
+   * `SiteLayout`'s `h-dvh` while the toolbar shows, so a `100vh` floor here made the document itself
+   * scroll by the toolbar's height and exposed an empty band above the fixed bottom bar. Desktop
+   * and device emulation report the two units as equal, which is why it only appeared on phones.
+   */
   #root {
     width: 100%;
-    min-height: 100vh;
   }
 }
 ::selection { background: var(--brand); color: #fff; }
