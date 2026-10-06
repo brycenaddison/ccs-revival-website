@@ -74,6 +74,7 @@ import {
   statTotals,
   teamDetail,
   teamDiscordStatus,
+  teamDiscordWorkState,
   resultsWebhookStatus,
   resultsWebhookChannels,
   resultsWebhookOperation,
@@ -979,9 +980,9 @@ export const queries = {
 
   /**
    * A conference's team Discord setup for League Admin. Private and no-store upstream, so it is keyed
-   * by viewer and dropped once unobserved. Under the teams root because a roster or branding save is
-   * what queues a sync, and the next read should show it. While the queue is draining it refreshes
-   * every 15 seconds so a background sync's result appears without a reload.
+   * by viewer and dropped once unobserved. Under the teams root so roster writes refresh membership
+   * work. Refreshes every 15 seconds while unattempted work remains; held failures count toward queue
+   * depth but need a new event or manual request, so they must not keep polling alive.
    */
   teamDiscord: (conf: string, viewerId: number | null) =>
     query({
@@ -992,7 +993,7 @@ export const queries = {
       gcTime: 0,
       retry: false,
       refetchInterval: (q: { state: { status: string; data?: TeamDiscordStatus } }) =>
-        q.state.status !== "error" && (q.state.data?.queue.depth ?? 0) > 0 ? 15_000 : false,
+        q.state.status !== "error" && q.state.data?.teams.some(team => teamDiscordWorkState(team.queued) === "pending") ? 15_000 : false,
     }),
 
   /** Results settings are independent of team provisioning; only admin-scoped callers mount them. */

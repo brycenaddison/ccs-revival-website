@@ -1,6 +1,6 @@
 /**
- * One team in League Admin > Discord: its recorded role and channels, what the next sync would
- * change, warnings, any queued sync, confirmed role holders and unconfirmed recipients.
+ * One team in League Admin > Discord: recorded resources, needed repairs, warnings, pending or
+ * held work, confirmed role holders and unconfirmed recipients. Only admins can provision resources.
  *
  * Role holders are served by Discord account. A holder with a saved website profile renders through
  * `PlayerIdentity`; one with only a server username shows the handle; otherwise the recipient is an
@@ -13,17 +13,17 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ErrorLine } from "../../admin/adminUi";
-import { relativeInstant } from "../../predictions/PredictionUi";
 import type { DiscordPlayerSource } from "../../players/pickerTypes";
 import { queries } from "../../../lib/queries";
 import { useAuth } from "../../../lib/authContext";
 import {
   errorMessage,
   removeEsub,
+  teamDiscordWorkState,
   type TeamDiscordMember,
   type TeamDiscordTeam,
 } from "../../../lib/api";
-import { DRIFT_LABEL } from "./discordLabels";
+import { DRIFT_LABEL, MEMBERSHIP_RETRY_GUIDANCE, RESOURCE_RETRY_GUIDANCE } from "./discordLabels";
 import { DiscordResourceBadge } from "./DiscordResourceBadge";
 import { DiscordMemberList, discordMemberLabel } from "./DiscordMemberList";
 import { IssueText, type RosterNames } from "./discordIssues";
@@ -31,11 +31,13 @@ import { EsubGrant } from "./EsubGrant";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-export function TeamDiscordCard({ conf, team, canEdit, source, people, working, onProvision, onResync }: {
+export function TeamDiscordCard({ conf, team, canEdit, canProvision, source, people, working, onProvision, onResync }: {
   conf: string;
   team: TeamDiscordTeam;
-  /** Roster scope and a connected Discord, required for every action here. */
+  /** Roster scope and a connected Discord, required for role resync and esubs. */
   canEdit: boolean;
+  /** Admin scope and a connected Discord; readiness is reflected in `onProvision`. */
+  canProvision: boolean;
   source: DiscordPlayerSource;
   people: RosterNames;
   working: boolean;
@@ -59,6 +61,7 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, working, 
   });
 
   const resources = [team.role, team.text, team.voice] as const;
+  const workState = teamDiscordWorkState(team.queued);
   const attention = team.drift.length + team.warnings.length + team.unconfirmedMembers.length + (team.queued ? 1 : 0)
     + resources.filter(resource => resource?.diagnostic === "uncertain" || resource?.exists === false).length;
   const memberListProps = {
@@ -89,20 +92,24 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, working, 
 
       {open && (
         <div className="flex flex-col gap-4 border-t border-border p-4">
-          {canEdit && (
+          {(canProvision || canEdit) && (
             <div className="flex flex-wrap items-center gap-3">
-              <Button variant="outline" size="sm" type="button" disabled={working || !onProvision} onClick={() => onProvision?.()}>
-                Provision this team
-              </Button>
-              <Button variant="outline" size="sm" type="button" disabled={working || !onResync} onClick={() => onResync?.()}>
-                Resync roles
-              </Button>
+              {canProvision && (
+                <Button variant="outline" size="sm" type="button" disabled={working || !onProvision} onClick={() => onProvision?.()}>
+                  Provision this team
+                </Button>
+              )}
+              {canEdit && (
+                <Button variant="outline" size="sm" type="button" disabled={working || !onResync} onClick={() => onResync?.()}>
+                  Resync roles
+                </Button>
+              )}
             </div>
           )}
 
           {team.drift.length > 0 && (
             <div>
-              <p className="text-sm text-text-bright">The next sync will update</p>
+              <p className="text-sm text-text-bright">Resources needing admin repair</p>
               <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-text-secondary">
                 {team.drift.map(drift => <li key={drift}>{DRIFT_LABEL[drift]}</li>)}
               </ul>
@@ -120,9 +127,8 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, working, 
           {team.queued && (
             <div className="text-sm text-text-secondary">
               <p>
-                Background sync queued
+                {workState === "held" ? "Sync failed; waiting for action" : workState === "pending" ? "Sync pending" : "Recorded sync work"}
                 {team.queued.attempts > 0 && <> · {team.queued.attempts} {team.queued.attempts === 1 ? "attempt" : "attempts"} so far</>}
-                {team.queued.retryAt && <> · next try {relativeInstant(team.queued.retryAt, null)}</>}
               </p>
               {(team.queued.membership === true || team.queued.resources === true) && (
                 <p className="text-xs text-text-dim">
@@ -130,6 +136,13 @@ export function TeamDiscordCard({ conf, team, canEdit, source, people, working, 
                 </p>
               )}
               <ErrorLine message={team.queued.lastError} />
+              {workState === "held" && (
+                <p className="text-xs text-text-dim">
+                  Failed work does not retry automatically.
+                  {team.queued.membership === true && <> {MEMBERSHIP_RETRY_GUIDANCE}</>}
+                  {team.queued.resources === true && <> {RESOURCE_RETRY_GUIDANCE}</>}
+                </p>
+              )}
             </div>
           )}
 

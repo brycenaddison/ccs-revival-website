@@ -275,6 +275,7 @@ export type {
 export {
   teamDiscordApi,
   teamDiscordStatus,
+  teamDiscordWorkState,
   provisionTeamDiscord,
   resyncTeamDiscordRoles,
   saveTeamDiscordStaffRoles,

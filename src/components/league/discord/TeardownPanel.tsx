@@ -89,7 +89,7 @@ export function TeardownPanel({ conf, status, canEdit, onDone }: {
         open={open}
         onOpenChange={close}
         title="Tear down this league's Discord?"
-        description="Only objects the bot recorded are touched. The background sync stops for this league."
+        description="Only objects the bot recorded are touched. Automatic role membership updates stop for this league."
         footer={
           <>
             <Button variant="outline" disabled={teardown.isPending} onClick={() => close(false)}>Cancel</Button>

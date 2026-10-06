@@ -4,13 +4,12 @@
  * One status read (`queries.teamDiscord`) drives the Teams panel: what the bot recorded per team, drift
  * against Discord, warnings, confirmed/unconfirmed recipients, queued syncs, the provision preflight
  * and teardown counts.
- * Staff can provision resources or resync existing role memberships. The API's background worker
- * follows roster, name, code, color and logo changes once the conference category exists, so nothing
- * here resyncs a team after a roster save.
+ * Admins provision missing resources, preserving Discord customization. Roster changes and profile
+ * links reconcile existing role membership upstream, so nothing here resyncs after a roster save.
  *
- * Provision, role resync and esubs need the `roster` scope. Staff roles and teardown need
- * `admin`, so roster-only staff see those panels read-only. Hiding controls is presentation; the API
- * is the boundary.
+ * Role resync and esubs need `roster`; Provision, staff roles and teardown need `admin`.
+ * Hiding controls is presentation; the API is the boundary. Failed work stays held until a new
+ * event or manual request, and does not keep status polling alive.
  * Results has its own admin-only reads and revisioned writes in ResultsPanel, independent of team
  * provisioning. Keep both tab panels mounted so switching views cannot detach a pending mutation.
  *
@@ -38,6 +37,7 @@ import {
   provisionTeamDiscord,
   resyncTeamDiscordRoles,
   teamDiscordRefusal,
+  teamDiscordWorkState,
   type TeamDiscordStatus,
 } from "../../../lib/api";
 import { useRosterPlayerSources } from "../teams/useRosterPlayerSources";
@@ -121,14 +121,15 @@ function TeamDiscordPanel({ conf }: { conf: string }) {
   }
   const data = status.data;
   const blockers = data.preflight?.blockers ?? [];
-  const canRun = canRoster && data.available && !operation.isPending;
-  const canProvision = canRun && blockers.length === 0;
+  const canRun = data.available && !operation.isPending;
+  const canProvision = canAdmin && canRun && blockers.length === 0;
+  const canResync = canRoster && canRun;
   const refusal = teamDiscordRefusal(operation.error);
 
   return (
     <div className="flex flex-col gap-5">
       <StatusStrip status={data} refreshing={status.isFetching} onRefresh={() => { void refresh(); }} />
-      <IssueList title="Category cleanup needs attention" issues={data.cleanupIssues} tone="warning" people={people} />
+      <IssueList title="Category issues need admin attention" issues={data.cleanupIssues} tone="warning" people={people} />
 
       {!data.available && (
         <Alert variant="warning">
@@ -137,7 +138,7 @@ function TeamDiscordPanel({ conf }: { conf: string }) {
           <AlertDescription>
             <p>
               This is what the bot recorded. Current role holders, whether each role and channel still
-              exists, what the next sync would change and the readiness checks are unknown until Discord
+              exists, which resources need repair and the readiness checks are unknown until Discord
               answers. Changes are unavailable until then.
             </p>
           </AlertDescription>
@@ -147,24 +148,29 @@ function TeamDiscordPanel({ conf }: { conf: string }) {
       <section aria-labelledby="discord-provision" className="flex flex-col gap-3">
         <h3 id="discord-provision" className="font-heading text-sm text-text-bright">Provisioning</h3>
         <p className="text-sm text-text-secondary">
-          Creates text and voice categories for this league and, for each team, a role named and colored
-          after the team (with its logo as the icon where the server allows), a private text channel named after
-          the code and a voice channel named after the team. Players, substitutes, the owner and
-          contacts with a Discord account get the role. After that, roster and branding changes sync in
-          the background.
+          Creates missing team roles and private text and voice channels. New roles use the team&apos;s
+          name, color and logo where supported; both channels use the team&apos;s name. Players,
+          substitutes, the owner and contacts with a Discord account get the role. Roster changes and
+          Discord account links automatically update existing role membership.
+        </p>
+        <p className="text-sm text-text-secondary">
+          Existing roles and channels keep their names, colors, icons, placement, IDs and messages.
+          Missing channels reuse the shared placement of this league&apos;s surviving channels, with
+          categories created only as needed. Mixed placements must be resolved in Discord before
+          adding channels. Provisioning never deletes resources.
         </p>
         <IssueList title="Provisioning is blocked" issues={blockers} tone="destructive" people={people} />
         <IssueList title="Warnings" issues={data.preflight?.warnings ?? []} tone="warning" people={people} />
-        {canRoster && (
+        {canAdmin && (
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" disabled={!canProvision || data.teams.length === 0} onClick={() => operation.mutate({ kind: "provision" })}>
-              {operation.isPending && operation.variables.kind === "provision" ? "Provisioning…" : data.provisioned ? "Provision all teams again" : "Provision all teams"}
+              {operation.isPending && operation.variables.kind === "provision" ? "Provisioning…" : "Provision all teams"}
             </Button>
           </div>
         )}
-        {canRoster && data.provisioned && (
+        {data.provisioned && (
           <p className="text-xs text-text-dim">
-            Provisioning again updates existing roles and channels in place, preserving their IDs and messages.
+            Use Provision for missing resources or new teams and Resync roles for membership.
             Uncertain creates need inspection before they can continue.
           </p>
         )}
@@ -179,14 +185,14 @@ function TeamDiscordPanel({ conf }: { conf: string }) {
         </p>
         {canRoster && (
           <div>
-            <Button variant="outline" type="button" disabled={!canRun || data.teams.length === 0} onClick={() => operation.mutate({ kind: "roles" })}>
+            <Button variant="outline" type="button" disabled={!canResync || data.teams.length === 0} onClick={() => operation.mutate({ kind: "roles" })}>
               {operation.isPending && operation.variables.kind === "roles" ? "Resyncing roles…" : "Resync all team roles"}
             </Button>
           </div>
         )}
       </section>
 
-      {operation.isPending && <p role="status" className="text-xs text-text-secondary">{operation.variables.kind === "provision" ? "Updating roles and channels in Discord…" : "Reconciling role membership in Discord…"}</p>}
+      {operation.isPending && <p role="status" className="text-xs text-text-secondary">{operation.variables.kind === "provision" ? "Provisioning missing resources and updating channel access in Discord…" : "Reconciling role membership in Discord…"}</p>}
       {refusal && refusal.issues.length > 0 ? (
         <IssueList title={refusal.error} issues={refusal.issues} tone="destructive" people={people} />
       ) : <ErrorLine message={operation.error ? errorMessage(operation.error) : null} />}
@@ -202,11 +208,12 @@ function TeamDiscordPanel({ conf }: { conf: string }) {
             conf={conf}
             team={team}
             canEdit={canRoster && data.available}
+            canProvision={canAdmin && data.available}
             source={sources.discord}
             people={people}
             working={operation.isPending}
             onProvision={canProvision ? () => operation.mutate({ kind: "provision", teamIds: [team.teamId] }) : null}
-            onResync={canRun ? () => operation.mutate({ kind: "roles", teamIds: [team.teamId] }) : null}
+            onResync={canResync ? () => operation.mutate({ kind: "roles", teamIds: [team.teamId] }) : null}
           />
         ))}
         {data.orphans.length > 0 && (
@@ -239,6 +246,9 @@ function StatusStrip({ status, refreshing, onRefresh }: {
   refreshing: boolean;
   onRefresh: () => void;
 }) {
+  const workStates = status.teams.map(team => teamDiscordWorkState(team.queued));
+  const pending = workStates.filter(state => state === "pending").length;
+  const held = workStates.filter(state => state === "held").length;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -251,8 +261,11 @@ function StatusStrip({ status, refreshing, onRefresh }: {
         {status.categories.map(category => (
           <DiscordResourceBadge key={category.id} kind={category.kind} resource={category} />
         ))}
-        {status.queue.depth > 0 && (
-          <Badge variant="muted">{status.queue.depth} {status.queue.depth === 1 ? "sync" : "syncs"} queued</Badge>
+        {pending > 0 && (
+          <Badge variant="muted">{pending} {pending === 1 ? "sync" : "syncs"} pending</Badge>
+        )}
+        {held > 0 && (
+          <Badge variant="destructive">{held} {held === 1 ? "sync needs" : "syncs need"} action</Badge>
         )}
       </div>
       <Button variant="outline" size="sm" type="button" disabled={refreshing} onClick={onRefresh}>

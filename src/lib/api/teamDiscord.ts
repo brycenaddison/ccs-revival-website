@@ -4,16 +4,20 @@
  *
  * Upstream behavior worth knowing:
  *
- *  - Every route is session-scoped and answers no-store. `roster` staff read, provision and grant
- *    esubs; the staff-role setting and teardown need the league `admin` scope.
+ *  - Every route is session-scoped and answers no-store. `roster` staff read, resync membership and
+ *    grant esubs; provision, the staff-role setting and teardown need the league `admin` scope.
  *  - The status read always answers. Without Discord it serves the recorded objects with
  *    `available: false`, and `exists`, drift and preflight are then unknown rather than clean.
- *  - Once the conference category exists, a background worker keeps every team in step with roster,
- *    name, code, color and logo changes. Roster writes already enqueue their own sync.
+ *  - Committed roster changes and profile links reconcile existing role membership. Only explicit
+ *    admin Provision creates missing resources; roster writes already enqueue their own sync.
  *  - Provision preflights the whole request and answers `409 not_ready` with every blocker before
- *    any Discord write. Its outcomes are per team, and an unfinished team is queued for the worker.
- *  - Repeated provision updates recorded resources in place. Membership resync only reconciles
- *    existing roles; missing roles require provision. Membership and resource retries are separate.
+ *    any Discord write. Work exceeding the request budget is queued; failures have no timed retry.
+ *  - Provision preserves existing IDs, messages, manual names, colors/icons and placement, and
+ *    never deletes resources. Missing channels reuse surviving peers' shared parent; mixed placement
+ *    blocks creation. New text and voice channels use team names, with categories created as needed.
+ *  - Membership failures wait for another team change or manual resync. Resource failures require
+ *    fresh Provision. Membership resync only reconciles existing roles; missing roles need Provision.
+ *  - Staff-role saves update access on existing channels during that admin request.
  *  - Uncertain resource diagnostics require inspection; absence is only confirmed by an exact read.
  *  - The bot only removes the role from people it recorded granting it to, so a role given by hand
  *    in Discord never appears as a member here.
@@ -60,7 +64,7 @@ export type TeamDiscordMemberSource = (typeof TEAM_DISCORD_MEMBER_SOURCES)[numbe
 export const TEAM_DISCORD_UNCONFIRMED_REASONS = ["not_in_guild", "missing_role", "unavailable"] as const;
 export type TeamDiscordUnconfirmedReason = (typeof TEAM_DISCORD_UNCONFIRMED_REASONS)[number];
 
-/** What the next sync would change on one team. */
+/** Reported resource changes; current servers report missing resources and permissions only. */
 export const TEAM_DISCORD_DRIFT = [
   "role_missing", "role_name", "role_color", "role_icon",
   "text_missing", "text_name", "text_parent", "text_permissions",
@@ -146,7 +150,9 @@ export interface TeamDiscordRoleOption {
 }
 
 export interface TeamDiscordQueued {
+  /** Zero for pending work; a positive count holds the failure until a new event or manual request. */
   attempts: number;
+  /** Legacy retry time; the event-driven backend leaves this null. */
   retryAt: string | null;
   lastError: string | null;
   membership: boolean | null;
@@ -177,7 +183,7 @@ export interface TeamDiscordStatus {
   conf: string;
   /** Discord answered; drift and preflight are only computed when true. */
   available: boolean;
-  /** The conference has a live category, so the worker keeps its teams in step. */
+  /** The conference has recorded created resources, even if a historical category is gone. */
   provisioned: boolean;
   staffRoleIds: string[];
   /** One per `staffRoleIds` id, in the same order. */
@@ -259,6 +265,15 @@ export interface TeamDiscordRefusal {
   error: string;
   issues: TeamDiscordIssue[];
   roleIds: string[];
+}
+
+// ----------------------------------------------------------------------------------- work state
+
+/** Queue depth includes held failures. Share this distinction between polling and presentation. */
+export function teamDiscordWorkState(work: TeamDiscordQueued | null): "pending" | "held" | null {
+  if (!work) return null;
+  if (work.attempts > 0) return "held";
+  return work.membership === true || work.resources === true ? "pending" : null;
 }
 
 // -------------------------------------------------------------------------------------- mapping
@@ -493,7 +508,7 @@ export async function resyncTeamDiscordRoles(
   return { warnings: rows(r.warnings, issueOf), teams: rows(r.teams, roleResyncTeamOf) };
 }
 
-/** Replaces the whole list. In a provisioned conference the worker then re-permissions every channel. */
+/** Replaces the whole list and updates access on existing channels during the request. */
 export async function saveTeamDiscordStaffRoles(
   conf: string, staffRoleIds: readonly string[], opts?: RequestOpts,
 ): Promise<string[]> {

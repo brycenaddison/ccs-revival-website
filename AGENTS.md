@@ -377,8 +377,9 @@ Do not edit that repository or derive data the API already answers.
   saves refresh the teams, standings, season and schedule roots.
 - `league/discord/DiscordSection.tsx` is League Admin > Discord over `api/teamDiscord.ts` and the
   private `queries.teamDiscord` status read (under the teams root, refreshing while syncs are
-  queued). Roster staff provision, resync role membership and grant esubs; staff roles and teardown need `admin`. The API's
-  worker keeps provisioned teams in step, so roster saves never trigger a sync from here. Members
+  pending). Provision, staff roles and teardown need `admin`; role resync and esubs need `roster`.
+  Roster/profile-link events reconcile existing role membership upstream, so roster saves never
+  trigger a sync from here. Members
   render through served `profile`/`handle` and esubs name `grantedByProfile`; staff roles are named
   from served `staffRoles` and picked from `assignableRoles`. `members` are freshly confirmed role
   holders; `unconfirmedMembers` carry `not_in_guild`, `missing_role` or `unavailable`, including
@@ -386,13 +387,21 @@ Do not edit that repository or derive data the API already answers.
   presentation and esub removal in served order. Unconfirmed recipients flag collapsed team cards
   for attention; Check again rechecks membership. Per-person warnings' `profileIds` are
   named through `lib/roster.ts`'s `rosterNames` over `queries.teamsForConf`, as delivery reports are.
-  Provision updates existing resources in place. `resyncTeamDiscordRoles` uses `/roles/resync` for
+  Provision creates missing resources, preserves IDs/messages and manual branding/placement, and
+  never deletes resources. Missing channels reuse surviving peers' shared parent (mixed placements
+  are preflight blockers); new text and voice channels use team names. Staff-role saves update
+  existing channel access during the request. `resyncTeamDiscordRoles` uses `/roles/resync` for
   existing role membership only and remains available despite resource preflight blockers; missing
   roles require provision. Both actions support all teams or one team, never retry automatically,
   and await teams-root invalidation after success or failure. `DiscordOperationReport` shares
   per-team status/counts/warnings and independent membership/resource errors; `DiscordResourceBadge`
   shares resource diagnostics across categories and teams, preserving uncertain creates as needing
-  inspection. Status also exposes category cleanup issues and queued membership/resource scopes.
+  inspection. Status also exposes category issues and queued membership/resource scopes.
+  `api/teamDiscord.ts`'s `teamDiscordWorkState` shares pending/held classification between polling
+  and status presentation. Queue depth includes held failures (`attempts > 0`), which have no timed
+  retry and cannot keep polling alive; only unattempted work with a pending scope polls. Resource
+  failures require fresh Provision; membership failures need another team change or Resync roles.
+  Recovery copy is shared in `discordLabels.ts`. Endpoint paths and payload shapes remain compatible.
   The Discord section is keyed by conference/viewer so reports cannot follow a league switch.
   Teardown sends the typed conference code and offers force only after a `season_active` refusal.
 - Discord's Results panel (`league/discord/ResultsPanel.tsx`, `api/resultsWebhooks.ts`) requires

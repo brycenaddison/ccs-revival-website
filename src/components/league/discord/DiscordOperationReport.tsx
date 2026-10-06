@@ -1,6 +1,6 @@
 import { ErrorLine } from "../../admin/adminUi";
 import type { TeamDiscordProvisionReport, TeamDiscordRoleResyncReport } from "../../../lib/api";
-import { PROVISION_LABEL, RESOURCE_LABEL, ROLE_RESYNC_LABEL } from "./discordLabels";
+import { MEMBERSHIP_RETRY_GUIDANCE, PROVISION_LABEL, RESOURCE_LABEL, RESOURCE_RETRY_GUIDANCE, ROLE_RESYNC_LABEL } from "./discordLabels";
 import { IssueList, IssueText, type RosterNames } from "./discordIssues";
 
 export type DiscordOperationResult =
@@ -51,7 +51,12 @@ export function DiscordOperationReport({ result, people }: { result: DiscordOper
           );
         })}
       </ul>
-      <p className="text-xs text-text-dim">Queued work retries in the background. Check the team status for pending work and errors.</p>
+      <p className="text-xs text-text-dim">
+        Queued work completes in the background. Failed work does not retry automatically.
+        {" "}{MEMBERSHIP_RETRY_GUIDANCE}
+        {result.kind === "provision" && <> {RESOURCE_RETRY_GUIDANCE}</>}
+        {" "}Check the team status for pending work and errors.
+      </p>
     </div>
   );
 }

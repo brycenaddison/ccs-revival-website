@@ -40,16 +40,19 @@ export const DRIFT_LABEL: Record<TeamDiscordDrift, string> = {
   voice_permissions: "Voice channel permissions",
 };
 
+export const MEMBERSHIP_RETRY_GUIDANCE = "Role membership failures wait for another change to the team or a manual Resync roles.";
+export const RESOURCE_RETRY_GUIDANCE = "Role or channel failures require a league admin to run Provision again.";
+
 export const PROVISION_LABEL: Record<TeamDiscordProvisionStatus, string> = {
   provisioned: "Provisioned",
   in_progress: "In progress",
-  queued: "Queued for background sync",
+  queued: "Queued for completion",
   failed: "Failed",
 };
 
 export const ROLE_RESYNC_LABEL: Record<TeamDiscordRoleResyncStatus, string> = {
   synced: "Roles synced",
-  queued: "Queued for background sync",
+  queued: "Queued for completion",
   in_progress: "In progress",
   failed: "Failed",
   not_provisioned: "Role missing; provision this team first",

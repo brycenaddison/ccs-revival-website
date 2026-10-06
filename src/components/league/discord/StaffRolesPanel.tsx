@@ -4,9 +4,8 @@
  * The draft is a list of role ids, named from the status read: saved roles from `staffRoles`, newly
  * picked ones from `assignableRoles`, which is also the picker's option list. A role the read cannot
  * name falls back to its id, since without Discord nothing else tells two roles apart. Saving
- * replaces the whole list; in a provisioned league the worker then re-permissions every channel in
- * the background. The parent keys this panel by the served list, so a save or another admin's change
- * resets the draft.
+ * replaces the whole list and updates access on existing channels during the admin request. The
+ * parent keys this panel by the served list, so a save or another admin's change resets the draft.
  */
 
 import { useState } from "react";
@@ -51,7 +50,7 @@ export function StaffRolesPanel({
     onSuccess: async () => {
       await onSaved();
       toast.success(provisioned
-        ? "Staff roles saved. Channel permissions update in the background."
+        ? "Staff roles saved. Existing channel permissions updated."
         : "Staff roles saved.");
     },
   });
@@ -78,6 +77,7 @@ export function StaffRolesPanel({
       <h3 id="discord-staff-roles" className="font-heading text-sm text-text-bright">Staff roles</h3>
       <p className="text-sm text-text-secondary">
         Roles that can see every team&apos;s channels in this league, such as league staff.
+        Saving updates access on existing channels during the request.
       </p>
 
       {draft.length === 0 ? (

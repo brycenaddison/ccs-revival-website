@@ -93,6 +93,11 @@ export interface BracketLayout {
   edges: BracketEdge[];
   /** Sources named by a slot but absent from the phase. `ON DELETE SET NULL` makes these real. */
   dangling: number[];
+  /**
+   * Characters in the longest entry-slot seed. Every card sizes its seed column to this, so team
+   * names stay aligned across the bracket when one slot carries a range such as `12-16`.
+   */
+  seedChars: number;
 }
 
 /**
@@ -297,7 +302,15 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
     }
   }
 
-  return { columns, byNode, rows, edges, dangling: [...dangling] };
+  let seedChars = 0;
+  for (const { match } of flat) {
+    for (const side of SIDES) {
+      const { from, seed } = match[side];
+      if (from === null && seed) seedChars = Math.max(seedChars, seed.length);
+    }
+  }
+
+  return { columns, byNode, rows, edges, dangling: [...dangling], seedChars };
 }
 
 /**

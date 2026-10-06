@@ -40,8 +40,8 @@
  * A` takes two individually-legal edits, so it is caught by the walk instead and warned about here.
  * Reachability is still the server's call.
  *
- * **`seed` is a free-form label and nothing resolves it.** A string now, not a number: `"1"`, or `"1A"`
- * for the first seed out of group A. A slot with seed `4` and no team renders `(4) TBD`, and no code path
+ * **`seed` is a free-form label and nothing resolves it.** A string, not a number: `"1"`, `"1A"` for the
+ * first seed out of group A, or `"12-16"` for a pick from a range of lower seeds. A slot with seed `4` and no team renders `(4) TBD`, and no code path
  * looks a team up by it. It is offered on **entry slots only** — a derived slot holds whoever won the
  * match feeding it, so there is nobody to label — and switching a slot to derived clears it rather than
  * hiding a value the save would still write. Byes fall out for free: a seven-team bracket needs no bye
@@ -909,7 +909,7 @@ function SlotEditor({
         */}
         {!derived && (
           <div className="w-20 shrink-0">
-            {/* Text, not a number input. 1–8 letters or digits is the whole rule. An empty field is
+            {/* Text, not a number input. 1–8 characters is the whole rule. An empty field is
                 `null`: `""` is refused upstream because `null` already means "none", and two spellings of
                 nothing is how an editor ends up rendering an empty box that is not empty. */}
             <Input
@@ -974,7 +974,7 @@ function SlotEditor({
 
       {!derived && (
         <p id={`${id}-seed-hint`} className={`text-xs mt-1 ${badSeed ? "text-ccs-red" : "sr-only"}`}>
-          Letters and digits only — like 1 or 1A.
+          Up to {SLOT_SEED_MAX} characters, like 1, 1A or 12-16.
         </p>
       )}
 

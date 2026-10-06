@@ -73,7 +73,9 @@ function SideRow({
         arrived here by losing. Nothing, for a slot fed by a win, where the line says it already.
       */}
       <span
-        className="w-5 shrink-0 text-right font-mono text-[10px] text-text-dim"
+        className="shrink-0 whitespace-nowrap text-right font-mono text-[10px] text-text-dim"
+        // At least the 20 px that holds a short seed or the drop arrow; wider only for a longer seed.
+        style={{ width: `max(1.25rem, ${layout.seedChars}ch)` }}
         title={side.from?.output === "loser" ? provenance ?? undefined : undefined}
       >
         {side.from === null ? (side.seed ? side.seed : "") : side.from.output === "loser" ? "↓" : ""}

@@ -67,9 +67,8 @@ export const SCENARIO_KEY_MAX = 32;
 /** `level` is 1–10 and exists only so the client can color a row. */
 export const SCENARIO_LEVELS = 10;
 
-/** A slot seed is 1–8 letters or digits. Upstream refuses anything else, `""` included. */
+/** A slot seed is any string of 1–8 characters. Upstream refuses anything longer, and `""`. */
 export const SLOT_SEED_MAX = 8;
-const SEED_PATTERN = /^[A-Za-z0-9]{1,8}$/;
 
 export function isBestOf(value: unknown): value is BestOf {
   return (BEST_OF_VALUES as readonly unknown[]).includes(value);
@@ -78,12 +77,12 @@ export function isBestOf(value: unknown): value is BestOf {
 /**
  * Whether a seed is one upstream will accept.
  *
- * Letters and digits only, 1–8 of them. **`""` is not a seed** — `null` already means "none", and two
+ * Any 1–8 characters, so a range such as `"12-16"` is a seed. **`""` is not a seed**: `null` already means "none", and two
  * spellings of nothing is how an editor ends up rendering an empty box that is not empty. A field
  * should normalize its empty string to `null` rather than ask this about it.
  */
 export function isSlotSeed(value: unknown): value is string {
-  return typeof value === "string" && SEED_PATTERN.test(value);
+  return typeof value === "string" && value.length >= 1 && value.length <= SLOT_SEED_MAX;
 }
 
 // --------------------------------------------------------------------- phases
@@ -248,11 +247,11 @@ export interface GroupPhaseContents extends PhaseContentsCommon {
 
 export interface SlotSave {
   /**
-   * A **label**, not a number: `"1"`, or `"1A"` for the first seed out of group A.
+   * A **label**, not a number: `"1"`, `"1A"` for the first seed out of group A, or `"12-16"` for a
+   * slot filled by a pick from a range of lower seeds.
    *
-   * 1–8 letters or digits, `null` for no seed, and anything else is a 422 — no spaces, no punctuation,
-   * and `""` is refused because `null` already says "none". It was a positive integer until this
-   * release, so a client still sending `1` gets a 422 naming the field.
+   * Any string of 1–8 characters, or `null` for no seed. Anything longer is a 422, and so is `""`
+   * because `null` already says "none". A number is a 422 naming the field.
    *
    * **Nothing upstream resolves, compares or sorts it**, which is exactly what lets it be free-form: a
    * client that arranges by seed picks its own collation, and `"10"` sorting before `"2"` is that
