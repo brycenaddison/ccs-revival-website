@@ -1,7 +1,7 @@
 /**
  * Up to three open predictions, in Home's competition column after the upcoming schedule.
  *
- * Reads the same `status=open&sort=closesAt` key per conf as the All predictions tab, so the
+ * Reads the same `status=open&sort=closesAt` key per conf as the hub's Open tab, so the
  * cache is shared, and match and custom predictions arrive together in served order. With several
  * divisions, cards fill in division order, each division in served order; merging divisions by
  * deadline would re-sort served rows. Hidden entirely when nothing is

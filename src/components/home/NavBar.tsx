@@ -35,9 +35,10 @@ function CcsBrand({ compact = false, onNavigate }: { compact?: boolean; onNaviga
  * you're editing, and a second one in the nav — meaning what the *public* views show — reads as the
  * same control twice.
  */
-// `/predictions/` with the slash: All predictions is seasonal, while prediction detail, the leaderboard
+// `/predictions/` with the slash: Open and Results are seasonal, while prediction detail, the leaderboard
 // and your own predictions are cross-season.
 const SEASONLESS_PREFIXES = ["/settings", "/setup", "/players/", "/admin", "/league/", "/news", "/predictions/", "/my-predictions"];
+const SEASONAL_PATHS = ["/predictions/results"];
 
 /**
  * Tabs are real links, so they can be opened in a new tab, bookmarked and shared. Which one is
@@ -78,7 +79,8 @@ export function NavBar({ isMobile }: Props) {
   const tabs = visibleTabs(TABS, selectedConfs, activeConfs);
   // The length check is what keeps the wrappers below from rendering an empty box: `SeasonPicker`
   // answers `null` with nothing to choose between, and it's the caller that owns the layout around it.
-  const showSeason = tournaments.length > 0 && !SEASONLESS_PREFIXES.some(p => pathname.startsWith(p));
+  const showSeason = tournaments.length > 0
+    && (SEASONAL_PATHS.includes(pathname) || !SEASONLESS_PREFIXES.some(p => pathname.startsWith(p)));
   const season = showSeason && (
     <SeasonPicker
       tournaments={tournaments}

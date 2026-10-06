@@ -75,7 +75,8 @@ Do not edit that repository or derive data the API already answers.
 - Shared page pieces: `BackLink` is every page-level back link (history-aware `fallback`, or an
   explicit `to` + label); in-panel back buttons use `BackButton` from `admin/adminUi.tsx`.
   `league/DivisionPicker.tsx` is the single-choice Toggle Group that picks one concurrent division
-  on Standings, Teams and Stats (held locally, never `setSelection`).
+  on Standings, Teams, Stats and Predictions (held locally, never `setSelection`); its optional
+  `all` item adds an every-division choice.
   `UnderlineTabs` is the brand-underlined strip (Link mode for URLs, button mode for local state;
   hidden under two tabs); `PillTabs` is the bordered switch inside admin sections. Local view and
   filter switches (`PillTabs`, `stats/FilterBar`'s `PillGroup`, `ViewToggle`, `StatGroupSwitcher`)
@@ -110,7 +111,7 @@ Do not edit that repository or derive data the API already answers.
   pages, including teams, match, game and register, use `SiteLayout`. Only login uses
   `BareLayout`. Home is eager; other pages are lazy. Profiles are `/players/:profileId` and teams
   `/teams/:teamId`; former `/teams/:conf/:code` URLs are not found. First-time identity setup is
-  `/setup`. The predictions hub (`/predictions`,
+  `/setup`. The predictions hub (`/predictions`, `/predictions/results`,
   `/predictions/leaderboard`, `/my-predictions`) is one `PredictionsHub` layout route inside the
   ticker group, with its own Suspense around the outlet.
 - `components/layout/SiteLayout.tsx` owns ticker, nav, footer, mobile bar and Suspense.
@@ -499,12 +500,15 @@ Do not edit that repository or derive data the API already answers.
   outcome with its team or player link; `OutcomeShares` (in `PoolBar.tsx`) is a custom market's
   pool, while `PoolBar` stays the two-sided match bar.
 - The hub (`pages/PredictionsHub.tsx`) renders `PredictionsHeader` (wallet chip, Link tabs, the
-  public reward rule from `/settings`) over All predictions (`Predictions.tsx`),
-  `PredictionLeaderboard.tsx` and `MyPredictions.tsx`; tabs read the wallet through
-  `usePredictionsHub`. `usePredictionWallet` reads only `me/summary` and owns enroll/claim;
-  enrollment is per leaderboard season. All predictions follows the nav season picker: per conf,
-  match and custom markets together, open by `sort=closesAt`, then closed states by
-  `sort=-closesAt` with Show more, with no `kind` filter; division headings only with several confs.
+  public reward rule from `/settings`) over Open (`Predictions.tsx`), Results
+  (`PredictionResults.tsx`), `PredictionLeaderboard.tsx` and `MyPredictions.tsx`; tabs read the
+  wallet, filtered confs and labels through `usePredictionsHub`. `usePredictionWallet` reads only
+  `me/summary` and owns enroll/claim; enrollment is per leaderboard season. Open and Results share
+  `PredictionFeed` and follow the nav season picker: per conf, match and custom markets together,
+  Open by `sort=closesAt`, Results every closed state by `sort=-closesAt`, each with Show more and
+  no `kind` filter. With several confs the hub shows a `DivisionPicker` (with All divisions) on
+  those two tabs, held in the hub so the pick carries between them; division headings appear only
+  while several confs are shown.
   "Your pick" comes from `me/positions` per loaded page (`usePredictionPositions`), never public
   reads. `PublicPositions.tsx` shows anonymous participant picks on prediction detail as one
   column per outcome, through the proposed `GET /predictions/:eventId/picks` contract (backend
@@ -517,10 +521,11 @@ Do not edit that repository or derive data the API already answers.
   existing and closed-event picks; only paid principal is public, not private wallet/ledger data.
   `PUBLIC_PICKS_NOTICE` appears before participation. `/me/positions` remains session-only.
   My predictions lists `/me` holdings with picks from positions, then the ledger; its reward
-  tile follows the served cadence, mode, streak cap and upcoming policy. Settled events live in All
-  predictions' Results. The leaderboard's `?season=` (omitted for the open season) selects a closed
+  tile follows the served cadence, mode, streak cap and upcoming policy. Settled events live on the
+  Results tab. The leaderboard's `?season=` (omitted for the open season) selects a closed
   season's frozen board from `queries.predictionSeasons`. Detail, leaderboard and My predictions
-  are seasonless in the nav.
+  are seasonless in the nav; Results is listed in NavBar's `SEASONAL_PATHS` despite its
+  `/predictions/` prefix.
 - `predictions_unavailable` (503: no prediction settings or no open season) is site-wide, not per
   league (`predictions_disabled` is), and public event reads keep working through it.
   `isPredictionsUnavailable` reads it from either transport (both parse the JSON error envelope) and

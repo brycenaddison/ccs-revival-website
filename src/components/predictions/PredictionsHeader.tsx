@@ -1,9 +1,9 @@
 /**
- * The predictions hub's header, shared by its three tabs: heading, subtitle, points and a link tab
+ * The predictions hub's header, shared by its four tabs: heading, subtitle, points and a link tab
  * strip. My predictions appears only when signed in. On mobile the points wrap under the title and
  * the strip scrolls sideways.
  *
- * All predictions carries the league selection, because it lists each selected league's match and
+ * Open and Results carry the league selection, because they list each selected league's match and
  * custom markets; the leaderboard (which has its own prediction seasons) and your own predictions
  * span every league.
  *
@@ -22,7 +22,7 @@ import type { PredictionWallet } from "./usePredictionWallet";
 import { useSeasonLink } from "../../lib/leagueContext";
 import { queries } from "../../lib/queries";
 
-export type PredictionsTab = "matches" | "leaderboard" | "mine";
+export type PredictionsTab = "open" | "results" | "leaderboard" | "mine";
 
 export function PredictionsHeader({ wallet, tab, unavailable }: {
   wallet: PredictionWallet;
@@ -34,7 +34,8 @@ export function PredictionsHeader({ wallet, tab, unavailable }: {
   const rewards = calendar.data?.rewards;
   const rule = rewards?.enabled && rewards.policy ? `Claim ${rewardPolicyText(rewards.policy)}.` : null;
   const tabs = [
-    { key: "matches" as const, label: "All predictions", to: seasonLink("/predictions") },
+    { key: "open" as const, label: "Open", to: seasonLink("/predictions") },
+    { key: "results" as const, label: "Results", to: seasonLink("/predictions/results") },
     { key: "leaderboard" as const, label: "Leaderboard", to: "/predictions/leaderboard" },
     ...(wallet.signedIn ? [{ key: "mine" as const, label: "My predictions", to: "/my-predictions" }] : []),
   ];

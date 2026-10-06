@@ -32,7 +32,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 const TILE_COLOR = "var(--text-bright)";
 
 export default function PredictionLeaderboard() {
-  const wallet = usePredictionsHub();
+  const { wallet } = usePredictionsHub();
   const [search, setSearch] = useSearchParams();
   const seasons = useQuery(queries.predictionSeasons());
   const openSeason = seasons.data?.find(season => season.endedAt === null) ?? null;

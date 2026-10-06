@@ -5,7 +5,7 @@
  * served cadence, mode and streak cap, and names a scheduled policy change. Active predictions are
  * `/me`'s unsettled holdings (up to 100), with picks and potential returns from `me/positions`,
  * because `/me` does not say which outcome each point went to. Settled predictions have no list of
- * their own: `/me` drops them, and All predictions' Results already marks your picks and returns.
+ * their own: `/me` drops them, and the Results tab already marks your picks and returns.
  * History pages the ledger.
  *
  * Enrollment is per leaderboard season, so a returning player sees the start prompt again after a
@@ -34,7 +34,7 @@ import { usePredictionsHub } from "./PredictionsHub";
 const SECTION_HEADING = "mb-3 font-display text-[22px] text-text-bright";
 
 export default function MyPredictions() {
-  const wallet = usePredictionsHub();
+  const { wallet } = usePredictionsHub();
   return <RequireAuth><Body wallet={wallet} /></RequireAuth>;
 }
 
@@ -122,7 +122,7 @@ function ActivePredictions({ viewerId }: { viewerId: number | null }) {
       <h2 className={SECTION_HEADING}>Active predictions</h2>
       {portfolio.isPending ? <p role="status" className="text-sm text-text-dim">Loading your predictions…</p>
         : portfolio.error ? <ErrorLine message={predictionErrorText(portfolio.error)} />
-        : holdings.length === 0 ? <p className="text-sm text-text-secondary">No active predictions. Settled ones, with their returns, are under All predictions.</p>
+        : holdings.length === 0 ? <p className="text-sm text-text-secondary">No active predictions. Settled ones, with their returns, are under Results.</p>
         : <>
           {portfolio.data?.truncated && <p className="mb-3 text-xs text-text-dim">Showing your first {PREDICTION_HOLDINGS_MAX} active predictions.</p>}
           <PositionList rows={holdings.map(holding => ({

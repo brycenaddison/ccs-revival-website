@@ -10,6 +10,7 @@ const publicPages: Record<string, [string, string]> = {
   "/scores": ["Scores", "Explore recent CCS matches and results."],
   "/stats": ["Statistics", "Explore player, team and champion statistics from CCS competition."],
   "/predictions": ["Predictions", "Browse published CCS series winner predictions and point pools."],
+  "/predictions/results": ["Prediction results", "Browse closed and settled CCS predictions and their point pools."],
   "/predictions/leaderboard": ["Prediction leaderboard", "See server-ranked CCS prediction participants."],
 };
 

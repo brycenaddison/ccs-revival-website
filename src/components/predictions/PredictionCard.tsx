@@ -1,5 +1,5 @@
 /**
- * One published prediction as a card, for All predictions (full) and Home (compact).
+ * One published prediction as a card, for the hub's Open and Results tabs (full) and Home (compact).
  *
  * The card itself is not a link, because the team and player names inside it are: the footer button
  * is the way in, "Predict" while open and "View" after. Cards carry no league label; a division

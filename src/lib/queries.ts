@@ -203,7 +203,7 @@ export const queries = {
       ...holdOnError(MINUTE),
     }),
   /**
-   * One conf's open events, next deadline first. All predictions and Home share this key, so
+   * One conf's open events, next deadline first. The hub's Open tab and Home share this key, so
    * whichever loads second reuses the first's request.
    */
   openPredictions: (conf: string, cursor: string | null = null) =>

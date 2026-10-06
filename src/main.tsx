@@ -44,6 +44,7 @@ const MyApplications = lazy(() => import('./pages/MyApplications'))
 const PlayerProfile = lazy(() => import('./pages/PlayerProfile'))
 const PredictionsHub = lazy(() => import('./pages/PredictionsHub'))
 const Predictions = lazy(() => import('./pages/Predictions'))
+const PredictionResults = lazy(() => import('./pages/PredictionResults'))
 const PredictionDetail = lazy(() => import('./pages/PredictionDetail'))
 const PredictionLeaderboard = lazy(() => import('./pages/PredictionLeaderboard'))
 const MyPredictions = lazy(() => import('./pages/MyPredictions'))
@@ -103,10 +104,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   {/* News is a tab (see `lib/tabs.ts`) but standalone, because it reads `/articles`
                       alone and none of the league data `Home` loads. */}
                   <Route path="/news" element={<News />} />
-                  {/* The predictions hub's three tabs share one layout, so its header and points stay
-                      mounted across them. My predictions is signed-in only but still a hub tab. */}
+                  {/* The predictions hub's four tabs share one layout, so its header, points and division
+                      filter stay mounted across them. My predictions is signed-in only but still a hub tab. */}
                   <Route element={<PredictionsHub />}>
                     <Route path="/predictions" element={<Predictions />} />
+                    <Route path="/predictions/results" element={<PredictionResults />} />
                     <Route path="/predictions/leaderboard" element={<PredictionLeaderboard />} />
                     <Route path="/my-predictions" element={<MyPredictions />} />
                   </Route>
