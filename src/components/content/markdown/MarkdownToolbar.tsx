@@ -99,7 +99,7 @@ export function MarkdownToolbar(props: Props) {
       <CommandDropdown {...props} label="Lists" icon={List} ids={["bullet", "ordered", "task"]} />
       <CommandButton {...props} id="link" />
       <CommandButton {...props} id="image" />
-      <CommandDropdown {...props} label="More" icon={Ellipsis} ids={["code", "quote", "codeBlock", "table", "rule"]} />
+      <CommandDropdown {...props} label="More" icon={Ellipsis} ids={["code", "quote", "codeBlock", "table", "toc", "rule"]} />
     </Toolbar>
   );
 }

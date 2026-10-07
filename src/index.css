@@ -462,3 +462,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
 .typeset :where(a:hover) {
   text-decoration-color: var(--brand);
 }
+/* A heading reached from a `#` link keeps some air above it instead of touching the scroller's edge. */
+.typeset :where(h1, h2, h3, h4, h5, h6)[id] {
+  scroll-margin-top: 1rem;
+}

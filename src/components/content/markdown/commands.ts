@@ -3,12 +3,13 @@ import { redo, redoDepth, undo, undoDepth, isolateHistory } from "@codemirror/co
 import { ensureSyntaxTree } from "@codemirror/language";
 import {
   Bold, Code, CodeXml, Heading, ImagePlus, Italic, Link, List, ListChecks, ListOrdered,
-  Minus, Quote, Redo2, Strikethrough, Table, Undo2, type LucideIcon,
+  Minus, Quote, Redo2, Strikethrough, Table, TableOfContents, Undo2, type LucideIcon,
 } from "lucide-react";
+import { TOC_MARKER } from "@/lib/markdownToc";
 
 export type CommandId = "undo" | "redo" | "paragraph" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
   | "bold" | "italic" | "strike" | "bullet" | "ordered" | "task" | "link" | "image"
-  | "quote" | "code" | "codeBlock" | "table" | "rule";
+  | "quote" | "code" | "codeBlock" | "table" | "toc" | "rule";
 export type CommandGroup = "History" | "Headings" | "Inline" | "Lists" | "Insert";
 export interface MarkdownCommand {
   id: CommandId;
@@ -203,6 +204,19 @@ export function insertLink(target: Target, from: number, to: number, label: stri
   return insertInline(target, from, to, insert);
 }
 
+/** Mirrors `lib/rehypeToc.ts`: only a top-level paragraph of exactly the marker expands, and only once. */
+const tocPresence = new WeakMap<EditorState, boolean>();
+function hasToc(state: EditorState): boolean {
+  const cached = tocPresence.get(state);
+  if (cached !== undefined) return cached;
+  let found = false;
+  for (let node = ensureSyntaxTree(state, state.doc.length, 40)?.topNode.firstChild; node && !found; node = node.nextSibling) {
+    found = node.name === "Paragraph" && state.sliceDoc(node.from, node.to).trim() === TOC_MARKER;
+  }
+  tocPresence.set(state, found);
+  return found;
+}
+
 function command(id: CommandId, label: string, icon: LucideIcon, group: CommandGroup, run?: StateCommand, key?: string): MarkdownCommand {
   return { id, label, icon, group, run, key, available: canFormat };
 }
@@ -223,6 +237,13 @@ export const commands: readonly MarkdownCommand[] = [
   command("quote", "Block quote", Quote, "Insert", lines("quote")),
   command("codeBlock", "Code block", CodeXml, "Insert", codeBlock),
   command("table", "Table", Table, "Insert"),
+  {
+    ...command("toc", "Table of contents", TableOfContents, "Insert", target => {
+      const { from, to } = target.state.selection.main;
+      return insertBlock(target, from, to, TOC_MARKER, TOC_MARKER.length);
+    }),
+    available: state => canFormat(state) && !hasToc(state),
+  },
   command("rule", "Horizontal rule", Minus, "Insert", target => {
     const { from, to } = target.state.selection.main;
     return insertBlock(target, from, to, "---", 3);

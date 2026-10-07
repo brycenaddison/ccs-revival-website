@@ -17,6 +17,7 @@ import { queries } from "../lib/queries";
 import { DISCORD_INVITE } from "../lib/siteLinks";
 import { usePageMetadata } from "../components/seo/MetadataProvider";
 import { articleExcerpt } from "../lib/seo/articleMetadata";
+import { useHashTarget } from "../hooks/useHashTarget";
 
 function QuickLink({ link }: { link: InfoLink }) {
   const classes =
@@ -43,7 +44,7 @@ function QuickLink({ link }: { link: InfoLink }) {
   );
 }
 
-function InfoDocument({ info, leagueName }: { info: LeagueInfo; leagueName: string }) {
+function InfoDocument({ info, conf, leagueName }: { info: LeagueInfo; conf: string; leagueName: string }) {
   /**
    * The rulebook first, then the editor's own quick links in their own order.
    *
@@ -76,7 +77,8 @@ function InfoDocument({ info, leagueName }: { info: LeagueInfo; leagueName: stri
         </div>
       )}
 
-      {info.body && <Markdown body={info.body} />}
+      {/* Several leagues can share this page, so heading IDs carry the conf. */}
+      {info.body && <Markdown body={info.body} anchorPrefix={`section-${conf}-`} />}
     </article>
   );
 }
@@ -92,6 +94,7 @@ export default function Info() {
     title: `${documents[0].title || "League Info"} | CCS`,
     description: articleExcerpt(documents[0].body ?? "") || "Read CCS league information, rules and participation details.",
   } : {});
+  useHashTarget(!leagueLoading && results.every(result => !result.isPending));
 
   return (
     <PageShell maxWidth={900}>
@@ -121,7 +124,7 @@ export default function Info() {
                 ) : result?.isPending ? (
                   <div className="py-12 text-center text-text-subtle">Loading...</div>
                 ) : result?.data ? (
-                  <InfoDocument info={result.data} leagueName={leagueName} />
+                  <InfoDocument info={result.data} conf={conf} leagueName={leagueName} />
                 ) : (
                   <div className="py-12 text-center">
                     <p className="font-heading text-sm text-text-secondary">

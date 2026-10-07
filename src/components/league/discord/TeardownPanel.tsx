@@ -6,6 +6,9 @@
  * dialog offer to tear down anyway, so whether the season is active comes from the API's answer
  * rather than a flag this page may not be able to read. The mutation lives in the panel, which
  * outlives the dialog, and the per-object report stays here after it closes.
+ *
+ * Teardown first supersedes every earlier Provision job of the league: queued attempts are cancelled
+ * and those jobs close to retries. `onDone` refreshes status, which refreshes the jobs under it.
  */
 
 import { useState } from "react";
@@ -143,6 +146,12 @@ function TeardownReport({ report, teams }: { report: TeamDiscordTeardownReport; 
       </h4>
       {counts.length === 0 ? <p className="text-sm text-text-dim">Nothing was changed.</p> : (
         <p className="text-sm text-text-secondary">{counts.map(([result, n]) => `${TEARDOWN_RESULT[result]}: ${n}`).join(" · ")}</p>
+      )}
+      {report.superseded > 0 && (
+        <p className="text-sm text-text-secondary">
+          {report.superseded} queued Provision {report.superseded === 1 ? "team was" : "teams were"} cancelled.
+          Earlier Provision jobs can no longer be retried.
+        </p>
       )}
       {failed.length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-sm text-ccs-red">

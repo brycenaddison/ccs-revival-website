@@ -4,7 +4,8 @@
  * One status read (`queries.teamDiscord`) drives the Teams panel: what the bot recorded per team, drift
  * against Discord, warnings, confirmed/unconfirmed recipients, queued syncs, the provision preflight
  * and teardown counts.
- * Admins provision missing resources, preserving Discord customization. Roster changes and profile
+ * Admins provision missing resources, preserving Discord customization. Provision queues a job that
+ * ProvisionSection follows; role resync still answers a report. Roster changes and profile
  * links reconcile existing role membership upstream, so nothing here resyncs after a roster save.
  *
  * Role resync and esubs need `roster`; Provision, staff roles and teardown need `admin`.
@@ -34,7 +35,6 @@ import { rosterNames } from "../../../lib/roster";
 import {
   errorMessage,
   hasScope,
-  provisionTeamDiscord,
   resyncTeamDiscordRoles,
   teamDiscordRefusal,
   teamDiscordWorkState,
@@ -43,8 +43,10 @@ import {
 import { useRosterPlayerSources } from "../teams/useRosterPlayerSources";
 import { IssueList } from "./discordIssues";
 import { DiscordResourceBadge } from "./DiscordResourceBadge";
-import { DiscordOperationReport, type DiscordOperationResult } from "./DiscordOperationReport";
+import { DiscordOperationReport } from "./DiscordOperationReport";
+import { ProvisionSection } from "./ProvisionSection";
 import { StaffRolesPanel } from "./StaffRolesPanel";
+import { useProvisionJobs } from "./useProvisionJobs";
 import { TeamDiscordCard } from "./TeamDiscordCard";
 import { TeardownPanel } from "./TeardownPanel";
 import { ResultsPanel } from "./ResultsPanel";
@@ -99,17 +101,16 @@ function TeamDiscordPanel({ conf }: { conf: string }) {
   const sources = useRosterPlayerSources(conf, canRoster);
   const rosters = useQuery(queries.teamsForConf(conf));
   const people = useMemo(() => rosterNames(rosters.data ?? []), [rosters.data]);
+  // Refreshes the jobs list and the followed job too, which sit under the status key.
   const refresh = () => qc.invalidateQueries({ queryKey: statusOptions.queryKey });
+  const provisioning = useProvisionJobs(conf, viewerId);
 
-  const operation = useMutation({
-    mutationFn: async ({ kind, teamIds }: { kind: "provision" | "roles"; teamIds?: number[] }): Promise<DiscordOperationResult> =>
-      kind === "provision"
-        ? { kind, report: await provisionTeamDiscord(conf, teamIds) }
-        : { kind, report: await resyncTeamDiscordRoles(conf, teamIds) },
+  const resync = useMutation({
+    mutationFn: (teamIds?: number[]) => resyncTeamDiscordRoles(conf, teamIds),
     // A lost response can hide Discord writes; only an explicit click sends another request.
     retry: false,
-    onSuccess: result => {
-      toast.success(`${result.kind === "provision" ? "Provisioning" : "Role resync"} request finished. See the report below.`);
+    onSuccess: () => {
+      toast.success("Role resync request finished. See the report below.");
     },
     // Partial writes and lost responses can also leave queued work, so refresh after failures.
     onSettled: () => qc.invalidateQueries({ queryKey: queryRoots.teams }),
@@ -121,10 +122,9 @@ function TeamDiscordPanel({ conf }: { conf: string }) {
   }
   const data = status.data;
   const blockers = data.preflight?.blockers ?? [];
-  const canRun = data.available && !operation.isPending;
-  const canProvision = canAdmin && canRun && blockers.length === 0;
-  const canResync = canRoster && canRun;
-  const refusal = teamDiscordRefusal(operation.error);
+  const canProvision = canAdmin && data.available && blockers.length === 0 && !provisioning.blocked;
+  const canResync = canRoster && data.available && !resync.isPending;
+  const refusal = teamDiscordRefusal(resync.error);
 
   return (
     <div className="flex flex-col gap-5">
@@ -145,36 +145,15 @@ function TeamDiscordPanel({ conf }: { conf: string }) {
         </Alert>
       )}
 
-      <section aria-labelledby="discord-provision" className="flex flex-col gap-3">
-        <h3 id="discord-provision" className="font-heading text-sm text-text-bright">Provisioning</h3>
-        <p className="text-sm text-text-secondary">
-          Creates missing team roles and private text and voice channels. New roles use the team&apos;s
-          name, color and logo where supported; both channels use the team&apos;s name. Players,
-          substitutes, the owner and contacts with a Discord account get the role. Roster changes and
-          Discord account links automatically update existing role membership.
-        </p>
-        <p className="text-sm text-text-secondary">
-          Existing roles and channels keep their names, colors, icons, placement, IDs and messages.
-          Missing channels reuse the shared placement of this league&apos;s surviving channels, with
-          categories created only as needed. Mixed placements must be resolved in Discord before
-          adding channels. Provisioning never deletes resources.
-        </p>
-        <IssueList title="Provisioning is blocked" issues={blockers} tone="destructive" people={people} />
-        <IssueList title="Warnings" issues={data.preflight?.warnings ?? []} tone="warning" people={people} />
-        {canAdmin && (
-          <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" disabled={!canProvision || data.teams.length === 0} onClick={() => operation.mutate({ kind: "provision" })}>
-              {operation.isPending && operation.variables.kind === "provision" ? "Provisioning…" : "Provision all teams"}
-            </Button>
-          </div>
-        )}
-        {data.provisioned && (
-          <p className="text-xs text-text-dim">
-            Use Provision for missing resources or new teams and Resync roles for membership.
-            Uncertain creates need inspection before they can continue.
-          </p>
-        )}
-      </section>
+      <ProvisionSection
+        conf={conf}
+        viewerId={viewerId}
+        status={data}
+        canAdmin={canAdmin}
+        people={people}
+        provisioning={provisioning}
+        onRefresh={refresh}
+      />
 
       <section aria-labelledby="discord-resync" className="flex flex-col gap-3">
         <h3 id="discord-resync" className="font-heading text-sm text-text-bright">Role membership</h3>
@@ -185,18 +164,18 @@ function TeamDiscordPanel({ conf }: { conf: string }) {
         </p>
         {canRoster && (
           <div>
-            <Button variant="outline" type="button" disabled={!canResync || data.teams.length === 0} onClick={() => operation.mutate({ kind: "roles" })}>
-              {operation.isPending && operation.variables.kind === "roles" ? "Resyncing roles…" : "Resync all team roles"}
+            <Button variant="outline" type="button" disabled={!canResync || data.teams.length === 0} onClick={() => resync.mutate(undefined)}>
+              {resync.isPending ? "Resyncing roles…" : "Resync all team roles"}
             </Button>
           </div>
         )}
       </section>
 
-      {operation.isPending && <p role="status" className="text-xs text-text-secondary">{operation.variables.kind === "provision" ? "Provisioning missing resources and updating channel access in Discord…" : "Reconciling role membership in Discord…"}</p>}
+      {resync.isPending && <p role="status" className="text-xs text-text-secondary">Reconciling role membership in Discord…</p>}
       {refusal && refusal.issues.length > 0 ? (
         <IssueList title={refusal.error} issues={refusal.issues} tone="destructive" people={people} />
-      ) : <ErrorLine message={operation.error ? errorMessage(operation.error) : null} />}
-      {operation.data && !operation.isPending && <DiscordOperationReport result={operation.data} people={people} />}
+      ) : <ErrorLine message={resync.error ? errorMessage(resync.error) : null} />}
+      {resync.data && !resync.isPending && <DiscordOperationReport report={resync.data} people={people} />}
 
       <section aria-labelledby="discord-teams" className="flex flex-col gap-3">
         <h3 id="discord-teams" className="font-heading text-sm text-text-bright">Teams</h3>
@@ -211,9 +190,9 @@ function TeamDiscordPanel({ conf }: { conf: string }) {
             canProvision={canAdmin && data.available}
             source={sources.discord}
             people={people}
-            working={operation.isPending}
-            onProvision={canProvision ? () => operation.mutate({ kind: "provision", teamIds: [team.teamId] }) : null}
-            onResync={canResync ? () => operation.mutate({ kind: "roles", teamIds: [team.teamId] }) : null}
+            working={resync.isPending || provisioning.blocked}
+            onProvision={canProvision ? () => provisioning.start([team.teamId]) : null}
+            onResync={canResync ? () => resync.mutate([team.teamId]) : null}
           />
         ))}
         {data.orphans.length > 0 && (

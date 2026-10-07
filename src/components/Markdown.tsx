@@ -15,10 +15,17 @@
  * the site's own treatment**, full width with a filled bold header row and ruled cells, because
  * typeset's bare table read as loose prose against the cards around it. Typeset's rules sit in the
  * components layer, so the utilities on these overrides win without `!important`.
+ *
+ * **Headings are linkable.** `rehype-slug` gives each one an ID behind `anchorPrefix`, so a heading
+ * called "Root" cannot collide with the app's `#root` or the layout's own IDs. A page that renders
+ * several bodies gives each its own prefix. `lib/rehypeToc.ts` then expands the `[TOC]` marker from
+ * those IDs. In-page `#` links stay in the tab; every other link opens a new one.
  */
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeSlug from "rehype-slug";
+import { rehypeToc } from "../lib/rehypeToc";
 
 /** Which rhythm a body reads at. See the presets in `index.css`. */
 export type TypesetPreset = "article" | "notes";
@@ -29,13 +36,16 @@ function imageWidth(title: string | undefined): number | undefined {
   return match ? Number(match[1]) : undefined;
 }
 
-export function Markdown({ body, preset = "notes" }: { body: string; preset?: TypesetPreset }) {
+export function Markdown({ body, preset = "notes", anchorPrefix = "section-" }: {
+  body: string; preset?: TypesetPreset; anchorPrefix?: string;
+}) {
   return (
     <div className={`typeset typeset-${preset}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypeSlug, { prefix: anchorPrefix }], rehypeToc]}
         components={{
-          a: ({ href, children }) => (
+          a: ({ href, children }) => href?.startsWith("#") ? <a href={href}>{children}</a> : (
             <a href={href} target="_blank" rel="noopener noreferrer">
               {children}
             </a>

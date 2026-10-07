@@ -1,10 +1,12 @@
 import type { ArticleRecord } from "../api/articles";
 import type { PageMetadata } from "./metadata";
 import { articlePath, httpsImage, publicUrl, SITE_NAME } from "./site.ts";
+import { TOC_LINE } from "../markdownToc.ts";
 
 /** A short plain-text fallback, never Markdown syntax or an inferred author identity. */
 export function articleExcerpt(body: string): string {
   const plain = body
+    .replace(TOC_LINE, " ")
     .replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, " ")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")

@@ -24,10 +24,12 @@ import { fmtDay } from "../lib/utils";
 import { usePageMetadata } from "../components/seo/MetadataProvider";
 import { articleMetadata, articleModifiedAt } from "../lib/seo/articleMetadata";
 import { siteOrigin } from "../lib/seo/site";
+import { useHashTarget } from "../hooks/useHashTarget";
 
 export default function Article() {
   const { slug } = useParams();
   const { data: article, isPending, error } = useQuery(queries.article(slug ?? null));
+  useHashTarget(!!article?.body);
   usePageMetadata(article && !error ? articleMetadata(article, siteOrigin(import.meta.env.VITE_SITE_ORIGIN)) : {
     title: error ? "Article unavailable | CCS" : isPending ? "Article | CCS" : "Article not found | CCS",
     noindex: !!error || (!isPending && !article),

@@ -203,13 +203,18 @@ Do not edit that repository or derive data the API already answers.
   inert Radix trigger; wrapping the source suppresses native touch selection. Shift+right-click
   bypasses it. Menu commands run after close for focus restoration, except Image opens in the
   direct user gesture. Primary toolbar controls stay visible and wrap; More contains only inline
-  code, block quote, code block, table and horizontal rule. Heading options share styling.
+  code, block quote, code block, table, table of contents and horizontal rule. Heading options share styling.
   `TableSizePicker.tsx` shares an 8x8 pointer/keyboard grid in a Popover; dimensions include the
   header row. CodeMirror styling is scoped Tailwind; overriding unlayered defaults needs importance.
 - `components/Markdown.tsx` is the sole renderer for articles, Info, application notes and
   previews. Raw HTML stays disabled. `patches/` removes remark-gfm's email-autolink regex
   lookbehind, which throws on Safari before 16.4; re-check it when upgrading. Exact image title `width=N` (1–9999) sets display width,
   capped by container with automatic height; other titles remain tooltips.
+  `rehype-slug` IDs headings behind `anchorPrefix` (default `section-`, so none collide with page
+  IDs; Info adds the conf because several documents share the page). `lib/rehypeToc.ts` expands
+  the first top-level `[TOC]` paragraph (`lib/markdownToc.ts`) into links to those IDs, three
+  levels from the shallowest heading; the stored body keeps the marker and excerpts strip it.
+  `#` links stay in the tab. `hooks/useHashTarget.ts` scrolls to a shared hash once a body loads.
   `src/typeset.css` is imported unedited. Rhythm belongs in `index.css` presets, not individual
   rendered elements. Only Markdown output gets `.typeset`. Article output/previews cap the entire
   body, including tables/images, at `--container-article` (760 px), with SiteLayout padding
@@ -398,15 +403,28 @@ Do not edit that repository or derive data the API already answers.
   are preflight blockers); new text and voice channels use team names. Staff-role saves update
   existing channel access during the request. `resyncTeamDiscordRoles` uses `/roles/resync` for
   existing role membership only and remains available despite resource preflight blockers; missing
-  roles require provision. Both actions support all teams or one team, never retry automatically,
-  and await teams-root invalidation after success or failure. `DiscordOperationReport` shares
-  per-team status/counts/warnings and independent membership/resource errors; `DiscordResourceBadge`
+  roles require provision. Both actions support all teams or one team and never retry automatically.
+  Resync awaits teams-root invalidation and answers the report `DiscordOperationReport` renders.
+  Provision answers a queued job (`ProvisionSection.tsx`, `useProvisionJobs.ts`): each click sends a
+  new `requestId`, kept in memory and `sessionStorage` (`provisionRequest.ts`) until a 2xx, 4xx or
+  503 answers; a lost response offers an explicit resend of the same id and selection and blocks
+  other starts. `queries.teamDiscordProvisionJobs`/`teamDiscordProvisionJob` sit under the status
+  key; the job polls 2 s while a team runs, 5 s while queued, paused while hidden, and stops at
+  `finished` or a 4xx. The panel follows `?job=`, else the newest unfinished job, else shows the
+  newest finished one collapsed. `ProvisionJobView.tsx` shows counts (no ETA), elapsed from served
+  `now` through `hooks/useServerClock.ts`, the waiting reason, a progress page title while running,
+  and one final toast only on an observed transition to `finished`. `ProvisionTeamRow.tsx` keeps
+  every stage visible, so partial success survives a failure, plus history and per-team retry.
+  Retry (admin, `retryable`, not superseded) is not idempotent and only rereads after failure.
+  `CategoryAdoption.tsx` adopts a pasted category ID for a kind that is missing or never recorded;
+  Teardown deletes adopted categories. `DiscordResourceBadge`
   shares resource diagnostics across categories and teams, preserving uncertain creates as needing
   inspection. Status also exposes category issues and queued membership/resource scopes.
   `api/teamDiscord.ts`'s `teamDiscordWorkState` shares pending/held classification between polling
   and status presentation. Queue depth includes held failures (`attempts > 0`), which have no timed
   retry and cannot keep polling alive; only unattempted work with a pending scope polls. Resource
-  failures require fresh Provision; membership failures need another team change or Resync roles.
+  failures need a Provision job retry or a new Provision; membership failures need another team
+  change or Resync roles. Teardown reports `superseded` queued attempts and closes earlier jobs.
   Recovery copy is shared in `discordLabels.ts`. Endpoint paths and payload shapes remain compatible.
   The Discord section is keyed by conference/viewer so reports cannot follow a league switch.
   Teardown sends the typed conference code and offers force only after a `season_active` refusal.

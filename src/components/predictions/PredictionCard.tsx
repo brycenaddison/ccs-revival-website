@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { TeamLabel } from "./MatchupLabel";
 import { OutcomeShares, PoolBar, shareText } from "./PoolBar";
 import { PredictionStatusChip } from "./PredictionStatusChip";
-import { closesText, usePredictionClock } from "./PredictionUi";
+import { useServerClock } from "../../hooks/useServerClock";
+import { closesText } from "./PredictionUi";
 import { pickNames } from "./usePredictionPositions";
 import { eventName } from "./outcomeLabels";
 import { REVIEW_REASON_LABEL, voidReasonText } from "./predictionLabels";
@@ -40,7 +41,7 @@ export function PredictionCard({ event, position, compact = false }: {
   position?: PredictionPosition | null;
   compact?: boolean;
 }) {
-  const now = usePredictionClock(event.serverNow);
+  const now = useServerClock(event.serverNow);
   const open = event.state === "open";
 
   return (

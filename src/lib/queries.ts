@@ -78,6 +78,8 @@ import {
   teamDetail,
   teamDiscordStatus,
   teamDiscordWorkState,
+  teamDiscordProvisionJob,
+  teamDiscordProvisionJobs,
   resultsWebhookStatus,
   resultsWebhookChannels,
   resultsWebhookOperation,
@@ -98,7 +100,9 @@ import {
   type Role,
   type ProfileSearchIdentity,
   type RiotAccountInput,
+  type TeamDiscordProvisionJob,
   type TeamDiscordStatus,
+  ApiError,
 } from "./api";
 
 const MINUTE = 60_000;
@@ -1011,6 +1015,43 @@ export const queries = {
       retry: false,
       refetchInterval: (q: { state: { status: string; data?: TeamDiscordStatus } }) =>
         q.state.status !== "error" && q.state.data?.teams.some(team => teamDiscordWorkState(team.queued) === "pending") ? 15_000 : false,
+    }),
+
+  /**
+   * Recent Provision jobs, newest first, under the status key so a status refresh (after teardown,
+   * say) refreshes them too. Not polled: the followed job's read is.
+   */
+  teamDiscordProvisionJobs: (conf: string, viewerId: number | null) =>
+    query({
+      queryKey: ["teams", "discord", conf, viewerId, "provisionJobs"] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => teamDiscordProvisionJobs(conf, { signal }),
+      enabled: conf !== "" && viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+    }),
+
+  /**
+   * One Provision job, polled until it finishes: every 2 seconds while a team runs, every 5 while
+   * teams only wait. Polling pauses while the tab is hidden and refetches on return. A lost poll
+   * keeps polling; a 4xx (another conference's job, lost access) stops it.
+   */
+  teamDiscordProvisionJob: (conf: string, viewerId: number | null, jobId: number) =>
+    query({
+      queryKey: ["teams", "discord", conf, viewerId, "provisionJob", jobId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => teamDiscordProvisionJob(conf, jobId, { signal }),
+      enabled: conf !== "" && viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+      refetchIntervalInBackground: false,
+      refetchOnWindowFocus: (q: { state: { data?: TeamDiscordProvisionJob } }) => q.state.data?.state !== "finished",
+      refetchInterval: (q: { state: { error: unknown; data?: TeamDiscordProvisionJob } }) => {
+        const { error, data } = q.state;
+        if (error instanceof ApiError && error.status < 500) return false;
+        if (data && data.state !== "queued" && data.state !== "running") return false;
+        return data && data.counts.running > 0 ? 2_000 : 5_000;
+      },
     }),
 
   /** Results settings are independent of team provisioning; only admin-scoped callers mount them. */

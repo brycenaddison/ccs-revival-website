@@ -75,10 +75,11 @@ function MarkdownHelp() {
       <PopoverTrigger asChild><button type="button" className={`${TOOLBAR_BUTTON} h-8 text-xs`}>Markdown help</button></PopoverTrigger>
       <PopoverContent align="start" className="max-h-[min(440px,var(--radix-popover-content-available-height))] w-80 max-w-[calc(100vw-24px)] overflow-y-auto text-xs">
         <p className="font-semibold text-text-bright">Write with Markdown</p>
-        <p className="mt-2">Select text, then use the toolbar or right-click to format it. More includes inline code, block quotes, code blocks, tables and horizontal rules. Tab leaves the writing area.</p>
+        <p className="mt-2">Select text, then use the toolbar or right-click to format it. More includes inline code, block quotes, code blocks, tables, a table of contents and horizontal rules. Tab leaves the writing area.</p>
         <p className="mt-2">Use <code>## Heading</code>, <code>**bold**</code>, <code>*italic*</code>, and <code>[label](/path)</code>. Preview shows what readers will see.</p>
         <p className="mt-2">Shift + right-click opens the browser menu. Touch and long-press keep the phone’s text-selection menu.</p>
         <p className="mt-2">Table opens a grid to choose columns and rows, including the header row.</p>
+        <p className="mt-2">Table of contents adds <code>[TOC]</code> on its own line. Readers see a linked list of the headings there, which stays current as headings change.</p>
         <p className="mt-2">Images go inline at the saved cursor position without adding line breaks. Type a description between the empty square brackets. {UPLOAD_LIMIT_TEXT}</p>
         <p className="mt-2 break-words">Set image size with <code>{'![Description](image-url "width=256")'}</code> (1–9999 pixels). Images shrink to fit and keep their proportions. Ordinary image titles remain tooltips.</p>
         <p className="mt-2">To resize the editor outside full-screen mode, use "Drag to resize". You can also focus "Drag to resize" then use Up/Down to change height by 32 pixels, or Home/End for the limits.</p>

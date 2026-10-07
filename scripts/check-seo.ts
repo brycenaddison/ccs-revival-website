@@ -104,6 +104,7 @@ assert.equal(metadataTags(metadata, origin)["og:image:width"], undefined);
 assert.equal(articleMetadata({ ...article, kind: "link" }, origin).noindex, true);
 assert.equal(articleMetadata({ ...article, author: null }, origin).structuredData?.author, undefined);
 assert.equal(articleExcerpt("![cover](https://example.org/a.png)\nText"), "Text");
+assert.equal(articleExcerpt("[TOC]\n\n## Setup\n\nBody text."), "Setup Body text.");
 const png = await readFile(new URL("../static/android-chrome-512x512.png", import.meta.url));
 assert.equal(png.readUInt32BE(16), 512);
 assert.equal(png.readUInt32BE(20), 512);

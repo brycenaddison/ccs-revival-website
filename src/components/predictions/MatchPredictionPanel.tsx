@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { PoolBar } from "./PoolBar";
 import { predictionPath } from "./PredictionCard";
 import { PredictionStatusChip } from "./PredictionStatusChip";
-import { closesText, usePredictionClock } from "./PredictionUi";
+import { useServerClock } from "../../hooks/useServerClock";
+import { closesText } from "./PredictionUi";
 import { pickNames, usePredictionPositions } from "./usePredictionPositions";
 import { pointsText } from "../../lib/predictionPoints";
 import { queries } from "../../lib/queries";
@@ -22,7 +23,7 @@ export function MatchPredictionPanel({ scheduleMatchId }: { scheduleMatchId: num
   const { data } = useQuery(queries.predictionForMatch(scheduleMatchId));
   const event = data?.items[0] ?? null;
   const { byEvent } = usePredictionPositions(event ? [[event.id]] : []);
-  const now = usePredictionClock(event?.serverNow ?? null);
+  const now = useServerClock(event?.serverNow ?? null);
   if (!event) return null;
 
   const open = event.state === "open";

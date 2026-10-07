@@ -18,7 +18,8 @@ import { ErrorLine } from "../components/admin/adminUi";
 import { ShowMore } from "../components/CursorPager";
 import { LedgerTable } from "../components/predictions/LedgerTable";
 import { PositionList } from "../components/predictions/PositionList";
-import { absoluteInstant, relativeInstant, usePredictionClock } from "../components/predictions/PredictionUi";
+import { absoluteInstant, relativeInstant } from "../components/predictions/PredictionUi";
+import { useServerClock } from "../hooks/useServerClock";
 import { rewardPolicyText } from "../components/predictions/outcomeLabels";
 import { CADENCE_LABEL, predictionErrorText } from "../components/predictions/predictionLabels";
 import { usePredictionPositions } from "../components/predictions/usePredictionPositions";
@@ -73,7 +74,7 @@ function Body({ wallet }: { wallet: PredictionWallet }) {
 }
 
 function RewardTile({ rewards, wallet }: { rewards: PredictionRewards; wallet: PredictionWallet }) {
-  const now = usePredictionClock(rewards.serverNow);
+  const now = useServerClock(rewards.serverNow);
   // A scaling reward grows with each claim up to the cap, so it draws one segment per step; a flat
   // reward pays the same each time and only counts the streak.
   const steps = rewards.mode === "scaling" ? rewards.streakCap : null;

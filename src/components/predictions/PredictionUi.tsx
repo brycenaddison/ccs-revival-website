@@ -2,21 +2,7 @@
  * Prediction clock helpers. The server decides eligibility and deadlines; these only label them.
  */
 
-import { useEffect, useState } from "react";
 import type { PredictionEvent } from "../../lib/api";
-
-/** Advance the API clock for labels only, so a countdown starts from `serverNow`, not the device. */
-export function usePredictionClock(serverNow: string | null): string {
-  const [clock, setClock] = useState(() => ({ source: serverNow, receivedAt: Date.now(), tick: Date.now() }));
-  useEffect(() => {
-    const receivedAt = Date.now();
-    setClock({ source: serverNow, receivedAt, tick: receivedAt });
-    const timer = window.setInterval(() => setClock(current => ({ ...current, tick: Date.now() })), 30_000);
-    return () => window.clearInterval(timer);
-  }, [serverNow]);
-  const source = clock.source ? Date.parse(clock.source) : NaN;
-  return new Date(Number.isFinite(source) ? source + clock.tick - clock.receivedAt : clock.tick).toISOString();
-}
 
 /** "in 2 hours", "5 minutes ago". Null when either instant is unreadable. */
 export function relativeInstant(instant: string | null, serverNow: string | null): string | null {

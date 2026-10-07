@@ -11,7 +11,16 @@
  *  - Committed roster changes and profile links reconcile existing role membership. Only explicit
  *    admin Provision creates missing resources; roster writes already enqueue their own sync.
  *  - Provision preflights the whole request and answers `409 not_ready` with every blocker before
- *    any Discord write. Work exceeding the request budget is queued; failures have no timed retry.
+ *    any Discord write. It then stores a job and answers at once; a worker runs one attempt per
+ *    team in the background, oldest request first. A client-chosen `requestId` makes a resubmission
+ *    after a lost response answer the same job (200, otherwise 202); reusing one for a different
+ *    request is `409 request_conflict`.
+ *  - Job reads report each team's latest attempt with its role, membership, text and voice stages.
+ *    States come from recorded attempts only, there is no ETA, and elapsed time is measured to the
+ *    served `now`. Failed and needs-attention teams wait for an explicit retry, which keeps every
+ *    earlier attempt as history. Teardown supersedes queued attempts and closes jobs to retries.
+ *  - Adopting a category records an existing Discord category as bot-managed, so Teardown deletes
+ *    it like one the bot created. A recorded category of that kind must be confirmed gone first.
  *  - Provision preserves existing IDs, messages, manual names, colors/icons and placement, and
  *    never deletes resources. Missing channels reuse surviving peers' shared parent; mixed placement
  *    blocks creation. New text and voice channels use team names, with categories created as needed.
@@ -72,8 +81,31 @@ export const TEAM_DISCORD_DRIFT = [
 ] as const;
 export type TeamDiscordDrift = (typeof TEAM_DISCORD_DRIFT)[number];
 
-export const TEAM_DISCORD_PROVISION_STATUSES = ["provisioned", "in_progress", "queued", "failed"] as const;
-export type TeamDiscordProvisionStatus = (typeof TEAM_DISCORD_PROVISION_STATUSES)[number];
+/** The kinds a category adoption can record. */
+export const TEAM_DISCORD_ADOPTABLE_CATEGORIES = ["category", "voice_category"] as const;
+export type TeamDiscordAdoptableCategory = (typeof TEAM_DISCORD_ADOPTABLE_CATEGORIES)[number];
+
+export const TEAM_DISCORD_ADOPTION_RESULTS = ["adopted", "unchanged"] as const;
+export type TeamDiscordAdoptionResult = (typeof TEAM_DISCORD_ADOPTION_RESULTS)[number];
+
+export const TEAM_DISCORD_JOB_STATES = ["queued", "running", "finished"] as const;
+export type TeamDiscordJobState = (typeof TEAM_DISCORD_JOB_STATES)[number];
+
+export const TEAM_DISCORD_ATTEMPT_STATUSES = ["queued", "running", "succeeded", "failed", "needs_attention", "superseded"] as const;
+export type TeamDiscordAttemptStatus = (typeof TEAM_DISCORD_ATTEMPT_STATUSES)[number];
+
+/** In the order an attempt runs them. */
+export const TEAM_DISCORD_STAGES = ["role", "membership", "text", "voice"] as const;
+export type TeamDiscordStage = (typeof TEAM_DISCORD_STAGES)[number];
+
+export const TEAM_DISCORD_STAGE_STATUSES = ["running", "succeeded", "failed", "needs_attention", "skipped"] as const;
+export type TeamDiscordStageStatus = (typeof TEAM_DISCORD_STAGE_STATUSES)[number];
+
+export const TEAM_DISCORD_WAITING_CODES = ["discord_unavailable", "notifications_unavailable", "earlier_work", "worker_pending"] as const;
+export type TeamDiscordWaitingCode = (typeof TEAM_DISCORD_WAITING_CODES)[number];
+
+export const TEAM_DISCORD_LISTENER_STATUSES = ["connecting", "connected", "reconnecting", "stopped"] as const;
+export type TeamDiscordListenerStatus = (typeof TEAM_DISCORD_LISTENER_STATUSES)[number];
 
 export const TEAM_DISCORD_ROLE_RESYNC_STATUSES = ["synced", "queued", "in_progress", "failed", "not_provisioned"] as const;
 export type TeamDiscordRoleResyncStatus = (typeof TEAM_DISCORD_ROLE_RESYNC_STATUSES)[number];
@@ -202,23 +234,128 @@ export interface TeamDiscordStatus {
   cleanupIssues: TeamDiscordIssue[];
 }
 
-export interface TeamDiscordProvisionTeam {
-  teamId: number;
-  code: string;
-  name: string;
-  status: TeamDiscordProvisionStatus | null;
-  created: TeamDiscordResourceKind[];
+/** One stage of one attempt. Absent flags are false and absent counts null. */
+export interface TeamDiscordProvisionStage {
+  status: TeamDiscordStageStatus;
+  startedAt: string | null;
+  finishedAt: string | null;
+  /** The role or channel the stage settled on. */
+  snowflake: string | null;
+  /** This attempt created or adopted the object. */
+  created: boolean;
+  /** Recovered from an interrupted create through the audit log. */
+  adopted: boolean;
+  /** Channel access was rewritten in place. */
+  updated: boolean;
   granted: number | null;
   revoked: number | null;
-  membershipError: string | null;
-  resourceError: string | null;
-  warnings: TeamDiscordIssue[];
+  /** Problem token, e.g. `creation_uncertain` or `discord_error`. */
+  code: string | null;
   error: string | null;
 }
 
-export interface TeamDiscordProvisionReport {
+/** One execution of one team in a Provision job. */
+export interface TeamDiscordProvisionAttempt {
+  attempt: number;
+  /** Null for a status this client does not know. */
+  status: TeamDiscordAttemptStatus | null;
+  requestedBy: number | null;
+  /** The current stage, or the one that stopped the attempt. */
+  stage: TeamDiscordStage | null;
+  /** Null where the attempt has not reached a stage. */
+  stages: Record<TeamDiscordStage, TeamDiscordProvisionStage | null>;
   warnings: TeamDiscordIssue[];
+  /** The first problem's token, preferring needs-attention ones; also `interrupted`, `team_missing`, `teardown`. */
+  errorCode: string | null;
+  error: string | null;
+  queuedAt: string | null;
+  startedAt: string | null;
+  stageStartedAt: string | null;
+  finishedAt: string | null;
+}
+
+/** A selected team's latest attempt and its earlier ones. */
+export interface TeamDiscordProvisionTeam extends TeamDiscordProvisionAttempt {
+  teamId: number;
+  code: string;
+  name: string;
+  /** A retry may queue another attempt for this team. */
+  retryable: boolean;
+  /** Oldest first. */
+  history: TeamDiscordProvisionAttempt[];
+}
+
+/** Teams by their latest attempt. */
+export interface TeamDiscordProvisionCounts {
+  total: number;
+  queued: number;
+  running: number;
+  succeeded: number;
+  failed: number;
+  needsAttention: number;
+  superseded: number;
+}
+
+export interface TeamDiscordProvisionJobSummary {
+  id: number;
+  conf: string;
+  requestId: string | null;
+  requestedBy: number | null;
+  wholeConference: boolean;
+  teamIds: number[];
+  acceptedAt: string | null;
+  lastActivityAt: string | null;
+  finishedAt: string | null;
+  /** When a Teardown closed this job to retries. */
+  supersededAt: string | null;
+  /** Null for a state this client does not know. */
+  state: TeamDiscordJobState | null;
+  /** Accepted until finished, or until `now`. */
+  elapsedMs: number;
+  counts: TeamDiscordProvisionCounts;
+}
+
+/** Why queued teams have not started. `message` is written to be shown. */
+export interface TeamDiscordProvisionWaiting {
+  code: TeamDiscordWaitingCode | null;
+  message: string;
+  /** For `earlier_work`: teams from earlier requests in front. */
+  ahead: number | null;
+}
+
+export interface TeamDiscordProvisionWorker {
+  listenerStatus: TeamDiscordListenerStatus | null;
+  listenerChangedAt: string | null;
+  listenerError: string | null;
+  drainStartedAt: string | null;
+  drainFinishedAt: string | null;
+  currentAttemptId: number | null;
+  updatedAt: string | null;
+}
+
+export interface TeamDiscordProvisionJob extends TeamDiscordProvisionJobSummary {
+  requestedByProfile: PlayerSummary | null;
+  /** Preflight warnings reported at acceptance. */
+  warnings: TeamDiscordIssue[];
+  /** Server time of this read. Elapsed times count from it, never from the device clock. */
+  now: string | null;
+  waiting: TeamDiscordProvisionWaiting | null;
+  /** Null before the worker first started. */
+  worker: TeamDiscordProvisionWorker | null;
+  /** In selection order. */
   teams: TeamDiscordProvisionTeam[];
+}
+
+export interface TeamDiscordProvisionInput {
+  /** Null for every team in the conference. */
+  teamIds: readonly number[] | null;
+  /** Resend the same id after a lost response to recover the same job. */
+  requestId: string;
+}
+
+export interface TeamDiscordCategoryAdoption {
+  status: TeamDiscordAdoptionResult | null;
+  category: TeamDiscordResource | null;
 }
 
 export interface TeamDiscordRoleResyncTeam {
@@ -254,11 +391,13 @@ export interface TeamDiscordTeardownRow {
 export interface TeamDiscordTeardownReport {
   mode: TeamDiscordTeardownMode | null;
   results: TeamDiscordTeardownRow[];
+  /** Queued Provision attempts this teardown cancelled. */
+  superseded: number;
 }
 
 /**
- * A `409` from these routes. Provision lists preflight issues; the staff-role save lists the role
- * ids it rejected.
+ * A `409` from these routes. Provision and retry list preflight or retry issues; the staff-role
+ * save lists the role ids it rejected.
  */
 export interface TeamDiscordRefusal {
   status: string;
@@ -274,6 +413,11 @@ export function teamDiscordWorkState(work: TeamDiscordQueued | null): "pending" 
   if (!work) return null;
   if (work.attempts > 0) return "held";
   return work.membership === true || work.resources === true ? "pending" : null;
+}
+
+/** The newest job still queued or running, from a newest-first list: the one a reopened page follows. */
+export function activeProvisionJob<T extends TeamDiscordProvisionJobSummary>(jobs: readonly T[]): T | null {
+  return jobs.find(job => job.state === "queued" || job.state === "running") ?? null;
 }
 
 // -------------------------------------------------------------------------------------- mapping
@@ -412,22 +556,134 @@ function statusOf(value: unknown, conf: string): TeamDiscordStatus {
   };
 }
 
+const flag = (value: unknown): boolean => value === true;
+
+/** A stage with a status this client does not know is dropped, so it reads as not reached. */
+function stageOf(value: unknown): TeamDiscordProvisionStage | null {
+  if (value == null) return null;
+  const r = raw(value);
+  const status = enumValue(r.status, TEAM_DISCORD_STAGE_STATUSES);
+  if (!status) return null;
+  return {
+    status,
+    startedAt: string(r.startedAt),
+    finishedAt: string(r.finishedAt),
+    snowflake: snowflake(r.snowflake),
+    created: flag(r.created),
+    adopted: flag(r.adopted),
+    updated: flag(r.updated),
+    granted: countOrNull(r.granted),
+    revoked: countOrNull(r.revoked),
+    code: string(r.code),
+    error: string(r.error),
+  };
+}
+
+function attemptOf(value: unknown): TeamDiscordProvisionAttempt | null {
+  const r = raw(value);
+  const attempt = integer(r.attempt);
+  if (attempt === null || attempt < 1) return null;
+  const stages = raw(r.stages);
+  return {
+    attempt,
+    status: enumValue(r.status, TEAM_DISCORD_ATTEMPT_STATUSES),
+    requestedBy: integer(r.requestedBy),
+    stage: enumValue(r.stage, TEAM_DISCORD_STAGES),
+    stages: {
+      role: stageOf(stages.role),
+      membership: stageOf(stages.membership),
+      text: stageOf(stages.text),
+      voice: stageOf(stages.voice),
+    },
+    warnings: rows(r.warnings, issueOf),
+    errorCode: string(r.errorCode),
+    error: string(r.error),
+    queuedAt: string(r.queuedAt),
+    startedAt: string(r.startedAt),
+    stageStartedAt: string(r.stageStartedAt),
+    finishedAt: string(r.finishedAt),
+  };
+}
+
 function provisionTeamOf(value: unknown): TeamDiscordProvisionTeam | null {
   const r = raw(value);
   const teamId = integer(r.teamId);
-  if (teamId === null) return null;
+  const attempt = attemptOf(value);
+  if (teamId === null || !attempt) return null;
   return {
+    ...attempt,
     teamId,
     code: string(r.code) ?? "",
     name: string(r.name) ?? "",
-    status: enumValue(r.status, TEAM_DISCORD_PROVISION_STATUSES),
-    created: rows(r.created, entry => enumValue(entry, TEAM_DISCORD_RESOURCE_KINDS)),
-    granted: countOrNull(r.granted),
-    revoked: countOrNull(r.revoked),
-    membershipError: string(r.membershipError),
-    resourceError: string(r.resourceError),
+    retryable: flag(r.retryable),
+    history: rows(r.history, attemptOf),
+  };
+}
+
+function countsOf(value: unknown): TeamDiscordProvisionCounts {
+  const r = raw(value);
+  return {
+    total: count(r.total), queued: count(r.queued), running: count(r.running), succeeded: count(r.succeeded),
+    failed: count(r.failed), needsAttention: count(r.needsAttention), superseded: count(r.superseded),
+  };
+}
+
+function jobSummaryOf(value: unknown): TeamDiscordProvisionJobSummary | null {
+  const r = raw(value);
+  const id = integer(r.id);
+  const conf = string(r.conf);
+  if (id === null || !conf) return null;
+  return {
+    id,
+    conf,
+    requestId: string(r.requestId),
+    requestedBy: integer(r.requestedBy),
+    wholeConference: flag(r.wholeConference),
+    teamIds: rows(r.teamIds, entry => { const teamId = integer(entry); return teamId !== null && teamId > 0 ? teamId : null; }),
+    acceptedAt: string(r.acceptedAt),
+    lastActivityAt: string(r.lastActivityAt),
+    finishedAt: string(r.finishedAt),
+    supersededAt: string(r.supersededAt),
+    state: enumValue(r.state, TEAM_DISCORD_JOB_STATES),
+    elapsedMs: count(r.elapsedMs),
+    counts: countsOf(r.counts),
+  };
+}
+
+function waitingOf(value: unknown): TeamDiscordProvisionWaiting | null {
+  if (value == null) return null;
+  const r = raw(value);
+  const message = string(r.message);
+  if (!message) return null;
+  return { code: enumValue(r.code, TEAM_DISCORD_WAITING_CODES), message, ahead: countOrNull(r.ahead) };
+}
+
+function workerOf(value: unknown): TeamDiscordProvisionWorker | null {
+  if (value == null) return null;
+  const r = raw(value);
+  return {
+    listenerStatus: enumValue(r.listenerStatus, TEAM_DISCORD_LISTENER_STATUSES),
+    listenerChangedAt: string(r.listenerChangedAt),
+    listenerError: string(r.listenerError),
+    drainStartedAt: string(r.drainStartedAt),
+    drainFinishedAt: string(r.drainFinishedAt),
+    currentAttemptId: integer(r.currentAttemptId),
+    updatedAt: string(r.updatedAt),
+  };
+}
+
+function jobOf(value: unknown): TeamDiscordProvisionJob {
+  const summary = jobSummaryOf(value);
+  if (!summary) throw new Error("The provision job response was missing its id or conference.");
+  const r = raw(value);
+  return {
+    ...summary,
+    requestedByProfile: mapPlayerSummary(r.requestedByProfile),
     warnings: rows(r.warnings, issueOf),
-    error: string(r.error),
+    now: string(r.now),
+    waiting: waitingOf(r.waiting),
+    worker: workerOf(r.worker),
+    teams: rows(r.teams, provisionTeamOf),
   };
 }
 
@@ -484,16 +740,49 @@ export async function teamDiscordStatus(conf: string, opts?: RequestOpts): Promi
   return statusOf(await credentialedRequest(`${forConf(conf)}/discord`, { cache: "no-store" }, opts), conf);
 }
 
-/** Without `teamIds`, every team in the conference is provisioned. */
+/** Queues a job. A 202 and a 200 replay of the same `requestId` both answer it. */
 export async function provisionTeamDiscord(
-  conf: string, teamIds?: readonly number[], opts?: RequestOpts,
-): Promise<TeamDiscordProvisionReport> {
-  const r = raw(await credentialedRequest(
+  conf: string, { teamIds, requestId }: TeamDiscordProvisionInput, opts?: RequestOpts,
+): Promise<TeamDiscordProvisionJob> {
+  return jobOf(await credentialedRequest(
     `${forConf(conf)}/discord/provision`,
+    { method: "POST", body: { ...(teamIds ? { teamIds } : {}), requestId }, cache: "no-store" },
+    opts,
+  ));
+}
+
+/** The 20 most recent jobs, newest first, without per-team detail. */
+export async function teamDiscordProvisionJobs(conf: string, opts?: RequestOpts): Promise<TeamDiscordProvisionJobSummary[]> {
+  const r = raw(await credentialedRequest(`${forConf(conf)}/discord/provision/jobs`, { cache: "no-store" }, opts));
+  return rows(r.jobs, jobSummaryOf);
+}
+
+/** `404` for another conference's job. */
+export async function teamDiscordProvisionJob(conf: string, jobId: number, opts?: RequestOpts): Promise<TeamDiscordProvisionJob> {
+  return jobOf(await credentialedRequest(`${forConf(conf)}/discord/provision/jobs/${jobId}`, { cache: "no-store" }, opts));
+}
+
+/** Without `teamIds`, every team whose latest attempt failed or needs attention. Not idempotent. */
+export async function retryTeamDiscordProvision(
+  conf: string, jobId: number, teamIds?: readonly number[], opts?: RequestOpts,
+): Promise<TeamDiscordProvisionJob> {
+  return jobOf(await credentialedRequest(
+    `${forConf(conf)}/discord/provision/jobs/${jobId}/retry`,
     { method: "POST", body: teamIds ? { teamIds } : {}, cache: "no-store" },
     opts,
   ));
-  return { warnings: rows(r.warnings, issueOf), teams: rows(r.teams, provisionTeamOf) };
+}
+
+/** Records an existing Discord category as this conference's bot-managed one, without a Discord write. */
+export async function adoptTeamDiscordCategory(
+  conf: string, kind: TeamDiscordAdoptableCategory, categoryId: string, opts?: RequestOpts,
+): Promise<TeamDiscordCategoryAdoption> {
+  const r = raw(await credentialedRequest(
+    `${forConf(conf)}/discord/categories/${kind}`,
+    { method: "PUT", body: { snowflake: categoryId }, cache: "no-store" },
+    opts,
+  ));
+  return { status: enumValue(r.status, TEAM_DISCORD_ADOPTION_RESULTS), category: resourceOf(r.category) };
 }
 
 /** Reconciles membership on existing roles, without changing roles, channels or categories. */
@@ -564,10 +853,12 @@ export async function teardownTeamDiscord(
   return {
     mode: enumValue(r.mode, TEAM_DISCORD_TEARDOWN_MODES),
     results: rows(r.results, teardownRowOf),
+    superseded: count(r.superseded),
   };
 }
 
 /** Namespaced for parity with the other modules' aggregates. */
 export const teamDiscordApi = {
-  teamDiscordStatus, provisionTeamDiscord, resyncTeamDiscordRoles, saveTeamDiscordStaffRoles, grantEsub, removeEsub, teardownTeamDiscord,
+  teamDiscordStatus, provisionTeamDiscord, teamDiscordProvisionJobs, teamDiscordProvisionJob, retryTeamDiscordProvision,
+  adoptTeamDiscordCategory, resyncTeamDiscordRoles, saveTeamDiscordStaffRoles, grantEsub, removeEsub, teardownTeamDiscord,
 };
