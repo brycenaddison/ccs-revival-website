@@ -1,8 +1,11 @@
 export { api, tournaments, teams, teamsForConf, teamDetail, standings, playerStats, teamStats, championStats, statTotals, records, articleViews, bumpArticleView, mapTeamRecord, mapTournament } from "./client";
-export { gameApi, matchData, matchTimeline, gameContext, mapGameContext } from "./game";
+export { gameApi, matchData, matchTimeline, gameContext, gameDraft, mapGameContext, GAME_DRAFT_LOCKOUT_REASONS } from "./game";
 export { mapPhaseRef, placementLabel } from "./phaseRef";
 export type { PhaseRef } from "./phaseRef";
-export type { GameContext, GameContextParticipant } from "./game";
+export type {
+  GameContext, GameContextParticipant, GameDraft, GameDraftBan, GameDraftLockout, GameDraftLockoutReason,
+  GameDraftPick, GameDraftSide,
+} from "./game";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
 export {
   predictions, prediction, predictionSummary, enrollPredictions, claimPredictionReward,
@@ -524,7 +527,15 @@ export type {
   SeasonScenarioLibrary,
   SeasonTeam,
 } from "./seasonView";
-export { feedApi, feedMatchKey, scheduleFeed, matchResult, MATCH_STATUSES } from "./feed";
+export {
+  feedApi,
+  feedMatchKey,
+  scheduleFeed,
+  matchResult,
+  FEED_LIMIT_MAX,
+  FEED_SEARCH_MAX,
+  MATCH_STATUSES,
+} from "./feed";
 export type {
   FeedMatch,
   FeedPage,
@@ -602,10 +613,15 @@ export {
   createDayDrafts,
   draftIssues,
   reprocessDraftReceipt,
+  draftGameIssues,
+  draftEditor,
+  saveDraftCorrection,
   draftLink,
   draftRefusal,
   DRAFT_BATCH_STATUSES,
+  DRAFT_CORRECTION_REASON_MAX,
   DRAFT_DISABLED_CHAMPIONS_MAX,
+  DRAFT_GAME_ISSUE_KINDS,
   DRAFT_GAMES_MAX,
   DRAFT_ISSUES_LIMIT_MAX,
   DRAFT_MODES,
@@ -614,16 +630,26 @@ export {
   DRAFT_ROLE_STATUSES,
   DRAFT_SERIES_STATUSES,
   DRAFT_SIDES,
+  DRAFT_SIDE_SLOTS,
   DRAFT_TEAM_NAME_MAX,
 } from "./drafts";
 export type {
   DraftBatch,
   DraftBatchOutcome,
   DraftBatchStatus,
+  DraftCorrectionInput,
+  DraftCorrectionMark,
+  DraftCorrectionSaved,
+  DraftCorrectionSideInput,
+  DraftCorrectionWarning,
   DraftCounts,
   DraftCreated,
   DraftCreationInput,
+  DraftEditor,
   DraftGame,
+  DraftGameIssue,
+  DraftGameIssueKind,
+  DraftGameIssues,
   DraftImport,
   DraftIssueQuery,
   DraftIssues,
@@ -632,14 +658,21 @@ export type {
   DraftReceiptIssue,
   DraftReceiptState,
   DraftRefusal,
+  DraftPlayed,
+  DraftPlayedChampion,
+  DraftPlayedTeam,
   DraftRepair,
   DraftRole,
+  DraftRoleAssignment,
   DraftRoleStatus,
   DraftSeries,
   DraftSeriesStatus,
   DraftSettings,
   DraftSettingsInput,
   DraftSide,
+  DraftSideDifference,
+  DraftStored,
+  DraftStoredSide,
   DraftTeamSide,
 } from "./drafts";
 export {

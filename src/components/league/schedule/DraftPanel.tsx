@@ -238,7 +238,7 @@ function Registration({ matchId, series, fixtureMismatch, games, onSaved }: {
           : null}
       />
 
-      {ready && <DraftGames games={games} />}
+      {ready && <DraftGames games={games} correctionSeriesId={isSiteAdmin ? series.drafterSeriesId : null} />}
     </div>
   );
 }

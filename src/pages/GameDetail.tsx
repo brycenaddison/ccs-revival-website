@@ -1,8 +1,8 @@
 /**
  * The match viewer: one game in full, at `/game/:matchId` and `/game/:matchId/:tab`.
  *
- * **The page owns every fetch and every lookup.** Three reads (`matchData`, `matchTimeline`,
- * `gameContext`) and four Community Dragon manifests are loaded here, once, and handed to the tabs
+ * **The page owns every fetch and every lookup.** Four reads (`matchData`, `matchTimeline`,
+ * `gameContext`, `gameDraft`) and four Community Dragon manifests are loaded here, once, and handed to the tabs
  * through `GameViewProvider`. The tabs are pure over that context, which is what lets three of them be
  * lazy chunks (chart.js lives in two of them) without any of them fetching on mount.
  *
@@ -50,6 +50,7 @@ import { usePageMetadata } from "../components/seo/MetadataProvider";
 const GraphsTab = lazy(() => import("../components/game/graphs/GraphsTab"));
 const BuildsTab = lazy(() => import("../components/game/builds/BuildsTab"));
 const TimelineTab = lazy(() => import("../components/game/timeline/TimelineTab"));
+const DraftTab = lazy(() => import("../components/game/draft/DraftTab"));
 
 /** Wide enough for the scoreboard's `lg` density. */
 const COLUMN_WIDTH = 1240;
@@ -62,6 +63,7 @@ export default function GameDetail() {
   const match = useQuery({ ...queries.matchData(matchId), enabled });
   const timeline = useQuery({ ...queries.matchTimeline(matchId), enabled });
   const context = useQuery({ ...queries.gameContext(matchId), enabled });
+  const draft = useQuery({ ...queries.gameDraft(matchId), enabled });
 
   const champions = useChampions();
   const { items, spells } = useGameAssets();
@@ -131,6 +133,7 @@ export default function GameDetail() {
         ? timeline.data
         : null,
     context: context.data ?? null,
+    draft: draft.isPending ? undefined : draft.data ?? null,
     participants,
     lookups: { champions, items, spells, runes },
     size,
@@ -142,7 +145,7 @@ export default function GameDetail() {
       <TooltipProvider delayDuration={200}>
         <GameViewProvider value={view}>
           <GameHeader />
-          <GameTabs matchId={matchId} tab={tab} />
+          <GameTabs matchId={matchId} tab={tab} hasDraft={!!draft.data} />
           <Suspense fallback={<Notice>Loading…</Notice>}>
             <TabBody tab={tab} />
           </Suspense>
@@ -160,6 +163,8 @@ function TabBody({ tab }: { tab: GameTab }) {
       return <BuildsTab />;
     case "timeline":
       return <TimelineTab />;
+    case "draft":
+      return <DraftTab />;
     default:
       return <ScoreboardTab />;
   }

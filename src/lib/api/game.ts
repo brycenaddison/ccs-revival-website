@@ -2,7 +2,7 @@
  * One game, as the match viewer reads it: the Riot payload, the Riot timeline, and the league's
  * context for both.
  *
- * Three reads, and the shape of each answer is the whole story:
+ * Four reads, and the shape of each answer is the whole story:
  *
  *  - `GET /m/:matchId` and `GET /m/:matchId/timeline` are **pass-throughs**. Upstream stores Riot's
  *    document as jsonb and serves it verbatim, so there is nothing to map: the types in
@@ -16,6 +16,8 @@
  *    Nothing else reachable from a bare match id says any of that. It is mapped defensively like
  *    every other read of our own server. When a deployment lacks this route, `getOne` resolves its
  *    `404` to `null`, so the viewer falls back to Riot IDs and "Blue side" / "Red side" without links.
+ *  - `GET /m/:matchId/draft` is the stored Drafter draft, with the same visibility and session rule
+ *    as the context read. Its `404` (plain text) means the game has no draft, never an error.
  *
  * `matchData` lived in `client.ts` before the timeline read existed and moved here to sit beside it;
  * the barrel exports it under the same name.
@@ -23,7 +25,8 @@
 
 import { getOne, type RequestOpts } from "./http";
 import { mapPhaseRef, mapTeamMetadata, type PhaseRef, type TeamMetadata } from "./profiles";
-import { teamIdOf } from "./normalize";
+import { httpsUrl, normalizeRole, teamIdOf, type Role } from "./normalize";
+import { DRAFT_MODES, DRAFT_ROLES, DRAFT_SIDES, draftLink, type DraftMode, type DraftRole, type DraftSide } from "./drafts";
 import type { RiotMatch, RiotTimeline } from "../riot/matchV5";
 
 type Raw = Record<string, unknown>;
@@ -135,4 +138,160 @@ export function gameContext(matchId: string, opts?: RequestOpts): Promise<GameCo
   );
 }
 
-export const gameApi = { matchData, matchTimeline, gameContext };
+// ------------------------------------------------------------------------------------------ draft
+
+export const GAME_DRAFT_LOCKOUT_REASONS = ["disabled", "fearless", "ironman"] as const;
+export type GameDraftLockoutReason = (typeof GAME_DRAFT_LOCKOUT_REASONS)[number];
+
+/** Turns are global within each kind, 1–10 for bans and 1–10 for picks, owned upstream. */
+export const DRAFT_TURN_MAX = 10;
+
+export interface GameDraftBan {
+  turn: number;
+  /** Null for a skipped ban, which keeps its slot. */
+  championId: number | null;
+  champion: string | null;
+  icon: string | null;
+}
+
+export interface GameDraftPick {
+  turn: number;
+  championId: number;
+  champion: string | null;
+  icon: string | null;
+  /** The role confirmed in the draft room; null without role confirmation. */
+  assignedRole: DraftRole | null;
+  /** Riot's role for whoever played the champion. */
+  playedRole: Role | null;
+  profileId: number | null;
+  name: string | null;
+  blind: boolean | null;
+}
+
+export interface GameDraftSide {
+  /** The draft's side, which need not be the lobby side. */
+  side: DraftSide;
+  teamId: number | null;
+  /** Null only when the team row has been removed. */
+  team: TeamMetadata | null;
+  firstPick: boolean;
+  bans: GameDraftBan[];
+  picks: GameDraftPick[];
+}
+
+export interface GameDraftLockout {
+  championId: number;
+  champion: string | null;
+  icon: string | null;
+  reason: GameDraftLockoutReason;
+  /** The earlier game that locked it; null for the series' disabled list. */
+  game: number | null;
+}
+
+export interface GameDraft {
+  matchId: string;
+  conf: string | null;
+  drafterSeriesId: string;
+  /** The Drafter room. */
+  url: string | null;
+  game: number;
+  mode: DraftMode | null;
+  /**
+   * Whether red could take first pick. Without it blue always picks first, so first pick says
+   * nothing. Null on an older deployment.
+   */
+  firstSelection: boolean | null;
+  patch: string | null;
+  /** Blue then red, by the draft's own sides. */
+  sides: GameDraftSide[];
+  unavailable: GameDraftLockout[];
+}
+
+const turnOf = (value: unknown): number | null => {
+  const turn = intOrNull(value);
+  return turn !== null && turn >= 1 && turn <= DRAFT_TURN_MAX ? turn : null;
+};
+const enumOf = <T extends string>(value: unknown, values: readonly T[]): T | null =>
+  typeof value === "string" && values.includes(value as T) ? value as T : null;
+
+function mapDraftBan(value: unknown): GameDraftBan | null {
+  const r = asRaw(value);
+  const turn = turnOf(r.turn);
+  if (turn === null) return null;
+  return { turn, championId: intOrNull(r.championId), champion: strOrNull(r.champion), icon: httpsUrl(strOrNull(r.icon)) ?? null };
+}
+
+function mapDraftPick(value: unknown): GameDraftPick | null {
+  const r = asRaw(value);
+  const turn = turnOf(r.turn);
+  const championId = intOrNull(r.championId);
+  if (turn === null || championId === null) return null;
+  return {
+    turn,
+    championId,
+    champion: strOrNull(r.champion),
+    icon: httpsUrl(strOrNull(r.icon)) ?? null,
+    assignedRole: enumOf(r.assignedRole, DRAFT_ROLES),
+    playedRole: normalizeRole(strOrNull(r.playedRole)),
+    profileId: intOrNull(r.profileId),
+    name: strOrNull(r.name),
+    blind: typeof r.blind === "boolean" ? r.blind : null,
+  };
+}
+
+function mapDraftSide(value: unknown): GameDraftSide | null {
+  const r = asRaw(value);
+  const side = enumOf(r.side, DRAFT_SIDES);
+  if (side === null) return null;
+  return {
+    side,
+    teamId: teamIdOf(r.teamId),
+    team: mapTeamMetadata(r.team),
+    firstPick: r.firstPick === true,
+    bans: arr(r.bans).flatMap(b => mapDraftBan(b) ?? []),
+    picks: arr(r.picks).flatMap(p => mapDraftPick(p) ?? []),
+  };
+}
+
+function mapLockout(value: unknown): GameDraftLockout | null {
+  const r = asRaw(value);
+  const championId = intOrNull(r.championId);
+  const reason = enumOf(r.reason, GAME_DRAFT_LOCKOUT_REASONS);
+  if (championId === null || reason === null) return null;
+  return { championId, champion: strOrNull(r.champion), icon: httpsUrl(strOrNull(r.icon)) ?? null, reason, game: intOrNull(r.game) };
+}
+
+function mapGameDraft(value: unknown): GameDraft | null {
+  const r = asRaw(value);
+  const matchId = strOrNull(r.matchId);
+  const drafterSeriesId = strOrNull(r.drafterSeriesId);
+  const game = intOrNull(r.game);
+  const sides = arr(r.sides).flatMap(s => mapDraftSide(s) ?? []);
+  // A board needs both sides; anything less is not the payload.
+  if (matchId === null || drafterSeriesId === null || game === null || sides.length !== 2) return null;
+  return {
+    matchId,
+    conf: strOrNull(r.conf),
+    drafterSeriesId,
+    url: draftLink(r.url),
+    game,
+    mode: enumOf(r.mode, DRAFT_MODES),
+    firstSelection: typeof r.firstSelection === "boolean" ? r.firstSelection : null,
+    patch: strOrNull(r.patch),
+    sides: [...sides].sort((a, b) => DRAFT_SIDES.indexOf(a.side) - DRAFT_SIDES.indexOf(b.side)),
+    unavailable: arr(r.unavailable).flatMap(u => mapLockout(u) ?? []),
+  };
+}
+
+/**
+ * The stored draft for one played game, or null when it has none. Upstream answers 404 for any game
+ * whose tournament code does not link it to a draft with exactly its ten champions, which `getOne`
+ * resolves to null. A hidden conference is the same 400 the context read answers.
+ */
+export function gameDraft(matchId: string, opts?: RequestOpts): Promise<GameDraft | null> {
+  return getOne<Raw>(`/m/${encodeURIComponent(matchId)}/draft`, opts).then(raw =>
+    raw === null ? null : mapGameDraft(raw),
+  );
+}
+
+export const gameApi = { matchData, matchTimeline, gameContext, gameDraft };

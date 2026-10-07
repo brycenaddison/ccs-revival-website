@@ -101,12 +101,15 @@ export function FeedMatchRow({ match, isMobile, showLeague = true }: Props) {
           </span>
         )}
 
-        {/* The phase, and — on a bracket — which round of it. `matchDay` is phase-relative, which is
-            what a round is called on screen; `seasonDay` is a join key and never appears. */}
+        {/* The phase, and which round (bracket) or group (group stage) of it. `matchDay` is
+            phase-relative, which is what a round is called on screen; `seasonDay` is a join key and
+            never appears. The group name is shown as served. */}
         {/* Absent on a legacy series row, which has no phase to be placed in. */}
         {match.phase !== null && (
           <span className="truncate font-heading text-[10px] tracking-wide text-text-dim">
-            {match.phaseKind === "bracket" ? `${match.phase} · Round ${match.matchDay}` : match.phase}
+            {match.phaseKind === "bracket"
+              ? `${match.phase} · Round ${match.matchDay}`
+              : match.group !== null ? `${match.phase} · ${match.group}` : match.phase}
           </span>
         )}
 

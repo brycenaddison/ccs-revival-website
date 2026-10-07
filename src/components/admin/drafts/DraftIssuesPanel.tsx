@@ -2,7 +2,8 @@
  * The draft repair inbox: saved Drafter deliveries that did not process, and room creations that
  * failed or could not be confirmed. The two lists page independently.
  *
- * Reprocessing replays the saved payload after a mapping or correlation repair; nothing here can
+ * Deliveries include failed receipts and `processing` receipts stranded by an expired lease; both
+ * take the same Reprocess. Reprocessing replays the saved payload after a mapping or correlation repair; nothing here can
  * substitute a payload. Creations have no action because room replacement is not part of the API:
  * an uncertain attempt is matched against Drafter's own history using its attempt ID.
  */
@@ -16,7 +17,7 @@ import { DRAFT_RECEIPT_LABEL, DRAFT_STATUS_LABEL, draftCodeText, draftErrorText 
 import { useCursorPage } from "../../../hooks/useCursorPage";
 import { queries, queryRoots } from "../../../lib/queries";
 import { fmtKickoff } from "../../../lib/utils";
-import { reprocessDraftReceipt, type DraftRepair } from "../../../lib/api";
+import { reprocessDraftReceipt, type DraftReceiptState, type DraftRepair } from "../../../lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -81,16 +82,14 @@ export function DraftIssuesPanel({ viewerId }: { viewerId: number | null }) {
                     {receipt.errorCategory && (
                       <div className="truncate text-xs text-ccs-red">{draftCodeText(receipt.errorCategory)}</div>
                     )}
+                    {receipt.state && RECEIPT_NEXT_STEP[receipt.state] && (
+                      <div className="truncate text-xs text-text-secondary">{RECEIPT_NEXT_STEP[receipt.state]}</div>
+                    )}
                     <div className="truncate font-mono text-[11px] text-text-dim">
                       {receipt.providerSeriesId ?? "No series"} · {receipt.id}
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs">
-                    {receipt.attempts}
-                    {receipt.nextAttemptAt && receipt.state === "retry" && (
-                      <div className="whitespace-nowrap text-text-dim">Next {fmtKickoff(receipt.nextAttemptAt)}</div>
-                    )}
-                  </TableCell>
+                  <TableCell className="text-xs">{receipt.attempts}</TableCell>
                   <TableCell>
                     <Button
                       type="button"
@@ -163,6 +162,15 @@ export function DraftIssuesPanel({ viewerId }: { viewerId: number | null }) {
     </div>
   );
 }
+
+/**
+ * What to do about a listed receipt. Nothing retries on a timer: a failed receipt waits for an
+ * admin, and a `processing` receipt in this list is one whose lease expired when a worker stopped.
+ */
+const RECEIPT_NEXT_STEP: Partial<Record<DraftReceiptState, string>> = {
+  retry: "Failed on our side. Reprocess it, or recheck the match's room.",
+  processing: "Interrupted while processing. Reprocess it.",
+};
 
 function describeRepair(result: DraftRepair): string {
   if (result.state !== "processed") {

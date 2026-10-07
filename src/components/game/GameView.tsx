@@ -1,7 +1,7 @@
 /**
  * Everything the match viewer's tabs read, provided once by `pages/GameDetail.tsx`.
  *
- * The page owns every fetch (payload, timeline, context) and every CDN lookup (champions, items,
+ * The page owns every fetch (payload, timeline, context, draft) and every CDN lookup (champions, items,
  * spells, runes), builds the participant index, and hands the lot down through this context. A tab
  * body, a scoreboard row, an event chip: all of them call `useGameView()` and none of them fetch. That
  * is what keeps the four tabs interchangeable and the lookups from being threaded through a dozen
@@ -13,7 +13,7 @@
  */
 
 import { createContext, useContext } from "react";
-import type { GameContext } from "../../lib/api";
+import type { GameContext, GameDraft } from "../../lib/api";
 import type { ChampionLookup } from "../../lib/championData";
 import type { GameAssetLookup } from "../../lib/gameAssets";
 import type { RuneLookup } from "../../lib/runeData";
@@ -35,6 +35,11 @@ export interface GameView {
   match: RenderableMatch;
   timeline: RenderableTimeline | null | undefined;
   context: GameContext | null;
+  /**
+   * `undefined` while loading, `null` when the game has no draft. A refused read (the hidden
+   * conference 400) is also `null`: the draft is hidden, never an error.
+   */
+  draft: GameDraft | null | undefined;
   participants: Participants;
   lookups: GameLookups;
   size: ScoreboardSize;

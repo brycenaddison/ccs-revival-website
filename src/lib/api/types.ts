@@ -655,6 +655,17 @@ export interface ChampionStats {
   banRate: number | null;
   presence: number | null;
   avgBanTurn: number | null;
+  /**
+   * The draft columns. Null means the conference has no champion-matched draft games (or, for
+   * `blindPickRate`, that this champion never had a single lane opponent in one), never zero.
+   * `seriesPresence`, `prioScore` and `avgFearlessGame` are champion-wide, so every role row of a
+   * champion repeats them.
+   */
+  seriesPresence: number | null;
+  blindPickRate: number | null;
+  /** Null when the conference has no champion-matched fearless games. */
+  prioScore: number | null;
+  avgFearlessGame: number | null;
   winPercent: number | null;
   kda: number;
   avgKills: number | null;

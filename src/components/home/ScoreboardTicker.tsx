@@ -15,8 +15,10 @@
  * key shares this request rather than making a second one.
  */
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { TeamBadge } from "../TeamBadge";
 import { toBadge } from "../../lib/leagueAdapters";
 import { fmtRelativeDay, fmtTime } from "../../lib/utils";
@@ -98,15 +100,52 @@ export function ScoreboardTicker() {
     el.scrollLeft += card.getBoundingClientRect().left - el.getBoundingClientRect().left - PEEK_PX;
   }, [nowIndex]);
 
+  /*
+   * Whether there is more strip off either end. The scrollbar is hidden and the strip opens on now,
+   * so without the edge buttons a mouse wheel, which scrolls vertically, could never reach the
+   * results to the left. Re-read on scroll, on resize and when the list changes.
+   */
+  const [edges, setEdges] = useState({ left: false, right: false });
+  useEffect(() => {
+    const el = scroller.current;
+    if (el === null) return;
+    const read = () => {
+      const left = el.scrollLeft > 1;
+      const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+      setEdges(prev => (prev.left === left && prev.right === right ? prev : { left, right }));
+    };
+    read();
+    el.addEventListener("scroll", read, { passive: true });
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", read);
+      observer.disconnect();
+    };
+  }, [matches]);
+
+  const page = (direction: 1 | -1) => {
+    const el = scroller.current;
+    if (el === null) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Most of a screenful, keeping a card or so of overlap for orientation.
+    el.scrollBy({ left: direction * el.clientWidth * PAGE_FRACTION, behavior: reduce ? "auto" : "smooth" });
+  };
+
   // No strip at all rather than an empty bar: this sits above the nav, and a permanent empty band
   // reads as the layout being broken. Loading and "nothing this fortnight" are the same thing here.
   if (matches.length === 0) return null;
 
+  const overflowing = edges.left || edges.right;
+
   return (
-    <div className="border-b border-border3 bg-bg overflow-hidden">
+    <div className="flex border-b border-border3 bg-bg overflow-hidden">
+      {overflowing && (
+        <EdgeButton direction={-1} disabled={!edges.left} onClick={() => page(-1)} label="Earlier matches" />
+      )}
       <div
         ref={scroller}
-        className="flex overflow-x-auto px-2"
+        className="flex min-w-0 flex-1 overflow-x-auto px-2"
         style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
       >
         {matches.map((m, i) => (
@@ -118,7 +157,34 @@ export function ScoreboardTicker() {
           />
         ))}
       </div>
+      {overflowing && (
+        <EdgeButton direction={1} disabled={!edges.right} onClick={() => page(1)} label="Later matches" />
+      )}
     </div>
+  );
+}
+
+const PAGE_FRACTION = 0.8;
+
+/** Full-height paging control at one end of the strip. Disabled, not removed, at that end's limit. */
+function EdgeButton({ direction, disabled, onClick, label }: {
+  direction: 1 | -1;
+  disabled: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  const Icon = direction === -1 ? ChevronLeft : ChevronRight;
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`h-auto w-8 shrink-0 rounded-none px-0 ${direction === -1 ? "border-r" : "border-l"} border-border`}
+    >
+      <Icon size={16} aria-hidden="true" />
+    </Button>
   );
 }
 

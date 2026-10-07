@@ -25,10 +25,22 @@
  *    creation conflict. `draftErrorText` in the components owns their sentences.
  *  - Game rows keep the provider's snake_case and physical sides. Champion values are numeric IDs;
  *    a skipped ban keeps its null slot, and pick order stays on its side even when red picks first.
+ *  - The issues inbox lists failed (`retry`) receipts, which wait for a reprocess or recheck rather
+ *    than a timer, and `processing` receipts whose lease expired. Both take the same reprocess.
+ *  - Game issues are computed on read: `champion_mismatch` is a code-linked game whose champions
+ *    differ from its draft, so no statistic uses that draft; `missing_draft` is a played game on a
+ *    drafted fixture with no draft game for its number. Their cursor is opaque and passed back verbatim.
+ *  - A correction replaces one game's picks, bans and first pick, revision-checked against the
+ *    editor read's `draft.updatedAt` (sent verbatim) or null to create a missing game. There is no
+ *    revert, and later provider deliveries never overwrite a stored game. All ten role assignments
+ *    are required and the save completes role confirmation, so nothing is left for a later delivery
+ *    to fill. Fearless repeats save and come back as warnings. Statistics pick the change up on their
+ *    next refresh, about 30 seconds later.
  */
 
 import { credentialedRequest } from "./credentialed";
 import { ApiError, type RequestOpts } from "./http";
+import { normalizeRole, type Role } from "./normalize";
 
 // ---------------------------------------------------------------------------------- constraints
 
@@ -60,6 +72,13 @@ export const DRAFT_TEAM_NAME_MAX = 35;
 export const DRAFT_GAMES_MAX = 5;
 export const DRAFT_DISABLED_CHAMPIONS_MAX = 1000;
 export const DRAFT_ISSUES_LIMIT_MAX = 100;
+
+export const DRAFT_GAME_ISSUE_KINDS = ["champion_mismatch", "missing_draft"] as const;
+export type DraftGameIssueKind = (typeof DRAFT_GAME_ISSUE_KINDS)[number];
+
+/** Each side drafts this many picks and ban slots. */
+export const DRAFT_SIDE_SLOTS = 5;
+export const DRAFT_CORRECTION_REASON_MAX = 500;
 
 // ---------------------------------------------------------------------------------------- types
 
@@ -128,6 +147,8 @@ export interface DraftGame {
   url: string | null;
   patch: string | null;
   firstPick: DraftSide | null;
+  /** Whether red could take first pick. Without it blue always picks first. */
+  firstSelection: boolean | null;
   blue: DraftTeamSide;
   red: DraftTeamSide;
   roleStatus: DraftRoleStatus | null;
@@ -179,7 +200,6 @@ export interface DraftReceiptIssue {
   attempts: number;
   errorCategory: string | null;
   receivedAt: string | null;
-  nextAttemptAt: string | null;
 }
 
 export interface DraftIssues {
@@ -199,6 +219,128 @@ export interface DraftRepair {
   receiptId: string | null;
   state: DraftReceiptState | null;
   outcome: DraftCounts | null;
+}
+
+/** One draft side mapped to the played team that shares most of its picks. */
+export interface DraftSideDifference {
+  side: DraftSide;
+  /** `teams.id` of that played team. */
+  teamId: number | null;
+  /** Drafted on this side but not played by its team. */
+  draftOnly: number[];
+  /** Played by this side's team but not drafted. */
+  playedOnly: number[];
+}
+
+export interface DraftGameIssue {
+  /** Null for a kind this client does not know; the row is kept so no issue goes unlisted. */
+  kind: DraftGameIssueKind | null;
+  matchId: string;
+  conf: string | null;
+  scheduleMatchId: number | null;
+  game: number;
+  drafterSeriesId: string;
+  /** Set when a correction was saved and the champions still differ. */
+  correctedAt: string | null;
+  /** Empty for `missing_draft`. */
+  difference: DraftSideDifference[];
+}
+
+export interface DraftGameIssues {
+  issues: DraftGameIssue[];
+  nextCursor: string | null;
+}
+
+export type DraftRoleAssignment = Record<DraftRole, number>;
+
+export interface DraftStoredSide {
+  /** The draft's side label. */
+  name: string;
+  picks: number[];
+  /** Null is a skipped ban. */
+  bans: (number | null)[];
+  roles: DraftRoleAssignment | null;
+}
+
+export interface DraftCorrectionMark {
+  correctedAt: string | null;
+  correctedBy: number | null;
+  reason: string | null;
+}
+
+export interface DraftStored {
+  firstPick: DraftSide | null;
+  blue: DraftStoredSide;
+  red: DraftStoredSide;
+  roleStatus: DraftRoleStatus | null;
+  patch: string | null;
+  fearless: boolean;
+  ironman: boolean;
+  /** The revision a correction sends back verbatim. Null leaves nothing to send, so saving is refused. */
+  updatedAt: string | null;
+  correction: DraftCorrectionMark | null;
+}
+
+export interface DraftPlayedChampion {
+  championId: number | null;
+  role: Role | null;
+}
+
+export interface DraftPlayedTeam {
+  teamId: number | null;
+  champions: DraftPlayedChampion[];
+}
+
+export interface DraftPlayed {
+  matchId: string;
+  championsMatch: boolean;
+  teams: DraftPlayedTeam[];
+}
+
+export interface DraftEditor {
+  drafterSeriesId: string;
+  game: number;
+  url: string | null;
+  conf: string;
+  scheduleMatchId: number | null;
+  gameAmount: number | null;
+  draftMode: DraftMode | null;
+  /** Whether red may take first pick in this series. */
+  firstSelection: boolean;
+  /** Null when nothing is stored for this game. */
+  draft: DraftStored | null;
+  /** The game linked by code, else the longest recorded for the fixture and game number. */
+  played: DraftPlayed | null;
+  difference: DraftSideDifference[];
+}
+
+export interface DraftCorrectionSideInput {
+  /** In this side's pick order. */
+  picks: number[];
+  /** In slot order; null is a skipped ban. */
+  bans: (number | null)[];
+}
+
+export interface DraftCorrectionInput {
+  expectedUpdatedAt: string | null;
+  reason: string;
+  firstPick: DraftSide;
+  blue: DraftCorrectionSideInput;
+  red: DraftCorrectionSideInput;
+  /** All ten, each side a permutation of its picks. Required: the save completes role confirmation. */
+  roles: Record<DraftSide, DraftRoleAssignment>;
+}
+
+export interface DraftCorrectionWarning {
+  kind: "fearless_repeat";
+  championId: number;
+  /** The other game of the series that also picked it. */
+  game: number;
+}
+
+export interface DraftCorrectionSaved {
+  editor: DraftEditor;
+  warnings: DraftCorrectionWarning[];
 }
 
 export interface DraftRefusal {
@@ -304,6 +446,7 @@ function gameOf(value: unknown): DraftGame | null {
     url: draftLink(r.url),
     patch: string(r.patch),
     firstPick: enumValue(r.firstpick, DRAFT_SIDES),
+    firstSelection: bool(r.firstselection),
     blue: sideOf(r, "blue"),
     red: sideOf(r, "red"),
     roleStatus: enumValue(r.role_status, DRAFT_ROLE_STATUSES),
@@ -349,8 +492,131 @@ function receiptOf(value: unknown): DraftReceiptIssue | null {
     attempts: Math.max(0, integer(r.attempts) ?? 0),
     errorCategory: string(r.errorCategory),
     receivedAt: string(r.receivedAt),
-    nextAttemptAt: string(r.nextAttemptAt),
   };
+}
+
+function differenceOf(value: unknown): DraftSideDifference | null {
+  const r = raw(value);
+  const side = enumValue(r.side, DRAFT_SIDES);
+  if (side === null) return null;
+  return {
+    side,
+    teamId: positive(r.teamId),
+    draftOnly: rows(r.draftOnly, positive),
+    playedOnly: rows(r.playedOnly, positive),
+  };
+}
+
+function gameIssueOf(value: unknown): DraftGameIssue | null {
+  const r = raw(value);
+  const matchId = string(r.matchId);
+  const drafterSeriesId = string(r.drafterSeriesId);
+  const game = positive(r.game);
+  if (!matchId || !drafterSeriesId || game === null) return null;
+  return {
+    kind: enumValue(r.kind, DRAFT_GAME_ISSUE_KINDS),
+    matchId,
+    conf: string(r.conf),
+    scheduleMatchId: positive(r.scheduleMatchId),
+    game,
+    drafterSeriesId,
+    correctedAt: string(r.correctedAt),
+    difference: rows(r.difference, differenceOf),
+  };
+}
+
+function roleAssignmentOf(value: unknown): DraftRoleAssignment | null {
+  if (value === null || typeof value !== "object") return null;
+  const r = raw(value);
+  const out = {} as DraftRoleAssignment;
+  for (const role of DRAFT_ROLES) {
+    const id = positive(r[role]);
+    // A partial assignment is not one; treat it as unconfirmed rather than inventing slots.
+    if (id === null) return null;
+    out[role] = id;
+  }
+  return out;
+}
+
+function storedSideOf(value: unknown): DraftStoredSide {
+  const r = raw(value);
+  return {
+    name: string(r.name) ?? "",
+    picks: rows(r.picks, positive),
+    // Slots keep their position, so a skipped ban stays where it was rather than collapsing.
+    bans: Array.isArray(r.bans) ? r.bans.map(positive) : [],
+    roles: roleAssignmentOf(r.roles),
+  };
+}
+
+function storedDraftOf(value: unknown): DraftStored | null {
+  if (value === null || typeof value !== "object") return null;
+  const r = raw(value);
+  const correction = r.correction === null || typeof r.correction !== "object" ? null : raw(r.correction);
+  return {
+    firstPick: enumValue(r.firstPick, DRAFT_SIDES),
+    blue: storedSideOf(r.blue),
+    red: storedSideOf(r.red),
+    roleStatus: enumValue(r.roleStatus, DRAFT_ROLE_STATUSES),
+    patch: string(r.patch),
+    fearless: r.fearless === true,
+    ironman: r.ironman === true,
+    updatedAt: string(r.updatedAt),
+    correction: correction && {
+      correctedAt: string(correction.correctedAt),
+      correctedBy: positive(correction.correctedBy),
+      reason: string(correction.reason),
+    },
+  };
+}
+
+function playedOf(value: unknown): DraftPlayed | null {
+  if (value === null || typeof value !== "object") return null;
+  const r = raw(value);
+  const matchId = string(r.matchId);
+  if (!matchId) return null;
+  return {
+    matchId,
+    championsMatch: r.championsMatch === true,
+    teams: rows(r.teams, team => {
+      const t = raw(team);
+      return {
+        teamId: positive(t.teamId),
+        champions: rows(t.champions, champion => {
+          const c = raw(champion);
+          return { championId: positive(c.championId), role: normalizeRole(string(c.role)) };
+        }),
+      };
+    }),
+  };
+}
+
+function editorOf(value: unknown): DraftEditor | null {
+  const r = raw(value);
+  const drafterSeriesId = string(r.drafterSeriesId);
+  const game = positive(r.game);
+  if (!drafterSeriesId || game === null) return null;
+  return {
+    drafterSeriesId,
+    game,
+    url: draftLink(r.url),
+    conf: string(r.conf) ?? "",
+    scheduleMatchId: positive(r.scheduleMatchId),
+    gameAmount: positive(r.gameAmount),
+    draftMode: enumValue(r.draftMode, DRAFT_MODES),
+    firstSelection: r.firstSelection === true,
+    draft: storedDraftOf(r.draft),
+    played: playedOf(r.played),
+    difference: rows(r.difference, differenceOf),
+  };
+}
+
+function warningOf(value: unknown): DraftCorrectionWarning | null {
+  const r = raw(value);
+  const championId = positive(r.championId);
+  const game = positive(r.game);
+  if (r.kind !== "fearless_repeat" || championId === null || game === null) return null;
+  return { kind: "fearless_repeat", championId, game };
 }
 
 /** The category and any existing registration behind a refusal, or null for other failures. */
@@ -439,7 +705,39 @@ export async function reprocessDraftReceipt(receiptId: string, opts?: RequestOpt
   };
 }
 
+export async function draftGameIssues(cursor: string | null, opts?: RequestOpts): Promise<DraftGameIssues> {
+  const search = cursor ? `?${new URLSearchParams({ cursor })}` : "";
+  const r = raw(await credentialedRequest(`${ADMIN}/games/issues${search}`, { cache: "no-store" }, opts));
+  return { issues: rows(r.issues, gameIssueOf), nextCursor: string(r.nextCursor) };
+}
+
+const editorPath = (drafterSeriesId: string, game: number) =>
+  `${ADMIN}/games/${encodeURIComponent(drafterSeriesId)}/${game}`;
+
+export async function draftEditor(drafterSeriesId: string, game: number, opts?: RequestOpts): Promise<DraftEditor> {
+  const path = editorPath(drafterSeriesId, game);
+  const editor = editorOf(await credentialedRequest(path, { cache: "no-store" }, opts));
+  if (!editor) throw new ApiError(200, path, "The draft editor response had no game.");
+  return editor;
+}
+
+export async function saveDraftCorrection(
+  drafterSeriesId: string,
+  game: number,
+  input: DraftCorrectionInput,
+  opts?: RequestOpts,
+): Promise<DraftCorrectionSaved> {
+  const path = editorPath(drafterSeriesId, game);
+  const r = raw(await credentialedRequest(path, { method: "PUT", body: input }, opts));
+  const editor = editorOf(r.editor);
+  if (!editor) throw new ApiError(200, path, "The correction response had no game.");
+  return { editor, warnings: rows(r.warnings, warningOf) };
+}
+
 export const draftsApi = {
+  draftGameIssues,
+  draftEditor,
+  saveDraftCorrection,
   draftSettings,
   saveDraftSettings,
   fixtureDraft,

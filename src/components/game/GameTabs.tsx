@@ -9,12 +9,15 @@
 import { UnderlineTabs } from "../UnderlineTabs";
 import { GAME_TABS, gameTabPath, type GameTab } from "../../lib/game/tabs";
 
-export function GameTabs({ matchId, tab }: { matchId: string; tab: GameTab }) {
+export function GameTabs({ matchId, tab, hasDraft }: { matchId: string; tab: GameTab; hasDraft: boolean }) {
   return (
     <UnderlineTabs
       label="Game views"
       replace
-      tabs={GAME_TABS.map(t => ({ key: t.slug, label: t.label, to: gameTabPath(matchId, t.slug) }))}
+      tabs={GAME_TABS
+        // A draft link that is open stays listed, so the selected tab is never missing from the strip.
+        .filter(t => !t.needsDraft || hasDraft || tab === t.slug)
+        .map(t => ({ key: t.slug, label: t.label, to: gameTabPath(matchId, t.slug) }))}
       selected={tab}
     />
   );

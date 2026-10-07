@@ -2,7 +2,7 @@
  * A team block's footer: what the side did, beneath its five rows.
  *
  * Kills, deaths, assists and gold on the left; the objectives (towers, dragons, barons, heralds, grubs,
- * inhibitors) in the middle; the bans on the right as clipped tiles. It sat above the rows once and
+ * inhibitors) in the middle; the bans (Drafter's when the game has a draft) on the right as clipped tiles. It sat above the rows once and
  * read as a ticker fighting the switchers for the header; under the rows it is a summary line, which
  * is what it is.
  *
@@ -11,6 +11,7 @@
  */
 
 import { cn } from "../../../lib/cn";
+import { NO_BAN_CHAMPION } from "../../../lib/championData";
 import type { RiotObjectives, RiotTeamId } from "../../../lib/riot/matchV5";
 import { sidePlayers } from "../../../lib/game/participants";
 import { BanIcons } from "../../match/BanIcons";
@@ -19,9 +20,22 @@ import type { Density } from "./density";
 import { ScoreboardIcon } from "./ScoreboardIcon";
 
 export function TeamFooter({ teamId, density, className }: { teamId: RiotTeamId; density: Density; className?: string }) {
-  const { match, participants, lookups } = useGameView();
+  const { match, participants, lookups, draft } = useGameView();
   const team = match.info.teams.find(t => t.teamId === teamId);
   const players = sidePlayers(participants, teamId);
+
+  /*
+   * Drafter's bans where the game has a draft, Riot's otherwise: a blind-pick tournament code leaves
+   * Riot's ban list empty. The draft's sides need not be the lobby's, so the draft side is the one
+   * whose picks this side played; a draft exists only when all ten champions matched. A skipped ban
+   * becomes Riot's -1 so it keeps its no-ban slot.
+   */
+  const draftSide = draft?.sides.find(
+    side => side.picks.length > 0 && side.picks.every(pick => players.some(p => p.raw.championId === pick.championId)),
+  );
+  const bans = draftSide
+    ? draftSide.bans.map(ban => ({ championId: ban.championId ?? NO_BAN_CHAMPION.key, champion: ban.champion }))
+    : team?.bans ?? [];
 
   const totals = players.reduce(
     (acc, p) => ({
@@ -51,10 +65,10 @@ export function TeamFooter({ teamId, density, className }: { teamId: RiotTeamId;
       {team ? <Objectives objectives={team.objectives} /> : <span />}
 
       <span className="flex items-center justify-end gap-1.5">
-        {team && team.bans.length > 0 && (
+        {bans.length > 0 && (
           <>
             <span className="text-[0.85em]">Bans</span>
-            <BanIcons bans={team.bans} champions={lookups.champions} size={density.ban} tile className="flex items-center" />
+            <BanIcons bans={bans} champions={lookups.champions} size={density.ban} tile className="flex items-center" />
           </>
         )}
       </span>

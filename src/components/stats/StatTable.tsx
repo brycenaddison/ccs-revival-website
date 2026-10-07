@@ -24,6 +24,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { cellText, type StatCell } from "../../lib/statGroups";
+import { TooltipHint } from "../TooltipHint";
 
 /** Fixed column widths, in px. */
 const LEADING_W = 82;
@@ -137,17 +138,23 @@ export function StatTable<T>({
               {columns.map(c => (
                 <th
                   key={c.key}
-                  onClick={() => onSort(c.key)}
-                  title={c.label}
-                  className={`text-center py-2.5 px-2 cursor-pointer select-none truncate ${
-                    sortKey === c.key ? "text-brand font-bold" : ""
-                  }`}
+                  className={`p-0 text-center ${sortKey === c.key ? "text-brand font-bold" : ""}`}
                 >
-                  {/* `short` exists because several labels are written for the bar view's select, where
-                      there is no column header for context — "Share of Team Deaths" is right there and
-                      far too wide here. */}
-                  {c.short ?? c.label}
-                  {arrow(c.key)}
+                  {/* The hint carries the full label, which a narrow header truncates, and what the
+                      statistic measures where that is not obvious from its name. */}
+                  <TooltipHint content={c.hint ? <><span className="font-bold">{c.label}.</span> {c.hint}</> : c.label}>
+                    <button
+                      type="button"
+                      onClick={() => onSort(c.key)}
+                      className="block w-full truncate py-2.5 px-2 cursor-pointer select-none"
+                    >
+                      {/* `short` exists because several labels are written for the bar view's select, where
+                          there is no column header for context — "Share of Team Deaths" is right there and
+                          far too wide here. */}
+                      {c.short ?? c.label}
+                      {arrow(c.key)}
+                    </button>
+                  </TooltipHint>
                 </th>
               ))}
             </tr>

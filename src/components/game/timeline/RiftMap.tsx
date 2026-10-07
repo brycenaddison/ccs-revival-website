@@ -23,10 +23,18 @@ export function RiftMap() {
   const kills = events.filter(e => e.type === "CHAMPION_KILL");
 
   return (
-    // `self-start`: the map is a flex item beside a taller chart, and a stretched item's height wins
-    // over `aspect-square`, which is what squashed it. Fixed square from `lg`, fluid square below.
-    <div className="relative aspect-square w-full max-w-[420px] self-start overflow-hidden rounded-lg border border-border lg:h-[420px] lg:w-[420px]">
-      <img src={riftMap} alt="Summoner's Rift" className="block h-full w-full select-none object-contain" draggable={false} />
+    // The square image sizes the box and the dots' percentages resolve against it, with no
+    // `aspect-ratio` or percentage height for older iOS WebKit to resolve differently.
+    // `self-start` keeps the flex item from stretching to the chart's height.
+    <div className="relative w-full max-w-[420px] self-start overflow-hidden rounded-lg border border-border lg:w-[420px]">
+      <img
+        src={riftMap}
+        alt="Summoner's Rift"
+        width={512}
+        height={512}
+        className="block h-auto w-full select-none"
+        draggable={false}
+      />
       {kills.map((event, index) => {
         if (event.type !== "CHAMPION_KILL") return null;
         const involved =

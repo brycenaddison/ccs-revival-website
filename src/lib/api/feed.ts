@@ -141,6 +141,13 @@ export interface FeedMatch {
   phaseId: number | null;
   phase: string | null;
   phaseKind: PhaseKind | null;
+  /**
+   * `phase_groups.id`, derived upstream from the teams' group membership in this phase. Null outside
+   * a group phase, or when the teams do not place the fixture in one group.
+   */
+  groupId: number | null;
+  /** The group's served name, which may or may not include the word "Group". Null with `groupId`. */
+  group: string | null;
   seasonDay: number;
   /** Phase-relative, 1-based. Equal to `seasonDay` on a legacy row. */
   matchDay: number;
@@ -165,6 +172,11 @@ export interface FeedMatch {
  */
 export interface FeedPage {
   generatedAt: string | null;
+  /**
+   * More fixtures passed every filter than `limit` returned. The row count cannot say this, since an
+   * exactly full page has the same count. Null when the server does not serve the flag.
+   */
+  truncated: boolean | null;
   matches: FeedMatch[];
 }
 
@@ -190,11 +202,23 @@ export interface FeedQuery {
   to?: string | null;
   confs?: readonly string[];
   statuses?: readonly MatchStatus[];
+  /**
+   * A case-insensitive substring of a label the row carries: either team's name or code, the group,
+   * the phase, or the league's name, shortname or codename. Applied upstream before `limit`, so a
+   * fixture past the first page can still be found. At most `FEED_SEARCH_MAX` characters.
+   */
+  q?: string;
   /** 1–200. Over 200 is a `400` upstream, not a clamp. Defaults to 50 there. */
   limit?: number;
   /** By resolved kickoff. `desc` is what a scores page wants. */
   order?: "asc" | "desc";
 }
+
+/** The upstream ceiling on `limit`. */
+export const FEED_LIMIT_MAX = 200;
+
+/** The upstream ceiling on `q`, in characters; longer is a `400`. */
+export const FEED_SEARCH_MAX = 64;
 
 // -------------------------------------------------------- one best-of in full
 
@@ -421,6 +445,13 @@ export function feedMatchKey(m: FeedMatch): string {
   return `series-${m.conf}-${m.seasonDay}-${m.teamA?.id ?? m.teamA?.code ?? "?"}-${m.teamB?.id ?? m.teamB?.code ?? "?"}`;
 }
 
+/** An ID without a name, or a name without an ID, is half a group: keep neither. */
+function feedGroup(m: Raw): Pick<FeedMatch, "groupId" | "group"> {
+  const groupId = intOrNull(m.groupId);
+  const group = strOrNull(m.group);
+  return groupId === null || group === null ? { groupId: null, group: null } : { groupId, group };
+}
+
 function mapFeedMatch(raw: unknown): FeedMatch {
   const m = asRaw(raw);
   return {
@@ -432,6 +463,7 @@ function mapFeedMatch(raw: unknown): FeedMatch {
     phaseId: intOrNull(m.phaseId),
     phase: strOrNull(m.phase),
     phaseKind: m.phaseKind == null ? null : phaseKind(m.phaseKind),
+    ...feedGroup(m),
     seasonDay: int(m.seasonDay, 1),
     matchDay: Math.max(1, int(m.matchDay, 1)),
     kind: matchKind(m.kind),
@@ -579,6 +611,7 @@ function feedPath(q: FeedQuery): string {
   if (q.to) params.set("to", q.to);
   if (q.confs && q.confs.length > 0) params.set("conf", q.confs.join(","));
   if (q.statuses && q.statuses.length > 0) params.set("status", q.statuses.join(","));
+  if (q.q) params.set("q", q.q);
   if (q.limit !== undefined) params.set("limit", String(q.limit));
   if (q.order !== undefined) params.set("order", q.order);
 
@@ -598,6 +631,7 @@ export async function scheduleFeed(q: FeedQuery = {}, opts?: RequestOpts): Promi
   const page = asRaw(body);
   return {
     generatedAt: strOrNull(page.generatedAt),
+    truncated: typeof page.truncated === "boolean" ? page.truncated : null,
     matches: arr(page.matches).map(mapFeedMatch),
   };
 }

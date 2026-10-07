@@ -27,7 +27,12 @@ import {
 } from "../../lib/api";
 import { queries } from "../../lib/queries";
 import {
+  availableCells,
+  availableGroups,
+  CHAMPION_PRESENCE_CELL,
+  CHAMPION_PRIO_CELL,
   CHAMPION_STAT_GROUPS,
+  defaultChampionSortKey,
   flattenGroups,
   sortByCell,
   type StatCell,
@@ -51,11 +56,15 @@ interface Props {
   isMobile: boolean;
 }
 
-/** Always-visible columns, so the table stays legible across group switches. */
+/**
+ * Always-visible columns, so the table stays legible across group switches. The priority column is
+ * presence, or prio score where the response has fearless data; exactly one of the two is shown.
+ */
 const ANCHOR_CELLS: readonly StatCell<ChampionStats>[] = [
   { key: "games", label: "Picks", value: c => c.games, format: int },
   { key: "bans", label: "Bans", value: c => c.bans, format: int },
-  { key: "presence", label: "Presence", value: c => c.presence, format: pct },
+  CHAMPION_PRESENCE_CELL,
+  CHAMPION_PRIO_CELL,
   { key: "winPercent", label: "Win%", value: c => c.winPercent, format: pct },
 ];
 
@@ -70,17 +79,23 @@ export function ChampionPanel({ conf, isMobile }: Props) {
   const [search, setSearch] = useState("");
   const [minGames, setMinGames] = useState(0);
   const [groupId, setGroupId] = useState(CHAMPION_STAT_GROUPS[0].id);
-  const [sortKey, setSortKey] = useState("presence");
+  // Null until the reader picks one: the default depends on whether the response is fearless.
+  const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [expanded, setExpanded] = useState<string | number | null>(null);
-  const [barStat, setBarStat] = useState("presence");
+  const [barStat, setBarStat] = useState<string | null>(null);
   const [barDir, setBarDir] = useState<BarDirection>("highest");
 
   const { data, isPending, error } = useQuery(queries.championStats(conf, role === "ALL" ? null : role));
-  const champs = data ?? [];
+  const champs = useMemo(() => data ?? [], [data]);
 
-  const group = CHAMPION_STAT_GROUPS.find(g => g.id === groupId) ?? CHAMPION_STAT_GROUPS[0];
+  // Draft and fearless columns appear only when this response carries that kind of data.
+  const groups = useMemo(() => availableGroups(CHAMPION_STAT_GROUPS, champs), [champs]);
+  const anchors = useMemo(() => availableCells(ANCHOR_CELLS, champs), [champs]);
+  const defaultSortKey = defaultChampionSortKey(champs);
+  const group = groups.find(g => g.id === groupId) ?? groups[0];
   const catalog = useMemo(() => flattenGroups([group]), [group]);
+  const activeBarStat = barStat !== null && catalog.some(c => c.key === barStat) ? barStat : defaultSortKey;
 
   /**
    * Rows passing the champion-name and minimum-picks filters. Feeds the table and the bars only — the
@@ -129,19 +144,23 @@ export function ChampionPanel({ conf, isMobile }: Props) {
 
   // Anchors first, then whatever the group adds that isn't already an anchor.
   const columns = useMemo<StatCell<ChampionStats>[]>(() => {
-    const anchorKeys = new Set(ANCHOR_CELLS.map(c => c.key));
-    return [...ANCHOR_CELLS, ...group.cells.filter(c => !anchorKeys.has(c.key))];
-  }, [group]);
+    const anchorKeys = new Set(anchors.map(c => c.key));
+    return [...anchors, ...group.cells.filter(c => !anchorKeys.has(c.key))];
+  }, [anchors, group]);
+
+  // A sort on a column the current response does not carry falls back rather than claiming a sort.
+  const activeSortKey =
+    sortKey !== null && (sortKey === "name" || columns.some(c => c.key === sortKey)) ? sortKey : defaultSortKey;
 
   const sorted = useMemo(() => {
-    if (sortKey === "name") {
+    if (activeSortKey === "name") {
       return [...filtered].sort((a, b) => a.name.localeCompare(b.name) * sortDir);
     }
-    return sortByCell(filtered, columns.find(c => c.key === sortKey), sortDir);
-  }, [filtered, columns, sortKey, sortDir]);
+    return sortByCell(filtered, columns.find(c => c.key === activeSortKey), sortDir);
+  }, [filtered, columns, activeSortKey, sortDir]);
 
   const onSort = (key: string) => {
-    if (key === sortKey) { setSortDir(d => (d === -1 ? 1 : -1)); return; }
+    if (key === activeSortKey) { setSortDir(d => (d === -1 ? 1 : -1)); return; }
     setSortKey(key);
     // Names read best A→Z on first click; every statistic reads best highest-first.
     setSortDir(key === "name" ? 1 : -1);
@@ -150,24 +169,24 @@ export function ChampionPanel({ conf, isMobile }: Props) {
   /**
    * Switching group has to rescue both the sort key and the bar stat.
    *
-   * Only the four anchors survive every group. Sorting by, say, Ban Rate and then switching to Vision
+   * Only the anchors survive every group. Sorting by, say, Ban Rate and then switching to Vision
    * used to leave the table sorted by nothing at all — the lookup missed and the rows fell back to API
    * order while the header still claimed a sort. The bar picker only offers the active group's stats, so
    * its selection needs the same rescue.
    */
   const onGroup = (id: string) => {
     setGroupId(id);
-    const next = CHAMPION_STAT_GROUPS.find(g => g.id === id);
+    const next = groups.find(g => g.id === id);
     if (!next) return;
     const sortSurvives =
-      sortKey === "name" ||
-      ANCHOR_CELLS.some(c => c.key === sortKey) ||
-      next.cells.some(c => c.key === sortKey);
+      activeSortKey === "name" ||
+      anchors.some(c => c.key === activeSortKey) ||
+      next.cells.some(c => c.key === activeSortKey);
     if (!sortSurvives) {
-      setSortKey("presence");
+      setSortKey(null);
       setSortDir(-1);
     }
-    if (!next.cells.some(c => c.key === barStat)) {
+    if (!next.cells.some(c => c.key === activeBarStat)) {
       const first = next.cells.find(c => c.value);
       if (first) {
         setBarStat(first.key);
@@ -259,8 +278,8 @@ export function ChampionPanel({ conf, isMobile }: Props) {
       {/* Group pills and the role filter share one row, and the group pills stay put across views, so
           nothing below them shifts when the view changes. */}
       <StatGroupSwitcher
-        groups={CHAMPION_STAT_GROUPS}
-        activeId={groupId}
+        groups={groups}
+        activeId={group.id}
         onChange={onGroup}
         inline={
           <PillGroup
@@ -278,7 +297,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
           subject="Champions"
           rows={filtered}
           catalog={catalog}
-          statKey={barStat}
+          statKey={activeBarStat}
           onStatKey={(k, suggested) => { setBarStat(k); setBarDir(suggested); }}
           direction={barDir}
           onDirection={setBarDir}
@@ -300,7 +319,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
           columns={columns}
           nameHeader="Champion"
           isMobile={isMobile}
-          sortKey={sortKey}
+          sortKey={activeSortKey}
           sortDir={sortDir}
           onSort={onSort}
           expandedKey={expanded}
@@ -330,7 +349,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
                   </TeamLink>
                 </div>
               )}
-              <StatGroupDetail groups={CHAMPION_STAT_GROUPS} row={c} isMobile={isMobile} />
+              <StatGroupDetail groups={groups} row={c} isMobile={isMobile} />
             </>
           )}
         />

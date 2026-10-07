@@ -116,6 +116,8 @@ Do not edit that repository or derive data the API already answers.
   ticker group, with its own Suspense around the outlet.
 - `components/layout/SiteLayout.tsx` owns ticker, nav, footer, mobile bar and Suspense.
   `PageShell.tsx` publishes page width/extra bottom padding; pages never mount the ticker.
+  `home/ScoreboardTicker.tsx` hides its scrollbar and opens on now, so edge buttons page it while
+  it overflows; a vertical mouse wheel cannot reach the earlier results.
   The inner content scroller must stay `relative` so hidden absolute inputs/menu triggers cannot
   escape its overflow boundary. Keep flex/grid children shrinkable and overflow inside the page.
   Scroll the actual content container, not the window; it reserves a stable scrollbar gutter so
@@ -596,20 +598,55 @@ Do not edit that repository or derive data the API already answers.
   worded by `drafts/draftLabels.ts` (unknown codes verbatim). Links pass `draftLink` (HTTPS only).
   `league/schedule/DraftPanel.tsx` (per match, `queries.fixtureDraft` under the schedule root, viewer
   keyed, zero retention) creates a room with explicit labels and the schedule's resolved best-of,
-  shares it, rechecks results and lists games through `drafts/DraftGames.tsx` (physical sides, null
-  bans as no-ban art). `DayDraftsControl.tsx` posts `{}` for the day and reports per fixture.
+  shares it, rechecks results and lists games through `drafts/DraftGames.tsx` (two physical-side
+  columns, bans as icons above picks labeled with their locked position, null bans as no-ban art).
+  `DayDraftsControl.tsx` posts `{}` for the day and reports per fixture.
   A fixture holds one registration and the API cannot replace it: failed, uncertain and mismatched
   rooms end at a notice, and room creation never retries automatically. Site Admin > Drafts
   (`admin/drafts/`) saves the revisioned global settings (409 reloads) and pages receipts and
-  creations independently; only receipts can be reprocessed. Room writes invalidate the schedule
-  and drafts roots.
+  creations independently; only receipts can be reprocessed. Receipts have no retry timer: failed
+  and lease-expired `processing` receipts both take Reprocess. Room writes invalidate the schedule
+  and drafts roots. Its Game issues list (`queries.draftGameIssues`, opaque cursor) opens
+  `DraftCorrectionEditor.tsx` in place; `draftCorrection.ts` owns form state and mirrors the
+  server's checks. The list catches only champion mismatches and missing drafts, so the editor is
+  addressed by `?series=&game=` (`draftCorrectionLink.ts`) and site admins reach any game from
+  `DraftGames` and the game page's Draft tab. A correction sends picks, bans, first pick and all ten roles (required), with
+  the read's `draft.updatedAt` verbatim (null creates a game); a 409 reloads the editor. There is no
+  revert. Fearless repeats are saved warnings. Saves invalidate drafts, game and schedule roots;
+  statistics catch up on their own refresh about 30 seconds later.
+- Draft statistics: no league flag decides them. Champion `seriesPresence`/`blindPickRate` show in
+  the Draft group when any row has a `seriesPresence`. A response with any `prioScore` is fearless:
+  pick rate, ban rate and presence are hidden, prio score takes presence's anchor column and the
+  default sort, and `avgFearlessGame` joins the Draft group. Decided per response through
+  `StatCell.shownWhen`, `availableGroups`/`availableCells` and `defaultChampionSortKey`; null cells
+  render as a dash. `sortByCell` puts nulls last in both directions,
+  and stat headers carry `hint` text through `TooltipHint`. Outside the champion statistics, draft
+  information appears only in the match page's draft card, the game page's Draft tab and ban
+  slots: the match box score's bans arrive as Drafter's upstream, and the game scoreboard's
+  `TeamFooter` takes the draft side whose picks that map side played. Blind tags and pick order
+  stay on the Draft tab and card, not the box score. The First pick chip appears on the draft card,
+  the Draft tab and staff `DraftGames`, never the box score, and only when `firstSelection` is true,
+  since without it blue always picks first. `match/SeriesDraftSummary.tsx` is the Results tab's one draft card: each played game's
+  `queries.gameDraft` read, in chronological order through `lib/draftSequence.ts` (bans 1–6, picks
+  1–6, bans 7–10, picks 7–10, by the API's turns), edged by draft side; games without a draft are
+  omitted and the card hides when none has one.
+- `views/ScheduleView.tsx` reads one 200-row `/schedule` page. Its search box sends the feed's `q`
+  (two characters, debounced, `FEED_SEARCH_MAX`), which upstream applies to team, group, phase and
+  league labels before `limit`; never re-filter locally. Disclose capped pages from served
+  `truncated`, not the row count. Feed rows carry `groupId`/`group`, derived upstream from team
+  membership; `FeedMatchRow` shows the group beside the phase.
 - `match/TeamMatchHistory.tsx` uses served scheduleMatchId/phase without an extra schedule read;
   legacy matching falls back to seasonDay/opponentTeamId. Match result rows keep a consistent grid and
   contained overflow. SeriesTotals computes rates from totals, not averages of rates. The box score,
   totals and header orient sides on `lib/seriesStats.ts`'s `FixtureTeam` IDs; recorded codes only label.
   BanIcons preserves -1 as no ban and passes ChampionIcon both ID and source; SeriesGameCard labels
   each team's Victory/Defeat.
-- `pages/GameDetail.tsx` and `components/game/` render the match/timeline/context reads.
+- `pages/GameDetail.tsx` and `components/game/` render the match/timeline/context/draft reads.
+  The Draft tab (last, `needsDraft`) is listed only when `queries.gameDraft` returns a draft; a 404
+  or the hidden-conference 400 hides it without an error. It names sides "Blue draft"/"Red draft" by
+  team (the draft's sides need not be the lobby's); each side groups its bans as icons and lists its
+  picks as centered splash tiles (the scoreboard's crop), without turn numbers, game or patch (the
+  header has those), and flags a drafted role that differs from Riot's.
   Shared RiotIcons/ChampionIcon handle assets; RiotText tokenizes supported markup rather than
   injecting HTML. Scoreboard density templates use subgrid, responsive name columns and inner
   scrolling floors; preserve shared timeline selection state. Secondary panels (the Graphs stat

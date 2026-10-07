@@ -43,6 +43,8 @@ export interface FeedWindow {
   /** Upper bound as an offset from now. */
   to?: number;
   statuses?: readonly MatchStatus[];
+  /** A search term, filtered upstream before `limit`. See `FeedQuery.q`. */
+  q?: string;
   limit?: number;
   order?: "asc" | "desc";
 }
@@ -83,10 +85,11 @@ export function useFeedQuery(w: FeedWindow): FeedQuery {
       ...(w.to === undefined ? {} : { to: at(w.to) }),
       ...(confs === undefined ? {} : { confs }),
       ...(w.statuses === undefined ? {} : { statuses: w.statuses }),
+      ...(w.q === undefined ? {} : { q: w.q }),
       ...(w.limit === undefined ? {} : { limit: w.limit }),
       ...(w.order === undefined ? {} : { order: w.order }),
     };
-  }, [bucket, selection, activeConfs, activeSource, w.from, w.to, w.statuses, w.limit, w.order]);
+  }, [bucket, selection, activeConfs, activeSource, w.from, w.to, w.statuses, w.q, w.limit, w.order]);
 }
 
 /**

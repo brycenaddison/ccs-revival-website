@@ -502,7 +502,8 @@ const CHAMPION_COUNTS = [
 ] as const;
 
 const CHAMPION_RATIOS = [
-  "pickRate", "banRate", "presence", "avgBanTurn", "winPercent", "avgKills", "avgDeaths",
+  "pickRate", "banRate", "presence", "avgBanTurn", "seriesPresence", "blindPickRate", "prioScore",
+  "avgFearlessGame", "winPercent", "avgKills", "avgDeaths",
   "avgAssists", "csMin", "goldMin", "goldPercent", "killParticipation", "jungleProximity",
   "damagePercent", "damagePerGold", "damageMin", "xpMin", "visionScoreMin", "wardsMin",
   "controlWardsMin", "wardsClearedMin", "visionScorePercent", "goldDiffAt8", "csDiffAt8",

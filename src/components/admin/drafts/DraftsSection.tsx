@@ -1,11 +1,13 @@
 /**
- * Site Admin > Drafts: the global Drafter settings and the repair inbox.
+ * Site Admin > Drafts: the global Drafter settings, the repair inbox, and played games whose draft
+ * is wrong or missing. Correcting a game replaces the section with its editor until Back.
  *
  * Settings are one revisioned document saved whole. A 409 means someone else saved first, so the
  * document reloads and the form resets to it. A change applies only to rooms created afterwards;
  * existing rooms keep the settings they were created with.
  */
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { toast } from "sonner";
@@ -14,6 +16,9 @@ import { ChampionIcon } from "../../ChampionIcon";
 import { RadioOptions } from "../../RadioOptions";
 import { SettingsGroup, SettingsRow } from "../../settings/SettingsSection";
 import { DRAFT_MODE_LABEL, draftErrorText } from "../../drafts/draftLabels";
+import { DraftCorrectionEditor } from "./DraftCorrectionEditor";
+import { DraftGameIssuesPanel } from "./DraftGameIssuesPanel";
+import { draftGameRefOf, withDraftGame, withoutDraftGame, type DraftGameRef } from "./draftCorrectionLink";
 import { DraftIssuesPanel } from "./DraftIssuesPanel";
 import { useChampions } from "../../../hooks/useChampions";
 import { useAuth } from "../../../lib/authContext";
@@ -35,10 +40,26 @@ import { Combobox } from "@/components/ui/combobox";
 export function DraftsSection() {
   const { profile } = useAuth();
   const viewerId = profile?.id ?? null;
+  // The open game is in the query so other pages can link straight to it (`draftCorrectionLink.ts`).
+  const [params, setParams] = useSearchParams();
+  const correcting = draftGameRefOf(params);
+  const setCorrecting = (ref: DraftGameRef | null) =>
+    setParams(current => (ref ? withDraftGame(current, ref) : withoutDraftGame(current)));
+  if (correcting) {
+    return (
+      <DraftCorrectionEditor
+        key={`${correcting.drafterSeriesId}-${correcting.game}`}
+        viewerId={viewerId}
+        target={correcting}
+        onBack={() => setCorrecting(null)}
+      />
+    );
+  }
   return (
     <div className="flex flex-col gap-8">
       <SettingsGroup title="Settings for new rooms"><Settings viewerId={viewerId} /></SettingsGroup>
       <SettingsGroup title="Issues"><DraftIssuesPanel viewerId={viewerId} /></SettingsGroup>
+      <SettingsGroup title="Game issues"><DraftGameIssuesPanel viewerId={viewerId} onCorrect={setCorrecting} /></SettingsGroup>
     </div>
   );
 }

@@ -10,13 +10,18 @@
  * final items and runes off the match payload alone, so it stays useful without one and is not flagged.
  */
 
-export type GameTab = "scoreboard" | "graphs" | "builds" | "timeline";
+export type GameTab = "scoreboard" | "graphs" | "builds" | "timeline" | "draft";
 
 export interface GameTabEntry {
   slug: GameTab;
   label: string;
   /** The tab has nothing to draw without `GET /m/:matchId/timeline`. */
   needsTimeline: boolean;
+  /**
+   * The tab exists only for a game with a stored draft (`GET /m/:matchId/draft`), so the strip
+   * omits it otherwise. Last in the strip, so it appearing after load moves no other tab.
+   */
+  needsDraft?: true;
 }
 
 export const GAME_TABS: readonly GameTabEntry[] = [
@@ -24,6 +29,7 @@ export const GAME_TABS: readonly GameTabEntry[] = [
   { slug: "graphs", label: "Graphs", needsTimeline: false },
   { slug: "builds", label: "Builds", needsTimeline: false },
   { slug: "timeline", label: "Timeline", needsTimeline: true },
+  { slug: "draft", label: "Draft", needsTimeline: false, needsDraft: true },
 ];
 
 export const DEFAULT_GAME_TAB: GameTab = "scoreboard";

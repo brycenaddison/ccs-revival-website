@@ -11,7 +11,7 @@
  */
 
 import { fmtRatio, sortValue, type ChampionStats, type PlayerStats, type TeamStats } from "./api";
-import { col, dec, int, pct, signed, signedDec } from "./statFormat";
+import { col, dec, int, pct, pct0, signed, signedDec } from "./statFormat";
 
 /**
  * One statistic, as displayed.
@@ -36,6 +36,14 @@ export interface StatCell<T> {
   text?: (row: T) => string | null;
   /** Marks a rate where a higher number is worse, so a card can color it accordingly. */
   lowerIsBetter?: boolean;
+  /** What the number measures, for the column header's hover hint. */
+  hint?: string;
+  /**
+   * Whether the response carries this kind of data at all. A cell whose probe fails is dropped
+   * before rendering (see `availableGroups`), because an all-dash column says nothing a hidden one
+   * doesn't. Omitted means always shown.
+   */
+  shownWhen?: (rows: readonly T[]) => boolean;
 }
 
 export interface StatGroup<T> {
@@ -55,17 +63,37 @@ export function cellText<T>(cell: StatCell<T>, row: T): string {
 /**
  * Sort rows by one cell, descending when `dir` is -1.
  *
- * `sortValue` maps both null and Infinity to -Infinity, which is what keeps missing data at the
- * bottom of a descending sort instead of at the top where a reader would mistake it for a leader.
+ * Missing data sorts last in both directions, so it is never at the top where a reader would
+ * mistake it for a leader of either end. `sortValue` maps Infinity to -Infinity among the values.
  * A text-only or unknown cell leaves the order alone rather than scrambling it.
  */
 export function sortByCell<T>(rows: readonly T[], cell: StatCell<T> | undefined, dir: 1 | -1): readonly T[] {
   const read = cell?.value;
   if (!read) return rows;
   return [...rows].sort((a, b) => {
-    const descending = sortValue(read(b)) - sortValue(read(a));
+    const va = read(a);
+    const vb = read(b);
+    if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1;
+    const descending = sortValue(vb) - sortValue(va);
     return dir === -1 ? descending : -descending;
   });
+}
+
+/**
+ * The groups with every cell the response cannot fill removed, and any group left empty dropped.
+ * Decided per response rather than per league, because whether a conference has draft data is a
+ * fact about the games ingested so far.
+ */
+export function availableGroups<T>(groups: readonly StatGroup<T>[], rows: readonly T[]): readonly StatGroup<T>[] {
+  return groups.flatMap(g => {
+    const cells = availableCells(g.cells, rows);
+    return cells.length === 0 ? [] : [{ ...g, cells }];
+  });
+}
+
+/** The cells this response can fill. See `StatCell.shownWhen`. */
+export function availableCells<T>(cells: readonly StatCell<T>[], rows: readonly T[]): StatCell<T>[] {
+  return cells.filter(c => !c.shownWhen || c.shownWhen(rows));
 }
 
 /** A cell that remembers which group it came from, so a flat picker can still show the grouping. */
@@ -172,6 +200,37 @@ export const TEAM_STAT_GROUPS: readonly StatGroup<TeamStats>[] = [
 
 // --------------------------------------------------------------------- champions
 
+/**
+ * The probes for the draft columns. `seriesPresence` rather than `blindPickRate` for drafted
+ * leagues, because the latter can be null for one champion in a drafted league; `prioScore` for
+ * fearless ones, which is null only when the conference has no matched fearless game.
+ */
+const hasDraftData = (rows: readonly ChampionStats[]) => rows.some(c => c.seriesPresence !== null);
+export const hasFearlessData = (rows: readonly ChampionStats[]) => rows.some(c => c.prioScore !== null);
+/**
+ * Fearless retires a pick from the rest of the series, so per-game pick rate, ban rate and
+ * presence stop measuring priority. A fearless response shows prio score in their place.
+ */
+const withoutFearlessData = (rows: readonly ChampionStats[]) => !hasFearlessData(rows);
+
+export const CHAMPION_PRESENCE_CELL: StatCell<ChampionStats> = {
+  key: "presence", label: "Presence", value: cc("presence"), format: pct, shownWhen: withoutFearlessData,
+};
+
+export const CHAMPION_PRIO_CELL: StatCell<ChampionStats> = {
+  key: "prioScore",
+  label: "Fearless prio",
+  value: cc("prioScore"),
+  format: dec(1),
+  hint: "Weighted by how early in the series it is taken or banned: 100 for a game 1 pick or any ban, down to 20 in game 5, per game. Fearless games only.",
+  shownWhen: hasFearlessData,
+};
+
+/** The champion table's default sort: prio score where the response has fearless data, else presence. */
+export function defaultChampionSortKey(rows: readonly ChampionStats[]): string {
+  return hasFearlessData(rows) ? CHAMPION_PRIO_CELL.key : CHAMPION_PRESENCE_CELL.key;
+}
+
 export const CHAMPION_STAT_GROUPS: readonly StatGroup<ChampionStats>[] = [
   {
     id: "draft",
@@ -179,12 +238,40 @@ export const CHAMPION_STAT_GROUPS: readonly StatGroup<ChampionStats>[] = [
     cells: [
       { key: "games", label: "Picks", value: cc("games"), format: int },
       { key: "bans", label: "Bans", value: cc("bans"), format: int },
-      { key: "pickRate", label: "Pick Rate", value: cc("pickRate"), format: pct },
-      { key: "banRate", label: "Ban Rate", value: cc("banRate"), format: pct },
-      { key: "presence", label: "Presence", value: cc("presence"), format: pct },
+      { key: "pickRate", label: "Pick Rate", value: cc("pickRate"), format: pct, shownWhen: withoutFearlessData },
+      { key: "banRate", label: "Ban Rate", value: cc("banRate"), format: pct, shownWhen: withoutFearlessData },
+      CHAMPION_PRESENCE_CELL,
+      CHAMPION_PRIO_CELL,
+      {
+        key: "avgFearlessGame",
+        label: "Avg game",
+        value: cc("avgFearlessGame"),
+        format: dec(1),
+        // An earlier game means it was taken while the whole pool was still open.
+        lowerIsBetter: true,
+        hint: "Mean game number it is picked in. Fearless games only.",
+        shownWhen: hasFearlessData,
+      },
       // How early it leaves the board. A low turn is a higher-priority ban, so lower is "better"
       // in the sense of respected — the card colors it as such.
       { key: "avgBanTurn", label: "Avg Ban Turn", value: cc("avgBanTurn"), format: dec(1), lowerIsBetter: true },
+      {
+        key: "seriesPresence",
+        label: "Presence by series",
+        short: "Series pres.",
+        value: cc("seriesPresence"),
+        format: pct0,
+        hint: "Share of drafted series the champion was picked or banned in.",
+        shownWhen: hasDraftData,
+      },
+      {
+        key: "blindPickRate",
+        label: "Blind pick",
+        value: cc("blindPickRate"),
+        format: pct0,
+        hint: "Picked before the opposing laner, in drafted games.",
+        shownWhen: hasDraftData,
+      },
     ],
   },
   {

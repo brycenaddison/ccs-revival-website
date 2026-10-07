@@ -15,7 +15,8 @@
  * compare. After it: what happened. Stacking both made the box scores sit below a screenful of season
  * averages that were no longer the news. Results is the default whenever there are games — which is what
  * someone opening a finished match came for — and it is absent entirely when there are none, so the tab
- * strip never offers an empty page. Only the Preview tab costs extra requests, and only when it is open.
+ * strip never offers an empty page. The Results tab's draft card reads each played game's draft, and
+ * the Preview tab costs extra requests only when it is open.
  */
 
 import { useMemo, useState } from "react";
@@ -37,6 +38,7 @@ import {
   MatchupVs,
 } from "../components/match/MatchupHeader";
 import { MatchPredictionPanel } from "../components/predictions/MatchPredictionPanel";
+import { SeriesDraftSummary } from "../components/match/SeriesDraftSummary";
 import { SeriesGameCard } from "../components/match/SeriesGameCard";
 import { SeriesPreview } from "../components/match/SeriesPreview";
 import { SeriesTotals } from "../components/match/SeriesTotals";
@@ -258,6 +260,7 @@ function Results({ match }: { match: SeriesDetail }) {
   return (
     <>
       <SeriesTotals games={match.games} teamA={teamA} teamB={teamB} nameOf={nameOf} />
+      <SeriesDraftSummary games={match.games} />
 
       {match.games.map(g => (
         <SeriesGameCard
