@@ -24,8 +24,8 @@ import type { RequestOpts } from "./http";
 export const EDITOR_TEMPLATE_NAME_MAX = 40;
 export const EDITOR_TEMPLATE_BODY_MAX = 5000;
 export const EDITOR_TEMPLATES_MAX = 30;
-/** Upstream refuses a name containing any of these, even after trimming. */
-export const EDITOR_TEMPLATE_NAME_BREAK = /[\r\n\u0085  ]/;
+/** Upstream refuses these line breaks in a name (NEL and the line and paragraph separators too), even after trimming. */
+export const EDITOR_TEMPLATE_NAME_BREAK = /[\r\n\x85\p{Zl}\p{Zp}]/u;
 /** `{cursor}` or `{cursor:Selected text}`, the same pattern upstream counts. */
 export const CURSOR_PLACEHOLDER = /\{cursor(?::[^{}\n]*)?\}/;
 
