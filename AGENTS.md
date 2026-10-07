@@ -153,7 +153,8 @@ Do not edit that repository or derive data the API already answers.
   tokens alias CCS tokens. `ui/sidebar.tsx` has no Ctrl/Cmd+B shortcut or cookie and uses the
   `useWindowSize` breakpoint.
 - `components/search/SiteSearch.tsx` mounts one provider/dialog and Ctrl/Cmd+K handler per
-  SiteLayout, with lazy `SearchResults.tsx`. Triggers serve desktop, mobile bottom bar and
+  SiteLayout, with lazy `SearchResults.tsx`; its context and `useSiteSearch` live in
+  `searchContext.ts` so Fast Refresh keeps one context. Triggers serve desktop, mobile bottom bar and
   hamburger dropdown; mobile's top row has no search. Opening search closes the hamburger, and its
   dropdown trigger restores focus to the hamburger button. Keep the dialog outside that dropdown.
   Preserve bottom-bar spacing/`--bottom-nav-h`; editable fields and other dialogs retain shortcuts.

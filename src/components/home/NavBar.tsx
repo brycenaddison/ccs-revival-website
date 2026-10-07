@@ -7,7 +7,8 @@ import { SeasonPicker } from "../league/SeasonPicker";
 import { useAdminAccess } from "../../lib/adminAccess";
 import { useLeague, useSeasonLink } from "../../lib/leagueContext";
 import { TABS, tabForPathname, visibleTabs } from "../../lib/tabs";
-import { SiteSearchTrigger, useSiteSearch } from "../search/SiteSearch";
+import { SiteSearchTrigger } from "../search/SiteSearch";
+import { useSiteSearch } from "../search/searchContext";
 
 interface Props {
   isMobile: boolean;

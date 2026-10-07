@@ -1,23 +1,11 @@
-import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useLocation } from "react-router-dom";
 import { Search, X } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { RouteErrorBoundary } from "../layout/RouteErrorBoundary";
+import { SearchContext, useSiteSearch } from "./searchContext";
 
 const SearchResults = lazy(() => import("./SearchResults"));
-
-const SearchContext = createContext<{
-  open: boolean;
-  mac: boolean;
-  dialogId: string;
-  openSearch: (returnFocusTo: HTMLElement | null) => void;
-} | null>(null);
-
-export function useSiteSearch() {
-  const context = useContext(SearchContext);
-  if (!context) throw new Error("Search controls must be inside SiteSearch");
-  return context;
-}
 
 /** One dialog and keyboard handler for every search entry point in the layout. */
 export function SiteSearch({ children }: { children: ReactNode }) {
