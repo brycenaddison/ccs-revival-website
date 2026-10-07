@@ -13,6 +13,8 @@ import { MarkdownContextMenu } from "./markdown/MarkdownContextMenu";
 import { TableSizePicker } from "./markdown/TableSizePicker";
 import { useEditorSize } from "./markdown/useEditorSize";
 import { useMarkdownSession, type MarkdownSession } from "./markdown/useMarkdownSession";
+import { useEditorTemplates } from "../../hooks/useEditorTemplates";
+import type { EditorTemplate } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -80,6 +82,7 @@ function MarkdownHelp() {
         <p className="mt-2">Shift + right-click opens the browser menu. Touch and long-press keep the phone’s text-selection menu.</p>
         <p className="mt-2">Table opens a grid to choose columns and rows, including the header row.</p>
         <p className="mt-2">Table of contents adds <code>[TOC]</code> on its own line. Readers see a linked list of the headings there, which stays current as headings change.</p>
+        <p className="mt-2">Templates, when site admins have saved some, inserts a ready-made snippet at the cursor.</p>
         <p className="mt-2">Images go inline at the saved cursor position without adding line breaks. Type a description between the empty square brackets. {UPLOAD_LIMIT_TEXT}</p>
         <p className="mt-2 break-words">Set image size with <code>{'![Description](image-url "width=256")'}</code> (1–9999 pixels). Images shrink to fit and keep their proportions. Ordinary image titles remain tooltips.</p>
         <p className="mt-2">To resize the editor outside full-screen mode, use "Drag to resize". You can also focus "Drag to resize" then use Up/Down to change height by 32 pixels, or Home/End for the limits.</p>
@@ -95,10 +98,11 @@ interface WorkspaceProps {
   uploading: boolean; uploadError: string | null;
   insertion: InsertionDraft | null; setInsertion: (draft: InsertionDraft | null) => void;
   sourceId: string;
+  templates: EditorTemplate[]; insertTemplate: (body: string) => void;
 }
 
 function Workspace({ session, state, value, preset, label, fullscreen, mode, setMode, exit,
-  sizing, run, uploading, uploadError, insertion, setInsertion, sourceId }: WorkspaceProps) {
+  sizing, run, uploading, uploadError, insertion, setInsertion, sourceId, templates, insertTemplate }: WorkspaceProps) {
   const frame = useRef<HTMLDivElement>(null);
   const [wide, setWide] = useState(false);
   const linkId = useId();
@@ -144,7 +148,7 @@ function Workspace({ session, state, value, preset, label, fullscreen, mode, set
         )}
       </div>
       <Popover open={insertion !== null} onOpenChange={open => { if (!open) closeInsertion(); }}>
-        <PopoverAnchor asChild><div className="shrink-0"><MarkdownToolbar state={state} run={run} writing={writing} uploading={uploading} /></div></PopoverAnchor>
+        <PopoverAnchor asChild><div className="shrink-0"><MarkdownToolbar state={state} run={run} writing={writing} uploading={uploading} templates={templates} insertTemplate={insertTemplate} /></div></PopoverAnchor>
         <PopoverContent aria-label={insertion?.kind === "table" ? "Insert table" : "Insert link"} align="start"
           className="max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-24px)] overflow-y-auto"
           onCloseAutoFocus={event => { event.preventDefault(); session.focus(); }}
@@ -174,7 +178,7 @@ function Workspace({ session, state, value, preset, label, fullscreen, mode, set
       <div className={`grid min-h-0 min-w-0 border-t border-border ${fullscreen ? "flex-1" : "shrink-0"} ${visibleMode === "split" ? "grid-cols-2" : "grid-cols-1"}`}
         style={fullscreen ? undefined : { height: sizing.height }}>
         <div id={sourceId} className={`${writing ? "" : "hidden"} min-h-0 min-w-0 ${visibleMode === "split" ? "border-r border-border" : ""}`}>
-          <MarkdownContextMenu session={session} state={state} run={run} uploading={uploading}>
+          <MarkdownContextMenu session={session} state={state} run={run} uploading={uploading} templates={templates} insertTemplate={insertTemplate}>
             <Source session={session} visible={writing} />
           </MarkdownContextMenu>
         </div>
@@ -210,6 +214,7 @@ export function MarkdownEditor({ value, onChange, size = "document", placeholder
   const uploadBookmark = useRef<symbol | null>(null);
   const container = useRef<HTMLDivElement>(null);
   const sourceId = useId();
+  const templates = useEditorTemplates();
   function changeMode(next: Mode) {
     session.afterComposition(() => {
       session.rememberScroll();
@@ -247,11 +252,17 @@ export function MarkdownEditor({ value, onChange, size = "document", placeholder
       session.focus();
     }
   }
+  function insertTemplate(body: string) {
+    if (session.composing) return;
+    session.insertTemplate(body);
+    session.focus();
+  }
   useLayoutEffect(() => { session.onAction = run; });
   useEffect(() => { setInsertion(null); }, [resetKey]);
   const workspace = <Workspace session={session} state={state} value={value} preset={preset} label={ariaLabel}
     fullscreen={fullscreen} mode={mode} setMode={changeMode} exit={() => changeFullscreen(false)} sizing={sizing}
-    run={run} uploading={picker.busy} uploadError={picker.error} insertion={insertion} setInsertion={setInsertion} sourceId={sourceId} />;
+    run={run} uploading={picker.busy} uploadError={picker.error} insertion={insertion} setInsertion={setInsertion} sourceId={sourceId}
+    templates={templates} insertTemplate={insertTemplate} />;
 
   return (
     <TooltipProvider delayDuration={300}>

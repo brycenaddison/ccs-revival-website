@@ -471,6 +471,17 @@ export {
 } from "./announcements";
 export type { AnnouncementCreate, AnnouncementUpdate } from "./announcements";
 export {
+  editorTemplates,
+  saveEditorTemplates,
+  cursorPlaceholderCount,
+  CURSOR_PLACEHOLDER,
+  EDITOR_TEMPLATE_BODY_MAX,
+  EDITOR_TEMPLATE_NAME_BREAK,
+  EDITOR_TEMPLATE_NAME_MAX,
+  EDITOR_TEMPLATES_MAX,
+} from "./editorTemplates";
+export type { EditorTemplate, EditorTemplateInput, EditorTemplateList, EditorTemplatesSave } from "./editorTemplates";
+export {
   seasonApi,
   phaseList,
   phaseDocument,

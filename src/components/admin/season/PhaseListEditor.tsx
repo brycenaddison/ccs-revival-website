@@ -22,8 +22,9 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Check, GitBranch, Plus, Trash2, Users } from "lucide-react";
+import { Check, GitBranch, Plus, Trash2, Users } from "lucide-react";
 import { ConfirmButton } from "../../ConfirmButton";
+import { MoveButtons } from "../../MoveButtons";
 import { DateTimePicker } from "../../DateTimePicker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -285,28 +286,13 @@ function PhaseRow({
           {!phase.published && !isNew && <Badge variant="muted">Hidden</Badge>}
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onMove(-1)}
-            disabled={isFirst}
-            aria-label={`Move ${phase.name} earlier`}
-          >
-            <ArrowUp size={13} aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onMove(1)}
-            disabled={isLast}
-            aria-label={`Move ${phase.name} later`}
-          >
-            <ArrowDown size={13} aria-hidden="true" />
-          </Button>
-        </div>
+        <MoveButtons
+          onMove={onMove}
+          isFirst={isFirst}
+          isLast={isLast}
+          upLabel={`Move ${phase.name} earlier`}
+          downLabel={`Move ${phase.name} later`}
+        />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

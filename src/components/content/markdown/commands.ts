@@ -6,6 +6,7 @@ import {
   Minus, Quote, Redo2, Strikethrough, Table, TableOfContents, Undo2, type LucideIcon,
 } from "lucide-react";
 import { TOC_MARKER } from "@/lib/markdownToc";
+import { CURSOR_PLACEHOLDER } from "@/lib/api";
 
 export type CommandId = "undo" | "redo" | "paragraph" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
   | "bold" | "italic" | "strike" | "bullet" | "ordered" | "task" | "link" | "image"
@@ -194,6 +195,18 @@ const codeBlock: StateCommand = target => {
   const fence = "`".repeat(backtickWidth(content, 3));
   return insertBlock(target, from, to, `${fence}\n${content}${content.endsWith("\n") ? "" : "\n"}${fence}`, fence.length + 1, fence.length + 1 + content.length);
 };
+
+/**
+ * A template inserts as a block. Its cursor placeholder is removed: `{cursor}` leaves the caret
+ * there and `{cursor:Text}` leaves `Text` selected. Without one, the caret ends after the template.
+ */
+export function insertTemplate(target: Target, from: number, to: number, body: string) {
+  const match = CURSOR_PLACEHOLDER.exec(body);
+  if (!match) return insertBlock(target, from, to, body, body.length);
+  const selected = match[0].startsWith("{cursor:") ? match[0].slice("{cursor:".length, -1) : "";
+  const text = body.slice(0, match.index) + selected + body.slice(match.index + match[0].length);
+  return insertBlock(target, from, to, text, match.index, match.index + selected.length);
+}
 
 export function escapeDestination(url: string) {
   return url.trim().replace(/&/g, "&amp;").replace(/[\s<>\\()]/g, char => encodeURIComponent(char).replace(/\(/g, "%28").replace(/\)/g, "%29"));

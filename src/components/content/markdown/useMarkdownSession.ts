@@ -3,7 +3,7 @@ import { EditorState, type Transaction } from "@codemirror/state";
 import { drawSelection, EditorView, keymap, placeholder as placeholderExtension } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
-import { commandById, commands, escapeDestination, insertInline, insertLink, insertTable, type CommandId, type TableSize } from "./commands";
+import { canFormat, commandById, commands, escapeDestination, insertInline, insertLink, insertTable, insertTemplate, type CommandId, type TableSize } from "./commands";
 
 interface Options {
   value: string;
@@ -173,6 +173,12 @@ export class MarkdownSession {
     const inserted = insertTable(this, bookmark.from, bookmark.to, size);
     if (inserted) this.bookmarks.delete(id);
     return inserted;
+  }
+  /** At the live selection: template menus run after they close, once focus is back in the editor. */
+  insertTemplate(body: string) {
+    if (this.composing || !canFormat(this.state)) return;
+    const { from, to } = this.state.selection.main;
+    insertTemplate(this, from, to, body);
   }
 
   afterComposition(action: () => void) {

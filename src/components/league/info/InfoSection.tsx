@@ -8,7 +8,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useParams } from "react-router-dom";
 import {
   errorMessage,
@@ -29,6 +29,7 @@ import {
 } from "../../admin/adminUi";
 import { SettingsRow } from "../../settings/SettingsSection";
 import { MarkdownEditor } from "../../content/MarkdownEditor";
+import { MoveButtons } from "../../MoveButtons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -209,24 +210,14 @@ function InfoEditor({ conf, info, onSaved }: { conf: string; info: LeagueInfo | 
                     />
                   </div>
                   <div className="flex items-center gap-1 pb-1">
-                    <Button
-                      variant="quiet" size="inline"
-                      type="button"
-                      disabled={index === 0}
-                      onClick={() => moveLink(index, -1)}
-                      aria-label={`Move ${link.label || "link"} up`}
-                    >
-                      <ArrowUp size={14} />
-                    </Button>
-                    <Button
-                      variant="quiet" size="inline"
-                      type="button"
-                      disabled={index === links.length - 1}
-                      onClick={() => moveLink(index, 1)}
-                      aria-label={`Move ${link.label || "link"} down`}
-                    >
-                      <ArrowDown size={14} />
-                    </Button>
+                    <MoveButtons
+                      variant="quiet"
+                      onMove={by => moveLink(index, by)}
+                      isFirst={index === 0}
+                      isLast={index === links.length - 1}
+                      upLabel={`Move ${link.label || "link"} up`}
+                      downLabel={`Move ${link.label || "link"} down`}
+                    />
                     <Button
                       variant="quiet" size="inline"
                       type="button"

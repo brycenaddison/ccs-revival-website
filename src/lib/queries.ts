@@ -24,6 +24,7 @@ import {
   draftGameIssues,
   draftIssues,
   draftSettings,
+  editorTemplates,
   fixtureDraft,
   gameDraft,
   globalDefinitions,
@@ -731,6 +732,21 @@ export const queries = {
     }),
 
   /**
+   * The editor's Templates menu and the Site Admin list behind it. Private and viewer keyed; callers
+   * pass a null viewer unless the session holds the content or site admin role, so nobody else asks.
+   * Read fresh on mount because the Site Admin editor saves under its revision.
+   */
+  editorTemplates: (viewerId: number | null) =>
+    query({
+      queryKey: ["editorTemplates", viewerId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => editorTemplates({ signal }),
+      enabled: viewerId !== null,
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+      retry: false,
+    }),
+
+  /**
    * The admin user directory, one page of it.
    *
    * `staleTime: 0` unlike everything above: this reads roles, and a role list is exactly the thing
@@ -1215,6 +1231,8 @@ export const queryRoots = {
   info: ["info"] as const,
   /** The banner list behind the site-admin editor. The public copy lives under `home`. */
   announcements: ["announcements"] as const,
+  /** The editor templates list, read by every Markdown editor's menu and the Site Admin editor. */
+  editorTemplates: ["editorTemplates"] as const,
   standings: ["standings"] as const,
   stats: ["stats"] as const,
   /**

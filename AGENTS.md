@@ -71,7 +71,8 @@ Do not edit that repository or derive data the API already answers.
   Toaster in `main.tsx`); failures stay inline. Hover hints use `TooltipHint`, never `title`; one
   `TooltipProvider` wraps the app. Modal, layered and focus-trapped UI uses shared Radix wrappers,
   never handmade overlays, `window.confirm` or `window.alert`. Destructive confirmation uses
-  `ConfirmButton`; confirmations that need input first use `FormDialog`.
+  `ConfirmButton`; confirmations that need input first use `FormDialog`. `MoveButtons` is every
+  Move up/Move down pair for a list whose order is saved (`quiet` beside other quiet row actions).
 - Shared page pieces: `BackLink` is every page-level back link (history-aware `fallback`, or an
   explicit `to` + label); in-panel back buttons use `BackButton` from `admin/adminUi.tsx`.
   `league/DivisionPicker.tsx` is the single-choice Toggle Group that picks one concurrent division
@@ -206,6 +207,17 @@ Do not edit that repository or derive data the API already answers.
   code, block quote, code block, table, table of contents and horizontal rule. Heading options share styling.
   `TableSizePicker.tsx` shares an 8x8 pointer/keyboard grid in a Popover; dimensions include the
   header row. CodeMirror styling is scoped Tailwind; overriding unlayered defaults needs importance.
+  A Templates toolbar menu and context submenu list `hooks/useEditorTemplates.ts`'s templates in
+  served order, only for the content or site admin role and only when the read returns some (a
+  failed read hides them). `insertTemplate` adds a block, one undo step, turning the single
+  `{cursor}` placeholder into the caret or `{cursor:Text}` into a selection of Text.
+- `api/editorTemplates.ts` maps `GET /editor-templates` (content role or site admin) and the
+  site-admin whole-list `PUT /admin/editor-templates`, mirroring limits and the placeholder pattern.
+  A list it cannot map whole has a null revision and cannot be saved, since a dropped row would read
+  as a deletion. `queries.editorTemplates` is private, viewer keyed, under `queryRoots.editorTemplates`.
+  Site Admin > Editor templates (`admin/EditorTemplatesSection.tsx`) edits a local copy and saves it
+  in one request; a newer served revision (including after a 409) shows Load the latest instead of
+  replacing edits. Local checks mirror upstream's; 422 issues use `admin/season/issues.tsx`.
 - `components/Markdown.tsx` is the sole renderer for articles, Info, application notes and
   previews. Raw HTML stays disabled. `patches/` removes remark-gfm's email-autolink regex
   lookbehind, which throws on Safari before 16.4; re-check it when upgrading. Exact image title `width=N` (1–9999) sets display width,

@@ -14,13 +14,14 @@
  */
 
 import { useParams } from "react-router-dom";
-import { Award, CalendarRange, Coins, Import, Megaphone, ShieldCheck, Swords, Ticket, Trophy } from "lucide-react";
+import { Award, CalendarRange, Coins, Import, LayoutTemplate, Megaphone, ShieldCheck, Swords, Ticket, Trophy } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
 import { GlobalAccoladesSection } from "../components/admin/accolades/GlobalAccoladesSection";
 import { ImportApplicationsSection } from "../components/admin/applications/ImportApplicationsSection";
 import { AnnouncementsSection } from "../components/admin/AnnouncementsSection";
+import { EditorTemplatesSection } from "../components/admin/EditorTemplatesSection";
 import { LeaguesSection } from "../components/admin/LeaguesSection";
 import { RolesSection } from "../components/admin/RolesSection";
 import { SeasonStructureSection } from "../components/admin/season/SeasonStructureSection";
@@ -92,6 +93,15 @@ const AREA: SettingsArea = {
       // concluding the feature was dropped.
       description: "The banner on the home page. Articles live in the content portal at /content.",
       Component: AnnouncementsSection,
+    },
+    {
+      slug: "editor-templates",
+      label: "Editor templates",
+      icon: LayoutTemplate,
+      // Site admin only to change, matching the API. Content editors read them through the editor's
+      // Templates menu, not here.
+      description: "Markdown snippets content editors insert from the editor's Templates menu.",
+      Component: EditorTemplatesSection,
     },
     {
       slug: "predictions",

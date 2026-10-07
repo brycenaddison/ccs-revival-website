@@ -50,8 +50,9 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Check, Flag, Plus, Trash2 } from "lucide-react";
+import { Check, Flag, Plus, Trash2 } from "lucide-react";
 import { DateTimePicker } from "../../DateTimePicker";
+import { MoveButtons } from "../../MoveButtons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -696,28 +697,14 @@ function NodeCard({
       <div className="flex items-center gap-2 mb-2.5">
         <Badge variant="muted">{phase.bracketView === false ? `Round ${node.match.matchDay}` : isCyclic ? "No round - looped" : roundName(round)}</Badge>
         <span className="text-text-dim text-xs">#{node.match.ordinal} on day {node.match.matchDay}</span>
-        <div className="ml-auto flex items-center gap-1.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onMove(-1)}
-            disabled={isFirst}
-            aria-label="Move this match earlier in the day"
-          >
-            <ArrowUp size={13} aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onMove(1)}
-            disabled={isLast}
-            aria-label="Move this match later in the day"
-          >
-            <ArrowDown size={13} aria-hidden="true" />
-          </Button>
-        </div>
+        <MoveButtons
+          className="ml-auto"
+          onMove={onMove}
+          isFirst={isFirst}
+          isLast={isLast}
+          upLabel="Move this match earlier in the day"
+          downLabel="Move this match later in the day"
+        />
       </div>
 
       {isCyclic && (
