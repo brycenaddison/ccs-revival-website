@@ -59,7 +59,7 @@ const isRuleColumn = (id: string): id is RuleColumnId => id in RULE_COLUMNS;
  * The rule columns a table shows: the league's rules that have one, in the league's order, optionally
  * limited to `only`. Empty without a tiebreaker read, so a failed read only drops the columns.
  */
-export function ruleColumns(doc: TiebreakerDocument | undefined, only?: readonly RuleColumnId[]): RuleColumn[] {
+export function ruleColumns(doc: TiebreakerDocument | null | undefined, only?: readonly RuleColumnId[]): RuleColumn[] {
   if (!doc) return [];
   return tiebreakerInfos(doc).flatMap(info =>
     isRuleColumn(info.id) && (!only || only.includes(info.id)) ? [{ id: info.id, label: info.label }] : [],
