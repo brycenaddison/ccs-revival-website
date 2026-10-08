@@ -3,15 +3,21 @@
  *
  * The graph, precisely: a **node** is one match, and it always has one — creating a node creates its
  * match. A node has exactly **two slots**, `top` and `bottom`, which are the match's `teamAId` and
- * `teamBId`. A slot is one of two things and the difference is the whole editor:
+ * `teamBId`. A slot is one of three things and the difference is the whole editor:
  *
  *  - **entry** — `src: null`. A human places the team, and it lives on the match. `seed` may carry a
  *    display label.
- *  - **derived** — `src: { node, output }`. Propagation owns the team, so the picker is disabled;
+ *  - **node-derived** — `src: { node, output }`. Propagation owns the team, so the picker is disabled;
  *    anything sent there is overwritten by the next result anyway.
+ *  - **seed-derived**: `src: { phase, group, place }`. Row `place` of an earlier table, from the
+ *    candidates panel. Propagation fills it once that table is final and the row is not tied, so the
+ *    team is read-only and the slot says why it is still empty. `seed` stays a label the editor
+ *    writes; picking a source suggests one. Each row fills one slot in the conference: this document's
+ *    other slots are checked here, and a slot in another phase only by the save.
  *
- * Saved manual rounds (`bracketView: false`) forbid every source. The editor keeps team and seed
- * controls but disables advancement choices; the API validates the same invariant on save.
+ * The phase view is presentation only: manual rounds (`bracketView: false`) take every kind of source,
+ * so a playoff seeded from a Swiss table can still pair its later rounds by hand. A phase with a
+ * standings table also suggests each placed team's seed from its own locked table.
  *
  * **A column is a match day, and the round each card belongs to is derived from the wiring.** Those are
  * two different things and the editor needs both: the day is what a match is *scheduled* on and what the
@@ -42,14 +48,14 @@
  *
  * **`seed` is a free-form label and nothing resolves it.** A string, not a number: `"1"`, `"1A"` for the
  * first seed out of group A, or `"12-16"` for a pick from a range of lower seeds. A slot with seed `4` and no team renders `(4) TBD`, and no code path
- * looks a team up by it. It is offered on **entry slots only** — a derived slot holds whoever won the
- * match feeding it, so there is nobody to label — and switching a slot to derived clears it rather than
- * hiding a value the save would still write. Byes fall out for free: a seven-team bracket needs no bye
+ * looks a team up by it. It is offered on **entry and seed slots** — a node-derived slot holds whoever
+ * won the match feeding it, so there is nobody to label — and switching a slot to a node source clears
+ * it rather than hiding a value the save would still write. Byes fall out for free: a seven-team bracket needs no bye
  * node, because the team with the bye is placed directly into its second-round slot as an entry.
  */
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Flag, Plus, Trash2 } from "lucide-react";
 import { DateTimePicker } from "../../DateTimePicker";
 import { MoveButtons } from "../../MoveButtons";
@@ -57,7 +63,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from "@/components/ui/native-select";
 import { ErrorLine } from "../adminUi";
 import { IssueList, invalidAt } from "./issues";
 import { PhaseViewField } from "./PhaseViewField";
@@ -65,8 +71,17 @@ import { DayKickoffField, StrandedDaysNotice, withDayDefault } from "./DayKickof
 import { StandingsReference, type ReferenceTable } from "../../season/StandingsReference";
 import { queries, queryRoots } from "../../../lib/queries";
 import {
+  heldLabel,
+  ordinal,
+  positionSeedLabel,
+  roundIndex,
+  seedLabel,
+  tableStatus,
+} from "../../../lib/seeding";
+import {
   BEST_OF_VALUES,
   NODE_LABEL_MAX,
+  SEED_PLACE_MAX,
   SLOT_SEED_MAX,
   STREAM_URL_MAX,
   SaveRejected,
@@ -75,6 +90,10 @@ import {
   dayKickoffs,
   errorMessage,
   isBestOf,
+  isBracketContents,
+  isBracketPhase,
+  isNodeSource,
+  isSeedSource,
   isSlotSeed,
   pinnedDaysAfter,
   savePhaseContents,
@@ -86,8 +105,12 @@ import {
   type BestOf,
   type BracketPhaseContents,
   type CandidatePhase,
+  type CandidateTeam,
+  type HeldReason,
   type NodeSave,
+  type PhaseKind,
   type PhaseSummary,
+  type SeedSource,
   type SlotOutput,
   type SlotSave,
   type SlotSide,
@@ -143,6 +166,63 @@ const outputKey = (node: number, output: SlotOutput): string => `${node}:${outpu
 /** Round 0 is the nodes nothing feeds; after that it is just the number. */
 const roundName = (depth: number): string => (depth === 0 ? "Entry round" : `Round ${depth + 1}`);
 
+/**
+ * One earlier table a seed source can read, flattened from `/candidates`: a group of a group phase,
+ * or a whole bracket table (`group: null`).
+ */
+interface SeedTable {
+  /** `"12:3"` for group 3 of phase 12, `"14:table"` for phase 14's bracket table. */
+  key: string;
+  phase: number;
+  phaseName: string;
+  kind: PhaseKind;
+  group: number | null;
+  groupName: string | null;
+  heading: string;
+  final: boolean;
+  lockedThrough: number | null;
+  /** "Seeds after round N" for a bracket table, counted from that phase's fixture days. */
+  round: number;
+  rows: readonly CandidateTeam[];
+  /**
+   * This phase's own table, read by a slot over the rounds before the slot's round. It is a different
+   * table for every round, so it has no rows here and is never offered on the first round.
+   */
+  own: boolean;
+}
+
+const tableKey = (phase: number, group: number | null): string => `${phase}:${group ?? "table"}`;
+const sourceTableKey = (src: SeedSource): string => tableKey(src.phase, src.group);
+/**
+ * The key a table row is unique on: across the conference, or per round (`round`, the reading slot's
+ * match day) for a row of this phase's own table, since each round reads a different one.
+ */
+const placeKey = (src: SeedSource, round: number | null): string =>
+  `${sourceTableKey(src)}:${src.place}${round === null ? "" : `@${round}`}`;
+
+/**
+ * Why a seed slot is not filled, derived from the candidates the editor already holds, in the order
+ * upstream checks. `frozen` (a recorded game) only comes from propagating, so it never appears here.
+ */
+function derivedHeld(table: SeedTable, place: number): HeldReason | null {
+  if (!table.final) return "incomplete";
+  const row = table.rows[place - 1];
+  if (!row) return "no_team";
+  return row.tied ? "tied" : null;
+}
+
+/**
+ * A seed label that is still a suggestion, replaceable by the next one: a bare position ("3"), which is
+ * what the editor suggests, or the "Seed 3" an earlier version suggested.
+ */
+const SUGGESTED_SEED = /^(Seed )?\d+$/;
+
+/** This phase's locked table: the match day it counts through, and each team's position in it. */
+interface SwissSeeds {
+  lockedThrough: number;
+  positions: ReadonlyMap<number, number>;
+}
+
 export function BracketPhaseEditor({
   conf,
   phase,
@@ -159,12 +239,72 @@ export function BracketPhaseEditor({
   const [viewPath, setViewPath] = useState("");
   const view = viewChoice && viewChoice.base === phase.bracketView ? viewChoice.value : phase.bracketView;
   const manualRounds = phase.bracketView === false;
-  const hasManualSources = manualRounds && draft.nodes.some(node => node.top.src !== null || node.bottom.src !== null);
 
   const candidates = useQuery(queries.phaseCandidates(conf, phase.id));
 
+  /*
+   * Each earlier bracket table's own document, only to count its fixture days: "Seeds after round N"
+   * numbers rounds, and `lockedThrough` is a match day. They differ only when a day is left empty, and
+   * until a document arrives the match day stands in.
+   */
+  const tablePhaseIds = useMemo(
+    () => (candidates.data ?? []).filter(p => p.kind === "bracket").map(p => p.phaseId),
+    [candidates.data],
+  );
+  const sourceDocs = useQueries({ queries: tablePhaseIds.map(id => queries.phaseDocument(conf, id)) });
+  const fixtureDays = new Map<number, number[]>();
+  sourceDocs.forEach((doc, i) => {
+    const source = doc.data?.contents;
+    if (source && isBracketContents(source)) {
+      fixtureDays.set(tablePhaseIds[i], source.nodes.map(n => n.match.matchDay));
+    }
+  });
+  const seedTables = toSeedTables(candidates.data ?? [], fixtureDays);
+  // With a standings table, the phase's later rounds can be seeded from its earlier ones. The table
+  // depends on the slot's round, so it carries no rows; the saved value of the setting is what counts.
+  const pickTables: SeedTable[] =
+    phase.standingsTable === true
+      ? [
+          ...seedTables,
+          {
+            key: tableKey(phase.id, null),
+            phase: phase.id,
+            phaseName: phase.name,
+            kind: "bracket",
+            group: null,
+            groupName: null,
+            heading: "this phase, after the earlier rounds",
+            final: false,
+            lockedThrough: null,
+            round: 0,
+            rows: [],
+            own: true,
+          },
+        ]
+      : seedTables;
+  // Only the read's state; a slot with nothing to offer says why itself, since that depends on its round.
+  const tablesNote = candidates.isPending
+    ? "Loading earlier tables…"
+    : candidates.isError
+      ? "Couldn't load earlier tables"
+      : null;
+
+  /*
+   * This phase's own locked table, for a manual Swiss stage: a team placed in a round after the lock
+   * is offered its position as a seed label. Only the public read serves it, so an unpublished phase
+   * gets no suggestion, and round 1 none either (nothing is locked before it).
+   */
+  const seasonView = useQuery({ ...queries.seasonView(conf), enabled: phase.standingsTable === true });
+  const ownTable = seasonView.data?.phases.find(p => p.id === phase.id);
+  const swissSeeds =
+    ownTable && isBracketPhase(ownTable) && ownTable.standings && ownTable.lockedThrough !== null
+      ? {
+          lockedThrough: ownTable.lockedThrough,
+          positions: new Map(ownTable.standings.flatMap(r => (r.teamId === null ? [] : [[r.teamId, r.position] as const]))),
+        }
+      : null;
+
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(contents), [draft, contents]);
-  const savedSources = contents.nodes.some(node => node.top.src !== null || node.bottom.src !== null);
 
   const saveView = useMutation({
     retry: false,
@@ -202,11 +342,32 @@ export function BracketPhaseEditor({
     draft.nodes.forEach((node, index) => {
       for (const side of ["top", "bottom"] as const) {
         const src = node[side].src;
-        if (src) map.set(outputKey(src.node, src.output), `${nameOf(node, index)} · ${side}`);
+        if (isNodeSource(src)) map.set(outputKey(src.node, src.output), `${nameOf(node, index)} · ${side}`);
       }
     });
     return map;
   }, [draft.nodes]);
+
+  /**
+   * Every table row a slot in this document reads, and the slots reading it.
+   *
+   * A row fills at most one slot in the conference, so a second reader here is disabled in the place
+   * picker and blocks the save. A reader in another phase is refused by the save, naming that phase.
+   */
+  const placeReaders = useMemo(() => {
+    const map = new Map<string, string[]>();
+    draft.nodes.forEach((node, index) => {
+      for (const side of ["top", "bottom"] as const) {
+        const src = node[side].src;
+        if (src && isSeedSource(src)) {
+          const key = placeKey(src, src.phase === phase.id ? node.match.matchDay : null);
+          map.set(key, [...(map.get(key) ?? []), `${nameOf(node, index)} · ${side}`]);
+        }
+      }
+    });
+    return map;
+  }, [draft.nodes, phase.id]);
+  const sharedPlaces = [...placeReaders.values()].filter(readers => readers.length > 1).length;
 
   /** Terminal while editing: nothing in the current draft consumes either output. */
   const terminalNow = useMemo(
@@ -351,8 +512,8 @@ export function BracketPhaseEditor({
         .filter(n => n.id !== id)
         .map(n => ({
           ...n,
-          top: n.top.src?.node === id ? { ...n.top, src: null } : n.top,
-          bottom: n.bottom.src?.node === id ? { ...n.bottom, src: null } : n.bottom,
+          top: isNodeSource(n.top.src) && n.top.src.node === id ? { ...n.top, src: null } : n.top,
+          bottom: isNodeSource(n.bottom.src) && n.bottom.src.node === id ? { ...n.bottom, src: null } : n.bottom,
         })),
     );
 
@@ -398,13 +559,12 @@ export function BracketPhaseEditor({
           <Button
             type="button"
             variant="outline"
-            disabled={view === null || view === phase.bracketView || dirty || (view === false && savedSources) || save.isPending || saveView.isPending}
+            disabled={view === null || view === phase.bracketView || dirty || save.isPending || saveView.isPending}
             onClick={() => { if (view !== null) saveView.mutate(view); }}
           >
             {saveView.isPending ? "Saving view…" : "Save phase view"}
           </Button>
           {dirty && <p className="text-xs text-text-dim">Save or discard the match changes before saving the phase view.</p>}
-          {view === false && savedSources && <p className="text-xs text-text-dim">Clear every advancement source and save the bracket first.</p>}
         </div>
         <IssueList issues={viewIssues} />
         <ErrorLine message={saveView.isError && !(saveView.error instanceof SaveRejected) ? errorMessage(saveView.error) : null} />
@@ -412,22 +572,16 @@ export function BracketPhaseEditor({
 
       <fieldset disabled={saveView.isPending} className="flex min-w-0 flex-col gap-5 border-0 p-0">
         <p className="text-text-secondary text-sm max-w-2xl">
-          {manualRounds ? (
-            <>Each card is one match. Place teams by hand in each round. Results do not assign teams in
-              later rounds, and advancement sources are unavailable while this phase uses manual rounds.</>
-          ) : (
-            <>Each card is one match. Wire a slot to the winner or loser of an earlier match, or leave it as an
-              entry and place the team by hand. Saving fills in every team the results already imply.</>
-          )}
+          Each card is one match. Wire a slot to the winner or loser of an earlier match or to a place in an
+          earlier table, or leave it as an entry and place the team by hand. Saving fills in every team the
+          results already imply. Wiring works the same in either phase view.
         </p>
         <p className="text-text-secondary text-sm max-w-2xl">
           {manualRounds ? (
-            <>Each column is one round. The arrows on a card set its order within that round.
-              Use Phase view above to enable bracket wiring.</>
+            <>Each column is one round. The arrows on a card set its order within that round.</>
           ) : (
             <>A column is a match <em>day</em>, and the arrows on a card set its order within that day. The{" "}
-              <span className="text-text">round</span> follows the wiring while the card stays where you put it.
-              To switch to manual rounds, clear every advancement source and save here first.</>
+              <span className="text-text">round</span> follows the wiring while the card stays where you put it.</>
           )}
         </p>
 
@@ -498,6 +652,10 @@ export function BracketPhaseEditor({
                         teams={teams}
                         issues={issues}
                         consumed={consumed}
+                        seedTables={pickTables}
+                        tablesNote={tablesNote}
+                        placeReaders={placeReaders}
+                        swissSeeds={swissSeeds}
                         round={depths.get(node.id) ?? 0}
                         isFirst={position === 0}
                         isLast={position === onDay.length - 1}
@@ -543,8 +701,11 @@ export function BracketPhaseEditor({
           </p>
         )}
 
-        {hasManualSources && (
-          <p className="text-ccs-red text-sm">Manual rounds cannot contain advancement sources. Clear every source before saving.</p>
+        {sharedPlaces > 0 && (
+          <p className="text-ccs-red text-sm">
+            {sharedPlaces === 1 ? "A table place is" : `${sharedPlaces} table places are`} read by more than one
+            slot. Each place fills one slot, so pick another place before saving.
+          </p>
         )}
 
         {strandedNodes.length > 0 && (
@@ -557,7 +718,7 @@ export function BracketPhaseEditor({
         <StandingsReference
           loading={candidates.isPending}
           error={candidates.isError ? errorMessage(candidates.error) : null}
-          tables={toReference(candidates.data ?? [])}
+          tables={toReference(seedTables)}
         />
 
         <IssueList issues={issues} />
@@ -566,7 +727,9 @@ export function BracketPhaseEditor({
           <Button
             type="button"
             onClick={() => save.mutate()}
-            disabled={!dirty || stranded.length > 0 || cyclic.length > 0 || hasManualSources || save.isPending}
+            disabled={
+              !dirty || stranded.length > 0 || cyclic.length > 0 || sharedPlaces > 0 || save.isPending
+            }
           >
             <Check size={15} aria-hidden="true" />
             {save.isPending ? "Saving…" : manualRounds ? "Save rounds" : "Save bracket"}
@@ -609,9 +772,10 @@ function applyIdMap(
       id: nodeId(n.id),
       match: { ...n.match, id: idMap.matches[String(n.match.id)] ?? n.match.id },
       // Edges have to be remapped too: a brand-new semifinal drawing from a brand-new quarterfinal
-      // holds the quarterfinal's negative id until this runs.
-      top: n.top.src ? { ...n.top, src: { ...n.top.src, node: nodeId(n.top.src.node) } } : n.top,
-      bottom: n.bottom.src
+      // holds the quarterfinal's negative id until this runs. A seed source names saved phases and
+      // groups only, so it has nothing to remap.
+      top: isNodeSource(n.top.src) ? { ...n.top, src: { ...n.top.src, node: nodeId(n.top.src.node) } } : n.top,
+      bottom: isNodeSource(n.bottom.src)
         ? { ...n.bottom, src: { ...n.bottom.src, node: nodeId(n.bottom.src.node) } }
         : n.bottom,
     })),
@@ -628,6 +792,10 @@ function NodeCard({
   teams,
   issues,
   consumed,
+  seedTables,
+  tablesNote,
+  placeReaders,
+  swissSeeds,
   round,
   isFirst,
   isLast,
@@ -647,6 +815,11 @@ function NodeCard({
   teams: readonly TeamRecord[];
   issues: readonly ValidationIssue[];
   consumed: ReadonlyMap<string, string>;
+  seedTables: readonly SeedTable[];
+  /** Why no table is offered: still loading, failed, or none earlier. Null when tables are listed. */
+  tablesNote: string | null;
+  placeReaders: ReadonlyMap<string, readonly string[]>;
+  swissSeeds: SwissSeeds | null;
   /**
    * 0-based depth from `bracketRounds`. Derived from the wiring: a label, not a position.
    *
@@ -670,6 +843,11 @@ function NodeCard({
 }) {
   const path = `nodes.${index}`;
   const id = `node-${node.id}`;
+  // A round after the lock pairs teams by their locked seeds, so placing one suggests its label.
+  const suggestedSeeds =
+    swissSeeds && node.match.matchDay > swissSeeds.lockedThrough
+      ? swissSeeds.positions
+      : null;
   const bad =
     isCyclic ||
     issues.some(i => i.path === path || i.path.startsWith(`${path}.`)) ||
@@ -731,7 +909,11 @@ function NodeCard({
         issues={issues}
         path={path}
         consumed={consumed}
-        allowSources={phase.bracketView !== false}
+        seedTables={seedTables}
+        phaseId={phase.id}
+        tablesNote={tablesNote}
+        placeReaders={placeReaders}
+        suggestedSeeds={suggestedSeeds}
         onChange={(slot, teamId) => {
           const changes: Partial<NodeSave> = { top: slot };
           if (teamId !== undefined) changes.match = { ...node.match, teamAId: teamId };
@@ -747,7 +929,11 @@ function NodeCard({
         issues={issues}
         path={path}
         consumed={consumed}
-        allowSources={phase.bracketView !== false}
+        seedTables={seedTables}
+        phaseId={phase.id}
+        tablesNote={tablesNote}
+        placeReaders={placeReaders}
+        suggestedSeeds={suggestedSeeds}
         onChange={(slot, teamId) => {
           const changes: Partial<NodeSave> = { bottom: slot };
           if (teamId !== undefined) changes.match = { ...node.match, teamBId: teamId };
@@ -771,6 +957,7 @@ function NodeCard({
               id={`${id}-day`}
               value={node.match.matchDay}
               aria-invalid={invalidAt(issues, `${path}.match.matchDay`)}
+              aria-describedby={phase.standingsTable ? `${id}-day-hint` : undefined}
               onChange={e => onSetDay(Number(e.target.value))}
             >
               {Array.from({ length: phase.matchDays }, (_, i) => i + 1).map(d => (
@@ -801,6 +988,13 @@ function NodeCard({
             </NativeSelect>
           </Field>
         </div>
+        {/* The table locks round by round, and a round is a match day. */}
+        {phase.standingsTable && (
+          <p id={`${id}-day-hint`} className="text-xs text-text-dim">
+            To postpone within the round, change the kickoff. Moving the match to another match day moves it
+            to that round.
+          </p>
+        )}
 
         <Field data-invalid={invalidAt(issues, `${path}.match.scheduledAt`)}>
           <FieldLabel htmlFor={`${id}-kickoff`}>Kickoff override</FieldLabel>
@@ -838,6 +1032,10 @@ function NodeCard({
  *
  * `onChange` takes the team id separately because it does not live on the slot: `top` is the match's
  * `teamAId` and `bottom` is its `teamBId`. `undefined` means "leave the team alone".
+ *
+ * The source select holds all three kinds: Entry, a place in an earlier table (then a Place picker),
+ * and the winner or loser of another node. A seed source the candidates no longer list keeps its own
+ * option, so the select never silently rewrites a source it cannot describe.
  */
 function SlotEditor({
   side,
@@ -848,7 +1046,11 @@ function SlotEditor({
   issues,
   path,
   consumed,
-  allowSources,
+  seedTables,
+  phaseId,
+  tablesNote,
+  placeReaders,
+  suggestedSeeds,
   onChange,
 }: {
   side: SlotSide;
@@ -859,16 +1061,83 @@ function SlotEditor({
   issues: readonly ValidationIssue[];
   path: string;
   consumed: ReadonlyMap<string, string>;
-  allowSources: boolean;
+  seedTables: readonly SeedTable[];
+  /** The phase being edited: a seed source naming it reads this phase's own earlier rounds. */
+  phaseId: number;
+  /** The tables read's state while loading or failed; null once it answered. */
+  tablesNote: string | null;
+  placeReaders: ReadonlyMap<string, readonly string[]>;
+  /** Team ID to locked-table position, for a Swiss round after the lock; null offers no suggestion. */
+  suggestedSeeds: ReadonlyMap<number, number> | null;
   onChange: (slot: SlotSave, teamId?: number | null) => void;
 }) {
   const teamId = side === "top" ? node.match.teamAId : node.match.teamBId;
   const other = side === "top" ? node.bottom : node.top;
   const derived = slot.src !== null;
-  const value = slot.src ? `${slot.src.node}:${slot.src.output}` : "";
+  const seedSrc = slot.src && isSeedSource(slot.src) ? slot.src : null;
+  const table = seedSrc ? seedTables.find(t => t.key === sourceTableKey(seedSrc)) ?? null : null;
+  // Upstream's rule: the save's earliest match day is round 1, which has no earlier round to read.
+  const firstDay = Math.min(...nodes.map(n => n.match.matchDay));
+  const laterRound = node.match.matchDay > firstDay;
+  const offered = seedTables.filter(t => !t.own || laterRound);
+  const ownTable = seedTables.find(t => t.own) ?? null;
+  const emptyNote =
+    tablesNote ??
+    (offered.length > 0
+      ? null
+      : ownTable
+        ? "None for round 1: this phase's table seeds its later rounds"
+        : "None yet: turn on Standings table for an earlier phase or this one");
+  /** The round a source's row is unique within: the slot's own match day for this phase's table. */
+  const roundOf = (src: SeedSource): number | null => (src.phase === phaseId ? node.match.matchDay : null);
+  const value = slot.src === null
+    ? ""
+    : isSeedSource(slot.src)
+      ? `table:${sourceTableKey(slot.src)}`
+      : outputKey(slot.src.node, slot.src.output);
   // A stored seed is always valid — the normalizer drops what isn't — so this can only fire mid-typing.
   const badSeed = slot.seed !== null && !isSlotSeed(slot.seed);
   const id = `node-${node.id}-${side}`;
+  const srcIssue = issues.some(i => i.path === `${path}.${side}.src`);
+
+  /** The label a source suggests, replacing a seed that is empty or was the previous suggestion. */
+  const suggested = (src: SeedSource, tableOf: SeedTable | null): string =>
+    src.phase === phaseId
+      ? String(src.place)
+      : seedLabel(src.place, tableOf?.kind === "group" ? tableOf.groupName : null);
+  const keepSeed = (next: string): string | null => {
+    const previous = seedSrc ? suggested(seedSrc, table) : null;
+    // A bare position is only ever a suggestion, from this phase's table or a placed team's position.
+    return slot.seed === null || slot.seed === previous || SUGGESTED_SEED.test(slot.seed) ? next : slot.seed;
+  };
+
+  /** The first place in a table no slot in this document reads yet. */
+  const firstFreePlace = (t: SeedTable): number => {
+    for (let place = 1; place <= SEED_PLACE_MAX; place += 1) {
+      const src = { phase: t.phase, group: t.group, place };
+      if (!placeReaders.has(placeKey(src, roundOf(src)))) return place;
+    }
+    return 1;
+  };
+
+  const pickTable = (t: SeedTable): void => {
+    const src: SeedSource = { phase: t.phase, group: t.group, place: firstFreePlace(t) };
+    // The team goes: propagation fills a seed slot once the table is final.
+    onChange({ seed: keepSeed(suggested(src, t)), src }, null);
+  };
+
+  const setPlace = (place: number): void => {
+    if (!seedSrc) return;
+    const src = { ...seedSrc, place };
+    onChange({ seed: keepSeed(suggested(src, table)), src });
+  };
+
+  const pickTeam = (next: number | null): void => {
+    // A Swiss round suggests the placed team's locked seed, without overwriting a label typed by hand.
+    const position = next === null ? undefined : suggestedSeeds?.get(next);
+    const replaceable = slot.seed === null || SUGGESTED_SEED.test(slot.seed);
+    onChange(position !== undefined && replaceable ? { ...slot, seed: String(position) } : slot, next);
+  };
 
   return (
     // One slot is a labeled block of two rows, not one row of three fields. In a fixed-width column
@@ -886,15 +1155,16 @@ function SlotEditor({
       */}
       <div className="flex gap-2">
         {/*
-          Seed is an **entry-slot field only**.
+          Seed is an **entry and seed-source field only**.
 
-          A seed names who is *placed* here — `"1A"` is the first seed out of group A — and a derived slot
-          holds whoever won the match feeding it. So there is nobody to label: the answer is "the winner of
-          Quarterfinal 1", which the source picker already says, and a seed sitting next to it would be a
-          second, staler claim about the same slot. Hidden rather than disabled, because a disabled box
-          still reads as a field this slot has.
+          A seed names who is *placed* here — `"1A"` is the first seed out of group A — and a node-derived
+          slot holds whoever won the match feeding it. So there is nobody to label: the answer is "the
+          winner of Quarterfinal 1", which the source picker already says, and a seed sitting next to it
+          would be a second, staler claim about the same slot. Hidden rather than disabled, because a
+          disabled box still reads as a field this slot has. A slot seeded from a table does keep one:
+          it labels the bracket position, and upstream never writes it.
         */}
-        {!derived && (
+        {!isNodeSource(slot.src) && (
           <div className="w-20 shrink-0">
             {/* Text, not a number input. 1–8 characters is the whole rule. An empty field is
                 `null`: `""` is refused upstream because `null` already means "none", and two spellings of
@@ -916,15 +1186,21 @@ function SlotEditor({
         <div className="flex-1 min-w-0">
           <NativeSelect
             value={value}
-            disabled={!allowSources && !derived}
             aria-label={`Where the ${side} team comes from`}
             aria-invalid={invalidAt(issues, `${path}.${side}.src`)}
+            aria-describedby={srcIssue && seedSrc ? `${id}-src-hint` : undefined}
             onChange={e => {
-              if (e.target.value === "") {
+              const next = e.target.value;
+              if (next === "") {
                 onChange({ ...slot, src: null });
                 return;
               }
-              const [id, output] = e.target.value.split(":");
+              if (next.startsWith("table:")) {
+                const picked = seedTables.find(t => `table:${t.key}` === next);
+                if (picked) pickTable(picked);
+                return;
+              }
+              const [id, output] = next.split(":");
               // Both the team and the seed go. The team is propagation's, so clearing it stops a stale
               // hand-placed one sitting there until the next ingest overwrites it — and the seed is about
               // to be hidden, so keeping it would leave a value in the document that no screen shows and
@@ -936,11 +1212,30 @@ function SlotEditor({
             }}
           >
             <NativeSelectOption value="">Entry — placed by hand</NativeSelectOption>
+            {/* Always present, so an empty list says why instead of looking like a missing feature. */}
+            <NativeSelectOptGroup label="Place in a table">
+              {offered.map(t => (
+                <NativeSelectOption key={t.key} value={`table:${t.key}`}>
+                  {t.own ? "Seed in this phase, after the earlier rounds" : `Place in ${t.heading}`}
+                </NativeSelectOption>
+              ))}
+              {/* A saved source the list does not offer here keeps an option, so it is never rewritten. */}
+              {seedSrc && !offered.some(t => t.key === sourceTableKey(seedSrc)) && (
+                <NativeSelectOption value={value}>
+                  {seedSrc.phase === phaseId ? "Seed in this phase" : `Place in phase ${seedSrc.phase}`}
+                </NativeSelectOption>
+              )}
+              {emptyNote && (
+                <NativeSelectOption value="no-table" disabled>
+                  {emptyNote}
+                </NativeSelectOption>
+              )}
+            </NativeSelectOptGroup>
             {nodes.flatMap((source, sourceIndex) => {
               // A slot may not draw from its own node, and a node's two slots may not draw from the
               // same source — that would be the winner and loser of one match, one team twice.
               if (source.id === node.id) return [];
-              if (other.src?.node === source.id) return [];
+              if (isNodeSource(other.src) && other.src.node === source.id) return [];
 
               return (["winner", "loser"] as const).map(output => {
                 const key = outputKey(source.id, output);
@@ -948,7 +1243,7 @@ function SlotEditor({
                 const mine = value === key;
 
                 return (
-                  <NativeSelectOption key={key} value={key} disabled={!allowSources || (holder !== undefined && !mine)}>
+                  <NativeSelectOption key={key} value={key} disabled={holder !== undefined && !mine}>
                     {output === "winner" ? "Winner" : "Loser"} of {nameOf(source, sourceIndex)}
                     {holder !== undefined && !mine ? ` — taken by ${holder}` : ""}
                   </NativeSelectOption>
@@ -959,10 +1254,32 @@ function SlotEditor({
         </div>
       </div>
 
-      {!derived && (
+      {!isNodeSource(slot.src) && (
         <p id={`${id}-seed-hint`} className={`text-xs mt-1 ${badSeed ? "text-ccs-red" : "sr-only"}`}>
           Up to {SLOT_SEED_MAX} characters, like 1, 1A or 12-16.
         </p>
+      )}
+
+      {srcIssue && seedSrc && (
+        <p id={`${id}-src-hint`} className="text-xs mt-1 text-text-dim">
+          Each place fills one slot in the league. To move a place to another phase, save this one without
+          it first, then add it there.
+        </p>
+      )}
+
+      {seedSrc && (
+        <PlaceField
+          // A different table is a different list of rows; start the picker over.
+          key={sourceTableKey(seedSrc)}
+          id={`${id}-place`}
+          src={seedSrc}
+          options={placeOptions(seedSrc, table, nodes, node)}
+          keyOf={place => placeKey({ ...seedSrc, place }, roundOf(seedSrc))}
+          readers={placeReaders}
+          self={`${nameOf(node, nodes.findIndex(n => n.id === node.id))} · ${side}`}
+          invalid={invalidAt(issues, `${path}.${side}.src.place`)}
+          onChange={setPlace}
+        />
       )}
 
       <div className="mt-1.5">
@@ -971,7 +1288,8 @@ function SlotEditor({
           disabled={derived}
           aria-label={`${side} team`}
           aria-invalid={invalidAt(issues, `${path}.match.team${side === "top" ? "A" : "B"}Id`)}
-          onChange={e => onChange(slot, e.target.value === "" ? null : Number(e.target.value))}
+          aria-describedby={seedSrc ? `${id}-status` : undefined}
+          onChange={e => pickTeam(e.target.value === "" ? null : Number(e.target.value))}
         >
           <NativeSelectOption value="">{derived ? "— decided by results —" : "— TBD —"}</NativeSelectOption>
           {teams
@@ -982,34 +1300,239 @@ function SlotEditor({
               </NativeSelectOption>
             ))}
         </NativeSelect>
+        {seedSrc && <SeedStatus id={`${id}-status`} src={seedSrc} table={table} />}
       </div>
     </div>
+  );
+}
+
+/**
+ * The places a seed slot's picker lists, in order.
+ *
+ * An earlier table lists its rows ("1st · TSM"). This phase's own table differs per round and is not
+ * loaded, so it lists one seed per team placed in the rounds before this slot's ("Seed 3").
+ */
+function placeOptions(
+  src: SeedSource,
+  table: SeedTable | null,
+  nodes: readonly NodeSave[],
+  node: NodeSave,
+): Array<{ place: number; label: string }> {
+  if (!table?.own) {
+    return (table?.rows ?? []).map(row => ({
+      place: row.position,
+      label: `${ordinal(row.position)} · ${row.code}${row.tied ? ` (tied ${row.place})` : ""}`,
+    }));
+  }
+  const earlier = new Set(
+    nodes
+      .filter(n => n.match.matchDay < node.match.matchDay)
+      .flatMap(n => [n.match.teamAId, n.match.teamBId])
+      .filter((t): t is number => t !== null),
+  );
+  return Array.from({ length: Math.max(earlier.size, src.place) }, (_, i) => ({
+    place: i + 1,
+    label: positionSeedLabel(i + 1),
+  }));
+}
+
+/**
+ * Which row of the table a seed slot reads.
+ *
+ * Offers the table's rows by position, with rows another slot here already reads disabled, and a
+ * number for a place past the end: membership can still grow, and until then the slot waits. A
+ * number another slot here reads is refused locally the same way the select disables it.
+ */
+function PlaceField({
+  id,
+  src,
+  options,
+  keyOf,
+  readers,
+  self,
+  invalid,
+  onChange,
+}: {
+  id: string;
+  src: SeedSource;
+  options: ReadonlyArray<{ place: number; label: string }>;
+  /** The uniqueness key of a place in this slot's table, round included where it counts. */
+  keyOf: (place: number) => string;
+  readers: ReadonlyMap<string, readonly string[]>;
+  /** How this slot is named among the readers, so it is not reported as sharing with itself. */
+  self: string;
+  invalid: true | undefined;
+  onChange: (place: number) => void;
+}) {
+  const [typing, setTyping] = useState(false);
+  // A place past the listed ones has no option to select, so it is always typed.
+  const showInput = typing || src.place > options.length;
+  const othersAt = (place: number): readonly string[] => {
+    const at = readers.get(keyOf(place)) ?? [];
+    // This slot is one of the readers of its own place; drop it once.
+    if (place !== src.place) return at;
+    const own = at.indexOf(self);
+    return own === -1 ? at : [...at.slice(0, own), ...at.slice(own + 1)];
+  };
+  const shared = othersAt(src.place);
+
+  return (
+    <Field data-invalid={invalid || (shared.length > 0 ? true : undefined)} className="mt-1.5">
+      <FieldLabel htmlFor={id} className="text-[10px]">Place</FieldLabel>
+      {showInput ? (
+        <div className="flex items-center gap-2">
+          <Input
+            id={id}
+            type="number"
+            min={1}
+            max={SEED_PLACE_MAX}
+            value={src.place}
+            aria-invalid={invalid || (shared.length > 0 ? true : undefined)}
+            aria-describedby={`${id}-hint`}
+            onChange={e => {
+              const place = Math.trunc(Number(e.target.value));
+              if (place >= 1 && place <= SEED_PLACE_MAX) onChange(place);
+            }}
+          />
+          {options.length > 0 && (
+            <Button
+              type="button"
+              variant="quiet"
+              size="inline"
+              onClick={() => {
+                setTyping(false);
+                const free = options.find(option => othersAt(option.place).length === 0);
+                if (src.place > options.length) onChange(free?.place ?? 1);
+              }}
+            >
+              Pick from the list
+            </Button>
+          )}
+        </div>
+      ) : (
+        <NativeSelect
+          id={id}
+          value={src.place}
+          aria-invalid={invalid || (shared.length > 0 ? true : undefined)}
+          aria-describedby={`${id}-hint`}
+          onChange={e => {
+            if (e.target.value === "later") {
+              setTyping(true);
+              onChange(Math.min(SEED_PLACE_MAX, options.length + 1));
+              return;
+            }
+            onChange(Number(e.target.value));
+          }}
+        >
+          {options.map(option => {
+            const taken = othersAt(option.place);
+            return (
+              <NativeSelectOption key={option.place} value={option.place} disabled={taken.length > 0}>
+                {option.label}
+                {taken.length > 0 ? `, taken by ${taken[0]}` : ""}
+              </NativeSelectOption>
+            );
+          })}
+          <NativeSelectOption value="later">A later place…</NativeSelectOption>
+        </NativeSelect>
+      )}
+      <p id={`${id}-hint`} className={`text-xs ${shared.length > 0 ? "text-ccs-red" : "sr-only"}`}>
+        {shared.length > 0
+          ? `Also read by ${shared.join(", ")}. Each place fills one slot.`
+          : "The row number in the table, not the rank, so tied teams still have separate places."}
+      </p>
+    </Field>
+  );
+}
+
+/**
+ * Why a seed slot is empty, or who it reads, from the candidates already loaded. `frozen` needs a
+ * propagate call to know, so a slot already being played reads as its table says.
+ */
+function SeedStatus({ id, src, table }: { id: string; src: SeedSource; table: SeedTable | null }) {
+  // This phase's own table per round is not loaded here; only propagating reports a held reason.
+  if (table?.own) {
+    return (
+      <p id={id} className="text-xs mt-1 text-text-dim">
+        Fills with seed {src.place} once every match in the earlier rounds is decided.
+      </p>
+    );
+  }
+  if (!table) {
+    return (
+      <p id={id} className="text-xs mt-1 text-text-dim">
+        Reads {ordinal(src.place)} place of a table this phase cannot seed from. Change the source.
+      </p>
+    );
+  }
+
+  const reason = derivedHeld(table, src.place);
+  const row = table.rows[src.place - 1];
+  return (
+    <p id={id} className={`text-xs mt-1 ${reason === "tied" || reason === "no_team" ? "text-ccs-orange" : "text-text-dim"}`}>
+      {reason
+        ? heldLabel(reason, src.place, table.phaseName)
+        : `${ordinal(src.place)} in ${table.heading}: ${row?.code ?? "a team"}`}
+      {reason === "incomplete" && src.place > table.rows.length && ` The table has ${table.rows.length} rows so far.`}
+      {reason === "tied" && " Break the tie by hand: change the source to Entry and place a team."}
+    </p>
   );
 }
 
 // -------------------------------------------------------------- side panel
 
 /**
- * `/candidates` in the shape `StandingsReference` renders.
+ * `/candidates` flattened to one entry per table: each group of a group phase, and each bracket
+ * table. `fixtureDays` holds each bracket phase's match days with fixtures, for its round number.
+ */
+function toSeedTables(
+  phases: readonly CandidatePhase[],
+  fixtureDays: ReadonlyMap<number, readonly number[]>,
+): SeedTable[] {
+  return phases.flatMap(p =>
+    p.groups.map(table => ({
+      key: tableKey(p.phaseId, table.group?.id ?? null),
+      phase: p.phaseId,
+      phaseName: p.phaseName,
+      kind: p.kind,
+      group: table.group?.id ?? null,
+      groupName: table.group?.name ?? null,
+      heading: table.group ? `${p.phaseName} · Group ${table.group.name}` : p.phaseName,
+      final: table.final,
+      lockedThrough: table.lockedThrough,
+      round:
+        table.lockedThrough === null
+          ? 0
+          : fixtureDays.has(p.phaseId)
+            ? roundIndex(fixtureDays.get(p.phaseId) ?? [], table.lockedThrough)
+            : table.lockedThrough,
+      rows: table.teams,
+      own: false,
+    })),
+  );
+}
+
+/**
+ * The seed tables in the shape `StandingsReference` renders.
  *
- * This endpoint is credentialed and site-admin only, which is why the panel takes a neutral shape
+ * `/candidates` is credentialed and site-admin only, which is why the panel takes a neutral shape
  * rather than this one: League Admin shows the same tables built from the season document, because
  * that route would 403 for it.
  */
-function toReference(phases: readonly CandidatePhase[]): ReferenceTable[] {
-  return phases.flatMap(p =>
-    p.groups.map(table => ({
-      key: `${p.phaseId}:${table.group.id}`,
-      heading: `${p.phaseName} · Group ${table.group.name}`,
-      rows: table.teams.map(team => ({
-        key: String(team.teamId),
-        place: team.place,
-        code: team.code,
-        tied: team.tied,
-        seriesWins: team.seriesWins,
-        seriesLosses: team.seriesLosses,
-        scenario: team.scenario,
-      })),
+function toReference(tables: readonly SeedTable[]): ReferenceTable[] {
+  return tables.map(table => ({
+    key: table.key,
+    heading: table.heading,
+    status: tableStatus(table, table.round),
+    rows: table.rows.map(team => ({
+      key: String(team.teamId),
+      position: team.position,
+      place: team.place,
+      code: team.code,
+      tied: team.tied,
+      seriesWins: team.seriesWins,
+      seriesLosses: team.seriesLosses,
+      scenario: team.scenario,
     })),
-  );
+  }));
 }

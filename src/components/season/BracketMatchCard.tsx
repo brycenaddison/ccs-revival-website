@@ -15,7 +15,7 @@ import { TeamLink } from "../league/TeamLink";
 import { toBadge } from "../../lib/leagueAdapters";
 import { fmtKickoff } from "../../lib/utils";
 import { seriesComplete, sideProvenance, type BracketLayout } from "../../lib/bracketLayout";
-import type { SeasonBracketMatch, SeasonBracketSide, SlotSide } from "../../lib/api";
+import { isNodeFrom, isSeedFrom, type SeasonBracketMatch, type SeasonBracketSide, type SlotSide } from "../../lib/api";
 
 interface Props {
   match: SeasonBracketMatch;
@@ -53,6 +53,7 @@ function SideRow({
   control: ReactNode | null;
 }) {
   const provenance = side.from ? sideProvenance(layout, side.from) : null;
+  const dropped = isNodeFrom(side.from) && side.from.output === "loser";
 
   return (
     // `data-slot` is what the connector overlay measures to land a line on this row rather than on
@@ -67,18 +68,19 @@ function SideRow({
       }}
     >
       {/*
-        One reserved column, three things it can hold. A seed, for an entry slot. An arrow, for a
-        slot fed by a *drop* — those edges are no longer drawn, because in a double-elimination
-        bracket they are all long and all cross each other, so this is what is left to say a team
-        arrived here by losing. Nothing, for a slot fed by a win, where the line says it already.
+        One reserved column, three things it can hold. A seed, for an entry slot or one seeded from
+        a table. An arrow, for a slot fed by a *drop* — those edges are no longer drawn, because in a
+        double-elimination bracket they are all long and all cross each other, so this is what is left
+        to say a team arrived here by losing. Nothing, for a slot fed by a win, where the line says it
+        already.
       */}
       <span
         className="shrink-0 whitespace-nowrap text-right font-mono text-[10px] text-text-dim"
         // At least the 20 px that holds a short seed or the drop arrow; wider only for a longer seed.
         style={{ width: `max(1.25rem, ${layout.seedChars}ch)` }}
-        title={side.from?.output === "loser" ? provenance ?? undefined : undefined}
+        title={dropped ? provenance ?? undefined : undefined}
       >
-        {side.from === null ? (side.seed ? side.seed : "") : side.from.output === "loser" ? "↓" : ""}
+        {!isNodeFrom(side.from) ? (side.seed ?? "") : dropped ? "↓" : ""}
       </span>
 
       {control ? (
@@ -100,7 +102,10 @@ function SideRow({
         </TeamLink>
       ) : (
         <span className="min-w-0 flex-1 truncate text-[12px] italic text-text-dim" title={provenance ?? undefined}>
-          {provenance ?? "TBD"}
+          {/* A round seeded from its own phase reads "Seed 1", which the seed column ("1") already says. */}
+          {provenance && !(isSeedFrom(side.from) && side.from.phase === layout.phaseId && side.seed === String(side.from.place))
+            ? provenance
+            : "TBD"}
         </span>
       )}
 

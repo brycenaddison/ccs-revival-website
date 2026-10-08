@@ -68,13 +68,14 @@ export type SeasonMatchStatus = "played" | "scheduled" | "pending";
 
 // ------------------------------------------------------------------- a group
 
-export interface SeasonGroupRow {
+/** One ranked row, as both a group table and a bracket table serve it. */
+export interface SeasonStandingsRow {
   /**
    * 1-based **display row**, and not `rank`.
    *
    * A genuine tie for 2nd puts two teams at rank 2 in rows 2 and 3, and the scenario is looked up by
    * row — so those two rows carry *different* scenarios while both are `tied`. This is what lines a
-   * row up against the legend.
+   * row up against the legend, and what a seed source's `place` names.
    */
   position: number;
   /** The finishing position. Shared on a tie; the next rank skips the rows the tie covered. */
@@ -95,8 +96,17 @@ export interface SeasonGroupRow {
   seriesLosses: number;
   gameWins: number;
   gameLosses: number;
-  /** The first tiebreaker, exposed so a table can show why two teams split. Null when no games. */
+  /** Exposed so a table can show why two teams split. Null when no games. */
   gameWinPct: number | null;
+  /**
+   * Average game length in this phase's timed wins and losses, in seconds and possibly fractional.
+   * `null` when the team has none: forfeits and remakes under 14 minutes are never timed.
+   */
+  avgWinSeconds: number | null;
+  avgLossSeconds: number | null;
+}
+
+export interface SeasonGroupRow extends SeasonStandingsRow {
   /** Resolved inline — a `scenarioKey` never appears on a read path. Null when the row has none. */
   scenario: SeasonScenario | null;
 }
@@ -116,6 +126,25 @@ export interface SeasonGroup {
 
 // ----------------------------------------------------------------- a bracket
 
+/** The winner or loser of another node in this bracket. */
+export interface SeasonNodeFrom {
+  node: number;
+  output: SlotOutput;
+}
+
+/**
+ * Row `place` (a `position`) of an earlier phase's table: one group, or a whole bracket table. When
+ * `phase` is the side's own phase, its table over the rounds before this one: "Seed 1".
+ */
+export interface SeasonSeedFrom {
+  phase: number;
+  phaseName: string;
+  /** Null for a bracket table. */
+  group: number | null;
+  groupName: string | null;
+  place: number;
+}
+
 /**
  * One side of a bracket match — a slot, and whatever has reached it.
  *
@@ -124,15 +153,28 @@ export interface SeasonGroup {
  *     from  team  meaning
  *     null  set   an entry seed, placed by hand
  *     null  null  TBD — nothing wired and nobody placed
- *     set   null  "Winner of node N", still waiting
- *     set   set   propagated from that node's result
+ *     set   null  "Winner of node N" or "1st, Swiss Stage", still waiting
+ *     set   set   propagated from that node's result or that table's row
+ *
+ * `from: null` also covers a seed slot whose source phase this caller cannot see, so a public read
+ * never names an unpublished phase.
  */
 export interface SeasonBracketSide {
   /** A free-form label, not a number: `"1"`, or `"1A"` for the first seed out of group A. */
   seed: string | null;
-  /** The node whose winner or loser lands here. Null for an entry slot. */
-  from: { node: number; output: SlotOutput } | null;
+  /** Where the team comes from. The branches have no discriminator: see `isSeedFrom`. */
+  from: SeasonNodeFrom | SeasonSeedFrom | null;
   team: SeasonTeam | null;
+}
+
+/** Tested by key, as upstream tells the branches apart. Never infer it from `output` being absent. */
+export function isSeedFrom(from: SeasonBracketSide["from"]): from is SeasonSeedFrom {
+  return from !== null && "phase" in from;
+}
+
+/** A node edge, the only kind of source a bracket graph draws or walks. */
+export function isNodeFrom(from: SeasonBracketSide["from"]): from is SeasonNodeFrom {
+  return from !== null && !isSeedFrom(from);
 }
 
 /**
@@ -238,6 +280,19 @@ export interface SeasonBracketPhase extends SeasonPhaseCommon {
    */
   terminalNodes: number[];
   rounds: SeasonRound[];
+  /**
+   * The phase's standings table, ranked by the league's tiebreaker order, or null when the phase has
+   * none. Results count only **through `lockedThrough`**, so a series won early in a round moves
+   * nothing until the round is over. Every team placed in a fixture is listed, eliminated or not.
+   */
+  standings: SeasonStandingsRow[] | null;
+  /**
+   * Phase-relative match day the table counts through, or null before round 1 is complete (every
+   * team 0-0 at shared rank 1). Null as well when the phase has no table.
+   */
+  lockedThrough: number | null;
+  /** The table has locked through the phase's last match day. */
+  final: boolean;
 }
 
 export type SeasonPhase = SeasonGroupPhase | SeasonBracketPhase;
@@ -351,7 +406,7 @@ function mapScenarios(raw: unknown): SeasonScenarioLibrary {
   return out;
 }
 
-function mapGroupRow(raw: unknown, index: number): SeasonGroupRow {
+function mapStandingsRow(raw: unknown, index: number): SeasonStandingsRow {
   const r = asRaw(raw);
   const color = numOrNull(r.color as number | null);
   const position = int(r.position, index + 1);
@@ -374,8 +429,13 @@ function mapGroupRow(raw: unknown, index: number): SeasonGroupRow {
     gameLosses: int(r.gameLosses),
     // `numOrNull`, not `num`: 0% of games won is a real answer and "no games yet" is not zero.
     gameWinPct: numOrNull(r.gameWinPct as number | null),
-    scenario: mapScenario(r.scenario),
+    avgWinSeconds: numOrNull(r.avgWinSeconds as number | null),
+    avgLossSeconds: numOrNull(r.avgLossSeconds as number | null),
   };
+}
+
+function mapGroupRow(raw: unknown, index: number): SeasonGroupRow {
+  return { ...mapStandingsRow(raw, index), scenario: mapScenario(asRaw(raw).scenario) };
 }
 
 function mapGroup(raw: unknown, index: number): SeasonGroup {
@@ -387,14 +447,32 @@ function mapGroup(raw: unknown, index: number): SeasonGroup {
   };
 }
 
+function mapFrom(raw: unknown): SeasonBracketSide["from"] {
+  if (raw === null || typeof raw !== "object") return null;
+  const from = asRaw(raw);
+
+  if ("phase" in from) {
+    if (typeof from.phase !== "number" || typeof from.place !== "number") return null;
+    return {
+      phase: int(from.phase),
+      phaseName: str(from.phaseName),
+      group: typeof from.group === "number" ? int(from.group) : null,
+      groupName: strOrNull(from.groupName),
+      place: int(from.place),
+    };
+  }
+
+  return typeof from.node === "number"
+    ? { node: int(from.node), output: from.output === "loser" ? "loser" : "winner" }
+    : null;
+}
+
 function mapSide(raw: unknown): SeasonBracketSide {
   const s = asRaw(raw);
-  const from = asRaw(s.from);
-  const node = typeof from.node === "number" ? int(from.node) : null;
   return {
     // `""` is not a seed — upstream refuses it, because `null` already means "none".
     seed: strOrNull(s.seed),
-    from: node === null ? null : { node, output: from.output === "loser" ? "loser" : "winner" },
+    from: mapFrom(s.from),
     team: mapTeam(s.team),
   };
 }
@@ -461,6 +539,10 @@ function mapPhase(raw: unknown, index: number): SeasonPhase {
       bracketView: mapBracketView(p.bracketView),
       terminalNodes: arr(p.terminalNodes).map(v => int(v)),
       rounds: arr(p.rounds).map(mapRound),
+      // A phase without a table omits all three keys.
+      standings: Array.isArray(p.standings) ? p.standings.map(mapStandingsRow) : null,
+      lockedThrough: typeof p.lockedThrough === "number" ? int(p.lockedThrough) : null,
+      final: p.final === true,
     };
   }
 

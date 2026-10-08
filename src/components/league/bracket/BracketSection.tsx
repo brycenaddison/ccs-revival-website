@@ -10,7 +10,9 @@
  * Both presentations use the public view with `slotControl`, so a slot is edited the same way
  * regardless of the phase's presentation.
  *
- * Derived slots show their provenance instead of a picker. Only source wiring owns propagation.
+ * Derived slots show their provenance instead of a picker. Only source wiring owns propagation. A
+ * slot seeded from an earlier table is derived too; after Resync, one it left empty shows why (`held`).
+ * Only Resync reports that, so a reload shows the plain provenance again.
  *
  * Two things this screen cannot do, both downstream of one decision:
  *
@@ -37,21 +39,26 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipHint } from "../../TooltipHint";
 import { PhaseTabs } from "../../season/PhaseTabs";
 import { BracketPhaseView } from "../../season/BracketPhaseView";
-import { hasBracketFeeders } from "../../../lib/bracketLayout";
+import { hasBracketFeeders, hasDerivedSlots } from "../../../lib/bracketLayout";
 import { StandingsReference, type ReferenceTable } from "../../season/StandingsReference";
 import { useSeason } from "../../../hooks/useSeason";
 import { useWindowSize } from "../../../hooks/useWindowSize";
 import { queries, queryRoots } from "../../../lib/queries";
+import { heldAction, heldLabel, propagationSummary, roundIndex, tableStatus } from "../../../lib/seeding";
 import {
   editMatch,
   errorMessage,
   isBracketPhase,
   isGroupPhase,
+  isSeedFrom,
   propagatePhase,
+  type HeldSlot,
   type MatchEdit,
+  type PropagationReport,
   type SeasonBracketMatch,
   type SeasonBracketSide,
   type SeasonPayload,
+  type SeasonSeedFrom,
   type SlotSide,
   type TeamRecord,
 } from "../../../lib/api";
@@ -71,15 +78,20 @@ export function BracketSection() {
   const { season, loading, error, refetch } = useSeason(conf);
   const teams = useQuery(queries.teamsForConf(conf));
   const [picked, setPicked] = useState<number | null>(null);
+  // The last Resync's held seed slots, kept with the phase they belong to.
+  const [held, setHeld] = useState<{ phaseId: number; slots: HeldSlot[] } | null>(null);
 
   const brackets = useMemo(() => (season?.phases ?? []).filter(isBracketPhase), [season]);
   const phase = brackets.find(p => p.id === picked) ?? brackets[0] ?? null;
   const connected = phase ? hasBracketFeeders(phase) : false;
+  const derived = phase ? hasDerivedSlots(phase) : false;
   const manualRounds = phase ? !(phase.bracketView ?? connected) : false;
+  const heldSlots = held && phase && held.phaseId === phase.id ? held.slots : [];
 
-  // Only group phases the bracket could actually be seeded from — a later one has not been played.
+  // Only tables the bracket could be seeded from: earlier phases, and this phase's own when its
+  // rounds are seeded from it. A later phase has not been played.
   const reference = useMemo<ReferenceTable[]>(
-    () => (phase ? groupTables(season, phase.ordinal) : []),
+    () => (phase ? seedingTables(season, phase.id, phase.ordinal) : []),
     [season, phase],
   );
 
@@ -111,14 +123,11 @@ export function BracketSection() {
   return (
     <div className="flex flex-col gap-5">
       <p className="text-sm leading-relaxed text-text-secondary">
-        {manualRounds ? (
-          <>Pick the teams in each round's matchups. Each selection saves immediately.
-            Results do not assign teams in later rounds.</>
-        ) : (
-          <>Pick who plays each seeded position.
-            {connected && <> Slots fed by an earlier match fill in automatically. Use Resync bracket after recording a result.</>}
-            {" "}The phase view is set in Site Admin.</>
-        )} Which matches exist and how they are wired is set in Site Admin.
+        {manualRounds
+          ? <>Pick the teams in each round's matchups. Each selection saves immediately.</>
+          : <>Pick who plays each seeded position.</>}
+        {derived && <> Slots fed by an earlier match or table fill in automatically. Use Resync bracket after recording a result.</>}
+        {" "}The phase view, which matches exist and how they are wired are set in Site Admin.
       </p>
 
       <PhaseTabs
@@ -135,7 +144,9 @@ export function BracketSection() {
             {phase.matchDays} match {phase.matchDays === 1 ? "day" : "days"}
           </Badge>
         </div>
-        {connected && <Resync conf={conf} phaseId={phase.id} />}
+        {derived && (
+          <Resync conf={conf} phaseId={phase.id} onReport={report => setHeld({ phaseId: phase.id, slots: report.held })} />
+        )}
       </div>
 
       {teams.isError && (
@@ -186,10 +197,24 @@ export function BracketSection() {
             isMobile={isMobile}
             rowPitch={ADMIN_ROW_PITCH}
             bleed={false}
-            slotControl={(slot, side, match) =>
+            nameGroupPhases={(season?.phases ?? []).filter(isGroupPhase).length > 1}
+            slotControl={(slot, side, match) => {
+              const reason = isSeedFrom(side.from)
+                ? heldSlots.find(h => h.scheduleMatchId === match.matchId && h.side === slot)?.reason
+                : undefined;
+              if (reason && isSeedFrom(side.from)) {
+                return (
+                  <HeldSlotNote
+                    reason={reason}
+                    from={side.from}
+                    team={side.team?.name ?? null}
+                    own={side.from.phase === phase.id}
+                  />
+                );
+              }
               // A derived slot keeps the viewer's rendering: "Winner of Match 7" is the honest
               // answer, and there is nothing here for anyone to set.
-              side.from ? null : (
+              return side.from ? null : (
                 <SlotPicker
                   key={`${match.matchId}:${slot}`}
                   match={match}
@@ -198,8 +223,8 @@ export function BracketSection() {
                   teams={teams.data ?? []}
                   onSaved={message => toast.success(message)}
                 />
-              )
-            }
+              );
+            }}
           />
         </div>
       </div>
@@ -207,31 +232,92 @@ export function BracketSection() {
   );
 }
 
-/** Every group phase before `ordinal`, as the reference panel's tables. */
-function groupTables(season: SeasonPayload | null, ordinal: number): ReferenceTable[] {
+/**
+ * Every table before `ordinal`, plus this phase's own, as the reference panel's: each group of a
+ * group phase, and each bracket phase that serves a standings table. The phase's own table is the
+ * one its seeds pick opponents from. This read serves no `final` on a group table, so only bracket
+ * tables carry a status.
+ */
+function seedingTables(season: SeasonPayload | null, phaseId: number, ordinal: number): ReferenceTable[] {
   if (!season) return [];
 
   return season.phases
-    .filter(isGroupPhase)
-    .filter(p => p.ordinal < ordinal)
-    .flatMap(p =>
-      p.groups.map(group => ({
-        key: `${p.id}:${group.ordinal}:${group.name}`,
-        heading: `${p.name} · Group ${group.name}`,
-        rows: group.standings.map(row => ({
-          key: row.code,
-          place: row.place,
-          code: row.code,
-          tied: row.tied,
-          seriesWins: row.seriesWins,
-          seriesLosses: row.seriesLosses,
-          scenario: row.scenario,
-        })),
-      })),
-    );
+    .filter(p => p.ordinal < ordinal || p.id === phaseId)
+    .flatMap((p): ReferenceTable[] => {
+      if (isGroupPhase(p)) {
+        return p.groups.map(group => ({
+          key: `${p.id}:${group.ordinal}:${group.name}`,
+          heading: `${p.name} · Group ${group.name}`,
+          rows: group.standings.map(row => ({
+            key: row.code,
+            position: row.position,
+            place: row.place,
+            code: row.code,
+            tied: row.tied,
+            seriesWins: row.seriesWins,
+            seriesLosses: row.seriesLosses,
+            scenario: row.scenario,
+          })),
+        }));
+      }
+      if (!p.standings) return [];
+      const round = roundIndex(
+        p.rounds.filter(r => r.matches.length > 0).map(r => r.matchDay),
+        p.lockedThrough ?? 0,
+      );
+      return [
+        {
+          key: `${p.id}:table`,
+          heading: p.id === phaseId ? `${p.name} (this phase)` : p.name,
+          status: tableStatus({ kind: "bracket", final: p.final, lockedThrough: p.lockedThrough }, round),
+          rows: p.standings.map(row => ({
+            key: row.code,
+            position: row.position,
+            place: row.place,
+            code: row.code,
+            tied: row.tied,
+            seriesWins: row.seriesWins,
+            seriesLosses: row.seriesLosses,
+            scenario: null,
+          })),
+        },
+      ];
+    });
 }
 
-function Resync({ conf, phaseId }: { conf: string; phaseId: number }) {
+/** A seed slot the last Resync left empty, or filled but frozen, and what to do about it. */
+function HeldSlotNote({
+  reason,
+  from,
+  team,
+  own,
+}: {
+  reason: HeldSlot["reason"];
+  from: SeasonSeedFrom;
+  team: string | null;
+  /** The slot reads its own phase's table over the earlier rounds. */
+  own: boolean;
+}) {
+  const action = heldAction(reason);
+  return (
+    <p className="min-w-0 text-[11px] leading-snug text-ccs-orange">
+      {/* A frozen slot keeps the team already playing there. */}
+      {team && <span className="block truncate font-heading text-[13px] text-text">{team}</span>}
+      <span className="block truncate">{heldLabel(reason, from.place, from.phaseName, own)}</span>
+      {action && <span className="block text-text-dim">{action}</span>}
+    </p>
+  );
+}
+
+function Resync({
+  conf,
+  phaseId,
+  onReport,
+}: {
+  conf: string;
+  phaseId: number;
+  onReport: (report: PropagationReport) => void;
+}) {
   const qc = useQueryClient();
   const [note, setNote] = useState<string | null>(null);
 
@@ -246,13 +332,10 @@ function Resync({ conf, phaseId }: { conf: string; phaseId: number }) {
    */
   const propagate = useMutation({
     mutationFn: () => propagatePhase(conf, phaseId),
-    onSuccess: async updates => {
+    onSuccess: async report => {
       await refreshBracket(qc);
-      setNote(
-        updates.length === 0
-          ? "Nothing was stale — every derived team already matches the results."
-          : `Re-derived ${updates.length} ${updates.length === 1 ? "team" : "teams"}.`,
-      );
+      onReport(report);
+      setNote(propagationSummary(report));
     },
   });
 

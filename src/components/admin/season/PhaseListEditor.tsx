@@ -84,6 +84,8 @@ function blank(kind: PhaseKind, id: number): PhaseSummary {
     id,
     kind,
     bracketView: null,
+    // Null omits it, so a new bracket takes upstream's default (no table) on any server version.
+    standingsTable: null,
     name: kind === "group" ? "Group Stage" : "Playoffs",
     ordinal: 1,
     matchDays: kind === "group" ? 8 : 3,
@@ -153,8 +155,17 @@ export function PhaseListEditor({ conf, phases, onEdit, onSaved }: Props) {
     },
   });
 
-  /** `phases.2.matchDays` as "Playoffs — length". The server points at the array it was sent. */
-  const labelFor = (path: string): string | null => {
+  /**
+   * `phases.2.matchDays` as "Playoffs — length". The server points at the array it was sent.
+   *
+   * A deletion refused because seed sources read the phase points at `phases` itself, since the
+   * deleted phase is not in the body. Its first subject is that phase, named from the saved list.
+   */
+  const labelFor = (path: string, issue: ValidationIssue): string | null => {
+    if (path === "phases") {
+      const source = phases.find(p => p.id === issue.subjects?.[0]);
+      return source ? source.name : null;
+    }
     const index = Number(path.split(".")[1]);
     return Number.isInteger(index) && draft[index] ? draft[index].name || `Phase ${index + 1}` : null;
   };
@@ -234,6 +245,49 @@ export function PhaseListEditor({ conf, phases, onEdit, onSaved }: Props) {
         message={save.isError && !(save.error instanceof SaveRejected) ? errorMessage(save.error) : null}
       />
     </div>
+  );
+}
+
+/**
+ * Whether a bracket is also ranked as a table. Independent of the phase view: a manually paired Swiss
+ * stage and a graph bracket whose order seeds a later phase both want one.
+ *
+ * Staged with the rest of the row, so a checkbox rather than an immediate switch. Which phases a later
+ * phase's seed sources read is not in this list, so turning one off, deleting it or moving it after
+ * a reader is left to the save's refusal.
+ */
+function StandingsTableField({
+  phase,
+  invalid,
+  onChange,
+}: {
+  phase: PhaseSummary;
+  invalid: true | undefined;
+  onChange: (value: boolean) => void;
+}) {
+  const hintId = `phase-table-${phase.id}-hint`;
+  const unknown = phase.standingsTable === null;
+
+  return (
+    <Field data-invalid={invalid} className="sm:col-span-2 lg:col-span-4">
+      <label className="flex items-center gap-2.5 cursor-pointer text-sm text-text">
+        <Checkbox
+          checked={phase.standingsTable === true}
+          disabled={unknown}
+          onCheckedChange={v => onChange(v === true)}
+          aria-invalid={invalid}
+          aria-describedby={hintId}
+        />
+        Standings table
+      </label>
+      <FieldDescription id={hintId}>
+        {unknown
+          ? phase.id < 0
+            ? "Save the season first, then choose whether this phase has a table."
+            : "This server does not support standings tables yet."
+          : "Rank this phase as a table. Use it for a Swiss stage, or for any bracket whose final order seeds a later phase."}
+      </FieldDescription>
+    </Field>
   );
 }
 
@@ -368,6 +422,14 @@ function PhaseRow({
             split&apos;s playoffs in the open.
           </p>
         </div>
+
+        {phase.kind === "bracket" && (
+          <StandingsTableField
+            phase={phase}
+            invalid={invalidAt(issues, `${path}.standingsTable`)}
+            onChange={standingsTable => onChange({ standingsTable })}
+          />
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-border">

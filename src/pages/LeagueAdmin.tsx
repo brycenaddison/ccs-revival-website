@@ -13,7 +13,7 @@
 
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Award, BookOpen, CalendarDays, Coins, GitFork, Inbox, MessagesSquare, Users } from "lucide-react";
+import { Award, BookOpen, CalendarDays, Coins, GitFork, Inbox, ListOrdered, MessagesSquare, Users } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { RequireAuth } from "../components/auth/RequireAuth";
 import { SettingsShell } from "../components/settings/SettingsShell";
@@ -26,6 +26,7 @@ import { InfoSection } from "../components/league/info/InfoSection";
 import { TeamsSection } from "../components/league/teams/TeamsSection";
 import { DiscordSection } from "../components/league/discord/DiscordSection";
 import { PredictionsSection } from "../components/league/predictions/PredictionsSection";
+import { TiebreakersSection } from "../components/league/standings/TiebreakersSection";
 import { useAdminAccess } from "../lib/adminAccess";
 import { hasScope, type LeagueScopeName } from "../lib/api";
 import { type SettingsArea, type SettingsSection } from "../lib/settingsAreas";
@@ -67,6 +68,17 @@ const SECTIONS: readonly LeagueAdminSection[] = [
     // Accolades can change one.
     description: "Trophies and honours for this league's teams and players.",
     Component: AccoladesSection,
+  },
+  {
+    slug: "standings",
+    // The order decides who makes playoffs, so upstream accepts only the `admin` grant; `schedule`,
+    // `roster` and `stats` grants would be refused.
+    scope: "admin",
+    label: "Standings tiebreakers",
+    icon: ListOrdered,
+    description: "The order of rules that ranks teams in this league's standings and group tables.",
+    maxWidth: 1040,
+    Component: TiebreakersSection,
   },
   {
     slug: "teams",

@@ -87,6 +87,8 @@ import {
   teamStats,
   teams,
   teamsForConf,
+  tiebreakers,
+  manageTiebreakers,
   tournaments,
   unscheduledGames,
   type ArticleQuery,
@@ -390,6 +392,46 @@ export const queries = {
       queryKey: ["standings", conf] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) => standings(conf, { signal }),
       staleTime: LEAGUE_STALE,
+    }),
+
+  /**
+   * The tiebreaker editor's saved-order preview. With the session, because the league may be
+   * unlisted, so it is keyed apart from the public read. Fresh on mount, since the editor's point
+   * is to see the order a save just stored.
+   */
+  manageStandings: (conf: string) =>
+    query({
+      queryKey: ["standings", "manage", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => standings(conf, { signal, credentialed: true }),
+      enabled: conf !== "",
+      staleTime: 0,
+    }),
+
+  /**
+   * The order a conference's standings rank by, for the public "How ties are broken" note and the
+   * time columns. Anonymous, so it never shares a cache entry with the editor's session read. It
+   * changes on a league admin's save, which invalidates the root, so league staleness is enough.
+   * No retry: a failure only omits the note, and the table never waits on it.
+   */
+  tiebreakers: (conf: string) =>
+    query({
+      queryKey: ["tiebreakers", "public", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => tiebreakers(conf, { signal }),
+      staleTime: LEAGUE_STALE,
+      retry: false,
+    }),
+
+  /**
+   * League Admin's editor read, with the session so an unlisted league opens. Fresh on mount, and
+   * no focus refetch, so an unsaved order is never compared against a list read behind it.
+   */
+  manageTiebreakers: (conf: string) =>
+    query({
+      queryKey: ["tiebreakers", "manage", conf] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => manageTiebreakers(conf, { signal }),
+      enabled: conf !== "",
+      staleTime: 0,
+      refetchOnWindowFocus: false,
     }),
 
   playerStats: (conf: string) =>
@@ -1234,6 +1276,11 @@ export const queryRoots = {
   /** The editor templates list, read by every Markdown editor's menu and the Site Admin editor. */
   editorTemplates: ["editorTemplates"] as const,
   standings: ["standings"] as const,
+  /**
+   * Both tiebreaker reads. A save also invalidates `standings` and `season`, since every ranked
+   * table orders by the saved list.
+   */
+  tiebreakers: ["tiebreakers"] as const,
   stats: ["stats"] as const,
   /**
    * Every public profile document and linked-accounts read.

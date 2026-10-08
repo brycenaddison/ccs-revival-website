@@ -49,7 +49,18 @@ interface Props {
    * card the content belongs to.
    */
   bleed?: boolean;
+  /** Seed slots reading a group name its phase too, because the season has several group phases. */
+  nameGroupPhases?: boolean;
+  /**
+   * A first column inside the bracket's own scroll strip, such as the phase's standings table. It
+   * scrolls with the rounds and shares their breakout into the page gutters, so neither clips at the
+   * column edge. Stacked above the rounds on mobile, and shown even before any match is drawn.
+   */
+  leading?: ReactNode;
 }
+
+/** The leading column's minimum width. It grows to fit a table with several rule columns. */
+const LEADING_W = 544;
 
 /**
  * Desktop geometry, in pixels.
@@ -83,10 +94,12 @@ export function BracketPhaseView({
   slotControl,
   rowPitch = DEFAULT_ROW_PITCH,
   bleed = true,
+  nameGroupPhases = false,
+  leading,
 }: Props) {
   const graph = phase.bracketView ?? hasBracketFeeders(phase);
   const layout = useMemo(() => {
-    const built = bracketLayout(phase);
+    const built = bracketLayout(phase, { nameGroupPhases });
     // A dangling source only survives a delete, so it means the bracket upstream is not what it
     // should be. Said here and nowhere else: a reader cannot act on it, and the layout degrades on
     // its own — the affected nodes just lose their connectors.
@@ -97,12 +110,17 @@ export function BracketPhaseView({
       );
     }
     return built;
-  }, [phase, conf]);
+  }, [phase, conf, nameGroupPhases]);
 
   const empty = layout.columns.every(c => c.length === 0);
 
   if (empty) {
-    return <div className="py-10 text-center text-[13px] text-text-dim">The bracket hasn&rsquo;t been drawn yet.</div>;
+    return (
+      <>
+        {leading && <div className={isMobile ? "" : "w-fit max-w-full"}>{leading}</div>}
+        <div className="py-10 text-center text-[13px] text-text-dim">The bracket hasn&rsquo;t been drawn yet.</div>
+      </>
+    );
   }
 
   return (
@@ -114,6 +132,9 @@ export function BracketPhaseView({
           layout={layout}
           isMobile={isMobile}
           slotControl={slotControl}
+          leading={leading}
+          leadingWidth={LEADING_W}
+          bleed={bleed}
         />
       ) : (
         <>
@@ -122,6 +143,7 @@ export function BracketPhaseView({
             rowPitch={rowPitch}
             slotControl={slotControl}
             bleed={bleed}
+            leading={leading}
           />
 
           <div className="mt-3 flex items-center gap-4 text-[10px] text-text-muted">
@@ -155,22 +177,42 @@ function BracketCanvas({
   rowPitch,
   slotControl,
   bleed,
+  leading,
 }: {
   layout: BracketLayout;
   rowPitch: number;
   slotControl: Props["slotControl"];
   bleed: boolean;
+  leading: ReactNode;
 }) {
   const measurer = useCardMeasurer(layout);
   const frameRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const leadRef = useRef<HTMLDivElement>(null);
   const [gutters, setGutters] = useState<Gutters | null>(null);
+  const [leadBox, setLeadBox] = useState({ width: LEADING_W, height: 0 });
 
+  // The leading column is positioned like the cards, so the canvas makes room for its measured size.
+  useLayoutEffect(() => {
+    const el = leadRef.current;
+    if (!el) {
+      setLeadBox({ width: LEADING_W, height: 0 });
+      return;
+    }
+    const measure = () => setLeadBox({ width: Math.max(LEADING_W, el.offsetWidth), height: el.offsetHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [leading]);
+
+  // Every column sits this far right of where it would without a leading column.
+  const lead = leading ? leadBox.width + COLUMN_GAP : 0;
   const width =
-    layout.columns.length * COLUMN_W + Math.max(0, layout.columns.length - 1) * COLUMN_GAP;
+    lead + layout.columns.length * COLUMN_W + Math.max(0, layout.columns.length - 1) * COLUMN_GAP;
   // Measured once the cards exist, so the canvas contains them exactly; the analytic value is the
   // first-paint stand-in and is a deliberate over-estimate.
-  const height = measurer.contentH > 0 ? measurer.contentH : HEADER_H + layout.rows * rowPitch;
+  const height = Math.max(measurer.contentH > 0 ? measurer.contentH : HEADER_H + layout.rows * rowPitch, leadBox.height);
 
   /*
    * The page's side margins, when the bracket is wide enough to want them.
@@ -274,11 +316,17 @@ function BracketCanvas({
             height={height}
           />
 
+          {leading && (
+            <div ref={leadRef} className="absolute top-0" style={{ left: padL, width: "max-content", minWidth: LEADING_W }}>
+              {leading}
+            </div>
+          )}
+
           {layout.columns.map((column, index) => (
             <div
               key={`head-${index}`}
               className="absolute top-0"
-              style={{ left: padL + index * (COLUMN_W + COLUMN_GAP), width: COLUMN_W }}
+              style={{ left: padL + lead + index * (COLUMN_W + COLUMN_GAP), width: COLUMN_W }}
             >
               <BracketRoundHeading matchDay={column[0]?.matchDay ?? index + 1} matches={column.map(n => n.match)} />
             </div>
@@ -289,7 +337,7 @@ function BracketCanvas({
               key={placed.node}
               className="absolute"
               style={{
-                left: padL + placed.column * (COLUMN_W + COLUMN_GAP),
+                left: padL + lead + placed.column * (COLUMN_W + COLUMN_GAP),
                 top: HEADER_H + placed.y * rowPitch,
                 width: COLUMN_W,
               }}

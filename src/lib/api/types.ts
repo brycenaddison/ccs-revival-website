@@ -136,9 +136,9 @@ export interface SeasonRecord {
  * streak, which the `/teams` record deliberately omits (it would cost a second query on a hot
  * endpoint).
  *
- * **The rows arrive ranked; do not re-sort them.** Series record, then game win percentage, then
- * head-to-head among the teams still level — head-to-head in particular cannot be computed from
- * anything else this client fetches.
+ * **The rows arrive ranked; do not re-sort them.** The league's tiebreaker order (`./tiebreakers`)
+ * decides them, and head-to-head in particular cannot be computed from anything else this client
+ * fetches.
  */
 export interface StandingRow extends SeasonRecord {
   /** `teams.id`. Join and link on this, never on `code`. */
@@ -158,8 +158,14 @@ export interface StandingRow extends SeasonRecord {
   rank: number;
   /** `rank` as displayed, marking a tie: `"T-2"` rather than `"2"`. */
   place: string;
-  /** 0–1, the first tiebreaker. Exposed so a table can show why two teams are separated. */
+  /** 0–1. Exposed so a table can show why two teams are separated. */
   gameWinPct: number | null;
+  /**
+   * Average game length in the team's timed wins and losses, in seconds and possibly fractional.
+   * `null` when it has none: forfeits and remakes under 14 minutes are never timed.
+   */
+  avgWinSeconds: number | null;
+  avgLossSeconds: number | null;
   /**
    * Current run of series results (`"W2"`, `"L1"`), or `null` before the team has a decided
    * series. Undecided series are skipped rather than breaking the run.

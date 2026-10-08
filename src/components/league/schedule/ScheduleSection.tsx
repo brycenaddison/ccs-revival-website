@@ -38,6 +38,7 @@ import { LinkingPanel } from "./LinkingPanel";
 import { describeSweep } from "./codeReports";
 import { queries, queryRoots } from "../../../lib/queries";
 import { fmtKickoff } from "../../../lib/utils";
+import { propagationSummary } from "../../../lib/seeding";
 import {
   errorMessage,
   mintCodes,
@@ -191,17 +192,14 @@ function DayPanel({
    */
   const propagate = useMutation({
     mutationFn: () => propagatePhase(conf, day.phaseId),
-    onSuccess: async updates => {
+    onSuccess: async report => {
       // Both roots: the derived teams show on the schedule *and* in the structure editor's bracket.
       await Promise.all([
         qc.invalidateQueries({ queryKey: queryRoots.schedule }),
         qc.invalidateQueries({ queryKey: queryRoots.season }),
       ]);
-      setResync(
-        updates.length === 0
-          ? "Nothing was stale — every derived team already matches the results."
-          : `Re-derived ${updates.length} ${updates.length === 1 ? "team" : "teams"}.`,
-      );
+      // Held slots are named on the Bracket section's own Resync, which has each slot's source.
+      setResync(propagationSummary(report));
     },
   });
 

@@ -1,21 +1,28 @@
 /**
- * "Who finished where" — the group tables an admin looks at while placing entry slots.
+ * "Who finished where" — the earlier tables an admin looks at while placing entry slots or wiring
+ * seed sources.
  *
- * Read-only, deliberately. **Nothing is ever auto-filled from it.** A tie the ranking will not break
- * is exactly the case where the automatic answer is wrong and a human has to decide, which is the
- * whole reason entry slots are placed by hand at all. A tied row's scenario is provisional and is
- * marked as such.
+ * Read-only. Nothing here fills a slot; a seed source does that, only from a final table and never
+ * from a tied row. A tie the ranking will not break is exactly the case where the automatic answer is
+ * wrong and a human has to decide, so a tied row is marked and its scenario is provisional.
+ *
+ * Rows lead with `position`, the row number a seed source's place names, and show the shared `place`
+ * ("T-3") beside a tied row.
  *
  * Shared by two screens that cannot share a data source. Site Admin has
  * `GET /:conf/phases/:id/candidates`, which is credentialed and site-admin only; League Admin has
  * only the season document, because that route would 403 for it. Both arrive here, so the panel a
- * league admin reads is the same panel a site admin reads — see `toReference` in each caller for the
- * two-line adaptation.
+ * league admin reads is the same panel a site admin reads — see `toReference` in the bracket editor
+ * and `earlierTables` in League Admin's bracket for the adaptation.
  */
+
+import { Badge } from "@/components/ui/badge";
 
 export interface ReferenceRow {
   /** Stable within a table. A team code, or an id where the source has one. */
   key: string;
+  /** The 1-based row, which a seed source's place addresses. */
+  position: number;
   /** The rank as displayed: `"1"`, or `"T-2"` when shared. */
   place: string;
   code: string;
@@ -30,6 +37,8 @@ export interface ReferenceTable {
   key: string;
   /** `"Group Stage · Group A"` — phase and group, because a season can have several of each. */
   heading: string;
+  /** Whether seed sources can read it yet: "Final", "Seeds after round 2", "In progress". */
+  status?: string;
   rows: readonly ReferenceRow[];
 }
 
@@ -65,8 +74,8 @@ export function StandingsReference({
   if (tables.length === 0) {
     return (
       <p className="text-sm text-text-dim">
-        No earlier group phase to seed from. A bracket at the start of a season is placed entirely by
-        hand.
+        No earlier table to seed from. A group stage always has one; an earlier bracket phase has one
+        only once Standings table is turned on for it in Site Admin&rsquo;s season list.
       </p>
     );
   }
@@ -77,23 +86,26 @@ export function StandingsReference({
         Who finished where
       </h3>
       <p className={`text-text-secondary ${compact ? "mb-3 text-xs" : "mb-3 text-sm"}`}>
-        For reference while placing entry slots. Nothing here fills anything in.
+        For reference while placing entry slots. A slot reading a place fills in once its table is final.
       </p>
 
       <div className={compact ? "flex flex-col gap-3" : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"}>
         {tables.map(table => (
           <div key={table.key} className="rounded-md border border-border bg-bg3 p-3">
-            <p className="mb-2 font-heading text-[10px] text-text-dim">
-              {table.heading}
-            </p>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="font-heading text-[10px] text-text-dim">{table.heading}</p>
+              {table.status && <Badge variant="muted">{table.status}</Badge>}
+            </div>
             <ol className="flex flex-col gap-1">
               {table.rows.map(row => (
                 <li key={row.key} className="flex items-baseline gap-2 text-sm">
-                  <span className="w-8 shrink-0 font-mono text-xs text-text-secondary">{row.place}</span>
+                  <span className="w-6 shrink-0 font-mono text-xs text-text-secondary">{row.position}</span>
                   <span className="text-text-bright">{row.code}</span>
                   <span className="text-xs text-text-dim">
                     {row.seriesWins}-{row.seriesLosses}
                   </span>
+                  {/* A seed source on a tied row stays empty until a person breaks the tie. */}
+                  {row.tied && <span className="font-mono text-[10px] text-ccs-orange">Tied {row.place}</span>}
                   {row.scenario && (
                     <span
                       className={`ml-auto text-right text-xs ${

@@ -175,6 +175,7 @@ export function MatchEditor({ matchId, teams, onClose, onSaved }: Props) {
             id={`bestof-${matchId}`}
             value={bestOf ?? ""}
             aria-invalid={invalidAt(issues, "bestOf")}
+            aria-describedby={`bestof-${matchId}-hint`}
             onChange={e => {
               const value = Number(e.target.value);
               set("bestOf", isBestOf(value) ? (value as BestOf) : null);
@@ -188,6 +189,10 @@ export function MatchEditor({ matchId, teams, onClose, onSaved }: Props) {
               </NativeSelectOption>
             ))}
           </NativeSelect>
+          {/* Best-of decides when a series is won, so it can change who advances. */}
+          <FieldDescription id={`bestof-${matchId}-hint`}>
+            Saving updates the teams in any later match that this one feeds, straight away.
+          </FieldDescription>
         </Field>
 
         <Field data-invalid={invalidAt(issues, "streamUrl")} className="sm:col-span-2">
@@ -205,9 +210,9 @@ export function MatchEditor({ matchId, teams, onClose, onSaved }: Props) {
 
       {derivedSides.length > 0 && (
         <p className="text-text-dim text-xs mt-3">
-          {derivedSides.length === 2 ? "Both teams arrive" : "One team arrives"} from an earlier bracket
-          match and {derivedSides.length === 2 ? "fill" : "fills"} in automatically once it is decided.
-          Contact a server admin to change how the bracket is wired.
+          {derivedSides.length === 2 ? "Both teams are" : "One team is"} filled automatically, from an
+          earlier match or a place in an earlier table. Contact a server admin to change how the bracket
+          is wired.
         </p>
       )}
 
@@ -286,7 +291,7 @@ function TeamField({
       </NativeSelect>
       {derived && (
         <FieldDescription id={`${id}-derived`}>
-          Arrives from an earlier bracket match and fills in automatically once it is decided.
+          Filled automatically, from an earlier match or a place in an earlier table.
         </FieldDescription>
       )}
     </Field>

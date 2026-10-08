@@ -58,12 +58,13 @@ export function fmtPct(v: Numeric, digits = 0): string {
   return `${(n * 100).toFixed(digits)}%`;
 }
 
-/** Format a duration in seconds as m:ss. */
+/** Format a duration in seconds as m:ss, rounded to the nearest second (averages are fractional). */
 export function fmtSec(sec: Numeric): string {
   const n = numOrNull(sec);
   if (n === null) return "—";
-  const m = Math.floor(n / 60);
-  const s = Math.floor(n % 60);
+  const total = Math.round(n);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 

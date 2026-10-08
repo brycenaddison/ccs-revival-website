@@ -482,6 +482,17 @@ export {
 } from "./editorTemplates";
 export type { EditorTemplate, EditorTemplateInput, EditorTemplateList, EditorTemplatesSave } from "./editorTemplates";
 export {
+  tiebreakers,
+  manageTiebreakers,
+  saveTiebreakers,
+  tiebreakerInfos,
+  usesTiebreaker,
+  isHeadToHeadTiebreaker,
+  isTimeTiebreaker,
+  TIEBREAKERS_MIN,
+} from "./tiebreakers";
+export type { KnownTiebreakerId, TiebreakerDocument, TiebreakerId, TiebreakerInfo } from "./tiebreakers";
+export {
   seasonApi,
   phaseList,
   phaseDocument,
@@ -495,6 +506,8 @@ export {
   isBestOf,
   isBracketContents,
   isGroupContents,
+  isNodeSource,
+  isSeedSource,
   isSlotSeed,
   pinnedDaysAfter,
   seasonDayOf,
@@ -513,6 +526,8 @@ export {
   SCENARIO_LEVELS,
   SLOT_OUTPUTS,
   SLOT_SEED_MAX,
+  SEED_PLACE_MAX,
+  HELD_REASONS,
   SLOT_SIDES,
   STREAM_URL_MAX,
 } from "./season";
@@ -537,17 +552,26 @@ export type {
   PhaseSaved,
   PhaseSummary,
   PropagationUpdate,
+  PropagationReport,
+  HeldReason,
+  HeldSlot,
+  NodeSource,
+  SeedSource,
+  SlotSource,
   Scenario,
   ScenarioLibrary,
   SlotOutput,
   SlotSave,
   SlotSide,
 } from "./season";
-export { season, isBracketPhase, isGroupPhase, mapSeason, standingsPhase } from "./seasonView";
+export { season, isBracketPhase, isGroupPhase, isNodeFrom, isSeedFrom, mapSeason, standingsPhase } from "./seasonView";
 export type {
   SeasonBracketMatch,
   SeasonBracketPhase,
   SeasonBracketResult,
+  SeasonNodeFrom,
+  SeasonSeedFrom,
+  SeasonStandingsRow,
   SeasonBracketSide,
   SeasonGroup,
   SeasonGroupPhase,

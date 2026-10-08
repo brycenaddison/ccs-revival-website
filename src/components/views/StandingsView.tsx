@@ -16,9 +16,10 @@ import { useMemo, useState } from "react";
 import { useLeague } from "../../lib/leagueContext";
 import { useSeason } from "../../hooks/useSeason";
 import { groupLabels } from "../../lib/leagueAdapters";
-import { isBracketPhase } from "../../lib/api";
+import { isBracketPhase, isGroupPhase } from "../../lib/api";
 import { GroupPhaseView } from "../season/GroupPhaseView";
 import { BracketPhaseView } from "../season/BracketPhaseView";
+import { BracketStandings } from "../season/BracketStandings";
 import { PhaseTabs } from "../season/PhaseTabs";
 import { DivisionPicker } from "../league/DivisionPicker";
 import { LEAGUE_VIEW_COLUMN } from "./leagueViewColumn";
@@ -126,9 +127,17 @@ function SeasonPanel({ conf, isMobile }: { conf: string; isMobile: boolean }) {
       )}
 
       {isBracketPhase(phase) ? (
-        <BracketPhaseView phase={phase} conf={conf} isMobile={isMobile} />
+        <BracketPhaseView
+          phase={phase}
+          conf={conf}
+          isMobile={isMobile}
+          nameGroupPhases={phases.filter(isGroupPhase).length > 1}
+          // The first column of the bracket's own strip, because the seeds explain the next round's
+          // pairings: it scrolls with the rounds and shares their breakout into the page gutters.
+          leading={phase.standings ? <BracketStandings phase={phase} conf={conf} isMobile={isMobile} /> : undefined}
+        />
       ) : (
-        <GroupPhaseView phase={phase} isMobile={isMobile} />
+        <GroupPhaseView phase={phase} conf={conf} isMobile={isMobile} />
       )}
     </>
   );

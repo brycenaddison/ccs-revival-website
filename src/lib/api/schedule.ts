@@ -110,9 +110,9 @@ export interface MatchDetail {
   /** What this match's nulls resolve to. Lets a picker label its empty option honestly. */
   inherited: { bestOf: BestOf; scheduledAt: string | null };
   /**
-   * Slots fed by another bracket node, so **propagation owns the team and `PATCH` refuses to set
-   * it.** Empty for every group match and every bracket entry slot. Disable those pickers rather than
-   * offering an edit that always fails.
+   * Slots fed by another bracket node or seeded from an earlier table, so **propagation owns the team
+   * and `PATCH` refuses to set it.** Empty for every group match and every bracket entry slot. Disable
+   * those pickers rather than offering an edit that always fails.
    */
   derivedSides: SlotSide[];
 }

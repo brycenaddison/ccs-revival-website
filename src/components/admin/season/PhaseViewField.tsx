@@ -29,7 +29,7 @@ export function PhaseViewField({ id, value, onChange, disabled = false, invalid 
       <FieldDescription id={`${id}-hint`}>
         {value === null
           ? "This server does not support saving a phase view yet."
-          : "Sets the public and league-admin view. For manual rounds, clear every advancement source and save the bracket first. Then save the phase view."}
+          : "Sets the public and league-admin view. Use rounds when later rounds are paired by hand. Wiring and seed sources work the same in either view."}
       </FieldDescription>
     </Field>
   );

@@ -7,16 +7,23 @@
  */
 
 import { useMemo } from "react";
-import { GroupTable } from "./GroupTable";
+import { useQuery } from "@tanstack/react-query";
+import { GroupTable, ruleColumns } from "./GroupTable";
 import { ScenarioPill } from "./ScenarioPill";
+import { TiebreakerNote } from "./TiebreakerNote";
+import { queries } from "../../lib/queries";
 import type { SeasonGroupPhase } from "../../lib/api";
 
 interface Props {
   phase: SeasonGroupPhase;
+  conf: string;
   isMobile: boolean;
 }
 
-export function GroupPhaseView({ phase, isMobile }: Props) {
+export function GroupPhaseView({ phase, conf, isMobile }: Props) {
+  // The tables render without it: a failed read only drops the note and the time columns.
+  const { data: tiebreakers } = useQuery(queries.tiebreakers(conf));
+
   const legend = useMemo(
     () =>
       Object.values(phase.scenarios).sort(
@@ -39,6 +46,7 @@ export function GroupPhaseView({ phase, isMobile }: Props) {
           key={`${group.ordinal}-${group.name}`}
           group={group}
           showName={phase.groups.length > 1}
+          rules={ruleColumns(tiebreakers, ["avg_win_time", "avg_loss_time"])}
           isMobile={isMobile}
         />
       ))}
@@ -59,6 +67,8 @@ export function GroupPhaseView({ phase, isMobile }: Props) {
           </div>
         </div>
       )}
+
+      {tiebreakers && <TiebreakerNote doc={tiebreakers} />}
     </>
   );
 }

@@ -63,7 +63,7 @@ export function IssueList({
   label,
 }: {
   issues: readonly ValidationIssue[];
-  label?: (path: string) => string | null;
+  label?: (path: string, issue: ValidationIssue) => string | null;
 }) {
   if (issues.length === 0) return null;
 
@@ -76,7 +76,7 @@ export function IssueList({
       <AlertDescription className="text-text">
         <ul className="mt-1.5 flex flex-col gap-1.5">
           {issues.map((issue, index) => {
-            const named = label?.(issue.path) ?? null;
+            const named = label?.(issue.path, issue) ?? null;
             return (
               <li key={`${issue.path}:${index}`} className="text-sm text-text">
                 {named && <span className="text-text-secondary">{named}: </span>}

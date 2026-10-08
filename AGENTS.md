@@ -313,8 +313,8 @@ Do not edit that repository or derive data the API already answers.
 - `api/seasonView.ts` reads public resolved `GET /:conf/season`, excluding unpublished phases.
   `api/season.ts` reads site-admin structure `GET /:conf/phases`, preserving nulls meaning
   inherit. They are not interchangeable: an editor using resolved values turns inheritance into overrides.
-- `pages/LeagueAdmin.tsx` filters section registries before SettingsShell. Info, Applications and
-  Accolades need league admin; Teams and Discord need roster; Schedule/Bracket/Predictions need schedule; site
+- `pages/LeagueAdmin.tsx` filters section registries before SettingsShell. Info, Applications,
+  Accolades and Standings tiebreakers need league admin; Teams and Discord need roster; Schedule/Bracket/Predictions need schedule; site
   admins see all.
   Hidden direct links redirect to the first allowed section; no allowed sections shows a notice.
   The API permits roster on application review, while this UI requires admin; UI filtering is not
@@ -332,25 +332,63 @@ Do not edit that repository or derive data the API already answers.
   through the additive phase API contract. Missing or invalid values stay null in the client.
   Its Phase view field stays disabled until the server supplies a valid saved value; saves omit
   unsupported values. Omission preserves existing choices, including false; new brackets default to
-  true upstream. Manual rounds require all advancement sources to be removed and saved before changing
-  the view. `admin/season/BracketPhaseEditor.tsx` disables new sources for saved manual rounds.
+  true upstream. The view is presentation only: both views take every kind of source, so a seeded
+  playoff can pair later rounds by hand.
   `admin/season/PhaseViewField.tsx` appears only at the top of Bracket wiring, using `PillTabs` on the
   shared shadcn Toggle Group. `PillTabs` supports disabled/unavailable selections and group labeling
   for this saved setting. Its separate Save phase view action reads the current whole phase list
   before replacing only that phase's choice, awaits season/schedule invalidation, and requires contents changes to be
   saved or discarded first. View saves disable contents controls while pending.
   `season/BracketPhaseView.tsx` follows that choice, with a wiring-based fallback
-  only for older servers and no viewer switch. Mobile uses round stacks. Rounds preserve served fixture
+  only for older servers and no viewer switch. Mobile uses round stacks. Desktop rounds break out through `FullBleedScroller` like the canvas (not inside League Admin's panel). Rounds preserve served fixture
   order and omit terminal emphasis. Both views reuse `BracketRoundHeading` and `BracketMatchCard`.
   League Admin reuses the same immediate-save entry-slot team pickers in both layouts; there is no
-  separate round editor. Resync appears only with feeder wiring. Manual later-round slots must have no source wiring;
+  separate round editor. Resync appears only with derived slots; derived slots show provenance in both;
   changing the presentation never clears wiring. Structure and byes remain API constraints.
   MatchEditor saves await season, schedule and standings invalidation.
+- Bracket standings tables and seed sources: Boolean `standingsTable` on bracket summaries (null when
+  unserved; staged as a Checkbox in each Phase list bracket row, independent of the view) ranks the
+  phase as a table counted only through `lockedThrough`. A slot's `src` may be a seed source
+  `{ phase, group, place }` (`group: null` for a bracket table); a side's `from` may be the seed branch
+  with names, or null for a source the caller cannot see. The branches have no discriminator: always
+  test with `isSeedSource`/`isNodeSource` (`api/season.ts`) and `isSeedFrom`/`isNodeFrom`
+  (`api/seasonView.ts`). `place` is a row `position`, never `rank`; seed sources draw no edge and
+  bracket walks skip them. `lib/seeding.ts` owns every label (`ordinal`, `roundIndex` over fixture
+  days, captions, table status chips, held reasons, suggested `seed` labels, propagate summaries).
+  `season/BracketStandings.tsx` renders a served table as the `leading` first column of `BracketPhaseView`'s strip (scrolls and breaks out with the rounds or canvas; stacked above on mobile) on the Standings tab through
+  `GroupTable` (`scenarios={false}`). Site Admin's bracket editor offers Entry / place in an earlier
+  table / winner or loser, prefills `seed` (`"1"`, `"A1"`), disables rows this document already reads
+  (another phase's reader is the save's refusal), derives `incomplete`/`no_team`/`tied` from
+  candidates, and in a table phase's rounds after the lock suggests the bare position (`"3"`) from the season read.
+  A phase with a table can also seed its own later rounds: `src.phase` is the phase itself (`group:
+  null`), read over the rounds before the slot's match day; offered only after the save's earliest
+  match day, unique per round (`placeKey` carries the round), its `seed` prefilled with the bare number and "Seed N" in pickers, slots and
+  held notes (`seedFromLabel`/`heldLabel` take the own phase). League Admin's reference panel includes
+  the phase's own table for picks.
+  Candidates panels show `position` and a status chip; bracket rounds come from source documents.
+  `propagatePhase` answers `{ updates, held }`; only League Admin's Resync names held slots, and
+  only `frozen` needs it. Phase list 422s at `phases` name the read phase from `subjects`; the group
+  editor offers to restore a deleted group that is read.
 - `league/info/InfoSection.tsx` edits a whole Info document. Preserve `applicationBody` on
   Info saves, and preserve other fields when application notes save; invalidate both relevant roots.
   `rulebookUrl` is required and prepended as the first public quick link, keeping remaining link
   order. The open-seasons endpoint supplies rulebook/applicationBody before Info publication.
   `pages/Info.tsx` renders selected conferences but never applicationBody.
+- `api/tiebreakers.ts` maps `GET`/`PUT /tournaments/:conf/tiebreakers`: the order in force, the
+  defaults and the served catalog (`available`, which supplies every label and description; ids
+  outside it drop). Every ranked read orders by it; the site never ranks. `queries.tiebreakers` is
+  the anonymous public read and `queries.manageTiebreakers` the editor's session read, both under
+  `queryRoots.tiebreakers`. League Admin > Standings tiebreakers (`league/standings/TiebreakersSection.tsx`)
+  edits a working list (in use and available are disjoint; the last rule cannot be removed), saves it
+  whole, adopts the response, and invalidates tiebreakers, standings, season and schedule (a save
+  re-seeds table-sourced slots in the same transaction). A 422 marks rows by
+  sent index; a 403 locks the editor. Its preview is the saved order's `/standings` through
+  `queries.manageStandings` (credentialed, keyed apart from the public read); a live what-if needs an
+  upstream endpoint. `season/GroupPhaseView.tsx` adds `season/TiebreakerNote.tsx` ("How ties are
+  broken") after its tables and legend, omitted when the read fails, and `GroupTable` adds desktop-only
+  rule columns from `ruleColumns(doc, only?)`, in the league's order, for rules it ranks on that W/L/Win %/Games
+  do not show (series and game differential, game win %, Avg win/Avg loss via `season/AvgGameTime.tsx`).
+  Group tables pass only the two time rules; bracket tables pass every one. Head-to-head has no column.
 - Accolade definition forms are shared by global site-admin management and league issuance.
   Writes invalidate accolades and profile roots.
 

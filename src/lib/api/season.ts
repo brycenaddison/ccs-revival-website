@@ -23,9 +23,14 @@
  * the phase default then moves nothing.
  *
  * Bracket summaries carry Boolean `bracketView`; group summaries omit it. List writes preserve an
- * omitted choice and default new brackets to true. Manual rounds require every source to be cleared
- * in a contents save before changing the summary to false, and then forbid new sources. The view
- * itself never clears fixtures, wiring or results. Missing/invalid read values remain null.
+ * omitted choice and default new brackets to true. The view is presentation only: either view takes
+ * every kind of source, and changing it never clears fixtures, wiring or results. Missing/invalid read
+ * values remain null.
+ *
+ * `standingsTable` follows the same rules (new brackets default to false) and ranks a bracket as a
+ * table in either view. A slot may then take a **seed source**, `{ phase, group, place }`: row
+ * `place` (a served `position`, never a `rank`) of an earlier group's table, or of an earlier bracket
+ * table with `group: null`. The two source branches have no discriminator; `isSeedSource` tests by key.
  */
 
 import { credentialedRequest } from "./credentialed";
@@ -70,6 +75,9 @@ export const SCENARIO_LEVELS = 10;
 /** A slot seed is any string of 1–8 characters. Upstream refuses anything longer, and `""`. */
 export const SLOT_SEED_MAX = 8;
 
+/** The highest table row a seed source may name. Rows past a table's end are accepted and wait. */
+export const SEED_PLACE_MAX = 999;
+
 export function isBestOf(value: unknown): value is BestOf {
   return (BEST_OF_VALUES as readonly unknown[]).includes(value);
 }
@@ -100,6 +108,8 @@ export interface PhaseSummary {
   kind: PhaseKind;
   /** Site-admin presentation choice. Null until the server supports it, or for group phases. */
   bracketView: boolean | null;
+  /** Whether a bracket is ranked as a standings table. Null until the server supports it, or for groups. */
+  standingsTable: boolean | null;
   name: string;
   /** 1-based position. Derived from array order on save; never sent. */
   ordinal: number;
@@ -127,6 +137,11 @@ export interface PhaseListEntry {
   kind: PhaseKind;
   /** Omission preserves the saved choice; new omitted brackets default to true upstream. */
   bracketView?: boolean;
+  /**
+   * Omission preserves the saved choice; new omitted brackets default to false upstream. Turning it off
+   * is refused at `phases.<i>.standingsTable` while a later phase's seed sources read the table.
+   */
+  standingsTable?: boolean;
   name: string;
   matchDays: number;
   published: boolean;
@@ -245,6 +260,43 @@ export interface GroupPhaseContents extends PhaseContentsCommon {
   matches: MatchSave[];
 }
 
+/** The winner or loser of an earlier node in the same bracket. */
+export interface NodeSource {
+  node: number;
+  output: SlotOutput;
+}
+
+/**
+ * Row `place` of an earlier phase's table: group `group` of a group phase, or the whole table of a
+ * bracket phase with `standingsTable` (`group: null`). The key is required either way.
+ *
+ * `place` is the 1-based served `position`, not `rank`: two teams tied for 3rd sit at positions 3 and
+ * 4, and while they stay tied a slot reading either is held as `tied`. Each row fills at most one slot
+ * in the conference. Allowed in either phase view.
+ *
+ * `phase` may also be the slot's own phase (`group: null`, and the phase has a standings table): the
+ * slot then reads that phase's table over the rounds before its own match day, ready once every one
+ * of those fixtures is decided. That is how a Swiss round's "Seed 1" fills. Refused on the save's
+ * earliest match day, and a row of the own table fills one slot per round rather than per conference.
+ */
+export interface SeedSource {
+  phase: number;
+  group: number | null;
+  place: number;
+}
+
+export type SlotSource = NodeSource | SeedSource;
+
+/** The two branches have no discriminator, so test by key. Never infer it from `output` being absent. */
+export function isSeedSource(src: SlotSource): src is SeedSource {
+  return "phase" in src;
+}
+
+/** Narrowed the other way, for walks over node wiring that must skip a seed source. */
+export function isNodeSource(src: SlotSource | null): src is NodeSource {
+  return src !== null && !isSeedSource(src);
+}
+
 export interface SlotSave {
   /**
    * A **label**, not a number: `"1"`, `"1A"` for the first seed out of group A, or `"12-16"` for a
@@ -258,8 +310,11 @@ export interface SlotSave {
    * client's business.
    */
   seed: string | null;
-  /** Null for an entry slot — a human places the team. Set means propagation owns it. */
-  src: { node: number; output: SlotOutput } | null;
+  /**
+   * Null for an entry slot: a human places the team. Either branch means propagation owns it. A seed
+   * source never sets `seed`; the label stays the editor's to write.
+   */
+  src: SlotSource | null;
 }
 
 export interface NodeSave {
@@ -323,12 +378,14 @@ export interface PhaseSaved {
 // ------------------------------------------------------------------ candidates
 
 /**
- * One team in an earlier group phase's live standings.
+ * One team in an earlier phase's live table.
  *
- * `position` is 1-based **display row order**, and is what the scenario was looked up by — not
- * `rank`, which teams level on every tiebreaker share. `place` is the rank as displayed (`"T-2"`).
+ * `position` is 1-based **display row order**: what the scenario was looked up by and what a seed
+ * source's `place` names. Not `rank`, which teams level on every tiebreaker share. `place` is the rank
+ * as displayed (`"T-2"`).
  */
 export interface CandidateTeam {
+  position: number;
   teamId: number;
   code: string;
   name: string;
@@ -347,17 +404,37 @@ export interface CandidateTeam {
   seriesLosses: number;
   gameWins: number;
   gameLosses: number;
+  /**
+   * Average game length in this phase's timed wins and losses, in seconds and possibly fractional.
+   * `null` when the team has none: forfeits and remakes under 14 minutes are never timed.
+   */
+  avgWinSeconds: number | null;
+  avgLossSeconds: number | null;
+  /** Group rows only. A bracket table has no outcomes. */
   scenario: Scenario | null;
 }
 
+/**
+ * One table: a group of a group phase, or the whole of a bracket phase with a standings table.
+ *
+ * `group` is null for a bracket table, which is also how a seed source names it.
+ */
 export interface CandidateGroup {
-  group: { id: number; name: string; ordinal: number };
+  group: { id: number; name: string; ordinal: number } | null;
   teams: CandidateTeam[];
+  /** Seed sources read it now: every fixture decided and the phase's last match day played. */
+  final: boolean;
+  /**
+   * Bracket tables only: the phase-relative match day results count through, or null before round 1
+   * is complete. Always null on a group table.
+   */
+  lockedThrough: number | null;
 }
 
 export interface CandidatePhase {
   phaseId: number;
   phaseName: string;
+  kind: PhaseKind;
   groups: CandidateGroup[];
 }
 
@@ -366,6 +443,25 @@ export interface PropagationUpdate {
   scheduleMatchId: number;
   side: SlotSide;
   teamId: number | null;
+}
+
+export const HELD_REASONS = ["incomplete", "no_team", "tied", "frozen"] as const;
+/**
+ * Why propagation left a seed slot empty: the table is not final yet, it has no row at `place`, that
+ * row shares its rank, or the fixture already has a recorded game and keeps its teams.
+ */
+export type HeldReason = (typeof HELD_REASONS)[number];
+
+export interface HeldSlot {
+  scheduleMatchId: number;
+  side: SlotSide;
+  reason: HeldReason;
+}
+
+export interface PropagationReport {
+  updates: PropagationUpdate[];
+  /** The requested phase's seed slots left unfilled. Only this call can report `frozen`. */
+  held: HeldSlot[];
 }
 
 // ----------------------------------------------------------------- normalizing
@@ -378,9 +474,11 @@ const int = (v: unknown, fallback = 0): number =>
   typeof v === "number" && Number.isFinite(v) ? Math.trunc(v) : fallback;
 const intOrNull = (v: unknown): number | null =>
   typeof v === "number" && Number.isFinite(v) ? Math.trunc(v) : null;
+const finiteOrNull = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const str = (v: unknown, fallback = ""): string => (typeof v === "string" ? v : fallback);
 const strOrNull = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
 const bool = (v: unknown): boolean => v === true;
+const boolOrNull = (v: unknown): boolean | null => (typeof v === "boolean" ? v : null);
 
 /**
  * An unrecognized value falls back rather than being dropped.
@@ -404,6 +502,7 @@ function mapPhaseSummary(raw: unknown): PhaseSummary {
     id: int(p.id),
     kind: kind(p.kind),
     bracketView: p.kind === "bracket" ? mapBracketView(p.bracketView) : null,
+    standingsTable: p.kind === "bracket" ? boolOrNull(p.standingsTable) : null,
     name: str(p.name),
     ordinal: int(p.ordinal, 1),
     matchDays,
@@ -461,19 +560,38 @@ function mapGroup(raw: unknown): GroupSave {
   };
 }
 
+/**
+ * A slot's source, either branch, told apart by key as upstream does.
+ *
+ * A seed source keeps `group: null` as a real value (a bracket table), so it is not folded into
+ * absence. One that cannot be mapped whole reads as an entry, the same as a node source with no node:
+ * upstream leaves an output behind when a source node is deleted.
+ */
+function mapSource(raw: unknown): SlotSource | null {
+  if (raw === null || typeof raw !== "object") return null;
+  const src = asRaw(raw);
+
+  if ("phase" in src) {
+    const phase = intOrNull(src.phase);
+    const place = intOrNull(src.place);
+    const group = src.group === null ? null : intOrNull(src.group);
+    if (phase === null || place === null || (src.group !== null && group === null)) return null;
+    return { phase, group, place };
+  }
+
+  const node = intOrNull(src.node);
+  return node === null ? null : { node, output: output(src.output) };
+}
+
 function mapSlot(raw: unknown): SlotSave {
   const s = asRaw(raw);
-  const src = asRaw(s.src);
-  const node = intOrNull(src.node);
 
   return {
     // A seed this build can't send back is dropped rather than coerced. Upstream refuses a number now,
     // and `String(1)` would turn a phase written by the old client into a silent data change nobody
     // asked for — an empty box is the honest rendering of a value that has to be re-entered.
     seed: isSlotSeed(s.seed) ? s.seed : null,
-    // `src.node` is the whole test for "derived". An output with no node is
-    // meaningless, and upstream leaves one behind when a source is deleted.
-    src: s.src === null || node === null ? null : { node, output: output(src.output) },
+    src: mapSource(s.src),
   };
 }
 
@@ -531,11 +649,12 @@ function mapContents(kindOf: PhaseKind, raw: unknown): PhaseContents {
   };
 }
 
-function mapCandidateTeam(raw: unknown): CandidateTeam {
+function mapCandidateTeam(raw: unknown, index: number): CandidateTeam {
   const t = asRaw(raw);
   const scenario = asRaw(t.scenario);
 
   return {
+    position: int(t.position, index + 1),
     teamId: int(t.teamId),
     code: str(t.code),
     name: str(t.name),
@@ -547,6 +666,8 @@ function mapCandidateTeam(raw: unknown): CandidateTeam {
     seriesLosses: int(t.seriesLosses),
     gameWins: int(t.gameWins),
     gameLosses: int(t.gameLosses),
+    avgWinSeconds: finiteOrNull(t.avgWinSeconds),
+    avgLossSeconds: finiteOrNull(t.avgLossSeconds),
     scenario:
       t.scenario == null
         ? null
@@ -658,10 +779,11 @@ function mapIdMap(raw: unknown): Record<string, number> {
 }
 
 /**
- * The bracket editor's side panel: every **earlier** group phase's live standings.
+ * The bracket editor's side panel: every **earlier** table, group phases by group and bracket phases
+ * with a standings table as one entry with `group: null`. Exactly the set a seed source may read.
  *
- * Nothing is ever auto-filled from it, in either direction. The endpoint puts the information next
- * to the decision; it does not make the decision — see `tied` on `CandidateTeam` for why.
+ * Read-only reference for entry slots, and the readiness a seed slot waits on: a seed slot fills only
+ * from a `final` table, and not from a tied row (see `tied` on `CandidateTeam`).
  */
 export function phaseCandidates(
   conf: string,
@@ -674,12 +796,16 @@ export function phaseCandidates(
       return {
         phaseId: int(p.phaseId),
         phaseName: str(p.phaseName),
+        // Older servers serve group phases only and omit `kind`.
+        kind: kind(p.kind),
         groups: arr(p.groups).map(table => {
           const t = asRaw(table);
           const g = asRaw(t.group);
           return {
-            group: { id: int(g.id), name: str(g.name), ordinal: int(g.ordinal, 1) },
+            group: t.group == null ? null : { id: int(g.id), name: str(g.name), ordinal: int(g.ordinal, 1) },
             teams: arr(t.teams).map(mapCandidateTeam),
+            final: bool(t.final),
+            lockedThrough: intOrNull(t.lockedThrough),
           };
         }),
       };
@@ -688,32 +814,39 @@ export function phaseCandidates(
 }
 
 /**
- * Re-derives every downstream team from the results that exist now.
+ * Re-derives every downstream team from the results that exist now, in this phase and every phase
+ * seeded from it.
  *
  * Idempotent and cheap, so this is a safe button: it returns only what it actually rewrote, which is
  * an empty list when nothing was stale. It clears as well as sets — a corrected upstream result
- * sends the downstream team back to null to be re-derived.
+ * sends the downstream team back to null to be re-derived. `held` names this phase's seed slots it
+ * left empty, and why; unknown reasons drop.
  */
 export function propagatePhase(
   conf: string,
   phaseId: number,
   opts?: RequestOpts,
-): Promise<PropagationUpdate[]> {
+): Promise<PropagationReport> {
   return credentialedRequest(
     `${base(conf)}/${phaseId}/propagate`,
     // No body, but a POST still needs the JSON content type to clear the preflight.
     { method: "POST", body: {} },
     opts,
-  ).then(raw =>
-    arr(asRaw(raw).updates).map(entry => {
-      const u = asRaw(entry);
-      return {
-        scheduleMatchId: int(u.scheduleMatchId),
-        side: u.side === "bottom" ? ("bottom" as const) : ("top" as const),
-        teamId: intOrNull(u.teamId),
-      };
-    }),
-  );
+  ).then(raw => {
+    const body = asRaw(raw);
+    const side = (v: unknown): SlotSide => (v === "bottom" ? "bottom" : "top");
+    return {
+      updates: arr(body.updates).map(entry => {
+        const u = asRaw(entry);
+        return { scheduleMatchId: int(u.scheduleMatchId), side: side(u.side), teamId: intOrNull(u.teamId) };
+      }),
+      held: arr(body.held).flatMap(entry => {
+        const h = asRaw(entry);
+        const reason = HELD_REASONS.find(r => r === h.reason);
+        return reason ? [{ scheduleMatchId: int(h.scheduleMatchId), side: side(h.side), reason }] : [];
+      }),
+    };
+  });
 }
 
 // ------------------------------------------------------------------- helpers
@@ -793,7 +926,9 @@ export function bracketRounds(nodes: readonly NodeSave[]): BracketRounds {
     let depth = 0;
     for (const side of SLOT_SIDES) {
       const src = node[side].src;
-      if (!src) continue;
+      // A seed source reads an earlier phase and adds no edge here, so a node seeded on both sides
+      // is an entry.
+      if (!isNodeSource(src)) continue;
       // A source that isn't in the list is ignored rather than treated as depth 0 — upstream nulls
       // `src_node_id` when a source is deleted, so a dangling edge is a state that really occurs.
       const from = byId.get(src.node);
@@ -949,6 +1084,7 @@ export function toListEntry(p: PhaseSummary): PhaseListEntry {
     id: p.id,
     kind: p.kind,
     ...(p.kind === "bracket" && p.bracketView !== null ? { bracketView: p.bracketView } : {}),
+    ...(p.kind === "bracket" && p.standingsTable !== null ? { standingsTable: p.standingsTable } : {}),
     name: p.name,
     matchDays: p.matchDays,
     published: p.published,

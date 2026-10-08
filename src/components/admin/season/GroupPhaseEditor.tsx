@@ -142,6 +142,7 @@ export function GroupPhaseEditor({ conf, phase, contents, teams, onSaved }: Prop
 
       <GroupsEditor
         groups={draft.groups}
+        saved={contents.groups}
         scenarios={draft.scenarios}
         teams={teams}
         issues={issues}
@@ -439,12 +440,15 @@ function ScenarioBadge({ scenario }: { scenario: Scenario }) {
 
 function GroupsEditor({
   groups,
+  saved,
   scenarios,
   teams,
   issues,
   onChange,
 }: {
   groups: readonly GroupSave[];
+  /** The groups as last saved, so a deletion the server refused can be put back. */
+  saved: readonly GroupSave[];
   scenarios: Record<string, Scenario>;
   teams: readonly TeamRecord[];
   issues: readonly ValidationIssue[];
@@ -456,6 +460,17 @@ function GroupsEditor({
     for (const g of groups) for (const id of g.teams) map.set(id, g.name);
     return map;
   }, [groups]);
+
+  /*
+   * A deleted group that a later bracket's seed sources read is refused at `groups` itself, since the
+   * group is not in the body, with its id in `subjects`. Restoring puts the saved group back, minus any
+   * team since placed in another group, so the save can go through.
+   */
+  const readIssues = issues.filter(i => i.path === "groups");
+  const readIds = new Set(readIssues.flatMap(i => i.subjects ?? []));
+  const restorable = saved.filter(g => readIds.has(g.id) && !groups.some(d => d.id === g.id));
+  const restore = (group: GroupSave): void =>
+    onChange([...groups, { ...group, teams: group.teams.filter(id => !takenBy.has(id)) }]);
 
   const update = (index: number, changes: Partial<GroupSave>): void =>
     onChange(groups.map((g, i) => (i === index ? { ...g, ...changes } : g)));
@@ -482,6 +497,21 @@ function GroupsEditor({
         There is no size field — a group is as big as its membership. There is no seed either: seeding
         is what the standings compute, and a stored one would be a second, staler answer.
       </p>
+
+      {readIssues.length > 0 && (
+        <div className="mb-3 flex flex-col gap-2">
+          <IssueList issues={readIssues} />
+          {restorable.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {restorable.map(group => (
+                <Button key={group.id} type="button" variant="outline" size="sm" onClick={() => restore(group)}>
+                  Restore group {group.name}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {groups.length === 0 ? (
         <p className="text-text-dim text-sm py-3">

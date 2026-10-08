@@ -29,14 +29,21 @@
  * One consequence of columns being days: upstream explicitly permits a feeder and its consumer on the
  * **same** match day. Such an edge fails the strictly-left guard used throughout below, so it is not
  * drawn and does not pull its consumer's row. The slot's own "Winner of Match 7" is what carries it.
+ *
+ * **A seed source is not an edge.** It reads an earlier phase's table, so every walk below skips it
+ * and a node seeded on both sides is an entry, like one with two hand-placed teams. Its slot carries
+ * the label instead ("1st, Swiss Stage").
  */
 
-import type {
-  SeasonBracketMatch,
-  SeasonBracketPhase,
-  SlotOutput,
-  SlotSide,
+import {
+  isNodeFrom,
+  isSeedFrom,
+  type SeasonBracketMatch,
+  type SeasonBracketPhase,
+  type SeasonBracketSide,
+  type SlotSide,
 } from "./api";
+import { seedFromLabel } from "./seeding";
 
 const SIDES: readonly SlotSide[] = ["top", "bottom"];
 
@@ -98,6 +105,10 @@ export interface BracketLayout {
    * names stay aligned across the bracket when one slot carries a range such as `12-16`.
    */
   seedChars: number;
+  /** Seed slots reading a group name its phase too, because the season has several group phases. */
+  nameGroupPhases: boolean;
+  /** The phase laid out, so a slot seeded from its own earlier rounds reads "Seed 1". */
+  phaseId: number;
 }
 
 /**
@@ -115,19 +126,31 @@ export function feederName(layout: BracketLayout, node: number): string | null {
   return label ? label : `Match ${feeder.matchDay}·${feeder.row + 1}`;
 }
 
-/** "Winner of Semifinal 1", or "Winner of an earlier match" when the source is gone. */
-export function sideProvenance(layout: BracketLayout, from: { node: number; output: SlotOutput }): string {
+/**
+ * "Winner of Semifinal 1", "Winner of an earlier match" when the source is gone, or a seed slot's
+ * table row ("1st, Swiss Stage").
+ */
+export function sideProvenance(layout: BracketLayout, from: NonNullable<SeasonBracketSide["from"]>): string {
+  if (isSeedFrom(from)) return seedFromLabel(from, layout.nameGroupPhases, layout.phaseId);
   const verb = from.output === "winner" ? "Winner of" : "Loser of";
   const who = feederName(layout, from.node);
   return who ? `${verb} ${who}` : `${verb} an earlier match`;
 }
 
-/** Manual rounds have no advancement wiring, regardless of the phase's display name. */
+/** Whether any slot is wired to another node: the view fallback for servers that serve no `bracketView`. */
 export function hasBracketFeeders(phase: SeasonBracketPhase): boolean {
+  return phase.rounds.some(round => round.matches.some(match => isNodeFrom(match.top.from) || isNodeFrom(match.bottom.from)));
+}
+
+/** Any slot that propagation fills: a node feeder or a seed source the caller can see. */
+export function hasDerivedSlots(phase: SeasonBracketPhase): boolean {
   return phase.rounds.some(round => round.matches.some(match => match.top.from || match.bottom.from));
 }
 
-export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
+export function bracketLayout(
+  phase: SeasonBracketPhase,
+  { nameGroupPhases = false }: { nameGroupPhases?: boolean } = {},
+): BracketLayout {
   // Sorted rather than taken as served: serve order is right today, but this is the axis the whole
   // layout hangs off, and a column strip that reads 1, 3, 2 is not a thing to discover at render time.
   const rounds = [...phase.rounds].sort((a, b) => a.matchDay - b.matchDay);
@@ -149,7 +172,7 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
   for (const { match } of flat) {
     for (const side of SIDES) {
       const from = match[side].from;
-      if (from && !byId.has(from.node)) dangling.add(from.node);
+      if (isNodeFrom(from) && !byId.has(from.node)) dangling.add(from.node);
     }
   }
 
@@ -166,7 +189,7 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
     const out: number[] = [];
     for (const side of SIDES) {
       const from = entry.match[side].from;
-      if (!from || from.output !== "winner") continue;
+      if (!isNodeFrom(from) || from.output !== "winner") continue;
       const source = byId.get(from.node);
       if (!source || source.column >= entry.column) continue;
       out.push(from.node);
@@ -284,7 +307,7 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
   for (const placed of byNode.values()) {
     for (const side of SIDES) {
       const from = placed.match[side].from;
-      if (!from || from.output !== "winner") continue;
+      if (!isNodeFrom(from) || from.output !== "winner") continue;
       const source = byNode.get(from.node);
       if (!source || source.column >= placed.column) continue;
 
@@ -306,11 +329,11 @@ export function bracketLayout(phase: SeasonBracketPhase): BracketLayout {
   for (const { match } of flat) {
     for (const side of SIDES) {
       const { from, seed } = match[side];
-      if (from === null && seed) seedChars = Math.max(seedChars, seed.length);
+      if (!isNodeFrom(from) && seed) seedChars = Math.max(seedChars, seed.length);
     }
   }
 
-  return { columns, byNode, rows, edges, dangling: [...dangling], seedChars };
+  return { columns, byNode, rows, edges, dangling: [...dangling], seedChars, nameGroupPhases, phaseId: phase.id };
 }
 
 /**

@@ -216,6 +216,8 @@ function mapStandingRow(raw: Raw): StandingRow {
     // Falls back to the bare rank so a row is never left without something to show.
     place: strOrNull(raw.place) ?? String(num(raw.rank as Numeric)),
     gameWinPct: numOrNull(raw.gameWinPct as Numeric),
+    avgWinSeconds: numOrNull(raw.avgWinSeconds as Numeric),
+    avgLossSeconds: numOrNull(raw.avgLossSeconds as Numeric),
     streak: strOrNull(raw.streak),
     form: mapForm(raw.form),
     ...pickCounts(raw, RECORD_COUNTS),
@@ -634,9 +636,10 @@ export function tournaments(opts?: RequestOpts): Promise<Tournament[]> {
  * Public discovery explicitly sets `anonymous`, which overrides session inclusion in the transport.
  *
  * `/standings/:conf`, `/matches/:conf` and the conf-scoped `/stats` routes are gated the same way
- * upstream but stay anonymous here, because nothing asks them for a hidden conference —
- * `LeagueProvider` only ever selects a listed one. If an admin surface ever needs one of them, it
- * needs this flag too, and the symptom will be the same message.
+ * upstream but stay anonymous on public pages, because `LeagueProvider` only ever selects a listed
+ * conference. An admin surface that reads one passes `credentialed` itself, as the tiebreaker
+ * editor's standings preview (`queries.manageStandings`) does; without it the symptom is the same
+ * message.
  */
 const withSession = (opts?: RequestOpts): RequestOpts => ({ ...opts, credentialed: true });
 
