@@ -1,5 +1,5 @@
 /**
- * League Admin > Standings tiebreakers: the order this conference's standings and group tables rank
+ * League Admin > Tiebreakers: the order this conference's standings and group tables rank
  * teams by (`lib/api/tiebreakers.ts`).
  *
  * The whole list is one document saved in one request. A criterion is in exactly one of the two

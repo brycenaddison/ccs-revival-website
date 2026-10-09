@@ -72,9 +72,9 @@ const SECTIONS: readonly LeagueAdminSection[] = [
   {
     slug: "standings",
     // The order decides who makes playoffs, so upstream accepts only the `admin` grant; `schedule`,
-    // `roster` and `stats` grants would be refused.
+    // `roster` and `production` grants would be refused.
     scope: "admin",
-    label: "Standings tiebreakers",
+    label: "Tiebreakers",
     icon: ListOrdered,
     description: "The order of rules that ranks teams in this league's standings and group tables.",
     maxWidth: 1040,

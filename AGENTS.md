@@ -314,9 +314,11 @@ Do not edit that repository or derive data the API already answers.
   `api/season.ts` reads site-admin structure `GET /:conf/phases`, preserving nulls meaning
   inherit. They are not interchangeable: an editor using resolved values turns inheritance into overrides.
 - `pages/LeagueAdmin.tsx` filters section registries before SettingsShell. Info, Applications,
-  Accolades and Standings tiebreakers need league admin; Teams and Discord need roster; Schedule/Bracket/Predictions need schedule; site
+  Accolades and Tiebreakers need league admin; Teams and Discord need roster; Schedule/Bracket/Predictions need schedule; site
   admins see all.
   Hidden direct links redirect to the first allowed section; no allowed sections shows a notice.
+  The `production` scope is the broadcast crew's read-only view of codes and draft rooms on match
+  pages; it opens no section here.
   The API permits roster on application review, while this UI requires admin; UI filtering is not
   an authorization boundary. Do not link ordinary league staff to inaccessible site-admin controls.
 - `SettingsShell` renders section registries for profile, site and league areas; add sections
@@ -340,8 +342,9 @@ Do not edit that repository or derive data the API already answers.
   before replacing only that phase's choice, awaits season/schedule invalidation, and requires contents changes to be
   saved or discarded first. View saves disable contents controls while pending.
   `season/BracketPhaseView.tsx` follows that choice, with a wiring-based fallback
-  only for older servers and no viewer switch. Mobile uses round stacks. Desktop rounds break out through `FullBleedScroller` like the canvas (not inside League Admin's panel). Rounds preserve served fixture
-  order and omit terminal emphasis. Both views reuse `BracketRoundHeading` and `BracketMatchCard`.
+  only for older servers and no viewer switch. Mobile uses round stacks. Desktop rounds break out through `FullBleedScroller` like the canvas (not inside League Admin's panel). Rounds order fixtures by the
+  served bracket match `ordinal` (sorted in `api/seasonView.ts`; never node ids) and omit terminal
+  emphasis. Unlabeled feeders read `Match <day>·<ordinal>` in both views. Both views reuse `BracketRoundHeading` and `BracketMatchCard`.
   League Admin reuses the same immediate-save entry-slot team pickers in both layouts; there is no
   separate round editor. Resync appears only with derived slots; derived slots show provenance in both;
   changing the presentation never clears wiring. Structure and byes remain API constraints.
@@ -378,7 +381,7 @@ Do not edit that repository or derive data the API already answers.
   defaults and the served catalog (`available`, which supplies every label and description; ids
   outside it drop). Every ranked read orders by it; the site never ranks. `queries.tiebreakers` is
   the anonymous public read and `queries.manageTiebreakers` the editor's session read, both under
-  `queryRoots.tiebreakers`. League Admin > Standings tiebreakers (`league/standings/TiebreakersSection.tsx`)
+  `queryRoots.tiebreakers`. League Admin > Tiebreakers (`league/standings/TiebreakersSection.tsx`)
   edits a working list (in use and available are disjoint; the last rule cannot be removed), saves it
   whole, adopts the response, and invalidates tiebreakers, standings, season and schedule (a save
   re-seeds table-sourced slots in the same transaction). A 422 marks rows by

@@ -17,7 +17,8 @@
  * **Order is the contract.** Phases arrive in `ordinal` order, groups in theirs, and group rows come
  * ranked with ties already resolved by a cascade — series record, then game win percentage, then
  * head-to-head — that cannot be reconstructed from anything on this page. Nothing here sorts, and
- * nothing downstream should either.
+ * nothing downstream should either. The one exception is a bracket round's matches, ordered on the
+ * served `ordinal` they carry for exactly that purpose.
  *
  * **The payload is clock-dependent.** `activePhaseId` is a function of `generatedAt`, which is why
  * the server sends both: a cached copy is otherwise indistinguishable from a fresh one.
@@ -204,6 +205,11 @@ export interface SeasonBracketMatch {
   node: number;
   /** The underlying `schedule_match` id, and the join key against `GET /:conf/schedule`. */
   matchId: number;
+  /**
+   * The fixture's 1-based position within its match day, as the admin ordered it. A round's
+   * `matches` are sorted by it. Node ids follow creation order, so they say nothing about position.
+   */
+  ordinal: number;
   /** Free text, the admin's own. Nothing keys off it; there is no `"QF1"` and no `"GF"`. */
   label: string | null;
   bestOf: BestOf;
@@ -491,11 +497,12 @@ function mapResult(raw: unknown): SeasonBracketResult | null {
   };
 }
 
-function mapBracketMatch(raw: unknown): SeasonBracketMatch {
+function mapBracketMatch(raw: unknown, index: number): SeasonBracketMatch {
   const m = asRaw(raw);
   return {
     node: int(m.node),
     matchId: int(m.matchId),
+    ordinal: int(m.ordinal, index + 1),
     label: strOrNull(m.label),
     bestOf: bestOf(m.bestOf),
     scheduledAt: strOrNull(m.scheduledAt),
@@ -512,7 +519,10 @@ function mapRound(raw: unknown, index: number): SeasonRound {
   return {
     matchDay: int(r.matchDay, index + 1),
     seasonDay: int(r.seasonDay, index + 1),
-    matches: arr(r.matches).map(mapBracketMatch),
+    // Upstream serves a round in `ordinal` order; sorting on it keeps every bracket view on the
+    // admin's order even where serve order drifts. `sort` is stable, so a missing ordinal (which
+    // falls back to serve position) keeps its place.
+    matches: arr(r.matches).map(mapBracketMatch).sort((a, b) => a.ordinal - b.ordinal),
   };
 }
 

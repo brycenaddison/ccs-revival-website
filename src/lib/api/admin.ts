@@ -33,9 +33,11 @@ import type { Tournament } from "./types";
  * Every scope a league grant may carry, mirroring `LEAGUE_SCOPES` upstream.
  *
  * `admin` implies the other three **within its own conf**. Granular grants are separate rows because
- * `league_admins` is keyed by scope, which is why the editor offers all four.
+ * `league_admins` is keyed by scope, which is why the editor offers all four. `production` is the
+ * broadcast crew's read-only grant: upcoming and live tournament codes and draft rooms, nothing else.
+ * A row naming any other scope, such as a legacy `stats` grant, fails `isLeagueScope` and drops.
  */
-export const LEAGUE_SCOPES = ["admin", "schedule", "roster", "stats"] as const;
+export const LEAGUE_SCOPES = ["admin", "schedule", "roster", "production"] as const;
 
 export type LeagueScope = (typeof LEAGUE_SCOPES)[number];
 

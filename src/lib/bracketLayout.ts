@@ -115,15 +115,16 @@ export interface BracketLayout {
  * A human name for the match a slot draws from, for "Winner of …".
  *
  * The admin's own `label` when there is one. Otherwise a *position* — `Match 2·1`, meaning the second
- * match day, first card — rather than the node id, which is a database serial that means nothing to a
- * reader and cannot be found anywhere on the page. Null feeder is the dangling case, and gets
- * phrasing that promises nothing.
+ * match day, first fixture by `ordinal` — rather than the node id, which is a database serial that
+ * means nothing to a reader and cannot be found anywhere on the page. The ordinal, not the canvas row,
+ * so the name reads the same in both views. Null feeder is the dangling case, and gets phrasing that
+ * promises nothing.
  */
 export function feederName(layout: BracketLayout, node: number): string | null {
   const feeder = layout.byNode.get(node);
   if (!feeder) return null;
   const label = feeder.match.label?.trim();
-  return label ? label : `Match ${feeder.matchDay}·${feeder.row + 1}`;
+  return label ? label : `Match ${feeder.matchDay}·${feeder.match.ordinal}`;
 }
 
 /**
@@ -155,8 +156,9 @@ export function bracketLayout(
   // layout hangs off, and a column strip that reads 1, 3, 2 is not a thing to discover at render time.
   const rounds = [...phase.rounds].sort((a, b) => a.matchDay - b.matchDay);
 
-  // The `seq` an entry gets here — day, then the ordinal the admin set within that day — is the
-  // tie-break for everything below, and it is the only ordering a human actually chose.
+  // The `seq` an entry gets here — day, then the ordinal the admin set within that day, which the
+  // mapper has already sorted each round on — is the tie-break for everything below, and it is the
+  // only ordering a human actually chose.
   const flat = rounds.flatMap((round, column) =>
     round.matches.map(match => ({ match, matchDay: round.matchDay, column })),
   );

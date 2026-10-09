@@ -509,11 +509,11 @@ function ScopePicker({
           </label>
         ))}
       </div>
-      {impliedByAdmin && (
-        <p className="text-text-dim text-xs mt-2">
-          Admin already implies schedule, roster and stats in this league.
-        </p>
-      )}
+      <p className="text-text-dim text-xs mt-2">
+        {impliedByAdmin
+          ? "Admin already implies schedule, roster and production in this league."
+          : "Production can see upcoming and live tournament codes and draft rooms, and edits nothing."}
+      </p>
     </>
   );
 }

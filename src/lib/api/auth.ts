@@ -58,9 +58,10 @@ export interface AdminLeague {
   /**
    * Every scope the caller may actually **use** in this conf — not just the grant's own row.
    *
-   * `admin` implies `schedule`, `roster` and `stats`, so a single row does not answer "may this person
-   * review a roster"; a client reading only the row would have to reimplement that implication. Where
-   * two grants name one conf, both carry the same union, so a page reads it off whichever it holds.
+   * `admin` implies `schedule`, `roster` and `production`, so a single row does not answer "may this
+   * person review a roster"; a client reading only the row would have to reimplement that implication.
+   * Where two grants name one conf, both carry the same union, so a page reads it off whichever it
+   * holds.
    *
    * **Presentation only.** It exists so a page can hide a control the viewer cannot use instead of
    * offering it and letting the API answer `403`. The server still guards every route.
@@ -73,7 +74,7 @@ export interface AdminLeague {
 }
 
 /** The league scope vocabulary. Duplicated from `admin.ts` so this module needs no import from it. */
-export const LEAGUE_SCOPE_NAMES = ["admin", "schedule", "roster", "stats"] as const;
+export const LEAGUE_SCOPE_NAMES = ["admin", "schedule", "roster", "production"] as const;
 
 export type LeagueScopeName = (typeof LEAGUE_SCOPE_NAMES)[number];
 
