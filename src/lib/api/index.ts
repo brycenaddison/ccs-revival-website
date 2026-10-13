@@ -8,6 +8,13 @@ export type {
 } from "./game";
 export { API_BASE, ApiError, errorMessage, isAbort, getList, getOne, post } from "./http";
 export {
+  scoreboardStatus, previewScoreboard, scoreboardPreviewImage, resendScoreboard, scoreboardRefusal,
+  SCOREBOARD_IMAGE_BYTES_MAX, SCOREBOARD_HISTORY_MAX, SCOREBOARD_PREVIEW_LIFETIME_MS,
+  SCOREBOARD_OPERATION_TIMEOUT_MS, SCOREBOARD_ELIGIBILITIES, SCOREBOARD_ORIGINAL_DELIVERIES,
+  SCOREBOARD_RENDER_STATUSES, SCOREBOARD_RESEND_STATUSES,
+} from "./scoreboards";
+export type { ScoreboardStatus, ScoreboardPreview, ScoreboardDestination, ScoreboardResendRecord, ScoreboardResendStatus } from "./scoreboards";
+export {
   predictions, prediction, predictionSummary, enrollPredictions, claimPredictionReward,
   predictionPositions, publicPredictionPicks, myPredictions, previewPrediction, placePrediction,
   predictionHistory, predictionSeasons, predictionLeaderboard, managePredictions, publishPredictions,

@@ -43,6 +43,7 @@ import { SeriesGameCard } from "../components/match/SeriesGameCard";
 import { SeriesPreview } from "../components/match/SeriesPreview";
 import { SeriesTotals } from "../components/match/SeriesTotals";
 import { MatchLobby } from "../components/match/MatchLobby";
+import { ScoreboardRecoveryPanel } from "../components/match/ScoreboardRecoveryPanel";
 import type { TeamNamer } from "../components/match/TeamNameLink";
 import type { FixtureTeam } from "../lib/seriesStats";
 
@@ -100,6 +101,7 @@ export default function MatchDetail() {
       <div>
         <SeriesHeader match={data} />
         <MatchLobby key={`${matchId}-${profile?.id ?? "guest"}`} codes={data.codes} draftUrl={data.draftUrl} />
+        <ScoreboardRecoveryPanel matchId={matchId} />
 
         {/*
           Only the undated case is worth saying. "No games recorded yet" on a fixture whose kickoff is in

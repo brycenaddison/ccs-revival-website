@@ -44,6 +44,7 @@ import {
   matchDetail,
   matchTimeline,
   matchResult,
+  scoreboardStatus,
   phaseCandidates,
   phaseDocument,
   phaseList,
@@ -911,6 +912,14 @@ export const queries = {
       staleTime: 0,
       gcTime: 0,
       retry: false,
+    }),
+
+  /** Site-admin recovery status shares schedule invalidation; previews stay only in component state. */
+  scoreboardStatus: (matchId: number, viewerId: number) =>
+    query({
+      queryKey: ["schedule", "scoreboards", matchId, viewerId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => scoreboardStatus(matchId, { signal }),
+      ...RESULTS_READ_OPTIONS,
     }),
 
   /** Played games with no scheduled match. Lists forever for legacy seasons; a worklist, not an alarm. */

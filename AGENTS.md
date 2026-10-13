@@ -645,6 +645,14 @@ Do not edit that repository or derive data the API already answers.
 
 ## Matches, schedules and games
 
+- `match/ScoreboardRecoveryPanel.tsx` is a site-admin-only panel on `/match/:scheduleMatchId`.
+  `api/scoreboards.ts` reads status, generates a reviewed PNG and resends exactly its preview UUID;
+  `credentialedBlobRequest` shares the cookie/error transport and bypasses caching. Status is
+  viewer keyed with zero retention under the schedule root. `useScoreboardRecovery.ts` keeps
+  image URLs local, revokes them on replacement/expiry/unmount and retains send identity separately.
+  Closing the panel keeps its observer mounted. Sending requires a loaded, unexpired image and a
+  sent original; unresolved retries reuse the same UUID even after expiry. New previews after
+  uncertainty require explicit Discord inspection. Neither POST retries or regenerates automatically.
 - `pages/MatchDetail.tsx` + `match/MatchLobby.tsx` render the served `draftUrl` and API tournament
   codes below the header (`match/MatchupHeader.tsx`), codes in served game order. The two are
   independent: a room can be served before codes. The Preview tab adds the fixture's

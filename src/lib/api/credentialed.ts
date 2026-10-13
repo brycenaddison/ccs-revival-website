@@ -100,31 +100,41 @@ function toIssues(raw: unknown): ValidationIssue[] {
 
 export interface Init {
   method?: string;
+  /** Operations issuing review tokens require the documented success status. */
+  expectedStatus?: number;
   /** Private directory lookups must never reuse the browser's HTTP cache. */
   cache?: "no-store";
   /** Omit for bodyless requests; presence adds the JSON content type, including on DELETE. */
   body?: unknown;
 }
 
-export async function credentialedRequest(
+async function credentialedResponse(
   path: string,
   init: Init = {},
   opts?: RequestOpts,
-): Promise<unknown> {
+  accept = "application/json",
+): Promise<Response> {
   const hasBody = init.body !== undefined;
   const res = await fetch(`${API_BASE}${path}`, {
     method: init.method ?? "GET",
     credentials: "include",
     cache: init.cache,
     headers: {
-      Accept: "application/json",
+      Accept: accept,
       ...(hasBody ? { "Content-Type": "application/json" } : {}),
     },
     body: hasBody ? JSON.stringify(init.body) : undefined,
     signal: opts?.signal,
   });
 
-  // Read once, unconditionally — an error body is plain text as often as it is JSON.
+  if (res.ok) {
+    if (init.expectedStatus !== undefined && res.status !== init.expectedStatus) {
+      throw new ApiError(res.status, path, "Unexpected success response. Refresh before trying again.");
+    }
+    return res;
+  }
+
+  // Read the failed body once; errors are plain text as often as they are JSON.
   const text = await res.text();
 
   if (res.status === 422) {
@@ -142,9 +152,25 @@ export async function credentialedRequest(
     }
   }
 
-  if (!res.ok) {
-    throw new ApiError(res.status, path, errorDetail(text) || res.statusText, errorBody(text));
+  throw new ApiError(res.status, path, errorDetail(text) || res.statusText, errorBody(text));
+}
+
+/** Private media uses the same session and error envelopes as authenticated JSON reads. */
+export async function credentialedBlobRequest(path: string, opts?: RequestOpts): Promise<Blob> {
+  const res = await credentialedResponse(path, { cache: "no-store" }, opts, "image/png");
+  if (res.status !== 200 || res.headers.get("Content-Type")?.split(";")[0].trim() !== "image/png") {
+    throw new ApiError(res.status, path, "Expected a scoreboard PNG.");
   }
+  return res.blob();
+}
+
+export async function credentialedRequest(
+  path: string,
+  init: Init = {},
+  opts?: RequestOpts,
+): Promise<unknown> {
+  const res = await credentialedResponse(path, init, opts);
+  const text = await res.text();
   if (text.trim() === "") return null;
 
   try {
