@@ -85,6 +85,8 @@ Do not edit that repository or derive data the API already answers.
   labels one filter (`group` for a pill row). `match/MatchupHeader.tsx` is the two-team header
   card. `CursorPager`/`ShowMore` page cursor lists on `hooks/useCursorPage.ts`; numbered URL pages
   use `ui/pagination` (router links). `stats/StatTile.tsx` is the headline-number tile.
+  `stats/StatTable.tsx` keeps the name and its first `pinned` columns sticky while the rest scroll
+  under a `ScrollRail` above the header; Teams pins only the name, Players Games, Champions Picks.
   `TimeZonePicker` is the searchable IANA zone picker on `ui/combobox` (Popover + Command), the
   combobox for stable local option lists. Its options can be `disabled` with a `detail` reason so
   server-reported unavailable choices stay listed.
@@ -696,8 +698,9 @@ Do not edit that repository or derive data the API already answers.
   statistics catch up on their own refresh about 30 seconds later.
 - Draft statistics: no league flag decides them. Champion `seriesPresence`/`blindPickRate` show in
   the Draft group when any row has a `seriesPresence`. A response with any `prioScore` is fearless:
-  pick rate, ban rate and presence are hidden, prio score takes presence's anchor column and the
-  default sort, and `avgFearlessGame` joins the Draft group. Decided per response through
+  pick rate, ban rate and presence are hidden, prio score takes presence's place in the Draft group
+  and the default sort (Picks, the one pinned column, sorts other groups), and `avgFearlessGame`
+  joins the Draft group. Decided per response through
   `StatCell.shownWhen`, `availableGroups`/`availableCells` and `defaultChampionSortKey`; null cells
   render as a dash. `sortByCell` puts nulls last in both directions,
   and stat headers carry `hint` text through `TooltipHint`. Outside the champion statistics, draft

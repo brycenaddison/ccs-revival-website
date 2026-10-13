@@ -4,7 +4,7 @@
  * The old dashboard's champion page could show games, win rate, KDA, K/D/A, pick rate and a ban count.
  * `championstats` carries all of that plus presence, average ban turn, the per-minute suite, lane
  * diffs at 8 and 14, and a best-player-on-this-champion join — so the table is group-switched rather
- * than fixed, with four anchor columns always visible so switching groups never loses your place.
+ * than fixed, with the champion and its pick count pinned so switching groups never loses your place.
  *
  * The two summary tiles are counts, not superlatives. There were "Best Win%" and "Best KDA" tiles here
  * and they were removed on purpose: both are dominated by small samples, and even with a games floor
@@ -27,17 +27,14 @@ import {
 } from "../../lib/api";
 import { queries } from "../../lib/queries";
 import {
-  availableCells,
   availableGroups,
-  CHAMPION_PRESENCE_CELL,
-  CHAMPION_PRIO_CELL,
   CHAMPION_STAT_GROUPS,
   defaultChampionSortKey,
   flattenGroups,
   sortByCell,
   type StatCell,
 } from "../../lib/statGroups";
-import { int, pct } from "../../lib/statFormat";
+import { int } from "../../lib/statFormat";
 import { MIN_PICKS_OPTIONS, ROLE_FILTERS } from "../../lib/statUi";
 import { ChampionIcon } from "../ChampionIcon";
 import { StatGroupSwitcher } from "./StatGroupSwitcher";
@@ -57,15 +54,11 @@ interface Props {
 }
 
 /**
- * Always-visible columns, so the table stays legible across group switches. The priority column is
- * presence, or prio score where the response has fearless data; exactly one of the two is shown.
+ * The column pinned beside the champion in every group: sample size, the denominator behind every
+ * rate. Bans, win rate and the priority column live in the Draft group.
  */
 const ANCHOR_CELLS: readonly StatCell<ChampionStats>[] = [
   { key: "games", label: "Picks", value: c => c.games, format: int },
-  { key: "bans", label: "Bans", value: c => c.bans, format: int },
-  CHAMPION_PRESENCE_CELL,
-  CHAMPION_PRIO_CELL,
-  { key: "winPercent", label: "Win%", value: c => c.winPercent, format: pct },
 ];
 
 const ROLE_OPTIONS = ROLE_FILTERS.map(r => ({ value: r, label: roleLabel(r) }));
@@ -91,9 +84,10 @@ export function ChampionPanel({ conf, isMobile }: Props) {
 
   // Draft and fearless columns appear only when this response carries that kind of data.
   const groups = useMemo(() => availableGroups(CHAMPION_STAT_GROUPS, champs), [champs]);
-  const anchors = useMemo(() => availableCells(ANCHOR_CELLS, champs), [champs]);
-  const defaultSortKey = defaultChampionSortKey(champs);
   const group = groups.find(g => g.id === groupId) ?? groups[0];
+  // The priority column lives in the Draft group; other groups fall back to the pinned Picks.
+  const priorityKey = defaultChampionSortKey(champs);
+  const defaultSortKey = group.cells.some(c => c.key === priorityKey) ? priorityKey : ANCHOR_CELLS[0].key;
   const catalog = useMemo(() => flattenGroups([group]), [group]);
   const activeBarStat = barStat !== null && catalog.some(c => c.key === barStat) ? barStat : defaultSortKey;
 
@@ -144,9 +138,9 @@ export function ChampionPanel({ conf, isMobile }: Props) {
 
   // Anchors first, then whatever the group adds that isn't already an anchor.
   const columns = useMemo<StatCell<ChampionStats>[]>(() => {
-    const anchorKeys = new Set(anchors.map(c => c.key));
-    return [...anchors, ...group.cells.filter(c => !anchorKeys.has(c.key))];
-  }, [anchors, group]);
+    const anchorKeys = new Set(ANCHOR_CELLS.map(c => c.key));
+    return [...ANCHOR_CELLS, ...group.cells.filter(c => !anchorKeys.has(c.key))];
+  }, [group]);
 
   // A sort on a column the current response does not carry falls back rather than claiming a sort.
   const activeSortKey =
@@ -180,7 +174,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
     if (!next) return;
     const sortSurvives =
       activeSortKey === "name" ||
-      anchors.some(c => c.key === activeSortKey) ||
+      ANCHOR_CELLS.some(c => c.key === activeSortKey) ||
       next.cells.some(c => c.key === activeSortKey);
     if (!sortSurvives) {
       setSortKey(null);
@@ -317,6 +311,7 @@ export function ChampionPanel({ conf, isMobile }: Props) {
           rows={sorted}
           rowKey={c => c.champid}
           columns={columns}
+          pinned={ANCHOR_CELLS.length}
           nameHeader="Champion"
           isMobile={isMobile}
           sortKey={activeSortKey}

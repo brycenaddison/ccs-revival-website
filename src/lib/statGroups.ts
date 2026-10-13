@@ -10,15 +10,14 @@
  * Every group is derived from a single already-loaded response. Nothing here fetches or aggregates.
  */
 
-import { fmtRatio, sortValue, type ChampionStats, type PlayerStats, type TeamStats } from "./api";
-import { col, dec, int, pct, pct0, signed, signedDec } from "./statFormat";
+import { fmtRatio, fmtSec, sortValue, type ChampionStats, type PlayerStats, type TeamStats } from "./api";
+import { clockSeconds, col, dec, int, pct, pct0, signed, signedDec } from "./statFormat";
 
 /**
  * One statistic, as displayed.
  *
- * A cell is either numeric (`value`, formatted by `format`) or textual (`text`) — `avgTime` arrives
- * pre-formatted as `"m:ss"` from the view and is deliberately kept as a string rather than parsed
- * back into seconds just to re-render it.
+ * A cell is either numeric (`value`, formatted by `format`) or textual (`text`). A cell with both
+ * displays its text and sorts on its value.
  */
 export interface StatCell<T> {
   key: string;
@@ -104,12 +103,13 @@ export interface FlatStatCell<T> extends StatCell<T> {
 /**
  * Every numeric cell across a family of groups, flattened for a single-stat picker.
  *
- * Text-only cells are dropped: `avgTime` arrives as `"31:20"` and there is no number behind it to
- * scale a bar with. Keeping the group label lets the picker render `<optgroup>`s, so one catalog
- * serves both the grouped table and the flat bar select instead of the two drifting apart.
+ * Cells with text are dropped: a text-only cell has no number to scale a bar with, and a cell with
+ * both sorts on a value that is not what it displays (a series record sorts on wins). Keeping the
+ * group label lets the picker render `<optgroup>`s, so one catalog serves both the grouped table and
+ * the flat bar select instead of the two drifting apart.
  */
 export function flattenGroups<T>(groups: readonly StatGroup<T>[]): readonly FlatStatCell<T>[] {
-  return groups.flatMap(g => g.cells.filter(c => c.value).map(c => ({ ...c, group: g.label })));
+  return groups.flatMap(g => g.cells.filter(c => c.value && !c.text).map(c => ({ ...c, group: g.label })));
 }
 
 const tc = col<TeamStats>;
@@ -118,6 +118,7 @@ const pc = col<PlayerStats>;
 
 // ------------------------------------------------------------------------- teams
 
+/** `TeamPanel` leads these with its Overview group, which reads standings and so is built there. */
 export const TEAM_STAT_GROUPS: readonly StatGroup<TeamStats>[] = [
   {
     id: "combat",
@@ -126,7 +127,6 @@ export const TEAM_STAT_GROUPS: readonly StatGroup<TeamStats>[] = [
       { key: "avgKills", label: "Kills/G", value: tc("avgKills") },
       { key: "avgDeaths", label: "Deaths/G", value: tc("avgDeaths"), lowerIsBetter: true },
       { key: "avgAssists", label: "Assists/G", value: tc("avgAssists") },
-      { key: "killDeathRatio", label: "K:D", value: tc("killDeathRatio") },
       { key: "avgKillsAt15", label: "Kills @15", value: tc("avgKillsAt15") },
       { key: "avgKillsAt25", label: "Kills @25", value: tc("avgKillsAt25") },
       { key: "firstBloodPercent", label: "First Blood", value: tc("firstBloodPercent"), format: pct },
@@ -140,7 +140,6 @@ export const TEAM_STAT_GROUPS: readonly StatGroup<TeamStats>[] = [
       { key: "csMin", label: "CS/min", value: tc("csMin") },
       { key: "xpMin", label: "XP/min", value: tc("xpMin"), format: int },
       { key: "damageMin", label: "DMG/min", value: tc("damageMin"), format: int },
-      { key: "avgTime", label: "Avg Time", text: t => t.avgTime },
     ],
   },
   {
@@ -154,19 +153,32 @@ export const TEAM_STAT_GROUPS: readonly StatGroup<TeamStats>[] = [
       { key: "wardsClearedPercent", label: "Wards Cleared", value: tc("wardsClearedPercent"), format: pct },
     ],
   },
+  // The objective groups put taken *and* given side by side. The old dashboard could only show what a
+  // team took, which reads a slow team with a leaky map as merely average; the pairing is the point.
+  // One group per objective keeps each pairing readable in one screen of columns.
   {
-    // Taken *and* given, side by side. The old dashboard could only show what a team took, which
-    // reads a slow team with a leaky map as merely average; the pairing is the point of this group.
-    id: "objectives",
-    label: "Objectives",
+    id: "towers",
+    label: "Towers",
     cells: [
       { key: "firstTowerPercent", label: "First Tower", value: tc("firstTowerPercent"), format: pct },
       { key: "avgTowersTaken", label: "Towers Taken", value: tc("avgTowersTaken") },
       { key: "avgTowersGiven", label: "Towers Given", value: tc("avgTowersGiven"), lowerIsBetter: true },
+    ],
+  },
+  {
+    id: "dragons",
+    label: "Dragons",
+    cells: [
       { key: "firstDragonPercent", label: "First Dragon", value: tc("firstDragonPercent"), format: pct },
       { key: "avgDragonsTaken", label: "Dragons Taken", value: tc("avgDragonsTaken") },
       { key: "avgDragonsGiven", label: "Dragons Given", value: tc("avgDragonsGiven"), lowerIsBetter: true },
       { key: "percentDragonsTaken", label: "Dragon Share", value: tc("percentDragonsTaken"), format: pct },
+    ],
+  },
+  {
+    id: "baronPit",
+    label: "Herald & Baron",
+    cells: [
       { key: "firstHeraldPercent", label: "First Herald", value: tc("firstHeraldPercent"), format: pct },
       { key: "avgHeraldsTaken", label: "Heralds Taken", value: tc("avgHeraldsTaken") },
       { key: "avgHeraldsGiven", label: "Heralds Given", value: tc("avgHeraldsGiven"), lowerIsBetter: true },
@@ -213,11 +225,11 @@ export const hasFearlessData = (rows: readonly ChampionStats[]) => rows.some(c =
  */
 const withoutFearlessData = (rows: readonly ChampionStats[]) => !hasFearlessData(rows);
 
-export const CHAMPION_PRESENCE_CELL: StatCell<ChampionStats> = {
+const CHAMPION_PRESENCE_CELL: StatCell<ChampionStats> = {
   key: "presence", label: "Presence", value: cc("presence"), format: pct, shownWhen: withoutFearlessData,
 };
 
-export const CHAMPION_PRIO_CELL: StatCell<ChampionStats> = {
+const CHAMPION_PRIO_CELL: StatCell<ChampionStats> = {
   key: "prioScore",
   label: "Fearless prio",
   value: cc("prioScore"),
@@ -238,6 +250,7 @@ export const CHAMPION_STAT_GROUPS: readonly StatGroup<ChampionStats>[] = [
     cells: [
       { key: "games", label: "Picks", value: cc("games"), format: int },
       { key: "bans", label: "Bans", value: cc("bans"), format: int },
+      { key: "winPercent", label: "Win%", value: cc("winPercent"), format: pct },
       { key: "pickRate", label: "Pick Rate", value: cc("pickRate"), format: pct, shownWhen: withoutFearlessData },
       { key: "banRate", label: "Ban Rate", value: cc("banRate"), format: pct, shownWhen: withoutFearlessData },
       CHAMPION_PRESENCE_CELL,
@@ -287,7 +300,7 @@ export const CHAMPION_STAT_GROUPS: readonly StatGroup<ChampionStats>[] = [
       { key: "deathPercent", label: "Death Share", value: cc("deathPercent"), format: pct, lowerIsBetter: true },
       { key: "firstBloodPercent", label: "First Blood", value: cc("firstBloodPercent"), format: pct },
       { key: "soloKills", label: "Solo Kills", value: cc("soloKills"), format: int },
-      { key: "avgTime", label: "Avg Time", text: c => c.avgTime },
+      { key: "avgTime", label: "Avg Time", value: c => clockSeconds(c.avgTime), format: fmtSec },
     ],
   },
   {

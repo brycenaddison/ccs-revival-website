@@ -44,3 +44,15 @@ export const col = <T,>(key: keyof T) => (row: T): number | null => {
   const v = row[key];
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 };
+
+/**
+ * Seconds in a served clock string (`"31:20"`, or `"h:mm:ss"`), or null when it is not one.
+ *
+ * The stats views serve average game length only as text, and a column has to sort and scale a bar
+ * on the number behind it. Pair with `fmtSec` to display it.
+ */
+export const clockSeconds = (text: string | null | undefined): number | null => {
+  const m = /^(?:(\d+):)?(\d+):([0-5]\d)$/.exec(text?.trim() ?? "");
+  if (!m) return null;
+  return Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+};

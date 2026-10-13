@@ -314,6 +314,7 @@ export function PlayerLeaderboard({ conf, isMobile, onCompareCount }: Props) {
           rows={sorted}
           rowKey={p => p.rowKey}
           columns={columns}
+          pinned={ANCHOR_CELLS.length}
           nameHeader="Player"
           isMobile={isMobile}
           sortKey={sortKey}

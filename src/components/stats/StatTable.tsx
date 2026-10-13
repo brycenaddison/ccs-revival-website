@@ -15,15 +15,29 @@
  * four-character values while the rest of the row was cramped. Pinning the stat columns to a fixed width
  * fixed that but overcorrected, leaving a dead strip beside a narrow group.
  *
- * `minWidth` keeps a wide group (Teamfight has ten cells on top of four anchors) from crushing: past that
- * point the wrapper scrolls horizontally instead.
+ * `minWidth` keeps a wide group (Teamfight has eight cells beside the pinned Picks) from crushing:
+ * past that point the wrapper scrolls horizontally instead. The native bar sits at the foot of the table, often
+ * below the fold and out of reach of a vertical wheel, so a `ScrollRail` above the header drives the
+ * same scroll from where the reader is looking.
  *
  * The expand caret gets its own fixed-width column, ahead of the name. It used to trail the name, where
  * a three-letter team code and a fourteen-letter champion put it at a different offset on every row.
+ *
+ * ## Pinned columns
+ *
+ * The leading control, caret, name and the first `pinned` stat columns are sticky, so a row stays
+ * identifiable while the rest of the line scrolls under them. Sticky cells need fixed widths to know
+ * their offsets, so a pinned stat column is `MIN_STAT_W` wide rather than sharing the slack. On a
+ * phone only the caret and name stay pinned; anything more would leave no room to scroll.
+ *
+ * The table uses separate borders with no spacing, and row rules sit on the cells: a collapsed border
+ * belongs to the table, so it would scroll away from under a sticky cell. Sticky cells carry their own
+ * background, including the row hover, so scrolled cells never show through them.
  */
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { cellText, type StatCell } from "../../lib/statGroups";
+import { ScrollRail } from "../ScrollRail";
 import { TooltipHint } from "../TooltipHint";
 
 /** Fixed column widths, in px. */
@@ -32,14 +46,19 @@ const CARET_W = 28;
 const NAME_W = 230;
 const NAME_W_MOBILE = 150;
 
-/** Narrowest a stat column may be squeezed to before the table starts scrolling instead. */
-const MIN_STAT_W = 78;
+/**
+ * Narrowest a stat column may be squeezed to before the table starts scrolling instead. Wide enough
+ * for a two-word header such as "Dragons Taken" to read in full.
+ */
+const MIN_STAT_W = 88;
 
 interface Props<T> {
   rows: readonly T[];
   rowKey: (row: T) => string | number;
   /** Anchor columns plus the active group's cells, assembled by the caller. */
   columns: readonly StatCell<T>[];
+  /** How many of `columns`, from the start, stay pinned beside the name. Defaults to none. */
+  pinned?: number;
   nameHeader: string;
   /** Sort key the name column reports. Defaults to `"name"`. */
   nameSortKey?: string;
@@ -66,6 +85,7 @@ export function StatTable<T>({
   rows,
   rowKey,
   columns,
+  pinned = 0,
   nameHeader,
   nameSortKey = "name",
   renderName,
@@ -113,32 +133,55 @@ export function StatTable<T>({
 
   const span = columns.length + 1 + (expandable ? 1 : 0) + (renderLeading ? 1 : 0);
 
+  // Each sticky cell's offset is the summed width of the pinned cells before it.
+  const pinnedCount = isMobile ? 0 : Math.min(pinned, columns.length);
+  const pinLeading = Boolean(renderLeading) && !isMobile;
+  const caretLeft = pinLeading ? LEADING_W : 0;
+  const nameLeft = caretLeft + (expandable ? CARET_W : 0);
+  const statLeft = (i: number) => nameLeft + nameWidth + i * MIN_STAT_W;
+  const pinStyle = (left: number, width: number): CSSProperties => ({ position: "sticky", left, width });
+
+  // The last pinned cell draws the edge the scrolled columns pass under.
+  const EDGE = "border-r border-border";
+  const nameEdge = pinnedCount === 0 ? EDGE : "";
+  const statEdge = (i: number) => (i === pinnedCount - 1 ? EDGE : "");
+  const HEAD_PIN = "z-10 bg-bg3";
+  const bodyPin = `z-10 bg-bg2 ${expandable ? "group-hover:bg-bg3" : ""}`;
+  const RULE = "border-t border-border";
+
   return (
     <>
+      <ScrollRail target={scrollRef} label="Scroll table horizontally" className="mb-2" />
       <div ref={scrollRef} className="overflow-x-auto rounded-md">
-        <table className="w-full table-fixed border-collapse bg-bg2 text-sm" style={{ minWidth }}>
+        <table className="w-full table-fixed border-separate border-spacing-0 bg-bg2 text-sm" style={{ minWidth }}>
           <thead>
             <tr className="bg-bg3 text-[10px] text-text-secondary ">
               {renderLeading && (
-                <th className="text-center py-2.5 px-2" style={{ width: LEADING_W }}>
+                <th
+                  className={`text-center py-2.5 px-2 ${pinLeading ? HEAD_PIN : ""}`}
+                  style={pinLeading ? pinStyle(0, LEADING_W) : { width: LEADING_W }}
+                >
                   {leadingHeader ?? ""}
                 </th>
               )}
-              {expandable && <th style={{ width: CARET_W }} aria-hidden="true" />}
+              {expandable && <th className={HEAD_PIN} style={pinStyle(caretLeft, CARET_W)} aria-hidden="true" />}
               <th
                 onClick={() => onSort(nameSortKey)}
-                style={{ width: nameWidth }}
-                className={`text-left py-2.5 px-3 cursor-pointer select-none ${
+                style={pinStyle(nameLeft, nameWidth)}
+                className={`text-left py-2.5 px-3 cursor-pointer select-none ${HEAD_PIN} ${nameEdge} ${
                   sortKey === nameSortKey ? "text-brand font-bold" : ""
                 }`}
               >
                 {nameHeader}
                 {arrow(nameSortKey)}
               </th>
-              {columns.map(c => (
+              {columns.map((c, i) => (
                 <th
                   key={c.key}
-                  className={`p-0 text-center ${sortKey === c.key ? "text-brand font-bold" : ""}`}
+                  style={i < pinnedCount ? pinStyle(statLeft(i), MIN_STAT_W) : undefined}
+                  className={`p-0 text-center ${i < pinnedCount ? `${HEAD_PIN} ${statEdge(i)}` : ""} ${
+                    sortKey === c.key ? "text-brand font-bold" : ""
+                  }`}
                 >
                   {/* The hint carries the full label, which a narrow header truncates, and what the
                       statistic measures where that is not obvious from its name. */}
@@ -146,7 +189,7 @@ export function StatTable<T>({
                     <button
                       type="button"
                       onClick={() => onSort(c.key)}
-                      className="block w-full truncate py-2.5 px-2 cursor-pointer select-none"
+                      className="block w-full truncate py-2.5 px-1.5 cursor-pointer select-none"
                     >
                       {/* `short` exists because several labels are written for the bar view's select, where
                           there is no column header for context — "Share of Team Deaths" is right there and
@@ -169,31 +212,43 @@ export function StatTable<T>({
                 <Fragment key={key}>
                   <tr
                     onClick={expandable ? () => onExpand(open ? null : key) : undefined}
-                    className={`border-t border-border ${expandable ? "hover:bg-bg3 cursor-pointer" : ""}`}
+                    className={`group ${expandable ? "hover:bg-bg3 cursor-pointer" : ""}`}
                   >
                     {renderLeading && (
-                      <td className="text-center py-2.5 px-2" style={{ width: LEADING_W }}>
+                      <td
+                        className={`text-center py-2.5 px-2 ${RULE} ${pinLeading ? bodyPin : ""}`}
+                        style={pinLeading ? pinStyle(0, LEADING_W) : { width: LEADING_W }}
+                      >
                         {renderLeading(row)}
                       </td>
                     )}
                     {expandable && (
-                      <td className="pl-3 align-middle" style={{ width: CARET_W }}>
+                      <td className={`pl-3 align-middle ${RULE} ${bodyPin}`} style={pinStyle(caretLeft, CARET_W)}>
                         <span className="text-text-dim text-[9px]">{open ? "▲" : "▼"}</span>
                       </td>
                     )}
-                    <td className="py-2.5 px-3 overflow-hidden" style={{ width: nameWidth }}>
+                    <td
+                      className={`py-2.5 px-3 overflow-hidden ${RULE} ${bodyPin} ${nameEdge}`}
+                      style={pinStyle(nameLeft, nameWidth)}
+                    >
                       {renderName(row)}
                     </td>
-                    {columns.map(cell => (
-                      <td key={cell.key} className="text-center py-2.5 px-2 font-mono text-xs">
+                    {columns.map((cell, i) => (
+                      <td
+                        key={cell.key}
+                        style={i < pinnedCount ? pinStyle(statLeft(i), MIN_STAT_W) : undefined}
+                        className={`text-center py-2.5 px-1.5 font-mono text-xs ${RULE} ${
+                          i < pinnedCount ? `${bodyPin} ${statEdge(i)}` : ""
+                        }`}
+                      >
                         {cellText(cell, row)}
                       </td>
                     ))}
                   </tr>
 
                   {open && renderExpanded && (
-                    <tr className="border-t border-bg3 bg-bg3/40">
-                      <td colSpan={span} className="p-0">
+                    <tr className="bg-bg3/40">
+                      <td colSpan={span} className="p-0 border-t border-bg3">
                         {/* Sized to the scroll window and pinned to its left edge, so the detail never
                             needs horizontal scrolling even when the row above it does. */}
                         <div

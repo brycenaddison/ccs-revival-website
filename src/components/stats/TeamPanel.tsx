@@ -2,7 +2,7 @@
  * The Teams tab — standings summary and the full team stat surface.
  *
  * Rebuilds the old dashboard's team grid on top of `teamstats`, which carries roughly five times what
- * the old Supabase schema did. The visible difference is the Objectives group: the old cards could
+ * the old Supabase schema did. The visible difference is the objective groups: the old cards could
  * only show what a team *took* (dragons/game, towers/game), which flatters a team that trades badly.
  * `avgDragonsGiven` / `avgTowersGiven` exist here, so both sides of the trade are on screen.
  *
@@ -26,6 +26,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   errorMessage,
   fmtPct,
+  fmtSec,
   roleLabel,
   sortValue,
   type PlayerStats,
@@ -37,8 +38,8 @@ import { queries } from "../../lib/queries";
 import { joinRoster } from "../../lib/roster";
 import { secondaryHex, teamGradientFor } from "../../lib/teamStyle";
 import { PlayerLink } from "../profile/PlayerLink";
-import { flattenGroups, sortByCell, TEAM_STAT_GROUPS, type StatCell } from "../../lib/statGroups";
-import { int, pct } from "../../lib/statFormat";
+import { flattenGroups, sortByCell, TEAM_STAT_GROUPS, type StatGroup } from "../../lib/statGroups";
+import { clockSeconds, int, pct } from "../../lib/statFormat";
 import { StatGroupSwitcher } from "./StatGroupSwitcher";
 import { StatTile } from "./StatTile";
 import { StatGroupDetail, StatTable } from "./StatTable";
@@ -51,21 +52,8 @@ interface Props {
   isMobile: boolean;
 }
 
-/**
- * Keys of the always-visible columns.
- *
- * Held separately from the cells because the cells close over the standings lookup and so have to be
- * built inside the component, while the group-dedupe and sort-rescue checks need the keys at module
- * scope.
- */
-const ANCHOR_KEYS: ReadonlySet<string> = new Set([
-  "series",
-  "record",
-  "winrate",
-  "killDeathRatio",
-  "streak",
-  "form",
-]);
+/** The opening group, built in the component because its cells read standings. */
+const OVERVIEW_ID = "overview";
 
 /** Opening sort: best win rate first. */
 const DEFAULT_SORT = "winrate";
@@ -79,15 +67,12 @@ const teamRowKey = (t: TeamStats): string => (t.teamId === null ? `tag:${t.code}
 
 export function TeamPanel({ conf, isMobile }: Props) {
   const [view, setView] = useState<StatView>("table");
-  const [groupId, setGroupId] = useState(TEAM_STAT_GROUPS[0].id);
+  const [groupId, setGroupId] = useState(OVERVIEW_ID);
   const [sortKey, setSortKey] = useState(DEFAULT_SORT);
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [expanded, setExpanded] = useState<string | number | null>(null);
-  const [barStat, setBarStat] = useState("winrate");
+  const [barStat, setBarStat] = useState(DEFAULT_SORT);
   const [barDir, setBarDir] = useState<BarDirection>("highest");
-
-  const group = TEAM_STAT_GROUPS.find(g => g.id === groupId) ?? TEAM_STAT_GROUPS[0];
-  const catalog = useMemo(() => flattenGroups([group]), [group]);
 
   // Four fixed `useQuery` calls rather than one `useQueries`: the set never varies, so there is no
   // dynamic-length problem to solve, and each result keeps its own precise type.
@@ -148,60 +133,64 @@ export function TeamPanel({ conf, isMobile }: Props) {
   }, [ordered]);
 
   /**
-   * Always-visible columns.
+   * The Overview group: results, form and game length.
    *
    * Series record, game record and streak used to be a text line under the team name, where none of
    * them could be sorted. They are columns now, which is also where anything else at that level belongs
-   * later — conference, for one.
+   * later — conference, for one. Only the team name stays pinned across groups.
    *
-   * Each carries both a `text` for display and a `value` for sorting: `cellText` prefers the text, so
-   * "4-1" shows while the sort runs on series wins. A record is two numbers and reads wrong as one.
+   * Each record carries both a `text` for display and a `value` for sorting: `cellText` prefers the
+   * text, so "4-1" shows while the sort runs on series wins. A record is two numbers and reads wrong as
+   * one.
    */
-  const anchors = useMemo<StatCell<TeamStats>[]>(
-    () => [
-      {
-        key: "series",
-        label: "Series",
-        text: t => {
-          const s = standingOf(t);
-          return s ? `${s.seriesWins}-${s.seriesLosses}` : null;
+  const groups = useMemo<readonly StatGroup<TeamStats>[]>(() => {
+    const overview: StatGroup<TeamStats> = {
+      id: OVERVIEW_ID,
+      label: "Overview",
+      cells: [
+        {
+          key: "series",
+          label: "Series",
+          text: t => {
+            const s = standingOf(t);
+            return s ? `${s.seriesWins}-${s.seriesLosses}` : null;
+          },
+          value: t => standingOf(t)?.seriesWins ?? null,
         },
-        value: t => standingOf(t)?.seriesWins ?? null,
-      },
-      {
-        key: "record",
-        label: "Games",
-        text: t => `${t.wins}-${t.losses}`,
-        value: t => t.wins,
-      },
-      { key: "winrate", label: "Win%", value: t => t.winrate, format: pct },
-      { key: "killDeathRatio", label: "K:D", value: t => t.killDeathRatio },
-      {
-        key: "streak",
-        label: "Streak",
-        text: t => standingOf(t)?.streak ?? null,
-        value: t => streakRank(standingOf(t)?.streak),
-      },
-      {
-        // Last five, most recent last. Sorts on wins in the window, which is the thing `streak` can't
-        // tell you: "W1" after four losses and "L1" after four wins are opposite seasons.
-        key: "form",
-        label: "Form",
-        text: t => (standingOf(t)?.form ?? []).join("") || null,
-        value: t => {
-          const form = standingOf(t)?.form;
-          return form && form.length > 0 ? form.filter(r => r === "W").length : null;
+        {
+          key: "record",
+          label: "Games",
+          text: t => `${t.wins}-${t.losses}`,
+          value: t => t.wins,
         },
-      },
-    ],
-    [standingOf],
-  );
+        { key: "winrate", label: "Win%", value: t => t.winrate, format: pct },
+        { key: "killDeathRatio", label: "K:D", value: t => t.killDeathRatio },
+        {
+          key: "streak",
+          label: "Streak",
+          text: t => standingOf(t)?.streak ?? null,
+          value: t => streakRank(standingOf(t)?.streak),
+        },
+        {
+          // Last five, most recent last. Sorts on wins in the window, which is the thing `streak` can't
+          // tell you: "W1" after four losses and "L1" after four wins are opposite seasons.
+          key: "form",
+          label: "Form",
+          text: t => (standingOf(t)?.form ?? []).join("") || null,
+          value: t => {
+            const form = standingOf(t)?.form;
+            return form && form.length > 0 ? form.filter(r => r === "W").length : null;
+          },
+        },
+        { key: "avgTime", label: "Avg Time", value: t => clockSeconds(t.avgTime), format: fmtSec },
+      ],
+    };
+    return [overview, ...TEAM_STAT_GROUPS];
+  }, [standingOf]);
 
-  // Anchors first, then whatever the group adds that isn't already an anchor.
-  const columns = useMemo<StatCell<TeamStats>[]>(
-    () => [...anchors, ...group.cells.filter(c => !ANCHOR_KEYS.has(c.key))],
-    [anchors, group],
-  );
+  const group = groups.find(g => g.id === groupId) ?? groups[0];
+  const columns = group.cells;
+  const catalog = useMemo(() => flattenGroups([group]), [group]);
 
   const sorted = useMemo(() => {
     if (sortKey === "name") {
@@ -217,19 +206,22 @@ export function TeamPanel({ conf, isMobile }: Props) {
     setSortDir(key === "name" ? 1 : -1);
   };
 
-  /** Only the anchors survive every group switch, and the bar picker only offers the active group. */
+  /**
+   * Only the name survives every group switch, so a sort on a column the next group lacks moves to that
+   * group's first statistic rather than claiming a sort no header shows. The bar picker only offers the
+   * active group, so its selection needs the same rescue.
+   */
   const onGroup = (id: string) => {
     setGroupId(id);
-    const next = TEAM_STAT_GROUPS.find(g => g.id === id);
+    const next = groups.find(g => g.id === id);
     if (!next) return;
-    const sortSurvives =
-      sortKey === "name" || ANCHOR_KEYS.has(sortKey) || next.cells.some(c => c.key === sortKey);
-    if (!sortSurvives) {
-      setSortKey(DEFAULT_SORT);
-      setSortDir(-1);
+    if (sortKey !== "name" && !next.cells.some(c => c.key === sortKey)) {
+      const first = next.cells.find(c => c.value);
+      setSortKey(first?.key ?? "name");
+      setSortDir(first ? -1 : 1);
     }
     if (!next.cells.some(c => c.key === barStat)) {
-      const first = next.cells.find(c => c.value);
+      const first = flattenGroups([next])[0];
       if (first) {
         setBarStat(first.key);
         setBarDir(first.lowerIsBetter ? "lowest" : "highest");
@@ -278,7 +270,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
       </div>
 
       {/* The group pills stay put across views, so nothing below them shifts when the view changes. */}
-      <StatGroupSwitcher groups={TEAM_STAT_GROUPS} activeId={groupId} onChange={onGroup}>
+      <StatGroupSwitcher groups={groups} activeId={groupId} onChange={onGroup}>
         <ViewToggle options={STAT_VIEW_OPTIONS} value={view} onChange={setView} />
       </StatGroupSwitcher>
 
@@ -361,7 +353,7 @@ export function TeamPanel({ conf, isMobile }: Props) {
                     ))}
                   </div>
                 )}
-                <StatGroupDetail groups={TEAM_STAT_GROUPS} row={t} isMobile={isMobile} />
+                <StatGroupDetail groups={groups} row={t} isMobile={isMobile} />
               </>
             );
           }}
