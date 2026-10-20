@@ -21,7 +21,7 @@ interface Props {
 }
 
 export function GroupPhaseView({ phase, conf, isMobile }: Props) {
-  // The tables render without it: a failed read only drops the note and the time columns.
+  // The tables render without it: a failed read only drops the note and the rule columns.
   const { data: tiebreakers } = useQuery(queries.tiebreakers(conf));
 
   const legend = useMemo(
@@ -46,7 +46,7 @@ export function GroupPhaseView({ phase, conf, isMobile }: Props) {
           key={`${group.ordinal}-${group.name}`}
           group={group}
           showName={phase.groups.length > 1}
-          rules={ruleColumns(tiebreakers, ["avg_win_time", "avg_loss_time"])}
+          rules={ruleColumns(tiebreakers)}
           isMobile={isMobile}
         />
       ))}

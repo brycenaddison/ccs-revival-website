@@ -25,7 +25,7 @@ export function BracketStandings({
   conf: string;
   isMobile: boolean;
 }) {
-  // The table renders without it: a failed read only drops the note and the time columns.
+  // The table renders without it: a failed read only drops the note and the rule columns.
   const { data: tiebreakers } = useQuery(queries.tiebreakers(conf));
 
   if (!phase.standings) return null;
@@ -43,7 +43,6 @@ export function BracketStandings({
         subtitle={phase.final ? undefined : "Updates when every match in the round is decided."}
         scenarios={false}
         emptyText="No teams have been placed in this phase yet."
-        // Every rule with a per-row figure, so a seed's order can be read straight off the table.
         rules={ruleColumns(tiebreakers)}
         isMobile={isMobile}
       />

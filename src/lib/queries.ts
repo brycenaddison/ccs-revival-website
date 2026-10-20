@@ -410,7 +410,7 @@ export const queries = {
 
   /**
    * The order a conference's standings rank by, for the public "How ties are broken" note and the
-   * time columns. Anonymous, so it never shares a cache entry with the editor's session read. It
+   * tables' rule columns. Anonymous, so it never shares a cache entry with the editor's session read. It
    * changes on a league admin's save, which invalidates the root, so league staleness is enough.
    * No retry: a failure only omits the note, and the table never waits on it.
    */

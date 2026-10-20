@@ -390,10 +390,12 @@ Do not edit that repository or derive data the API already answers.
   sent index; a 403 locks the editor. Its preview is the saved order's `/standings` through
   `queries.manageStandings` (credentialed, keyed apart from the public read); a live what-if needs an
   upstream endpoint. `season/GroupPhaseView.tsx` adds `season/TiebreakerNote.tsx` ("How ties are
-  broken") after its tables and legend, omitted when the read fails, and `GroupTable` adds desktop-only
-  rule columns from `ruleColumns(doc, only?)`, in the league's order, for rules it ranks on that W/L/Win %/Games
+  broken") after its tables and legend, omitted when the read fails, and `GroupTable` adds rule columns
+  from `ruleColumns(doc)`, in the league's order, for rules it ranks on that W/L/Win %/Games
   do not show (series and game differential, game win %, Avg win/Avg loss via `season/AvgGameTime.tsx`).
-  Group tables pass only the two time rules; bracket tables pass every one. Head-to-head has no column.
+  Group and bracket tables show the same columns. Head-to-head has no column.
+  `GroupTable` scrolls inside its card under a `ScrollRail`; on a phone the place folds into the team
+  cell, the one sticky column. Its scroller is `relative` so the headers' `sr-only` labels stay clipped.
 - Accolade definition forms are shared by global site-admin management and league issuance.
   Writes invalidate accolades and profile roots.
 
