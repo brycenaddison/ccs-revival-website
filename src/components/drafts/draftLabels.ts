@@ -9,6 +9,8 @@ import {
   type DraftReceiptState,
   type DraftRole,
   type DraftRoleStatus,
+  type DraftRoomImportWarning,
+  type DraftRoomModes,
   type DraftSeriesStatus,
   type GameDraftLockoutReason,
 } from "../../lib/api";
@@ -90,6 +92,7 @@ const ERROR_TEXT: Record<string, string> = {
   catalog_unavailable: "The champion list is unavailable right now. Try again shortly.",
   creation_conflict: "This match already has a draft registration with different details or an unresolved attempt.",
   draft_game_not_found: "That game number is beyond this series' length.",
+  draft_not_importable: "That room is not a draft series this site can read.",
   draft_revision_conflict: "Someone changed this draft after you opened it. The editor has reloaded with the current draft; make your correction again.",
   draft_series_not_found: "That draft series no longer exists.",
   draft_storage_unavailable: "Draft storage is unavailable right now. Try again shortly.",
@@ -103,6 +106,7 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_champion: "One of the disabled champions is not a known champion.",
   invalid_creation_response: "Drafter answered with something unexpected.",
   invalid_fixture_id: "That match ID is not valid.",
+  invalid_game: "That game number is not valid.",
   invalid_pagination: "That page of issues could not be loaded.",
   invalid_receipt_id: "That receipt ID is not valid.",
   lease_lost: "Another worker took over this receipt. Reload and try again.",
@@ -115,13 +119,40 @@ const ERROR_TEXT: Record<string, string> = {
   receipt_resolved: "A correction already resolved this delivery, so it is not run again.",
   request_budget: "Too many Drafter requests right now. Try again later.",
   reservation_lost: "The room reservation was lost mid-request.",
+  room_in_use: "Another match's draft uses this room. Check that the link is for this match.",
   series_not_ready: "This match has no ready draft room to check.",
   settings_revision_conflict: "Someone else changed the draft settings first. Review the current settings and save again.",
+  source_game_not_found: "The room has no completed game with that number.",
+  source_game_required: "The room holds several games. Choose which one to import.",
   stale_snapshot_conflict: "The saved delivery conflicts with newer data and needs review.",
   unknown_champion: "One of the champions is not a known champion.",
   unmatched_series: "The delivery does not match a registered draft room.",
   unsupported_event: "Drafter sent an event this server does not handle.",
 };
+
+const ROOM_MODE_LABEL: Record<keyof DraftRoomModes, string> = {
+  fearless: "Fearless",
+  ironman: "Ironman",
+  firstSelection: "First selection",
+};
+
+const modeState = (value: boolean | null) => (value === null ? "not sent" : value ? "on" : "off");
+
+/** The sentence for a warning on a players' room import. */
+export function roomWarningText(warning: DraftRoomImportWarning): string {
+  switch (warning.code) {
+    case "registered_room":
+      return "This is the series' own room. Recheck already reads it, so this import only helps when the delivery was refused.";
+    case "first_pick_unavailable":
+      return "The room picked red first, but this series does not allow first selection. Set first pick to blue before saving.";
+    case "settings_mismatch": {
+      const clauses = (Object.keys(ROOM_MODE_LABEL) as (keyof DraftRoomModes)[])
+        .filter(mode => warning.room[mode] !== warning.series[mode])
+        .map(mode => `${ROOM_MODE_LABEL[mode]} is ${modeState(warning.room[mode])} in the room and ${modeState(warning.series[mode])} in this series.`);
+      return [...clauses, "The save keeps this series' settings."].join(" ");
+    }
+  }
+}
 
 /** The sentence for a draft error code, or the code itself when it is new. */
 export function draftCodeText(code: string): string {

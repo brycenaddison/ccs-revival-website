@@ -43,7 +43,17 @@
  *    nothing. Each slot keeps Drafter's raw `token`; a null `championId` named no known champion.
  *  - Saving resolves review receipts in the same transaction: a webhook receipt for the game at once,
  *    a fetch receipt once every game it carries is stored. A `resolved` receipt leaves the inbox and
- *    reprocessing it is a 409 `receipt_resolved`. A created game takes its patch from those receipts.
+ *    reprocessing it is a 409 `receipt_resolved`.
+ *  - A new game takes its patch from `played.patch` (Riot's `<major>.<minor>`), else from those
+ *    receipts. An update only fills a missing patch; a stored one is never replaced.
+ *  - Importing reads a room the players made themselves, leniently, as editor pre-fill. It writes
+ *    nothing (no receipt, cooldown or game) but spends the shared Drafter request budget, which is why
+ *    it is a POST. A room holding several games needs `sourceGame`. A room another series uses is a
+ *    409 `room_in_use`, at import before any fetch and again at save. The room's settings differ from
+ *    the series only as a warning.
+ *  - Each stored game has its own link (`draft.url`, `games[].url`), the series' registered room
+ *    until a save sends `roomUrl` after an import. Sending the registered room's URL points a game
+ *    back. Series-level links (the editor's and series' `url`) stay on the registered room.
  *  - The fixture listing names every game from 1 to `gameAmount`, delivered or not, so a game no
  *    worklist reaches can still be opened. Only a `ready` series can take a new game. A draft for a
  *    game played without the fixture's code feeds no statistic until that code is registered.
@@ -97,6 +107,12 @@ export type DraftReceiptSource = (typeof DRAFT_RECEIPT_SOURCES)[number];
 /** Each side drafts this many picks and ban slots. */
 export const DRAFT_SIDE_SLOTS = 5;
 export const DRAFT_CORRECTION_REASON_MAX = 500;
+
+/** The highest room game an import can name. */
+export const DRAFT_ROOM_SOURCE_GAME_MAX = 99;
+
+export const DRAFT_ROOM_IMPORT_WARNINGS = ["settings_mismatch", "first_pick_unavailable", "registered_room"] as const;
+export type DraftRoomImportWarningCode = (typeof DRAFT_ROOM_IMPORT_WARNINGS)[number];
 
 // ---------------------------------------------------------------------------------------- types
 
@@ -291,6 +307,8 @@ export interface DraftCorrectionMark {
 }
 
 export interface DraftStored {
+  /** This game's own room link: the series' registered room unless a players' room was imported. */
+  url: string | null;
   firstPick: DraftSide | null;
   blue: DraftStoredSide;
   red: DraftStoredSide;
@@ -315,6 +333,8 @@ export interface DraftPlayedTeam {
 
 export interface DraftPlayed {
   matchId: string;
+  /** Riot's `<major>.<minor>`; what a save stores on a new game and fills on one without a patch. */
+  patch: string | null;
   championsMatch: boolean;
   teams: DraftPlayedTeam[];
 }
@@ -335,19 +355,63 @@ export interface DraftProposalSide {
 
 export type DraftProposalRoles = Record<DraftRole, DraftProposalSlot>;
 
-/** A delivery the importer refused, as a starting point. Nothing in it is checked. */
-export interface DraftProposal {
+/** One game read leniently from Drafter. Nothing in it is checked. */
+export interface DraftProposalGame {
+  firstPick: DraftSide | null;
+  patch: string | null;
+  blue: DraftProposalSide;
+  red: DraftProposalSide;
+  /** Null when Drafter sent no role assignments. Each slot can be unresolved on its own. */
+  roles: Record<DraftSide, DraftProposalRoles> | null;
+}
+
+/** A delivery the importer refused, as a starting point. */
+export interface DraftProposal extends DraftProposalGame {
   receiptId: string;
   source: DraftReceiptSource | null;
   event: string | null;
   errorCategory: string | null;
   receivedAt: string | null;
-  firstPick: DraftSide | null;
-  patch: string | null;
-  blue: DraftProposalSide;
-  red: DraftProposalSide;
-  /** Null when the delivery carried no role assignments. Each slot can be unresolved on its own. */
-  roles: Record<DraftSide, DraftProposalRoles> | null;
+}
+
+/** A room's draft settings; null where the room did not send the flag. */
+export interface DraftRoomModes {
+  fearless: boolean | null;
+  ironman: boolean | null;
+  firstSelection: boolean | null;
+}
+
+export type DraftRoomImportWarning =
+  | { code: "settings_mismatch"; room: DraftRoomModes; series: DraftRoomModes }
+  /** The room picked red first; the series has no first selection. */
+  | { code: "first_pick_unavailable" }
+  /** The series' own room, which a recheck already reads. */
+  | { code: "registered_room" };
+
+export interface DraftRoomSource {
+  drafterId: string;
+  /** Canonical `https://drafter.lol/draft/<id>`; what a save sends as `roomUrl`. */
+  url: string;
+  team1Name: string | null;
+  team2Name: string | null;
+  /** Every game the room holds, ascending. */
+  games: number[];
+  sourceGame: number;
+}
+
+/** A players' room read as pre-fill. Nothing is saved until the correction is. */
+export interface DraftRoomImport {
+  source: DraftRoomSource;
+  proposal: DraftProposalGame;
+  warnings: DraftRoomImportWarning[];
+  suggestedReason: string;
+}
+
+export interface DraftRoomImportInput {
+  /** A room link or bare room id; the server parses it before any fetch. */
+  url: string;
+  /** Required when the room holds more than one game. */
+  sourceGame?: number;
 }
 
 export interface DraftEditor {
@@ -371,6 +435,8 @@ export interface DraftEditor {
 
 export interface DraftFixtureGame {
   game: number;
+  /** The stored game's room link; null when nothing is stored. */
+  url: string | null;
   /** Null for a value this client does not know; the row is kept so no game goes unlisted. */
   draft: DraftFixtureGameDraft | null;
   roleStatus: DraftRoleStatus | null;
@@ -415,6 +481,8 @@ export interface DraftCorrectionInput {
   red: DraftCorrectionSideInput;
   /** All ten, each side a permutation of its picks. Required: the save completes role confirmation. */
   roles: Record<DraftSide, DraftRoleAssignment>;
+  /** The game's new room link. Send only after an import, or the registered URL to point the game back. */
+  roomUrl?: string;
 }
 
 export interface DraftCorrectionWarning {
@@ -435,6 +503,8 @@ export interface DraftRefusal {
   uncertain: boolean;
   /** The registration already holding the fixture, on a creation conflict. */
   series: DraftSeries | null;
+  /** The room's game numbers, on an import's 422; empty otherwise. */
+  games: number[];
 }
 
 // ---------------------------------------------------------------------------------- normalizing
@@ -642,6 +712,7 @@ function storedDraftOf(value: unknown): DraftStored | null {
   const r = raw(value);
   const correction = r.correction === null || typeof r.correction !== "object" ? null : raw(r.correction);
   return {
+    url: draftLink(r.url),
     firstPick: enumValue(r.firstPick, DRAFT_SIDES),
     blue: storedSideOf(r.blue),
     red: storedSideOf(r.red),
@@ -665,6 +736,7 @@ function playedOf(value: unknown): DraftPlayed | null {
   if (!matchId) return null;
   return {
     matchId,
+    patch: string(r.patch),
     championsMatch: r.championsMatch === true,
     teams: rows(r.teams, team => {
       const t = raw(team);
@@ -700,23 +772,67 @@ function proposalRolesOf(value: unknown): DraftProposalRoles {
   return Object.fromEntries(DRAFT_ROLES.map(role => [role, proposalSlotOf(r[role])])) as DraftProposalRoles;
 }
 
-function proposalOf(value: unknown): DraftProposal | null {
-  if (value === null || typeof value !== "object") return null;
+function proposalGameOf(value: unknown): DraftProposalGame {
   const r = raw(value);
-  const receiptId = string(r.receiptId);
-  if (!receiptId) return null;
   const roles = r.roles === null || typeof r.roles !== "object" ? null : raw(r.roles);
   return {
-    receiptId,
-    source: enumValue(r.source, DRAFT_RECEIPT_SOURCES),
-    event: string(r.event),
-    errorCategory: string(r.errorCategory),
-    receivedAt: string(r.receivedAt),
     firstPick: enumValue(r.firstPick, DRAFT_SIDES),
     patch: string(r.patch),
     blue: proposalSideOf(r.blue),
     red: proposalSideOf(r.red),
     roles: roles && { blue: proposalRolesOf(roles.blue), red: proposalRolesOf(roles.red) },
+  };
+}
+
+function proposalOf(value: unknown): DraftProposal | null {
+  if (value === null || typeof value !== "object") return null;
+  const r = raw(value);
+  const receiptId = string(r.receiptId);
+  if (!receiptId) return null;
+  return {
+    ...proposalGameOf(r),
+    receiptId,
+    source: enumValue(r.source, DRAFT_RECEIPT_SOURCES),
+    event: string(r.event),
+    errorCategory: string(r.errorCategory),
+    receivedAt: string(r.receivedAt),
+  };
+}
+
+function roomModesOf(value: unknown): DraftRoomModes | null {
+  if (value === null || typeof value !== "object") return null;
+  const r = raw(value);
+  return { fearless: bool(r.fearless), ironman: bool(r.ironman), firstSelection: bool(r.firstSelection) };
+}
+
+function roomWarningOf(value: unknown): DraftRoomImportWarning | null {
+  const r = raw(value);
+  switch (enumValue(r.code, DRAFT_ROOM_IMPORT_WARNINGS)) {
+    case "settings_mismatch": {
+      // Without both sides there is nothing to compare, so the warning has nothing to say.
+      const room = roomModesOf(r.room);
+      const series = roomModesOf(r.series);
+      return room && series ? { code: "settings_mismatch", room, series } : null;
+    }
+    case "first_pick_unavailable": return { code: "first_pick_unavailable" };
+    case "registered_room": return { code: "registered_room" };
+    default: return null;
+  }
+}
+
+function roomSourceOf(value: unknown): DraftRoomSource | null {
+  const r = raw(value);
+  const drafterId = string(r.drafterId);
+  const url = draftLink(r.url);
+  const sourceGame = positive(r.sourceGame);
+  if (!drafterId || !url || sourceGame === null) return null;
+  return {
+    drafterId,
+    url,
+    team1Name: string(r.team1Name),
+    team2Name: string(r.team2Name),
+    games: rows(r.games, positive),
+    sourceGame,
   };
 }
 
@@ -726,6 +842,7 @@ function fixtureGameOf(value: unknown): DraftFixtureGame | null {
   if (game === null) return null;
   return {
     game,
+    url: draftLink(r.url),
     draft: enumValue(r.draft, DRAFT_FIXTURE_GAME_DRAFTS),
     roleStatus: enumValue(r.roleStatus, DRAFT_ROLE_STATUSES),
     reviewReceipts: Math.max(0, integer(r.reviewReceipts) ?? 0),
@@ -786,6 +903,7 @@ export function draftRefusal(error: unknown): DraftRefusal | null {
     category,
     uncertain: body.uncertain === true,
     series: body.series == null ? null : seriesOf(body.series),
+    games: rows(body.games, positive),
   };
 }
 
@@ -891,6 +1009,28 @@ export async function saveDraftCorrection(
   return { editor, warnings: rows(r.warnings, warningOf) };
 }
 
+/** A players' room read as pre-fill for this game. Writes nothing, but spends the shared Drafter budget. */
+export async function importDraftRoom(
+  drafterSeriesId: string,
+  game: number,
+  input: DraftRoomImportInput,
+  opts?: RequestOpts,
+): Promise<DraftRoomImport> {
+  const path = `${editorPath(drafterSeriesId, game)}/import`;
+  // The body is strict, so an absent source game is left out rather than sent empty.
+  const body = input.sourceGame === undefined ? { url: input.url } : { url: input.url, sourceGame: input.sourceGame };
+  const r = raw(await credentialedRequest(path, { method: "POST", body }, opts));
+  // Without the room there is nothing for the save to send as `roomUrl`.
+  const source = roomSourceOf(r.source);
+  if (!source) throw new ApiError(200, path, "The import response had no room.");
+  return {
+    source,
+    proposal: proposalGameOf(r.proposal),
+    warnings: rows(r.warnings, roomWarningOf),
+    suggestedReason: typeof r.suggestedReason === "string" ? r.suggestedReason : "",
+  };
+}
+
 /** Every game of a fixture's draft series, delivered or not. Site admin only. */
 export async function draftFixture(scheduleMatchId: number, opts?: RequestOpts): Promise<DraftFixture> {
   const r = raw(await credentialedRequest(`${ADMIN}/fixtures/${scheduleMatchId}`, { cache: "no-store" }, opts));
@@ -906,6 +1046,7 @@ export const draftsApi = {
   draftGameIssues,
   draftEditor,
   saveDraftCorrection,
+  importDraftRoom,
   draftSettings,
   saveDraftSettings,
   fixtureDraft,

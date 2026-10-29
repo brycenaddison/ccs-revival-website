@@ -702,6 +702,12 @@ Do not edit that repository or derive data the API already answers.
   fixture). The editor shows `proposal`, the newest refused delivery, with Drafter's raw token on
   unresolved slots, and seeds from it when nothing is stored (unresolved picks stay empty, so the
   save waits for them; unresolved bans are skipped); with a stored draft, Use this delivery swaps it in.
+  Import from a players' room (`importDraftRoom`, a POST that spends the shared Drafter budget and
+  writes nothing) is held in the editor, not its revision-keyed form: it replaces the form, survives
+  a 409 and is cleared by a save. `draft.url` and `games[].url` are the game's own link and may
+  differ from the series' registered room; the editor's room link field sends `roomUrl` only for an
+  import or to point a game back at the registered room. Series-level links (`draftUrl`, code DMs)
+  stay on the registered room. A new game's patch is `played.patch`, else the delivery's.
   A correction sends picks, bans, first pick and all ten roles (required), with
   the read's `draft.updatedAt` verbatim (null creates a game); a 409 reloads the editor. There is no
   revert. Saving resolves review receipts (`resolved`; webhook receipts at once, fetch receipts once

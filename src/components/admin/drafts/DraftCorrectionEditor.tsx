@@ -13,8 +13,14 @@
  * with Drafter's raw value. With nothing stored the form starts from it; with a stored draft the
  * admin can switch to it. Any save resolves a webhook receipt for the game at once; a fetch receipt
  * resolves only once every game it carries is stored, so the toast claims only the first.
+ *
+ * Importing a players' room (a room the players made themselves) is pre-fill held here, not in the
+ * revision-keyed form, because the form remounts after a save or a 409 and a mutation must start from
+ * a component that outlives it. An import replaces the form in one step (the form is keyed by it too),
+ * survives a 409 so the admin does not spend another Drafter request, and is cleared by a successful
+ * save, after which the room is the game's stored link. The room link field decides `roomUrl`.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
@@ -23,7 +29,14 @@ import { BackButton, ErrorLine } from "../adminUi";
 import { ChampionIcon } from "../../ChampionIcon";
 import { RadioOptions } from "../../RadioOptions";
 import { SettingsRow } from "../../settings/SettingsSection";
-import { DRAFT_MODE_LABEL, DRAFT_ROLE_LABEL, DRAFT_ROLE_STATUS_LABEL, draftCodeText, draftErrorText } from "../../drafts/draftLabels";
+import {
+  DRAFT_MODE_LABEL,
+  DRAFT_ROLE_LABEL,
+  DRAFT_ROLE_STATUS_LABEL,
+  draftCodeText,
+  draftErrorText,
+  roomWarningText,
+} from "../../drafts/draftLabels";
 import { ChampionRow, DraftDifference, DraftSideLabel, useDraftTeamName } from "./DraftDifference";
 import type { DraftGameRef } from "./draftCorrectionLink";
 import {
@@ -33,9 +46,12 @@ import {
   formFromProposal,
   initialForm,
   playedRoles,
+  roomLinkChoices,
+  roomUrlFor,
   swapsFor,
   withPick,
   type CorrectionForm,
+  type RoomLinkChoice,
   type SideSwap,
 } from "./draftCorrection";
 import { useChampions } from "../../../hooks/useChampions";
@@ -44,6 +60,7 @@ import { queries, queryRoots } from "../../../lib/queries";
 import { fmtKickoff } from "../../../lib/utils";
 import {
   draftRefusal,
+  importDraftRoom,
   roleLabel,
   saveDraftCorrection,
   DRAFT_CORRECTION_REASON_MAX,
@@ -54,18 +71,30 @@ import {
   type DraftEditor,
   type DraftPlayedTeam,
   type DraftProposal,
+  type DraftProposalGame,
   type DraftProposalSlot,
+  type DraftRoomImport,
+  type DraftRoomImportInput,
   type DraftSide,
 } from "../../../lib/api";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 
 /** The ban picker's value for a skipped slot. */
 const SKIPPED = "skipped";
+
+/** A players' room import held as pre-fill. `id` keys the form, so each import rebuilds it. */
+interface HeldImport {
+  id: number;
+  room: DraftRoomImport;
+  /** The link text it was imported from, so the room's game list follows only that link. */
+  url: string;
+}
 
 export function DraftCorrectionEditor({ viewerId, target, backLabel, onBack }: {
   viewerId: number | null;
@@ -76,11 +105,18 @@ export function DraftCorrectionEditor({ viewerId, target, backLabel, onBack }: {
   const qc = useQueryClient();
   const editor = useQuery(queries.draftEditor(viewerId, target.drafterSeriesId, target.game));
   const [warnings, setWarnings] = useState<DraftCorrectionWarning[]>([]);
+  const [imported, setImported] = useState<HeldImport | null>(null);
+  // Writes nothing, so there is nothing to invalidate. A failure stays inline and is never retried,
+  // since each attempt spends the shared Drafter budget.
+  const importRoom = useMutation({
+    mutationFn: (input: DraftRoomImportInput) => importDraftRoom(target.drafterSeriesId, target.game, input),
+    onSuccess: (room, input) => setImported(current => ({ id: (current?.id ?? 0) + 1, room, url: input.url })),
+  });
   const save = useMutation({
-    mutationFn: ({ input }: { input: DraftCorrectionInput; proposal: DraftProposal | null }) =>
+    mutationFn: ({ input }: { input: DraftCorrectionInput; proposal: DraftProposal | null; toPlayersRoom: boolean }) =>
       saveDraftCorrection(target.drafterSeriesId, target.game, input),
     onMutate: () => setWarnings([]),
-    onSuccess: async (result, { proposal }) => {
+    onSuccess: async (result, { proposal, toPlayersRoom }) => {
       setWarnings(result.warnings);
       // The game page's draft and the match page's markers read the corrected game too. The drafts
       // root also holds the inbox and fixture lists, which the resolved receipts leave.
@@ -89,8 +125,11 @@ export function DraftCorrectionEditor({ viewerId, target, backLabel, onBack }: {
         qc.invalidateQueries({ queryKey: queryRoots.game }),
         qc.invalidateQueries({ queryKey: queryRoots.schedule }),
       ]);
+      // Only once the new revision is read, so the form never remounts on the old one in between.
+      setImported(null);
       const resolved = proposal?.source === "webhook" ? " The refused delivery is resolved." : "";
-      toast.success(`Draft corrected.${resolved} Statistics update on their next refresh, about 30 seconds from now.`);
+      const room = toPlayersRoom ? " This game now links to the players' room." : "";
+      toast.success(`Draft corrected.${resolved}${room} Statistics update on their next refresh, about 30 seconds from now.`);
     },
     onError: async error => {
       if (draftRefusal(error)?.category === "draft_revision_conflict") {
@@ -110,13 +149,33 @@ export function DraftCorrectionEditor({ viewerId, target, backLabel, onBack }: {
         <ErrorLine message={draftErrorText(editor.error)} />
       ) : (
         <>
-          <Summary editor={editor.data} />
-          {warnings.length > 0 && <Warnings warnings={warnings} />}
-          <CorrectionFormView
-            key={editor.data.draft?.updatedAt ?? "new"}
+          <Summary
             editor={editor.data}
+            imported={imported?.room ?? null}
+            disabled={save.isPending}
+            onDiscard={() => setImported(null)}
+          />
+          {warnings.length > 0 && <Warnings warnings={warnings} />}
+          <ImportRoom
+            game={editor.data.game}
+            held={imported}
+            pending={importRoom.isPending}
+            error={importRoom.error}
+            disabled={save.isPending}
+            onImport={input => importRoom.mutate(input)}
+            onEdit={() => { if (importRoom.isError) importRoom.reset(); }}
+          />
+          <CorrectionFormView
+            key={`${editor.data.draft?.updatedAt ?? "new"}:${imported?.id ?? "none"}`}
+            editor={editor.data}
+            imported={imported?.room ?? null}
             saving={save.isPending}
-            onSave={input => save.mutate({ input, proposal: editor.data.proposal })}
+            disabled={save.isPending || importRoom.isPending}
+            onSave={input => save.mutate({
+              input,
+              proposal: editor.data.proposal,
+              toPlayersRoom: input.roomUrl !== undefined && input.roomUrl === imported?.room.source.url && input.roomUrl !== editor.data.url,
+            })}
           />
           <ErrorLine message={save.isError ? draftErrorText(save.error) : null} />
         </>
@@ -125,8 +184,15 @@ export function DraftCorrectionEditor({ viewerId, target, backLabel, onBack }: {
   );
 }
 
-function Summary({ editor }: { editor: DraftEditor }) {
+function Summary({ editor, imported, disabled, onDiscard }: {
+  editor: DraftEditor;
+  imported: DraftRoomImport | null;
+  disabled: boolean;
+  onDiscard: () => void;
+}) {
   const draft = editor.draft;
+  const room = draft?.url ?? editor.url;
+  const playersRoom = draft?.url != null && editor.url !== null && draft.url !== editor.url;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -134,6 +200,7 @@ function Summary({ editor }: { editor: DraftEditor }) {
         {editor.draftMode && <Badge variant="muted">{DRAFT_MODE_LABEL[editor.draftMode].label}</Badge>}
         {draft?.roleStatus && <Badge variant="muted">{DRAFT_ROLE_STATUS_LABEL[draft.roleStatus]}</Badge>}
         {!draft && <Badge variant="muted">No draft stored</Badge>}
+        {playersRoom && <Badge variant="muted">Drafted in the players&apos; room</Badge>}
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         {editor.scheduleMatchId !== null && (
@@ -142,12 +209,8 @@ function Summary({ editor }: { editor: DraftEditor }) {
         {editor.played && (
           <Link to={`/game/${encodeURIComponent(editor.played.matchId)}`} className="text-brand hover:underline">Played game</Link>
         )}
-        {editor.url && (
-          <a href={editor.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand hover:underline">
-            Draft room
-            <ExternalLink size={12} aria-hidden="true" />
-          </a>
-        )}
+        {room && <RoomLink href={room}>Draft room</RoomLink>}
+        {playersRoom && editor.url && <RoomLink href={editor.url}>Registered room</RoomLink>}
         <span className="text-text-dim">{editor.conf}</span>
       </div>
       {draft?.correction && (
@@ -158,28 +221,90 @@ function Summary({ editor }: { editor: DraftEditor }) {
       )}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         <PlayedGame editor={editor} />
-        {editor.proposal && <RefusedDelivery proposal={editor.proposal} />}
+        {imported ? (
+          <PlayersRoom room={imported} disabled={disabled} onDiscard={onDiscard} />
+        ) : (
+          editor.proposal && <RefusedDelivery proposal={editor.proposal} />
+        )}
       </div>
     </div>
   );
 }
 
-/** The delivery the importer refused, as Drafter sent it. Unresolved slots show the raw value. */
+function RoomLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand hover:underline">
+      {children}
+      <ExternalLink size={12} aria-hidden="true" />
+    </a>
+  );
+}
+
+/** The delivery the importer refused, as Drafter sent it. */
 function RefusedDelivery({ proposal }: { proposal: DraftProposal }) {
-  const champions = useChampions();
   const source = proposal.source === "fetch" ? "Fetch" : proposal.source === "webhook" ? "Webhook" : null;
+  return (
+    <ProposalCard
+      title="Refused delivery"
+      game={proposal}
+      meta={
+        <>
+          <p className="text-xs text-text-dim">
+            {[`Received ${fmtKickoff(proposal.receivedAt)}`, source, proposal.event, proposal.patch && `Patch ${proposal.patch}`]
+              .filter(Boolean).join(" · ")}
+          </p>
+          {proposal.errorCategory && <p className="mt-0.5 text-xs text-ccs-red">{draftCodeText(proposal.errorCategory)}</p>}
+        </>
+      }
+    />
+  );
+}
+
+/** The imported players' room, held as pre-fill until a save or Discard import. */
+function PlayersRoom({ room, disabled, onDiscard }: { room: DraftRoomImport; disabled: boolean; onDiscard: () => void }) {
+  const { source } = room;
+  const teams = source.team1Name && source.team2Name ? `${source.team1Name} vs ${source.team2Name}` : null;
+  return (
+    <ProposalCard
+      title="Players' room"
+      game={room.proposal}
+      meta={
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          <span className="text-text-dim">{[`Game ${source.sourceGame} of the room`, teams].filter(Boolean).join(" · ")}</span>
+          <RoomLink href={source.url}>Room</RoomLink>
+          <Button type="button" variant="quiet" size="inline" disabled={disabled} onClick={onDiscard}>Discard import</Button>
+        </div>
+      }
+      notices={room.warnings.length > 0 && (
+        <Alert variant="warning">
+          <AlertDescription>
+            <ul className="flex flex-col gap-1">
+              {room.warnings.map(warning => <li key={warning.code}>{roomWarningText(warning)}</li>)}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+    />
+  );
+}
+
+/** A game read leniently from Drafter. Unresolved slots show the raw value. */
+function ProposalCard({ title, meta, game: proposal, notices }: {
+  title: string;
+  meta: ReactNode;
+  game: DraftProposalGame;
+  notices?: ReactNode;
+}) {
+  const champions = useChampions();
   const roles = proposal.roles;
   return (
     <div className="min-w-0 rounded-md border border-border bg-bg3 p-3">
-      <h4 className="mb-1 font-heading text-sm text-text-secondary">Refused delivery</h4>
-      <p className="text-xs text-text-dim">
-        {[`Received ${fmtKickoff(proposal.receivedAt)}`, source, proposal.event, proposal.patch && `Patch ${proposal.patch}`]
-          .filter(Boolean).join(" · ")}
-      </p>
-      {proposal.errorCategory && <p className="mt-0.5 text-xs text-ccs-red">{draftCodeText(proposal.errorCategory)}</p>}
+      <h4 className="mb-1 font-heading text-sm text-text-secondary">{title}</h4>
+      {meta}
       {proposal.firstPick && (
         <p className="mt-0.5 text-xs text-text-secondary">{proposal.firstPick === "blue" ? "Blue" : "Red"} draft picked first</p>
       )}
+      {notices && <div className="mt-2">{notices}</div>}
       <div className="mt-2 flex flex-col gap-3">
         {DRAFT_SIDES.map(side => (
           <div key={side} className="flex flex-col gap-1.5">
@@ -239,6 +364,7 @@ function PlayedGame({ editor }: { editor: DraftEditor }) {
     <div className="rounded-md border border-border bg-bg3 p-3">
       <h4 className="mb-2 font-heading text-sm text-text-secondary">
         Played game
+        {editor.played.patch && <span className="ml-2 text-xs text-text-dim">Patch {editor.played.patch}</span>}
         {editor.played.championsMatch && <span className="ml-2 text-xs text-ccs-green">Matches the draft</span>}
       </h4>
       <ul className="flex flex-col gap-2">
@@ -291,19 +417,111 @@ function Warnings({ warnings }: { warnings: readonly DraftCorrectionWarning[] })
   );
 }
 
-function CorrectionFormView({ editor, saving, onSave }: {
+/**
+ * "Import from a players' room". The server parses the link before any fetch, so no parser is
+ * mirrored here: a malformed link costs no Drafter budget and its sentence renders verbatim. The
+ * room's game list comes from the last refusal that named one, or from the held import while the
+ * link is the one it was imported from.
+ */
+function ImportRoom({ game, held, pending, error, disabled, onImport, onEdit }: {
+  /** This editor's game number, the default room game when the room has it. */
+  game: number;
+  held: HeldImport | null;
+  pending: boolean;
+  error: unknown;
+  disabled: boolean;
+  onImport: (input: DraftRoomImportInput) => void;
+  /** The link text changed, so an earlier refusal no longer describes it. */
+  onEdit: () => void;
+}) {
+  const [link, setLink] = useState("");
+  const [chosen, setChosen] = useState<number | null>(null);
+  const url = link.trim();
+  const refusal = error ? draftRefusal(error) : null;
+  const refusedGames = refusal?.category === "source_game_required" || refusal?.category === "source_game_not_found"
+    ? refusal.games
+    : [];
+  const heldGames = held && held.url === url && held.room.source.games.length > 1 ? held.room.source.games : [];
+  const games = refusedGames.length > 0 ? refusedGames : heldGames;
+  const sourceGame = games.length === 0
+    ? undefined
+    : chosen !== null && games.includes(chosen) ? chosen : games.includes(game) ? game : games[0];
+  const message = !error
+    ? null
+    : refusal?.category === "source_game_not_found" && refusal.games.length === 0
+      ? "The room has no completed game yet."
+      : draftErrorText(error);
+
+  return (
+    <div className="rounded-md border border-border p-3">
+      <h4 className="mb-2 font-heading text-sm text-text-secondary">Import from a players&apos; room</h4>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={event => {
+          event.preventDefault();
+          if (url) onImport(sourceGame === undefined ? { url } : { url, sourceGame });
+        }}
+      >
+        <SettingsRow
+          label="Room link"
+          hint="When players drafted in a room they made, paste its link. The draft replaces the form; nothing is saved until you save the correction."
+        >
+          {field => (
+            <Input
+              {...field}
+              value={link}
+              disabled={disabled || pending}
+              placeholder="https://drafter.lol/draft/..."
+              onChange={event => {
+                setLink(event.target.value);
+                onEdit();
+              }}
+            />
+          )}
+        </SettingsRow>
+        <div className="flex flex-wrap items-center gap-3">
+          {sourceGame !== undefined && (
+            <label className="flex items-center gap-2 text-xs text-text">
+              <span>Room game</span>
+              <NativeSelect
+                value={String(sourceGame)}
+                disabled={disabled || pending}
+                onChange={event => setChosen(Number(event.target.value))}
+              >
+                {games.map(n => <NativeSelectOption key={n} value={String(n)}>Game {n}</NativeSelectOption>)}
+              </NativeSelect>
+            </label>
+          )}
+          <Button type="submit" variant="outline" size="sm" disabled={disabled || pending || url === ""}>
+            {pending ? "Importing…" : sourceGame === undefined ? "Import" : `Import game ${sourceGame}`}
+          </Button>
+        </div>
+      </form>
+      <ErrorLine message={message} />
+    </div>
+  );
+}
+
+function CorrectionFormView({ editor, imported, saving, disabled, onSave }: {
   editor: DraftEditor;
+  imported: DraftRoomImport | null;
   saving: boolean;
+  /** Saving or importing; an import landing mid-edit replaces the form. */
+  disabled: boolean;
   onSave: (input: DraftCorrectionInput) => void;
 }) {
   const champions = useChampions();
-  const [form, setForm] = useState<CorrectionForm>(() => initialForm(editor));
-  const [reason, setReason] = useState("");
+  const [form, setForm] = useState<CorrectionForm>(() => initialForm(editor, imported));
+  const [reason, setReason] = useState(() => imported?.suggestedReason ?? "");
+  const choices = roomLinkChoices(editor, imported);
+  const [picked, setPicked] = useState<RoomLinkChoice | null>(null);
+  const roomChoice = picked !== null && choices.includes(picked) ? picked : choices[0] ?? null;
   const problems = correctionProblems(form, editor, reason);
-  const input = correctionInput(form, editor, reason);
+  const input = correctionInput(form, editor, reason, roomUrlFor(roomChoice, editor, imported));
   const swaps = swapsFor(form, editor.difference);
   const playedTeams = editor.played?.teams ?? [];
   const proposal = editor.proposal;
+  const patch = patchNote(editor);
   const teamOf = (side: DraftSide) => editor.difference.find(d => d.side === side)?.teamId ?? null;
 
   return (
@@ -314,10 +532,10 @@ function CorrectionFormView({ editor, saving, onSave }: {
         if (input) onSave(input);
       }}
     >
-      {swaps.length > 0 && <MatchPlayed swaps={swaps} conf={editor.conf} teamOf={teamOf} champions={champions} disabled={saving} onApply={setForm} form={form} />}
+      {swaps.length > 0 && <MatchPlayed swaps={swaps} conf={editor.conf} teamOf={teamOf} champions={champions} disabled={disabled} onApply={setForm} form={form} />}
       {!editor.draft && playedTeams.length === 2 && (
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => setForm(current => formFromPlayed(current, playedTeams))}>
+          <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => setForm(current => formFromPlayed(current, playedTeams))}>
             Start from the played game
           </Button>
           <span className="text-xs text-text-dim">
@@ -325,13 +543,13 @@ function CorrectionFormView({ editor, saving, onSave }: {
           </span>
         </div>
       )}
-      {editor.draft && proposal && (
+      {editor.draft && proposal && !imported && (
         <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            disabled={saving}
+            disabled={disabled}
             onClick={() => setForm(formFromProposal(proposal, playedTeams))}
           >
             Use this delivery
@@ -342,9 +560,7 @@ function CorrectionFormView({ editor, saving, onSave }: {
           </span>
         </div>
       )}
-      {!editor.draft && proposal?.patch && (
-        <p className="text-xs text-text-dim">This game is created with patch {proposal.patch} from the delivery.</p>
-      )}
+      {patch && <p className="text-xs text-text-dim">{patch}</p>}
 
       <SettingsRow
         label="First pick"
@@ -354,7 +570,7 @@ function CorrectionFormView({ editor, saving, onSave }: {
           name="first-pick"
           options={DRAFT_SIDES.map(side => ({ value: side, label: side === "blue" ? "Blue draft" : "Red draft" }))}
           value={form.firstPick}
-          disabled={saving}
+          disabled={disabled}
           onChange={side => setForm(current => ({ ...current, firstPick: side }))}
         />
       </SettingsRow>
@@ -368,7 +584,7 @@ function CorrectionFormView({ editor, saving, onSave }: {
             teamId={teamOf(side)}
             form={form}
             champions={champions}
-            disabled={saving}
+            disabled={disabled}
             onChange={setForm}
             onPlayedRoles={() => setForm(current => ({
               ...current,
@@ -379,13 +595,25 @@ function CorrectionFormView({ editor, saving, onSave }: {
         ))}
       </div>
 
+      {choices.length > 1 && roomChoice !== null && (
+        <SettingsRow label="Game's room link" hint="Where this game's draft links. The match and its codes keep the registered room.">
+          <RadioOptions
+            name="room-link"
+            options={choices.map(choice => roomLinkOption(choice, editor, imported))}
+            value={roomChoice}
+            disabled={disabled}
+            onChange={setPicked}
+          />
+        </SettingsRow>
+      )}
+
       <SettingsRow label="Reason" hint={`Recorded with the correction. Up to ${DRAFT_CORRECTION_REASON_MAX} characters.`}>
         {field => (
           <Textarea
             {...field}
             value={reason}
             maxLength={DRAFT_CORRECTION_REASON_MAX}
-            disabled={saving}
+            disabled={disabled}
             onChange={event => setReason(event.target.value)}
             placeholder="Riot shows Ahri in mid, not Lux"
           />
@@ -399,11 +627,33 @@ function CorrectionFormView({ editor, saving, onSave }: {
       )}
 
       <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5">
-        <Button type="submit" disabled={saving || input === null}>{saving ? "Saving…" : "Save correction"}</Button>
+        <Button type="submit" disabled={disabled || input === null}>{saving ? "Saving…" : "Save correction"}</Button>
         <span className="text-xs text-text-dim">A correction can only be undone by correcting again.</span>
       </div>
     </form>
   );
+}
+
+/**
+ * The patch a save stores, following the server's rule: a new game takes the played game's patch,
+ * else the refused delivery's; an update only fills a missing patch. An import's patch is ignored.
+ */
+function patchNote(editor: DraftEditor): string | null {
+  const played = editor.played?.patch ?? null;
+  if (!editor.draft) {
+    if (played) return `Saved with patch ${played} from the played game.`;
+    if (editor.proposal?.patch) return `Saved with patch ${editor.proposal.patch} from the delivery.`;
+    return null;
+  }
+  return editor.draft.patch === null && played ? `Saving fills patch ${played} from the played game.` : null;
+}
+
+function roomLinkOption(choice: RoomLinkChoice, editor: DraftEditor, imported: DraftRoomImport | null) {
+  switch (choice) {
+    case "imported": return { value: choice, label: "Players' room (imported)", detail: imported?.source.url };
+    case "keep": return { value: choice, label: "Keep the current link", detail: editor.draft?.url ?? undefined };
+    case "registered": return { value: choice, label: "Registered room", detail: editor.url ?? undefined };
+  }
 }
 
 function championOptions(

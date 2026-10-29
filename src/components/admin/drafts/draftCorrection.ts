@@ -10,9 +10,10 @@ import {
   type DraftCorrectionInput,
   type DraftEditor,
   type DraftPlayedTeam,
-  type DraftProposal,
+  type DraftProposalGame,
   type DraftRole,
   type DraftRoleAssignment,
+  type DraftRoomImport,
   type DraftSide,
   type DraftSideDifference,
   type Role,
@@ -40,9 +41,10 @@ const emptyRoles = (): RoleSlots =>
 const bySide = <T>(make: (side: DraftSide) => T): Record<DraftSide, T> =>
   ({ blue: make("blue"), red: make("red") });
 
-/** The stored draft first, then the refused delivery, then an empty form. */
-export function initialForm(editor: DraftEditor): CorrectionForm {
+/** A held room import first, then the stored draft, then the refused delivery, then an empty form. */
+export function initialForm(editor: DraftEditor, room: DraftRoomImport | null): CorrectionForm {
   const draft = editor.draft;
+  if (room) return formFromProposal(room.proposal, editor.played?.teams ?? []);
   if (!draft && editor.proposal) return formFromProposal(editor.proposal, editor.played?.teams ?? []);
   const picks = bySide(side => padded(draft?.[side].picks ?? []));
   return {
@@ -55,12 +57,13 @@ export function initialForm(editor: DraftEditor): CorrectionForm {
 }
 
 /**
- * A form from a delivery the importer refused. Unresolved picks stay empty, so "Choose all ten
- * picks" holds the save until they are filled; an unresolved ban reads as skipped, which a missed ban
- * may well have been. Tokens are never interpreted here. A delivered role counts only where it names
- * one of that side's picks; the rest come from the played game where it does not clash.
+ * A form from a game read leniently from Drafter: a refused delivery or a players' room. Unresolved
+ * picks stay empty, so "Choose all ten picks" holds the save until they are filled; an unresolved ban
+ * reads as skipped, which a missed ban may well have been. Tokens are never interpreted here. A
+ * delivered role counts only where it names one of that side's picks; the rest come from the played
+ * game where it does not clash.
  */
-export function formFromProposal(proposal: DraftProposal, teams: readonly DraftPlayedTeam[]): CorrectionForm {
+export function formFromProposal(proposal: DraftProposalGame, teams: readonly DraftPlayedTeam[]): CorrectionForm {
   const picks = bySide(side => padded(proposal[side].picks.map(slot => slot.championId)));
   return {
     // A red first pick in a series without first selection is kept for `correctionProblems` to flag.
@@ -179,8 +182,16 @@ export function correctionProblems(form: CorrectionForm, editor: DraftEditor, re
   return problems;
 }
 
-/** The request body, or null while `correctionProblems` reports anything. */
-export function correctionInput(form: CorrectionForm, editor: DraftEditor, reason: string): DraftCorrectionInput | null {
+/**
+ * The request body, or null while `correctionProblems` reports anything. `roomUrl` is sent only when
+ * set, so a plain correction keeps the game's stored link.
+ */
+export function correctionInput(
+  form: CorrectionForm,
+  editor: DraftEditor,
+  reason: string,
+  roomUrl: string | null,
+): DraftCorrectionInput | null {
   if (correctionProblems(form, editor, reason).length > 0) return null;
   const side = (s: DraftSide) => ({ picks: form.picks[s] as number[], bans: form.bans[s] });
   return {
@@ -190,5 +201,31 @@ export function correctionInput(form: CorrectionForm, editor: DraftEditor, reaso
     blue: side("blue"),
     red: side("red"),
     roles: bySide(s => form.roles[s] as DraftRoleAssignment),
+    ...(roomUrl ? { roomUrl } : {}),
   };
+}
+
+/** Which link a save gives the game: the imported room, the stored link unchanged, or the registered room. */
+export type RoomLinkChoice = "imported" | "keep" | "registered";
+
+/**
+ * The room link choices this game offers, the default first. Empty when nothing is imported and the
+ * stored link is the registered room, so a plain correction sends no `roomUrl`. Pointing a game back
+ * at the registered room is offered only while its link differs from it.
+ */
+export function roomLinkChoices(editor: DraftEditor, room: DraftRoomImport | null): RoomLinkChoice[] {
+  const stored = editor.draft?.url ?? null;
+  const current = room ? room.source.url : stored;
+  const choices: RoomLinkChoice[] = [];
+  if (room) choices.push("imported");
+  else if (stored !== null && stored !== editor.url) choices.push("keep");
+  if (editor.url && current !== null && current !== editor.url) choices.push("registered");
+  return choices;
+}
+
+/** The `roomUrl` a choice sends, or null for none. */
+export function roomUrlFor(choice: RoomLinkChoice | null, editor: DraftEditor, room: DraftRoomImport | null): string | null {
+  if (choice === "imported") return room?.source.url ?? null;
+  if (choice === "registered") return editor.url;
+  return null;
 }

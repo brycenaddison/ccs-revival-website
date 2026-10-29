@@ -106,6 +106,7 @@ function SeriesGames({ series, onOpen }: { series: DraftFixtureSeries; onOpen: (
               key={game.game}
               game={game}
               canCreate={series.status === "ready"}
+              seriesUrl={series.url}
               onOpen={drafterSeriesId === null ? null : () => onOpen({ drafterSeriesId, game: game.game })}
             />
           ))}
@@ -115,14 +116,17 @@ function SeriesGames({ series, onOpen }: { series: DraftFixtureSeries; onOpen: (
   );
 }
 
-function GameRow({ game, canCreate, onOpen }: {
+function GameRow({ game, canCreate, seriesUrl, onOpen }: {
   game: DraftFixtureGame;
   canCreate: boolean;
+  /** The registered room, which a players' room import replaces on this game alone. */
+  seriesUrl: string | null;
   /** Null when the series has no Drafter ID to open a game with. */
   onOpen: (() => void) | null;
 }) {
   const stored = game.draft !== "missing";
   const blocked = !stored && !canCreate;
+  const playersRoom = game.url !== null && game.url !== seriesUrl;
   return (
     <li className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -132,6 +136,7 @@ function GameRow({ game, canCreate, onOpen }: {
             {game.draft ? DRAFT_FIXTURE_GAME_LABEL[game.draft] : "Unknown"}
           </Badge>
           {game.roleStatus && <Badge variant="muted">{DRAFT_ROLE_STATUS_LABEL[game.roleStatus]}</Badge>}
+          {playersRoom && <Badge variant="muted">Players&apos; room</Badge>}
           {game.reviewReceipts > 0 && (
             <span className="text-xs text-ccs-orange">
               {game.reviewReceipts === 1 ? "1 delivery" : `${game.reviewReceipts} deliveries`} in review
@@ -143,6 +148,12 @@ function GameRow({ game, canCreate, onOpen }: {
             </Link>
           ) : (
             <span className="text-xs text-text-dim">Not played</span>
+          )}
+          {playersRoom && game.url && (
+            <a href={game.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-brand hover:underline">
+              Game room
+              <ExternalLink size={12} aria-hidden="true" />
+            </a>
           )}
         </div>
         {!stored && !game.playedMatchId && (
