@@ -688,15 +688,25 @@ Do not edit that repository or derive data the API already answers.
   A fixture holds one registration and the API cannot replace it: failed, uncertain and mismatched
   rooms end at a notice, and room creation never retries automatically. Site Admin > Drafts
   (`admin/drafts/`) saves the revisioned global settings (409 reloads) and pages receipts and
-  creations independently; only receipts can be reprocessed. Receipts have no retry timer: failed
-  and lease-expired `processing` receipts both take Reprocess. Room writes invalidate the schedule
+  creations independently; only receipts can be reprocessed. Receipts have no retry timer: every
+  listed receipt, including lease-expired `processing`, takes Reprocess. Room writes invalidate the schedule
   and drafts roots. Its Game issues list (`queries.draftGameIssues`, opaque cursor) opens
   `DraftCorrectionEditor.tsx` in place; `draftCorrection.ts` owns form state and mirrors the
   server's checks. The list catches only champion mismatches and missing drafts, so the editor is
   addressed by `?series=&game=` (`draftCorrectionLink.ts`) and site admins reach any game from
-  `DraftGames` and the game page's Draft tab. A correction sends picks, bans, first pick and all ten roles (required), with
+  `DraftGames` and the game page's Draft tab. A game no worklist reaches (never delivered) is opened
+  from `?fixture=<scheduleMatchId>` (`DraftFixturePanel.tsx`, `queries.draftFixture`), which lists
+  games 1 to the best-of; only a `ready` room takes a new game. A game opened with `fixture` beside it
+  returns there on Back. The staff DraftPanel and Game issues rows link it for site admins; inbox
+  `review` receipts link through their served `scheduleMatchId` (webhook to the game, fetch to the
+  fixture). The editor shows `proposal`, the newest refused delivery, with Drafter's raw token on
+  unresolved slots, and seeds from it when nothing is stored (unresolved picks stay empty, so the
+  save waits for them; unresolved bans are skipped); with a stored draft, Use this delivery swaps it in.
+  A correction sends picks, bans, first pick and all ten roles (required), with
   the read's `draft.updatedAt` verbatim (null creates a game); a 409 reloads the editor. There is no
-  revert. Fearless repeats are saved warnings. Saves invalidate drafts, game and schedule roots;
+  revert. Saving resolves review receipts (`resolved`; webhook receipts at once, fetch receipts once
+  every game they carry is stored), so reprocessing one is a 409 `receipt_resolved` that reloads the
+  inbox. Fearless repeats are saved warnings. Saves invalidate drafts, game and schedule roots;
   statistics catch up on their own refresh about 30 seconds later.
 - Draft statistics: no league flag decides them. Champion `seriesPresence`/`blindPickRate` show in
   the Draft group when any row has a `seriesPresence`. A response with any `prioScore` is fearless:

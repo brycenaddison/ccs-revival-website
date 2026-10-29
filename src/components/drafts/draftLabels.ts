@@ -3,6 +3,7 @@ import {
   draftRefusal,
   errorMessage,
   type DraftBatchStatus,
+  type DraftFixtureGameDraft,
   type DraftGameIssueKind,
   type DraftMode,
   type DraftReceiptState,
@@ -41,6 +42,13 @@ export const DRAFT_RECEIPT_LABEL: Record<DraftReceiptState, string> = {
   unmatched: "Unmatched",
   unsupported: "Unsupported",
   review: "Needs review",
+  resolved: "Resolved",
+};
+
+export const DRAFT_FIXTURE_GAME_LABEL: Record<DraftFixtureGameDraft, string> = {
+  provider: "From Drafter",
+  corrected: "Corrected",
+  missing: "No draft",
 };
 
 export const DRAFT_ROLE_STATUS_LABEL: Record<DraftRoleStatus, string> = {
@@ -94,6 +102,7 @@ const ERROR_TEXT: Record<string, string> = {
   game_amount_mismatch: "The game count must match the match's best-of.",
   invalid_champion: "One of the disabled champions is not a known champion.",
   invalid_creation_response: "Drafter answered with something unexpected.",
+  invalid_fixture_id: "That match ID is not valid.",
   invalid_pagination: "That page of issues could not be loaded.",
   invalid_receipt_id: "That receipt ID is not valid.",
   lease_lost: "Another worker took over this receipt. Reload and try again.",
@@ -103,6 +112,7 @@ const ERROR_TEXT: Record<string, string> = {
   provider_throttled: "Drafter is rate limiting requests. Try again later.",
   provider_unavailable: "Drafter has no results for this room yet, or is unavailable. Try again later.",
   receipt_not_found: "That receipt no longer exists.",
+  receipt_resolved: "A correction already resolved this delivery, so it is not run again.",
   request_budget: "Too many Drafter requests right now. Try again later.",
   reservation_lost: "The room reservation was lost mid-request.",
   series_not_ready: "This match has no ready draft room to check.",

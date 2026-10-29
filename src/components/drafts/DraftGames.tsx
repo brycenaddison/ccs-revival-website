@@ -18,10 +18,12 @@ import { FirstPickTag } from "./DraftMarks";
 import { DRAFT_ROLE_LABEL, DRAFT_ROLE_STATUS_LABEL } from "./draftLabels";
 import { Badge } from "@/components/ui/badge";
 
-export function DraftGames({ games, correctionSeriesId }: {
+export function DraftGames({ games, correctionSeriesId, scheduleMatchId = null }: {
   games: readonly DraftGame[];
   /** The series to open in the correction editor; null hides the link (site admins only). */
   correctionSeriesId: string | null;
+  /** The fixture the games belong to, so the editor's Back returns to its game list. */
+  scheduleMatchId?: number | null;
 }) {
   const champions = useChampions();
   if (games.length === 0) return <p className="text-xs text-text-dim">No draft results imported yet.</p>;
@@ -37,7 +39,7 @@ export function DraftGames({ games, correctionSeriesId }: {
             <span className="ml-auto flex items-center gap-3 text-xs">
               {correctionSeriesId && (
                 <Link
-                  to={draftCorrectionPath({ drafterSeriesId: correctionSeriesId, game: game.gameNumber })}
+                  to={draftCorrectionPath({ drafterSeriesId: correctionSeriesId, game: game.gameNumber }, scheduleMatchId)}
                   className="text-brand hover:underline"
                 >
                   Correct draft

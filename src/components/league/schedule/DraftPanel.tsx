@@ -18,6 +18,7 @@ import { ChampionIcon } from "../../ChampionIcon";
 import { ErrorLine } from "../../admin/adminUi";
 import { SettingsRow } from "../../settings/SettingsSection";
 import { DraftGames } from "../../drafts/DraftGames";
+import { draftFixturePath } from "../../admin/drafts/draftCorrectionLink";
 import { DRAFT_MODE_LABEL, DRAFT_RECEIPT_LABEL, DRAFT_STATUS_LABEL, draftCodeText, draftErrorText } from "../../drafts/draftLabels";
 import { useChampions } from "../../../hooks/useChampions";
 import { useAdminAccess } from "../../../lib/adminAccess";
@@ -238,7 +239,11 @@ function Registration({ matchId, series, fixtureMismatch, games, onSaved }: {
           : null}
       />
 
-      {ready && <DraftGames games={games} correctionSeriesId={isSiteAdmin ? series.drafterSeriesId : null} />}
+      {ready && isSiteAdmin && (
+        // Lists every game of the series, including those Drafter never delivered, which no worklist reaches.
+        <Link to={draftFixturePath(matchId)} className="self-start text-xs text-brand hover:underline">All games</Link>
+      )}
+      {ready && <DraftGames games={games} correctionSeriesId={isSiteAdmin ? series.drafterSeriesId : null} scheduleMatchId={matchId} />}
     </div>
   );
 }

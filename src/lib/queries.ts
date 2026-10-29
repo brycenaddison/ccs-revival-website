@@ -21,6 +21,7 @@ import {
   articles,
   championStats,
   draftEditor,
+  draftFixture,
   draftGameIssues,
   draftIssues,
   draftSettings,
@@ -1197,6 +1198,20 @@ export const queries = {
       refetchOnWindowFocus: false,
     }),
 
+  /**
+   * Every game of one fixture's draft series, the way into a game no worklist lists. Under the
+   * drafts root, so a correction's invalidation refreshes it along with the inbox. Site admin only.
+   */
+  draftFixture: (viewerId: number | null, scheduleMatchId: number) =>
+    query({
+      queryKey: ["drafts", "fixture", viewerId, scheduleMatchId] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => draftFixture(scheduleMatchId, { signal }),
+      enabled: viewerId !== null,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+    }),
+
   /** Explicitly requested POST preview; no automatic provider retries or background refreshes. */
   rosterRiotPreview: (conf: string, viewerId: number | null, input: RiotAccountInput) =>
     query({
@@ -1349,9 +1364,9 @@ export const queryRoots = {
    */
   schedule: ["schedule"] as const,
   /**
-   * Draft settings, the repair inbox, game issues and the correction editor. Fixture rooms sit
-   * under `schedule`; a room write refreshes both, since a failed or uncertain creation lands in the
-   * inbox.
+   * Draft settings, the repair inbox, game issues, fixture game lists and the correction editor.
+   * Fixture rooms sit under `schedule`; a room write refreshes both, since a failed or uncertain
+   * creation lands in the inbox.
    */
   drafts: ["drafts"] as const,
   /** The match viewer's context and draft reads. A draft correction refreshes this root. */

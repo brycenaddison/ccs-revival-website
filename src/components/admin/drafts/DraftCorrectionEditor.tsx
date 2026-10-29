@@ -8,6 +8,11 @@
  *
  * The form is keyed by the read's revision, so it resets only when the stored draft changes.
  * Fearless repeats save anyway and come back as warnings, held here so they outlive that reset.
+ *
+ * A delivery the importer refused (`proposal`) is shown beside the played game, each unresolved slot
+ * with Drafter's raw value. With nothing stored the form starts from it; with a stored draft the
+ * admin can switch to it. Any save resolves a webhook receipt for the game at once; a fetch receipt
+ * resolves only once every game it carries is stored, so the toast claims only the first.
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -18,13 +23,14 @@ import { BackButton, ErrorLine } from "../adminUi";
 import { ChampionIcon } from "../../ChampionIcon";
 import { RadioOptions } from "../../RadioOptions";
 import { SettingsRow } from "../../settings/SettingsSection";
-import { DRAFT_MODE_LABEL, DRAFT_ROLE_LABEL, DRAFT_ROLE_STATUS_LABEL, draftErrorText } from "../../drafts/draftLabels";
+import { DRAFT_MODE_LABEL, DRAFT_ROLE_LABEL, DRAFT_ROLE_STATUS_LABEL, draftCodeText, draftErrorText } from "../../drafts/draftLabels";
 import { ChampionRow, DraftDifference, DraftSideLabel, useDraftTeamName } from "./DraftDifference";
 import type { DraftGameRef } from "./draftCorrectionLink";
 import {
   correctionInput,
   correctionProblems,
   formFromPlayed,
+  formFromProposal,
   initialForm,
   playedRoles,
   swapsFor,
@@ -47,6 +53,8 @@ import {
   type DraftCorrectionWarning,
   type DraftEditor,
   type DraftPlayedTeam,
+  type DraftProposal,
+  type DraftProposalSlot,
   type DraftSide,
 } from "../../../lib/api";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -59,26 +67,30 @@ import { Textarea } from "@/components/ui/textarea";
 /** The ban picker's value for a skipped slot. */
 const SKIPPED = "skipped";
 
-export function DraftCorrectionEditor({ viewerId, target, onBack }: {
+export function DraftCorrectionEditor({ viewerId, target, backLabel, onBack }: {
   viewerId: number | null;
   target: DraftGameRef;
+  backLabel: string;
   onBack: () => void;
 }) {
   const qc = useQueryClient();
   const editor = useQuery(queries.draftEditor(viewerId, target.drafterSeriesId, target.game));
   const [warnings, setWarnings] = useState<DraftCorrectionWarning[]>([]);
   const save = useMutation({
-    mutationFn: (input: DraftCorrectionInput) => saveDraftCorrection(target.drafterSeriesId, target.game, input),
+    mutationFn: ({ input }: { input: DraftCorrectionInput; proposal: DraftProposal | null }) =>
+      saveDraftCorrection(target.drafterSeriesId, target.game, input),
     onMutate: () => setWarnings([]),
-    onSuccess: async result => {
+    onSuccess: async (result, { proposal }) => {
       setWarnings(result.warnings);
-      // The game page's draft and the match page's markers read the corrected game too.
+      // The game page's draft and the match page's markers read the corrected game too. The drafts
+      // root also holds the inbox and fixture lists, which the resolved receipts leave.
       await Promise.all([
         qc.invalidateQueries({ queryKey: queryRoots.drafts }),
         qc.invalidateQueries({ queryKey: queryRoots.game }),
         qc.invalidateQueries({ queryKey: queryRoots.schedule }),
       ]);
-      toast.success("Draft corrected. Statistics update on their next refresh, about 30 seconds from now.");
+      const resolved = proposal?.source === "webhook" ? " The refused delivery is resolved." : "";
+      toast.success(`Draft corrected.${resolved} Statistics update on their next refresh, about 30 seconds from now.`);
     },
     onError: async error => {
       if (draftRefusal(error)?.category === "draft_revision_conflict") {
@@ -90,7 +102,7 @@ export function DraftCorrectionEditor({ viewerId, target, onBack }: {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <BackButton onClick={onBack}>Back to issues</BackButton>
+        <BackButton onClick={onBack}>{backLabel}</BackButton>
       </div>
       {editor.isPending ? (
         <p role="status" className="text-sm text-text-dim">Loading the draft…</p>
@@ -104,7 +116,7 @@ export function DraftCorrectionEditor({ viewerId, target, onBack }: {
             key={editor.data.draft?.updatedAt ?? "new"}
             editor={editor.data}
             saving={save.isPending}
-            onSave={input => save.mutate(input)}
+            onSave={input => save.mutate({ input, proposal: editor.data.proposal })}
           />
           <ErrorLine message={save.isError ? draftErrorText(save.error) : null} />
         </>
@@ -144,7 +156,78 @@ function Summary({ editor }: { editor: DraftEditor }) {
           {draft.correction.reason && <>: {draft.correction.reason}</>}
         </p>
       )}
-      <PlayedGame editor={editor} />
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <PlayedGame editor={editor} />
+        {editor.proposal && <RefusedDelivery proposal={editor.proposal} />}
+      </div>
+    </div>
+  );
+}
+
+/** The delivery the importer refused, as Drafter sent it. Unresolved slots show the raw value. */
+function RefusedDelivery({ proposal }: { proposal: DraftProposal }) {
+  const champions = useChampions();
+  const source = proposal.source === "fetch" ? "Fetch" : proposal.source === "webhook" ? "Webhook" : null;
+  const roles = proposal.roles;
+  return (
+    <div className="min-w-0 rounded-md border border-border bg-bg3 p-3">
+      <h4 className="mb-1 font-heading text-sm text-text-secondary">Refused delivery</h4>
+      <p className="text-xs text-text-dim">
+        {[`Received ${fmtKickoff(proposal.receivedAt)}`, source, proposal.event, proposal.patch && `Patch ${proposal.patch}`]
+          .filter(Boolean).join(" · ")}
+      </p>
+      {proposal.errorCategory && <p className="mt-0.5 text-xs text-ccs-red">{draftCodeText(proposal.errorCategory)}</p>}
+      {proposal.firstPick && (
+        <p className="mt-0.5 text-xs text-text-secondary">{proposal.firstPick === "blue" ? "Blue" : "Red"} draft picked first</p>
+      )}
+      <div className="mt-2 flex flex-col gap-3">
+        {DRAFT_SIDES.map(side => (
+          <div key={side} className="flex flex-col gap-1.5">
+            <span className="font-heading text-xs text-text-bright">
+              {side === "blue" ? "Blue draft" : "Red draft"}
+              {proposal[side].name && <span className="text-text-dim"> · {proposal[side].name}</span>}
+            </span>
+            <ProposalSlots label="Picks" slots={proposal[side].picks} champions={champions} />
+            <ProposalSlots label="Bans" slots={proposal[side].bans} champions={champions} ban />
+            {roles && (
+              <ProposalSlots
+                label="Roles"
+                slots={DRAFT_ROLES.map(role => roles[side][role])}
+                captions={DRAFT_ROLES.map(role => DRAFT_ROLE_LABEL[role])}
+                champions={champions}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProposalSlots({ label, slots, captions, champions, ban = false }: {
+  label: string;
+  slots: readonly DraftProposalSlot[];
+  captions?: readonly string[];
+  champions: ChampionLookup | null;
+  ban?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="w-10 shrink-0 text-[10px] text-text-muted">{label}</span>
+      <ul className="flex min-w-0 flex-wrap items-center gap-2">
+        {slots.map((slot, i) => (
+          <li key={i} className="flex items-center gap-1">
+            {captions && <span className="text-[10px] text-text-dim">{captions[i]}</span>}
+            {slot.championId !== null ? (
+              <ChampionIcon champion={slot.championId} lookup={champions} size={22} tile className={`flex${ban ? " opacity-60" : ""}`} />
+            ) : (
+              <span className="text-[11px] text-ccs-orange">
+                {slot.token === null ? "Nothing sent" : `Drafter sent "${slot.token}"`}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -220,6 +303,7 @@ function CorrectionFormView({ editor, saving, onSave }: {
   const input = correctionInput(form, editor, reason);
   const swaps = swapsFor(form, editor.difference);
   const playedTeams = editor.played?.teams ?? [];
+  const proposal = editor.proposal;
   const teamOf = (side: DraftSide) => editor.difference.find(d => d.side === side)?.teamId ?? null;
 
   return (
@@ -240,6 +324,26 @@ function CorrectionFormView({ editor, saving, onSave }: {
             Fills each side with a played team in role order. Set the real pick order and sides before saving.
           </span>
         </div>
+      )}
+      {editor.draft && proposal && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={saving}
+            onClick={() => setForm(formFromProposal(proposal, playedTeams))}
+          >
+            Use this delivery
+          </Button>
+          <span className="text-xs text-text-dim">
+            Replaces the form with the refused delivery. Champions it did not name are left empty, and bans it did
+            not name are skipped.
+          </span>
+        </div>
+      )}
+      {!editor.draft && proposal?.patch && (
+        <p className="text-xs text-text-dim">This game is created with patch {proposal.patch} from the delivery.</p>
       )}
 
       <SettingsRow

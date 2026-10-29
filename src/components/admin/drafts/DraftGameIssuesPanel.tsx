@@ -2,8 +2,8 @@
  * Played games whose draft is wrong or missing, computed on read. A champion mismatch excludes the
  * game's draft from every statistic until it is corrected; a missing draft is a played game on a
  * drafted match with no draft for its number. Each row opens the correction editor. Wrong bans, pick
- * order, first pick or roles never appear here; those drafts are opened from the staff schedule or
- * the game page instead (see `draftCorrectionLink.ts`).
+ * order, first pick or roles never appear here; those drafts are opened from the staff schedule, the
+ * game page or a match's game list instead (see `draftCorrectionLink.ts`).
  */
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -11,7 +11,7 @@ import { ErrorLine } from "../adminUi";
 import { CursorPager } from "../../CursorPager";
 import { DRAFT_GAME_ISSUE_LABEL, draftErrorText } from "../../drafts/draftLabels";
 import { DraftDifference } from "./DraftDifference";
-import type { DraftGameRef } from "./draftCorrectionLink";
+import { draftFixturePath, type DraftGameRef } from "./draftCorrectionLink";
 import { useCursorPage } from "../../../hooks/useCursorPage";
 import { queries } from "../../../lib/queries";
 import { fmtKickoff } from "../../../lib/utils";
@@ -64,6 +64,9 @@ function IssueRow({ issue, onCorrect }: { issue: DraftGameIssue; onCorrect: (ref
             ) : `Game ${issue.game}`}
             {issue.conf && <span className="text-text-dim"> · {issue.conf}</span>}
           </span>
+          {issue.scheduleMatchId !== null && (
+            <Link to={draftFixturePath(issue.scheduleMatchId)} className="text-xs text-brand hover:underline">All games</Link>
+          )}
           <Link to={`/game/${encodeURIComponent(issue.matchId)}`} className="font-mono text-[11px] text-text-dim hover:text-brand">
             {issue.matchId}
           </Link>

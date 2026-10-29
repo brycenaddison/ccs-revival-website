@@ -25,8 +25,10 @@
  *    creation conflict. `draftErrorText` in the components owns their sentences.
  *  - Game rows keep the provider's snake_case and physical sides. Champion values are numeric IDs;
  *    a skipped ban keeps its null slot, and pick order stays on its side even when red picks first.
- *  - The issues inbox lists failed (`retry`) receipts, which wait for a reprocess or recheck rather
- *    than a timer, and `processing` receipts whose lease expired. Both take the same reprocess.
+ *  - The issues inbox lists `retry`, `unmatched`, `unsupported` and `review` receipts, and
+ *    `processing` receipts whose lease expired. None waits on a timer; all take the same reprocess.
+ *    Each row names the fixture and conference of the registered series it carries, or null when it
+ *    names no series, one with no registration, or one whose fixture was deleted.
  *  - Game issues are computed on read: `champion_mismatch` is a code-linked game whose champions
  *    differ from its draft, so no statistic uses that draft; `missing_draft` is a played game on a
  *    drafted fixture with no draft game for its number. Their cursor is opaque and passed back verbatim.
@@ -36,6 +38,15 @@
  *    are required and the save completes role confirmation, so nothing is left for a later delivery
  *    to fill. Fearless repeats save and come back as warnings. Statistics pick the change up on their
  *    next refresh, about 30 seconds later.
+ *  - The editor read carries `proposal`, the newest delivery in review for the game (a webhook
+ *    receipt for it, or a fetch receipt that carries it), read leniently and checked against
+ *    nothing. Each slot keeps Drafter's raw `token`; a null `championId` named no known champion.
+ *  - Saving resolves review receipts in the same transaction: a webhook receipt for the game at once,
+ *    a fetch receipt once every game it carries is stored. A `resolved` receipt leaves the inbox and
+ *    reprocessing it is a 409 `receipt_resolved`. A created game takes its patch from those receipts.
+ *  - The fixture listing names every game from 1 to `gameAmount`, delivered or not, so a game no
+ *    worklist reaches can still be opened. Only a `ready` series can take a new game. A draft for a
+ *    game played without the fixture's code feeds no statistic until that code is registered.
  */
 
 import { credentialedRequest } from "./credentialed";
@@ -51,7 +62,7 @@ export const DRAFT_SERIES_STATUSES = ["creating", "ready", "failed", "uncertain"
 export type DraftSeriesStatus = (typeof DRAFT_SERIES_STATUSES)[number];
 
 export const DRAFT_RECEIPT_STATES = [
-  "pending", "processing", "processed", "retry", "unmatched", "unsupported", "review",
+  "pending", "processing", "processed", "retry", "unmatched", "unsupported", "review", "resolved",
 ] as const;
 export type DraftReceiptState = (typeof DRAFT_RECEIPT_STATES)[number];
 
@@ -75,6 +86,13 @@ export const DRAFT_ISSUES_LIMIT_MAX = 100;
 
 export const DRAFT_GAME_ISSUE_KINDS = ["champion_mismatch", "missing_draft"] as const;
 export type DraftGameIssueKind = (typeof DRAFT_GAME_ISSUE_KINDS)[number];
+
+/** Where a fixture game's stored draft came from, or `missing` when nothing is stored. */
+export const DRAFT_FIXTURE_GAME_DRAFTS = ["provider", "corrected", "missing"] as const;
+export type DraftFixtureGameDraft = (typeof DRAFT_FIXTURE_GAME_DRAFTS)[number];
+
+export const DRAFT_RECEIPT_SOURCES = ["webhook", "fetch"] as const;
+export type DraftReceiptSource = (typeof DRAFT_RECEIPT_SOURCES)[number];
 
 /** Each side drafts this many picks and ban slots. */
 export const DRAFT_SIDE_SLOTS = 5;
@@ -192,7 +210,8 @@ export interface DraftBatch {
 
 export interface DraftReceiptIssue {
   id: string;
-  source: "webhook" | "fetch" | null;
+  source: DraftReceiptSource | null;
+  /** The Drafter series ID the receipt names. */
   providerSeriesId: string | null;
   gameNumber: number | null;
   event: string | null;
@@ -200,6 +219,9 @@ export interface DraftReceiptIssue {
   attempts: number;
   errorCategory: string | null;
   receivedAt: string | null;
+  /** The registered series' fixture; null with no series, no registration or a deleted fixture. */
+  scheduleMatchId: number | null;
+  conf: string | null;
 }
 
 export interface DraftIssues {
@@ -297,6 +319,37 @@ export interface DraftPlayed {
   teams: DraftPlayedTeam[];
 }
 
+export interface DraftProposalSlot {
+  /** Null when Drafter's value names no known champion, including a skipped ban. */
+  championId: number | null;
+  /** Drafter's value exactly as sent; null when it was not a string. */
+  token: string | null;
+}
+
+export interface DraftProposalSide {
+  name: string | null;
+  /** Five slots each, in Drafter's order. */
+  picks: DraftProposalSlot[];
+  bans: DraftProposalSlot[];
+}
+
+export type DraftProposalRoles = Record<DraftRole, DraftProposalSlot>;
+
+/** A delivery the importer refused, as a starting point. Nothing in it is checked. */
+export interface DraftProposal {
+  receiptId: string;
+  source: DraftReceiptSource | null;
+  event: string | null;
+  errorCategory: string | null;
+  receivedAt: string | null;
+  firstPick: DraftSide | null;
+  patch: string | null;
+  blue: DraftProposalSide;
+  red: DraftProposalSide;
+  /** Null when the delivery carried no role assignments. Each slot can be unresolved on its own. */
+  roles: Record<DraftSide, DraftProposalRoles> | null;
+}
+
 export interface DraftEditor {
   drafterSeriesId: string;
   game: number;
@@ -312,6 +365,39 @@ export interface DraftEditor {
   /** The game linked by code, else the longest recorded for the fixture and game number. */
   played: DraftPlayed | null;
   difference: DraftSideDifference[];
+  /** The newest delivery in review for this game, or null when none was received. */
+  proposal: DraftProposal | null;
+}
+
+export interface DraftFixtureGame {
+  game: number;
+  /** Null for a value this client does not know; the row is kept so no game goes unlisted. */
+  draft: DraftFixtureGameDraft | null;
+  roleStatus: DraftRoleStatus | null;
+  /** Webhook receipts in review for this game. */
+  reviewReceipts: number;
+  /** The game linked by code, else the longest recorded for the fixture and game number. */
+  playedMatchId: string | null;
+}
+
+export interface DraftFixtureSeries {
+  /** Null until Drafter answered the creation request, so no game can be opened. */
+  drafterSeriesId: string | null;
+  url: string | null;
+  status: DraftSeriesStatus | null;
+  gameAmount: number | null;
+  draftMode: DraftMode | null;
+  /** Fetch receipts in review for the series as a whole. */
+  reviewFetchReceipts: number;
+  /** Every game from 1 to `gameAmount`. */
+  games: DraftFixtureGame[];
+}
+
+export interface DraftFixture {
+  scheduleMatchId: number;
+  conf: string;
+  /** Null when the fixture has no draft series, so no draft can be entered. */
+  series: DraftFixtureSeries | null;
 }
 
 export interface DraftCorrectionSideInput {
@@ -484,7 +570,7 @@ function receiptOf(value: unknown): DraftReceiptIssue | null {
   if (!id) return null;
   return {
     id,
-    source: enumValue(r.source, ["webhook", "fetch"] as const),
+    source: enumValue(r.source, DRAFT_RECEIPT_SOURCES),
     providerSeriesId: string(r.providerSeriesId),
     gameNumber: positive(r.gameNumber),
     event: string(r.event),
@@ -492,6 +578,8 @@ function receiptOf(value: unknown): DraftReceiptIssue | null {
     attempts: Math.max(0, integer(r.attempts) ?? 0),
     errorCategory: string(r.errorCategory),
     receivedAt: string(r.receivedAt),
+    scheduleMatchId: positive(r.scheduleMatchId),
+    conf: string(r.conf),
   };
 }
 
@@ -591,6 +679,74 @@ function playedOf(value: unknown): DraftPlayed | null {
   };
 }
 
+function proposalSlotOf(value: unknown): DraftProposalSlot {
+  const r = raw(value);
+  return { championId: positive(r.championId), token: typeof r.token === "string" ? r.token : null };
+}
+
+function proposalSlots(value: unknown): DraftProposalSlot[] {
+  const slots = Array.isArray(value) ? value : [];
+  return Array.from({ length: DRAFT_SIDE_SLOTS }, (_, i) => proposalSlotOf(slots[i]));
+}
+
+function proposalSideOf(value: unknown): DraftProposalSide {
+  const r = raw(value);
+  return { name: string(r.name), picks: proposalSlots(r.picks), bans: proposalSlots(r.bans) };
+}
+
+// Unlike `roleAssignmentOf`, a partial delivery stays partial: this is admin input, not a confirmation.
+function proposalRolesOf(value: unknown): DraftProposalRoles {
+  const r = raw(value);
+  return Object.fromEntries(DRAFT_ROLES.map(role => [role, proposalSlotOf(r[role])])) as DraftProposalRoles;
+}
+
+function proposalOf(value: unknown): DraftProposal | null {
+  if (value === null || typeof value !== "object") return null;
+  const r = raw(value);
+  const receiptId = string(r.receiptId);
+  if (!receiptId) return null;
+  const roles = r.roles === null || typeof r.roles !== "object" ? null : raw(r.roles);
+  return {
+    receiptId,
+    source: enumValue(r.source, DRAFT_RECEIPT_SOURCES),
+    event: string(r.event),
+    errorCategory: string(r.errorCategory),
+    receivedAt: string(r.receivedAt),
+    firstPick: enumValue(r.firstPick, DRAFT_SIDES),
+    patch: string(r.patch),
+    blue: proposalSideOf(r.blue),
+    red: proposalSideOf(r.red),
+    roles: roles && { blue: proposalRolesOf(roles.blue), red: proposalRolesOf(roles.red) },
+  };
+}
+
+function fixtureGameOf(value: unknown): DraftFixtureGame | null {
+  const r = raw(value);
+  const game = positive(r.game);
+  if (game === null) return null;
+  return {
+    game,
+    draft: enumValue(r.draft, DRAFT_FIXTURE_GAME_DRAFTS),
+    roleStatus: enumValue(r.roleStatus, DRAFT_ROLE_STATUSES),
+    reviewReceipts: Math.max(0, integer(r.reviewReceipts) ?? 0),
+    playedMatchId: string(r.playedMatchId),
+  };
+}
+
+function fixtureSeriesOf(value: unknown): DraftFixtureSeries | null {
+  if (value === null || typeof value !== "object") return null;
+  const r = raw(value);
+  return {
+    drafterSeriesId: string(r.drafterSeriesId),
+    url: draftLink(r.url),
+    status: enumValue(r.status, DRAFT_SERIES_STATUSES),
+    gameAmount: positive(r.gameAmount),
+    draftMode: enumValue(r.draftMode, DRAFT_MODES),
+    reviewFetchReceipts: Math.max(0, integer(r.reviewFetchReceipts) ?? 0),
+    games: rows(r.games, fixtureGameOf),
+  };
+}
+
 function editorOf(value: unknown): DraftEditor | null {
   const r = raw(value);
   const drafterSeriesId = string(r.drafterSeriesId);
@@ -608,6 +764,7 @@ function editorOf(value: unknown): DraftEditor | null {
     draft: storedDraftOf(r.draft),
     played: playedOf(r.played),
     difference: rows(r.difference, differenceOf),
+    proposal: proposalOf(r.proposal),
   };
 }
 
@@ -734,7 +891,18 @@ export async function saveDraftCorrection(
   return { editor, warnings: rows(r.warnings, warningOf) };
 }
 
+/** Every game of a fixture's draft series, delivered or not. Site admin only. */
+export async function draftFixture(scheduleMatchId: number, opts?: RequestOpts): Promise<DraftFixture> {
+  const r = raw(await credentialedRequest(`${ADMIN}/fixtures/${scheduleMatchId}`, { cache: "no-store" }, opts));
+  return {
+    scheduleMatchId: positive(r.scheduleMatchId) ?? scheduleMatchId,
+    conf: string(r.conf) ?? "",
+    series: fixtureSeriesOf(r.series),
+  };
+}
+
 export const draftsApi = {
+  draftFixture,
   draftGameIssues,
   draftEditor,
   saveDraftCorrection,

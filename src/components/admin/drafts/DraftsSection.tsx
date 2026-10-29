@@ -1,6 +1,7 @@
 /**
  * Site Admin > Drafts: the global Drafter settings, the repair inbox, and played games whose draft
- * is wrong or missing. Correcting a game replaces the section with its editor until Back.
+ * is wrong or missing. Correcting a game replaces the section with its editor until Back, and a
+ * named fixture replaces it with that match's game list, which reaches games no worklist lists.
  *
  * Settings are one revisioned document saved whole. A 409 means someone else saved first, so the
  * document reloads and the form resets to it. A change applies only to rooms created afterwards;
@@ -18,7 +19,15 @@ import { SettingsGroup, SettingsRow } from "../../settings/SettingsSection";
 import { DRAFT_MODE_LABEL, draftErrorText } from "../../drafts/draftLabels";
 import { DraftCorrectionEditor } from "./DraftCorrectionEditor";
 import { DraftGameIssuesPanel } from "./DraftGameIssuesPanel";
-import { draftGameRefOf, withDraftGame, withoutDraftGame, type DraftGameRef } from "./draftCorrectionLink";
+import {
+  draftFixtureOf,
+  draftGameRefOf,
+  withDraftGame,
+  withoutDraftFixture,
+  withoutDraftGame,
+  type DraftGameRef,
+} from "./draftCorrectionLink";
+import { DraftFixturePanel } from "./DraftFixturePanel";
 import { DraftIssuesPanel } from "./DraftIssuesPanel";
 import { useChampions } from "../../../hooks/useChampions";
 import { useAuth } from "../../../lib/authContext";
@@ -40,9 +49,11 @@ import { Combobox } from "@/components/ui/combobox";
 export function DraftsSection() {
   const { profile } = useAuth();
   const viewerId = profile?.id ?? null;
-  // The open game is in the query so other pages can link straight to it (`draftCorrectionLink.ts`).
+  // The open game and fixture are in the query so other pages can link straight to them
+  // (`draftCorrectionLink.ts`). Closing a game keeps the fixture, so Back lands on its game list.
   const [params, setParams] = useSearchParams();
   const correcting = draftGameRefOf(params);
+  const fixture = draftFixtureOf(params);
   const setCorrecting = (ref: DraftGameRef | null) =>
     setParams(current => (ref ? withDraftGame(current, ref) : withoutDraftGame(current)));
   if (correcting) {
@@ -51,7 +62,19 @@ export function DraftsSection() {
         key={`${correcting.drafterSeriesId}-${correcting.game}`}
         viewerId={viewerId}
         target={correcting}
+        backLabel={fixture !== null ? "Back to the match's games" : "Back to issues"}
         onBack={() => setCorrecting(null)}
+      />
+    );
+  }
+  if (fixture !== null) {
+    return (
+      <DraftFixturePanel
+        key={fixture}
+        viewerId={viewerId}
+        scheduleMatchId={fixture}
+        onOpen={setCorrecting}
+        onBack={() => setParams(current => withoutDraftFixture(current))}
       />
     );
   }

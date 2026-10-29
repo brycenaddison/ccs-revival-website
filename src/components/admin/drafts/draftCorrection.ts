@@ -10,6 +10,7 @@ import {
   type DraftCorrectionInput,
   type DraftEditor,
   type DraftPlayedTeam,
+  type DraftProposal,
   type DraftRole,
   type DraftRoleAssignment,
   type DraftSide,
@@ -39,8 +40,10 @@ const emptyRoles = (): RoleSlots =>
 const bySide = <T>(make: (side: DraftSide) => T): Record<DraftSide, T> =>
   ({ blue: make("blue"), red: make("red") });
 
+/** The stored draft first, then the refused delivery, then an empty form. */
 export function initialForm(editor: DraftEditor): CorrectionForm {
   const draft = editor.draft;
+  if (!draft && editor.proposal) return formFromProposal(editor.proposal, editor.played?.teams ?? []);
   const picks = bySide(side => padded(draft?.[side].picks ?? []));
   return {
     firstPick: draft?.firstPick ?? "blue",
@@ -48,6 +51,40 @@ export function initialForm(editor: DraftEditor): CorrectionForm {
     bans: bySide(side => padded(draft?.[side].bans ?? [])),
     // Stored roles first; otherwise whatever the played game says about these champions.
     roles: bySide(side => draft?.[side].roles ?? playedRoles(editor.played?.teams ?? [], picks[side])),
+  };
+}
+
+/**
+ * A form from a delivery the importer refused. Unresolved picks stay empty, so "Choose all ten
+ * picks" holds the save until they are filled; an unresolved ban reads as skipped, which a missed ban
+ * may well have been. Tokens are never interpreted here. A delivered role counts only where it names
+ * one of that side's picks; the rest come from the played game where it does not clash.
+ */
+export function formFromProposal(proposal: DraftProposal, teams: readonly DraftPlayedTeam[]): CorrectionForm {
+  const picks = bySide(side => padded(proposal[side].picks.map(slot => slot.championId)));
+  return {
+    // A red first pick in a series without first selection is kept for `correctionProblems` to flag.
+    firstPick: proposal.firstPick ?? "blue",
+    picks,
+    bans: bySide(side => padded(proposal[side].bans.map(slot => slot.championId))),
+    roles: bySide(side => {
+      const delivered = proposal.roles?.[side];
+      const roles = emptyRoles();
+      for (const role of DRAFT_ROLES) {
+        const id = delivered?.[role].championId ?? null;
+        if (id !== null && picks[side].includes(id)) roles[role] = id;
+      }
+      const played = playedRoles(teams, picks[side]);
+      const assigned = new Set(Object.values(roles));
+      for (const role of DRAFT_ROLES) {
+        const id = played[role];
+        if (roles[role] === null && id !== null && !assigned.has(id)) {
+          roles[role] = id;
+          assigned.add(id);
+        }
+      }
+      return roles;
+    }),
   };
 }
 
